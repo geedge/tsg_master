@@ -43,8 +43,8 @@ static void protocol_identify(char *buff, int buff_len, struct kni_protocol_iden
 			result->domain_len = 0;
 		}
 		else{
-			result->domain_len = strnlen(chello->sni, KNI_DOMAIN_MAX);
 			strncpy(result->domain, chello->sni, strnlen(chello->sni, sizeof(result->domain) - 1));
+			result->domain_len = strlen(result->domain);
 		}
 	}
     ssl_chello_free(chello);
@@ -69,25 +69,23 @@ int tsg_shared_table_init(const char *conffile, Maat_feather_t maat_feather, voi
 }
 
 //return -1 if failed, return 0 on success
-int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, Maat_rule_t *result, int result_num, scan_status_t *mid, void *logger, int thread_seq){
+int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, Maat_rule_t *result, int result_num, char *domain, int *domain_len, 
+													scan_status_t *mid, void *logger, int thread_seq){
     struct kni_protocol_identify_result protocol_identify_res;
     memset(&protocol_identify_res, 0, sizeof(protocol_identify_res));
     protocol_identify((char*)pkt, pkt_len, &protocol_identify_res);
-    switch(protocol_identify_res.protocol){
-		case KNI_PROTOCOL_UNKNOWN:
-			//TODO: field_stat refactor
-            //FS_operate(g_kni_fs_handle->handle, g_kni_fs_handle->fields[KNI_FIELD_STMERR_UNSUPPORTED_PROTOCOL], 0, FS_OP_ADD, 1);
-			//pmeinfo->error = STREAM_ERROR_UNSUPPORTED_PROTOCOL;
-			return -1;
-		case KNI_PROTOCOL_SSL:
-            return Maat_full_scan_string(g_kni_maat_feather, g_kni_scan_tableid[TSG_FIELD_SSL_SNI], CHARSET_UTF8, 
-                                        protocol_identify_res.domain, protocol_identify_res.domain_len,
-									    result, NULL, result_num, mid, thread_seq);
-		case KNI_PROTOCOL_HTTP:
-            return Maat_full_scan_string(g_kni_maat_feather, g_kni_scan_tableid[TSG_FIELD_HTTP_HOST], CHARSET_UTF8, 
-                                        protocol_identify_res.domain, protocol_identify_res.domain_len,
-									    result, NULL, result_num, mid, thread_seq);
-		default:
-            return -1;
+	if(protocol_identify_res.protocol == KNI_PROTOCOL_UNKNOWN){
+		return -1;
 	}
+	*domain_len = protocol_identify_res.domain_len;
+	strncpy(domain, protocol_identify_res.domain, *domain_len);
+	int tableid;
+	if(protocol_identify_res.protocol == KNI_PROTOCOL_SSL){
+		tableid = g_kni_scan_tableid[TSG_FIELD_SSL_SNI];
+	}
+	if(protocol_identify_res.protocol == KNI_PROTOCOL_HTTP){
+		tableid = g_kni_scan_tableid[TSG_FIELD_HTTP_HOST];
+	}
+	return Maat_full_scan_string(g_kni_maat_feather, tableid, CHARSET_UTF8, domain, *domain_len,
+									result, NULL, result_num, mid, thread_seq);
 }
