@@ -30,7 +30,6 @@ int tsg_shared_table_init(const char *conffile, Maat_feather_t maat_feather, voi
 //return -1 if failed, return 0 on success;
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, Maat_rule_t *result, int result_num, scan_status_t *mid, void *logger, int thread_seq);
 
-
 #ifdef __cplusplus
 }
 #endif
