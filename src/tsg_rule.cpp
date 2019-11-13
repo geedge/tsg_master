@@ -3,25 +3,17 @@
 #include "Maat_rule.h"
 #include "Maat_command.h"
 #include "ssl_utils.h"
+#include "tsg_rule.h"
 
-#define KNI_DOMAIN_MAX 	256
-
-enum kni_protocol{
-    KNI_PROTOCOL_UNKNOWN = 0,
-	KNI_PROTOCOL_SSL,
-	KNI_PROTOCOL_HTTP,
-};
-
-enum kni_scan_table
-{
+enum kni_scan_table{
     TSG_FIELD_SSL_SNI,
 	TSG_FIELD_HTTP_HOST,
 	SCAN_TABLE_MAX
 };
 
 struct kni_protocol_identify_result{
-	int protocol;
-	char domain[KNI_DOMAIN_MAX];
+	enum tsg_protocol protocol;
+	char domain[TSG_DOMAIN_MAX];
 	int domain_len;
 };
 
@@ -30,7 +22,7 @@ const char *g_kni_scan_table_name[SCAN_TABLE_MAX];
 int g_kni_scan_tableid[SCAN_TABLE_MAX] = {0};
 
 static void protocol_identify(char *buff, int buff_len, struct kni_protocol_identify_result *result){
-    result->protocol = KNI_PROTOCOL_UNKNOWN;
+    result->protocol = TSG_PROTOCOL_UNKNOWN;
 	//TODO:  http: get from http protocol plugin
 
 	//ssl
@@ -38,7 +30,7 @@ static void protocol_identify(char *buff, int buff_len, struct kni_protocol_iden
 	struct ssl_chello *chello = NULL;
 	chello = ssl_chello_parse((const unsigned char*)buff, buff_len, &chello_status);
 	if(chello_status == CHELLO_PARSE_SUCCESS){
-		result->protocol = KNI_PROTOCOL_SSL;
+		result->protocol = TSG_PROTOCOL_SSL;
 		if(chello->sni == NULL){
 			result->domain_len = 0;
 		}
@@ -69,21 +61,22 @@ int tsg_shared_table_init(const char *conffile, Maat_feather_t maat_feather, voi
 }
 
 //return -1 if failed, return 0 on success
-int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, Maat_rule_t *result, int result_num, char *domain, int *domain_len, 
+int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, Maat_rule_t *result, int result_num, enum tsg_protocol *protocol, char *domain, int *domain_len, 
 													scan_status_t *mid, void *logger, int thread_seq){
     struct kni_protocol_identify_result protocol_identify_res;
     memset(&protocol_identify_res, 0, sizeof(protocol_identify_res));
     protocol_identify((char*)pkt, pkt_len, &protocol_identify_res);
-	if(protocol_identify_res.protocol == KNI_PROTOCOL_UNKNOWN){
+	if(protocol_identify_res.protocol == TSG_PROTOCOL_UNKNOWN){
 		return -1;
 	}
+	*protocol = protocol_identify_res.protocol;
 	*domain_len = protocol_identify_res.domain_len;
 	strncpy(domain, protocol_identify_res.domain, *domain_len);
 	int tableid;
-	if(protocol_identify_res.protocol == KNI_PROTOCOL_SSL){
+	if(protocol_identify_res.protocol == TSG_PROTOCOL_SSL){
 		tableid = g_kni_scan_tableid[TSG_FIELD_SSL_SNI];
 	}
-	if(protocol_identify_res.protocol == KNI_PROTOCOL_HTTP){
+	if(protocol_identify_res.protocol == TSG_PROTOCOL_HTTP){
 		tableid = g_kni_scan_tableid[TSG_FIELD_HTTP_HOST];
 	}
 	return Maat_full_scan_string(g_kni_maat_feather, tableid, CHARSET_UTF8, domain, *domain_len,

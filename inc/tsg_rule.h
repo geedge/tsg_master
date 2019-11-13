@@ -16,6 +16,13 @@ typedef	enum _PULL_RESULT_TYPE
 	PULL_FW_RESULT
 }PULL_RESULT_TYPE;
 
+enum tsg_protocol{
+	TSG_PROTOCOL_UNKNOWN = 0,
+	TSG_PROTOCOL_SSL,
+	TSG_PROTOCOL_HTTP
+};
+#define TSG_DOMAIN_MAX 	256
+
 extern Maat_feather_t g_tsg_maat_feather;
 
 int tsg_rule_init(const char *conffile);
@@ -23,7 +30,7 @@ int tsg_rule_init(const char *conffile);
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num);
 
 //return 0 if failed, return >0 on success;
-int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t *result, int result_num, char *domain, int *domain_len);
+int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t *result, int result_num, enum tsg_protocol *protocol, char *domain, int *domain_len);
 
 //return -1 if failed, return 0 on success;
 int tsg_shared_table_init(const char *conffile, Maat_feather_t maat_feather, void *logger);
