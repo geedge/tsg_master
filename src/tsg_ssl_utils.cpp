@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include "ssl_utils.h"
+#include "tsg_ssl_utils.h"
 
 #define ALLOC(type, number) ((type *)calloc(sizeof(type), number))
 #define	FREE(p)	{free(*p);*p=NULL;}

@@ -2,7 +2,7 @@
 #include "MESA/MESA_handle_logger.h"
 #include "Maat_rule.h"
 #include "Maat_command.h"
-#include "ssl_utils.h"
+#include "tsg_ssl_utils.h"
 #include "tsg_rule.h"
 
 enum kni_scan_table{
@@ -16,7 +16,7 @@ const char *g_kni_scan_table_name[SCAN_TABLE_MAX];
 int g_kni_scan_tableid[SCAN_TABLE_MAX] = {0};
 
 static void protocol_identify(char *buff, int buff_len, struct _identify_info *result){
-    result->protocol = -1;
+    result->proto = PROTO_MAX;
 	//TODO:  http: get from http protocol plugin
 	/*
 	if(is_http){
@@ -29,7 +29,7 @@ static void protocol_identify(char *buff, int buff_len, struct _identify_info *r
 	struct ssl_chello *chello = NULL;
 	chello = ssl_chello_parse((const unsigned char*)buff, buff_len, &chello_status);
 	if(chello_status == CHELLO_PARSE_SUCCESS){
-		result->protocol = PROTO_SSL;
+		result->proto = PROTO_SSL;
 		if(chello->sni == NULL){
 			result->domain_len = 0;
 		}
@@ -66,11 +66,11 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, 
 			struct _identify_info *identify_info, scan_status_t *mid, void *logger, int thread_seq){
     memset(identify_info, 0, sizeof(*identify_info));
     protocol_identify((char*)pkt, pkt_len, identify_info);
-	if(identify_info->protocol != TSG_PROTOCOL_SSL && identify_info->protocol != TSG_PROTOCOL_HTTP){
+	if(identify_info->proto != PROTO_SSL && identify_info->proto != PROTO_HTTP){
 		return -1;
 	}
 	int tableid;
-	if(identify_info->protocol == TSG_PROTOCOL_SSL){
+	if(identify_info->proto == PROTO_SSL){
 		tableid = g_kni_scan_tableid[TSG_FIELD_SSL_SNI];
 	}
 	else{
