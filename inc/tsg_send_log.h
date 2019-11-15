@@ -17,9 +17,11 @@ typedef	struct _tsg_log
 
 typedef enum _tld_type
 {
+	TLD_TYPE_UNKNOWN=0,
 	TLD_TYPE_LONG=1,
 	TLD_TYPE_STRING,
-	TLD_TYPE_FILE
+	TLD_TYPE_FILE,
+	TLD_TYPE_MAX
 }TLD_TYPE;
 
 
