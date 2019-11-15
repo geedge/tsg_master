@@ -26,7 +26,7 @@ typedef	enum _PULL_RESULT_TYPE
 
 extern Maat_feather_t g_tsg_maat_feather;
 
-int tsg_rule_init(const char *conffile);
+int tsg_rule_init(const char *conffile, void *logger);
 
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num);
 
