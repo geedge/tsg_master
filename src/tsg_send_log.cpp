@@ -316,7 +316,9 @@ tsg_log_instance_t tsg_sendlog_init(const char *conffile)
 	}
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "MAX_SERVICE",&(_instance->max_service), 0);
+	(_instance->topic_rkt)=(rd_kafka_topic_t **)calloc(1, sizeof(rd_kafka_topic_t*));
 	*(_instance->topic_rkt)=(rd_kafka_topic_t *)calloc(1, (1+_instance->max_service)*sizeof(rd_kafka_topic_t*));
+	
 	_instance->service2topic=(id2field_t *)calloc(1, (1+_instance->max_service)*sizeof(id2field_t));
 	
 	load_log_common_field(_instance->common_field_file, _instance->id2field, _instance->service2topic);
