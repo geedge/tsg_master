@@ -19,7 +19,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 {
 	unsigned short redis_port = 0;
 	int ret=0,scan_detail=0,effect_interval=60;
-	const char* instance_name=NULL,*module="MAAT";
+	const char* instance_name="TSG",*module="MAAT";
 	int factor=0, redis_port_num=0,redis_index=0;
 	char redis_ip[16]={0}, effective_flag[1024]={0};
 	int maat_mode=0,maat_stat_on=0,maat_perf_on=0,thread_max=0;
@@ -41,6 +41,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 
 	thread_max=get_thread_count();
 	g_tsg_maat_feather=Maat_feather(thread_max, table_info, logger);
+	
 	if(maat_mode==2)
 	{
 		MESA_load_profile_string_def(conffile,module,"REDIS_IP", redis_ip, sizeof(redis_ip),"");

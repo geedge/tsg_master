@@ -276,7 +276,7 @@ extern "C" int TSG_MASTER_INIT()
 
 
 
-extern "C" int T2_MASTER_UNLOAD()
+extern "C" int TSG_MASTER_UNLOAD()
 {
 	return 0;
 }

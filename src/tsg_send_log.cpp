@@ -279,7 +279,7 @@ tsg_log_instance_t tsg_sendlog_init(const char *conffile)
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "COMMON_FIELD_FILE", _instance->common_field_file, sizeof(_instance->common_field_file), NULL);
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "BROKER_LIST", _instance->broker_list, sizeof(_instance->broker_list), NULL);
 
-	MESA_load_profile_int_def(conffile, "TSG_LOG", "LEVEL",&(level), 30);	
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(level), 30);	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", log_path, sizeof(log_path), NULL);
 
 	_instance->logger=MESA_create_runtime_log_handle(log_path, level);
@@ -306,7 +306,7 @@ tsg_log_instance_t tsg_sendlog_init(const char *conffile)
 	
 	if(!(kafka_handle=rd_kafka_new(RD_KAFKA_PRODUCER, rdkafka_conf, kafka_errstr, sizeof(kafka_errstr))))
 	{
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "CABOT_INIT", "rd_kafka_new is error");
+		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "KAFKA_INIT", "rd_kafka_new is error");
 		return NULL;
 	}
 
