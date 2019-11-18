@@ -2,12 +2,30 @@
 #define	__TSG_RULE_H__
 
 #include <MESA/Maat_rule.h>
-#include "tsg_types.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+typedef enum _tsg_protocol
+{
+   PROTO_UNKONWN=0,
+   PROTO_IPv4=1,
+   PROTO_IPv6,
+   PROTO_TCP,
+   PROTO_UDP,
+   PROTO_HTTP,
+   PROTO_MAIL,
+   PROTO_DNS,
+   PROTO_FTP,
+   PROTO_SSL,
+   PROTO_SIP,
+   PROTO_BGP,
+   PROTO_STREAMING_MEDIA,
+   PROTO_MAX
+}tsg_protocol_t;
+
 
 #define	MAX_DOAMIN_LEN	2048
 
