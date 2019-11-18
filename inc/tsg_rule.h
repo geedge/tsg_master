@@ -2,7 +2,6 @@
 #define	__TSG_RULE_H__
 
 #include <MESA/Maat_rule.h>
-#include "tsg_types.h"
 
 #ifdef __cplusplus
 extern "C"

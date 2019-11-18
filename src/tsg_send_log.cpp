@@ -15,7 +15,6 @@
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
 
-#include "tsg_types.h"
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
