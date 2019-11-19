@@ -18,7 +18,7 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
-char TSG_SEND_LOG_VERSION_20191115=0;
+char TSG_SEND_LOG_VERSION_20191119=0;
 tsg_log_instance_t g_tsg_log_instance;
 
 const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"UNKOWN"},
@@ -26,6 +26,8 @@ const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"
 								 			{TLD_TYPE_STRING, 	TLD_TYPE_STRING, 	"STRING"},
 											{TLD_TYPE_FILE,		TLD_TYPE_FILE,		"FILE"}
 										   };
+
+extern "C" int MESA_get_dev_ipv4(const char *device, int *ip_add);
 
 int TLD_cancel(TLD_handle_t handle)
 {
@@ -60,7 +62,6 @@ int TLD_delete(TLD_handle_t handle, char *key)
 
 int TLD_append(TLD_handle_t handle, char *key, void *value, TLD_TYPE type)
 {
-	char buff[128]={0};
 	struct _tld_handle *_handle=(struct _tld_handle *)handle;
 	
 	if(_handle==NULL || key==NULL || value==NULL)
@@ -71,8 +72,7 @@ int TLD_append(TLD_handle_t handle, char *key, void *value, TLD_TYPE type)
 	switch(type)
 	{
 		case	TLD_TYPE_LONG:
-			snprintf(buff, sizeof(buff), "%ld", *(long *)value);
-			cJSON_AddStringToObject(_handle->object, key, buff);
+			cJSON_AddNumberToObject(_handle->object, key, (long)value);
 			break;
 		case	TLD_TYPE_FILE:
 			break;
@@ -115,6 +115,7 @@ int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handl
 	unsigned short tunnel_type=0;
 	char nest_addr_buf[1024];
 	char *addr_proto=NULL;
+	unsigned short c_port=0, s_port=0;
 	int tunnel_type_size=sizeof(tunnel_type);
 	struct layer_addr_ipv4 *ipv4=NULL;
 	struct layer_addr_ipv6 *ipv6=NULL;
@@ -126,33 +127,35 @@ int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handl
 		case	ADDR_TYPE_IPV4:
 		case	__ADDR_TYPE_IP_PAIR_V4:
 			ipv4=a_stream->addr.ipv4;
+			addr_type=4;
+			c_port=ntohs(ipv4->source);
+			s_port=ntohs(ipv4->dest);
+			
 			inet_ntop(AF_INET, (void *)&ipv4->saddr, client_ip, sizeof(client_ip));
 			inet_ntop(AF_INET, (void *)&ipv4->daddr, server_ip, sizeof(server_ip));
-			
-			addr_type=4;
-			TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVER_IP].name, (void *)server_ip, TLD_TYPE_STRING);
-			TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CLIENT_IP].name, (void *)client_ip, TLD_TYPE_STRING);
-			TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVER_PORT].name, (void *)&ipv4->dest, TLD_TYPE_LONG);
-			TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CLIENT_PORT].name, (void *)&ipv4->source, TLD_TYPE_LONG);
 			break;
 		case	ADDR_TYPE_IPV6:
 		case	__ADDR_TYPE_IP_PAIR_V6:
 			ipv6=a_stream->addr.ipv6;
+			addr_type=6;
+			c_port=ntohs(ipv6->source);
+			s_port=ntohs(ipv6->dest);
+			
 			inet_ntop(AF_INET6, (void *)ipv6->saddr, client_ip, sizeof(client_ip));
 			inet_ntop(AF_INET6, (void *)ipv6->daddr, server_ip, sizeof(server_ip));
-
-			addr_type=6;
-			TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVER_IP].name, (void *)server_ip, TLD_TYPE_STRING);
-			TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CLIENT_IP].name, (void *)client_ip, TLD_TYPE_STRING);
-			TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVER_PORT].name, (void *)&ipv6->dest, TLD_TYPE_LONG);
-			TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CLIENT_PORT].name, (void *)&ipv6->source, TLD_TYPE_LONG);
 			break;
 		default:
 			break;
 	}
 
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_STREAM_DIR].name, (void *)&a_stream->dir, TLD_TYPE_LONG);	
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ADDRESS_TYPE].name, (void *)&addr_type, TLD_TYPE_LONG);
+	
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVER_IP].name, (void *)server_ip, TLD_TYPE_STRING);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CLIENT_IP].name, (void *)client_ip, TLD_TYPE_STRING);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVER_PORT].name, (void *)(long)s_port, TLD_TYPE_LONG);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CLIENT_PORT].name, (void *)(long)c_port, TLD_TYPE_LONG);
+	
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_STREAM_DIR].name, (void *)(long)a_stream->dir, TLD_TYPE_LONG);	
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ADDRESS_TYPE].name, (void *)(long)addr_type, TLD_TYPE_LONG);
 
 
 	addr_proto=(char *)layer_addr_prefix_ntop(a_stream);
@@ -172,31 +175,6 @@ int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handl
 	
 	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ADDRESS_LIST].name, (void *)nest_addr_buf, TLD_TYPE_STRING);
 	return 0;
-}
-
-static unsigned int get_ip_by_eth_name(const char *ifname)
-{
-    int sockfd;
-    struct ifreq ifr;
-    unsigned int ip;
-
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (-1 == sockfd) {
-        goto error;
-    }
-
-    strcpy(ifr.ifr_name,ifname);
-    if (ioctl(sockfd, SIOCGIFADDR, &ifr) < 0) {
-        goto error;
-    }
-
-    ip = ((struct sockaddr_in*)&(ifr.ifr_addr))->sin_addr.s_addr;
-    close(sockfd);
-    return ip;
-
-error:
-    close(sockfd);
-    return INADDR_NONE;
 }
 
 static int load_log_common_field(const char *filename, id2field_t *id2field, id2field_t *service2topic)
@@ -262,7 +240,7 @@ static int load_log_common_field(const char *filename, id2field_t *id2field, id2
 
 tsg_log_instance_t tsg_sendlog_init(const char *conffile)
 {
-	int i=0,level=30;
+	int i=0,ret=0,level=30;
 	char nic_name[32]={0};
 	char kafka_errstr[1024]={0};
 	unsigned int local_ip_nr=0;
@@ -289,10 +267,10 @@ tsg_log_instance_t tsg_sendlog_init(const char *conffile)
 	}
 
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "NIC_NAME", nic_name, sizeof(nic_name), "eth0");	
-	local_ip_nr=get_ip_by_eth_name(nic_name);
-	if(local_ip_nr==INADDR_NONE)
+	ret=MESA_get_dev_ipv4(nic_name, (int *)&local_ip_nr);
+	if(ret<0)
 	{
-		MESA_handle_runtime_log(_instance->logger,RLOG_LV_FATAL, "GET_LOCAL_IP","get NIC_NAME: %s error.", nic_name);
+		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "GET_LOCAL_IP", "MESA_get_dev_ipv4 is error, nic_name: %s", nic_name);
 		return NULL;
 	}
 	inet_ntop(AF_INET,&(local_ip_nr),_instance->local_ip_str,sizeof(_instance->local_ip_str));
@@ -375,14 +353,14 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 
 	if(log_msg->a_stream!=NULL && log_msg->a_stream->ptcpdetail!=NULL)
 	{
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(&log_msg->a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(&log_msg->a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);		
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);		
 	}
 	else
 	{
 		cur_time=time(NULL);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)&cur_time, TLD_TYPE_LONG);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)&cur_time, TLD_TYPE_LONG);	
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);	
 	}
 
 
@@ -393,11 +371,11 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 	}
 	else
 	{
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_LINK_ID].name, (void *)&vinfo.link_id, TLD_TYPE_LONG);	
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)&vinfo.link_dir, TLD_TYPE_LONG);	
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)&vinfo.dev_id, TLD_TYPE_LONG);		
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ENTRANCE_ID].name, (void *)&vinfo.entrance_id, TLD_TYPE_LONG);	
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ENCAPSULATION].name, (void *)&vinfo.encap_type, TLD_TYPE_LONG);
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_LINK_ID].name, (void *)(long)vinfo.link_id, TLD_TYPE_LONG);	
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)vinfo.link_dir, TLD_TYPE_LONG);	
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(long)vinfo.dev_id, TLD_TYPE_LONG);		
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ENTRANCE_ID].name, (void *)(long)vinfo.entrance_id, TLD_TYPE_LONG);	
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ENCAPSULATION].name, (void *)(long)vinfo.encap_type, TLD_TYPE_LONG);
 	}
 
 	for(i=0;i<log_msg->result_num; i++)
@@ -422,9 +400,9 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 				break;
 		}
 
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(&log_msg->result[i].config_id), TLD_TYPE_LONG);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(&log_msg->result[i].service_id), TLD_TYPE_LONG);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(&log_msg->result[i].action), TLD_TYPE_LONG);
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(log_msg->result[i].config_id), TLD_TYPE_LONG);
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
 
 		payload = cJSON_PrintUnformatted(_handle->object);
 

@@ -7,7 +7,7 @@ set(SRC tsg_entry.cpp tsg_rule.cpp tsg_ssl_utils.cpp tsg_send_log.cpp)
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 include_directories(/opt/MESA/include/MESA/)
 
-set(TSG_MASTER_DEPEND_DYN_LIB  MESA_handle_logger MESA_prof_load maatframe pthread MESA_field_stat2)
+set(TSG_MASTER_DEPEND_DYN_LIB  MESA_handle_logger MESA_prof_load maatframe pthread MESA_field_stat2 rdkafka cjson)
 
 set(CMAKE_INSTALL_PREFIX /home/mesasoft/sapp_run)
 

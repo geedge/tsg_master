@@ -14,7 +14,7 @@
 
 
 
-char TSG_MASTER_VERSION_20191115=0;
+char TSG_MASTER_VERSION_20191119=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -85,7 +85,7 @@ static Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result
 	
 	for(i=1; i<result_num; i++)
 	{
-		if(result[i].action>p_result->action)
+		if((unsigned char)result[i].action>(unsigned char)p_result->action)
 		{
 			p_result=&result[i];
 			continue;
@@ -105,7 +105,7 @@ static Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result
 
 extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
-	int send_log=0;
+	int send_log=0,identify_flag=0;
 	int ret=0,hit_num=0,ip_policy=0;
 	int state=APP_STATE_DROPME;
 	scan_status_t mid=NULL;
@@ -122,12 +122,13 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 	switch(a_tcp->pktstate)
 	{
 		case	OP_STATE_PENDING:
+		case	OP_STATE_DATA:
 			if((a_tcp->ptcpdetail->pdata==NULL) || (a_tcp->ptcpdetail->datalen<=0) || (a_tcp->dir==DIR_DOUBLE && a_tcp->curdir==DIR_S2C))
 			{
 				return APP_STATE_GIVEME;
 			}
 			
-			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, PROTO_MAX, &mid, all_result, MAX_RESULT_NUM-hit_num);
+			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, PROTO_MAX, &mid, all_result+hit_num, MAX_RESULT_NUM-hit_num);
 			if(ret>0)
 			{
 				hit_num+=ret;
@@ -142,7 +143,7 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 				ret=tsg_scan_shared_policy(g_tsg_maat_feather, 
 											a_tcp->ptcpdetail->pdata,
 											a_tcp->ptcpdetail->datalen,
-											all_result,
+											all_result+hit_num,
 											MAX_RESULT_NUM-hit_num,
 											&identify_info,
 											&mid,
@@ -151,6 +152,7 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 				if(ret>0)
 				{
 					hit_num+=ret;
+					identify_flag=1;
 				}
 			}
 			
@@ -164,7 +166,7 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 					send_log=1;
 				}
 				
-				switch(p_result->action)
+				switch((unsigned char)p_result->action)
 				{
 					case	TSG_ACTION_DENY:
 						if(ip_policy==1)
@@ -203,13 +205,13 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 				if(send_log==1 && p_result->do_log>0)
 				{
 					TLD_handle=TLD_create(thread_seq);
-					if(priority_label->proto!=PROTO_UNKONWN)
+					if(identify_flag==1)
 					{
 						schema_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_SCHAME_TYPE);
-						TLD_append(TLD_handle, schema_field_name, (void *)((priority_label->proto==PROTO_HTTP) ? "HTTP" : "SSL"), TLD_TYPE_LONG);
+						TLD_append(TLD_handle, schema_field_name, (void *)((identify_info.proto==PROTO_HTTP) ? "HTTP" : "SSL"), TLD_TYPE_STRING);
 						
-						domain_field_name=log_field_id2name(g_tsg_log_instance, ((priority_label->proto==PROTO_HTTP) ? LOG_HTTP_HOST : LOG_SSL_SNI));
-						TLD_append(TLD_handle, domain_field_name, (void *)priority_label->domain, TLD_TYPE_STRING);
+						domain_field_name=log_field_id2name(g_tsg_log_instance, ((identify_info.proto==PROTO_HTTP) ? LOG_HTTP_HOST : LOG_SSL_SNI));
+						TLD_append(TLD_handle, domain_field_name, (void *)identify_info.domain, TLD_TYPE_STRING);
 					}
 					
 					log_msg.a_stream=a_tcp;
@@ -219,7 +221,6 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 				}
 			}
 		break;
-		case	OP_STATE_DATA:
 		case	OP_STATE_CLOSE:
 		default:
 			break;

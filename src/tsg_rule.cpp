@@ -122,6 +122,29 @@ int tsg_rule_init(const char* conffile, void *logger)
 
 	MESA_load_profile_string_def(conffile, module, "IP_ADDR_TABLE", ip_addr_table, sizeof(ip_addr_table), "TSG_OBJ_IP_ADDR");
 	MESA_load_profile_string_def(conffile, module, "SUBSCRIBER_ID_TABLE", subscriber_id_table, sizeof(subscriber_id_table), "TSG_OBJ_SUBSCRIBER_ID");
+
+	g_tsg_para.ip_addr_table_id=Maat_table_register(g_tsg_maat_feather, ip_addr_table);
+	if(g_tsg_para.ip_addr_table_id<0)
+	{
+		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "Maat_table_register %s failed", ip_addr_table); 
+		return -1;
+	}
+	
+	g_tsg_para.subscribe_id_table_id=Maat_table_register(g_tsg_maat_feather, subscriber_id_table);
+	if(g_tsg_para.subscribe_id_table_id<0)
+	{
+		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "RULE_INIT", "Maat_table_register %s failed", subscriber_id_table); 
+		return -1;
+	}
+
+	ret=tsg_shared_table_init(conffile, g_tsg_maat_feather, logger);
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "RULE_INIT", "tsg_shared_table_init %s failed"); 
+		return -1;	
+	}
+	
+	return 0;
 }
 
 static void protocol_identify(char *buff, int buff_len, struct _identify_info *result){
@@ -195,7 +218,7 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 	return 0;
 }
 
-int tsg_scan_nesting_addr(Maat_feather_t maat_feather, struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	struct ipaddr t_addr;
 	struct ipaddr* p_addr = NULL;
@@ -292,7 +315,8 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, struct streaminfo *a_stre
 
 //return value: -1: failed, 0: not hit, >0: hit count 
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, Maat_rule_t *result, int result_num, 
-			struct _identify_info *identify_info, scan_status_t *mid, void *logger, int thread_seq){
+			struct _identify_info *identify_info, scan_status_t *mid, void *logger, int thread_seq)
+{
     memset(identify_info, 0, sizeof(*identify_info));
     protocol_identify((char*)pkt, pkt_len, identify_info);
 	if(identify_info->proto != PROTO_SSL && identify_info->proto != PROTO_HTTP){
@@ -308,3 +332,30 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, 
 	return Maat_full_scan_string(g_tsg_maat_feather, tableid, CHARSET_UTF8, identify_info->domain, identify_info->domain_len,
 									result, NULL, result_num, mid, thread_seq);
 }
+
+
+Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num)
+{
+	int i=0;
+	Maat_rule_t *p_result=NULL; 
+
+	for(i=0; i< result_num; i++)
+	{
+		if(result[i].action==TSG_ACTION_DENY)
+		{
+			if(p_result==NULL)
+			{
+				p_result=&result[i];
+				continue;
+			}
+
+			if(result[i].action > p_result->action)
+			{
+				p_result=&result[i];
+			}
+		}
+	}
+
+	return p_result;
+}
+

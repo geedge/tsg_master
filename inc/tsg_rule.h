@@ -3,11 +3,6 @@
 
 #include <MESA/Maat_rule.h>
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 typedef enum _tsg_protocol
 {
    PROTO_UNKONWN=0,
@@ -27,6 +22,7 @@ typedef enum _tsg_protocol
 }tsg_protocol_t;
 
 
+#define	MAX_RESULT_NUM	8
 #define	MAX_DOAMIN_LEN	2048
 
 struct _identify_info
@@ -59,8 +55,7 @@ int tsg_shared_table_init(const char *conffile, Maat_feather_t maat_feather, voi
 //return value: -1: failed, 0: not hit, >0: hit count 
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, scan_status_t *mid, void *logger, int thread_seq);
 
-#ifdef __cplusplus
-}
-#endif
+//return NULL if none exists, otherwise return one deny rule;
+Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);
 
 #endif
