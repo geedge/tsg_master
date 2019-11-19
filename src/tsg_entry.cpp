@@ -18,6 +18,13 @@ char TSG_MASTER_VERSION_20191119=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
+id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_LINKS, "links"}, 
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_BYPASS, "bypass"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_ADDR, "hit_addr"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_SHARE, "hit_share"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_INTERCEPT, "intercept"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_LOG, "log"}
+	};
 static void free_policy_label(int thread_seq, void *project_req_value)
 {
 	dictator_free(thread_seq, project_req_value);
@@ -122,6 +129,7 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 	switch(a_tcp->pktstate)
 	{
 		case	OP_STATE_PENDING:
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LINKS], 0, FS_OP_ADD, 1);
 		case	OP_STATE_DATA:
 			if((a_tcp->ptcpdetail->pdata==NULL) || (a_tcp->ptcpdetail->datalen<=0) || (a_tcp->dir==DIR_DOUBLE && a_tcp->curdir==DIR_S2C))
 			{
@@ -133,6 +141,7 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 			{
 				hit_num+=ret;
 				q_result=tsg_policy_decision_criteria(all_result, hit_num);
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);
 			}
 
 
@@ -153,6 +162,7 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 				{
 					hit_num+=ret;
 					identify_flag=1;
+					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
 				}
 			}
 			
@@ -180,11 +190,15 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 					case	TSG_ACTION_BYPASS:
 						send_log=1;
 						state|=APP_STATE_DROPPKT; //TODO
+						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 						break;
 					case	TSG_ACTION_INTERCEPT:
+						send_log=0;
+						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
 						priority_label=(policy_priority_label_t *)dictator_malloc(thread_seq, sizeof(policy_priority_label_t));
 						
 						priority_label->result_num=1;
+						priority_label->result_type=PULL_KNI_RESULT;
 						priority_label->domain_len=identify_info.domain_len;
 						memcpy(priority_label->domain, identify_info.domain, identify_info.domain_len);
 						memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
@@ -195,6 +209,9 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 							free_policy_label(thread_seq, (void *)priority_label);
 							MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_ADD", "Add policy_priority_label failed ...");
 						}
+						
+						MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "INTERCEPT", "Hit intercept policy, policy_id: %d action: %d addr: %s",
+															priority_label->result[0].config_id, priority_label->result[0].action, printaddr(&a_tcp->addr, thread_seq));
 						break;
 					case	TSG_ACTION_NONE:
 					default:
@@ -233,9 +250,14 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 
 extern "C" int TSG_MASTER_INIT()
 {
-	int ret=0,level=30;
-	char log_path[128]={0};
-	char label_buff[128]={0};
+	int i=0,ret=0,cycle=0;
+	int value=0,level=30;
+	unsigned short fs_server_port=0;
+	char app_name[MAX_STRING_LEN]={0};
+	char log_path[MAX_STRING_LEN*4]={0};
+	char label_buff[MAX_STRING_LEN*4]={0};
+	char fs_server_ip[MAX_IPV4_LEN]={0};
+	char fs_output_path[MAX_STRING_LEN*4]={0};
 
 	memset(&g_tsg_para, 0, sizeof(g_tsg_para));
 	
@@ -271,6 +293,37 @@ extern "C" int TSG_MASTER_INIT()
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_SENDLOG", "tsg_sendlog_init failed ...");
 		return -1;
 	}
+
+	MESA_load_profile_int_def(tsg_conffile, "FIELD_STAT", "CYCLE", &cycle, 30);
+	MESA_load_profile_short_nodef(tsg_conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));
+	MESA_load_profile_string_nodef(tsg_conffile,"FIELD_STAT","TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
+	MESA_load_profile_string_def(tsg_conffile,"FIELD_STAT","OUTPUT_PATH",fs_output_path, sizeof(fs_output_path), "tsg_stat.log");
+	MESA_load_profile_string_def(tsg_conffile,"FIELD_STAT","APP_NAME", app_name, sizeof(app_name), "tsg_master");
+
+	g_tsg_para.fs2_handle=FS_create_handle();
+
+	value=1;//Rewrite
+	FS_set_para(g_tsg_para.fs2_handle, PRINT_MODE, &value, sizeof(value));
+	value=1;//Do not create stat thread
+	FS_set_para(g_tsg_para.fs2_handle, CREATE_THREAD, &value, sizeof(value));
+	
+    FS_set_para(g_tsg_para.fs2_handle, STAT_CYCLE, &cycle, sizeof(cycle));
+    FS_set_para(g_tsg_para.fs2_handle, APP_NAME, app_name, strlen(app_name)+1);
+	FS_set_para(g_tsg_para.fs2_handle, OUTPUT_DEVICE, fs_output_path, strlen(fs_output_path)+1);
+
+    if(fs_server_port > 0 && strlen(fs_server_ip) > 0)
+    {
+        FS_set_para(g_tsg_para.fs2_handle, STATS_SERVER_IP,fs_server_ip, strlen(fs_server_ip)+1);
+        FS_set_para(g_tsg_para.fs2_handle, STATS_SERVER_PORT,&(fs_server_port), sizeof(fs_server_port));
+    }
+
+	for(i=0; i<TSG_FS2_MAX; i++)
+	{
+		g_tsg_para.fs2_field_id[g_tsg_fs2_field[i].id]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_CURRENT, g_tsg_fs2_field[i].name);
+	}
+
+	
+	FS_start(g_tsg_para.fs2_handle);
 	
 	return 0;
 }

@@ -15,6 +15,7 @@
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_entry.h"
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
@@ -36,9 +37,11 @@ int TLD_cancel(TLD_handle_t handle)
 	if(handle!=NULL)
 	{
 		_handle=(struct _tld_handle *)handle;
-		cJSON_Delete(_handle->object);
-		_handle->object=NULL;
-
+		if(_handle->object!=NULL)
+		{
+			cJSON_Delete(_handle->object);
+			_handle->object=NULL;
+		}
 		thread_id=_handle->thread_id;
 		dictator_free(thread_id, handle);
 
@@ -426,6 +429,8 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 		TLD_delete((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name);
 		TLD_delete((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
 		TLD_delete((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ACTION].name);
+
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LOG], 0, FS_OP_ADD, 1);
 	}
 
 

@@ -213,6 +213,20 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 			
 			return num;
 		}
+		else
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PULL_RESULT", 
+														"pull policy failed,  result_type: %s, addr: %s",
+														(label->result_type==PULL_KNI_RESULT) ? "KNI" : "FW",
+														printaddr(&a_stream->addr, a_stream->threadnum));
+		}
+	}
+	else
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PULL_RESULT",
+														"pull policy failed, result_type=%d, addr: %s",
+														(label==NULL) ? -1 : label->result_type,
+														printaddr(&a_stream->addr, a_stream->threadnum));
 	}
 	
 	return 0;

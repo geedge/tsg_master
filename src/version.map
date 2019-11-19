@@ -5,10 +5,10 @@ global:
 		*TSG_MASTER_INIT*;
 		*TSG_MASTER_TCPALL_ENTRY*;
 		*TSG_MASTER_UNLOAD*;
-		*tsg_send_log*;
   		*tsg_scan_nesting_addr*;
 		*tsg_pull_policy_result*;
-		*tsg_send_log*;
+		*tsg_*;
+		*TLD_*;
 	};
   local: *;
 };
