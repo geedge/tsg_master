@@ -110,7 +110,7 @@ static Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result
 	return p_result;
 }
 
-extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
+extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
 	int send_log=0,identify_flag=0;
 	int ret=0,hit_num=0,ip_policy=0;
@@ -126,15 +126,10 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 	Maat_rule_t all_result[MAX_RESULT_NUM];
 	policy_priority_label_t *priority_label=NULL;
 	
-	switch(a_tcp->pktstate)
+	switch(a_tcp->opstate)
 	{
 		case	OP_STATE_PENDING:
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LINKS], 0, FS_OP_ADD, 1);
-		case	OP_STATE_DATA:
-			if((a_tcp->ptcpdetail->pdata==NULL) || (a_tcp->ptcpdetail->datalen<=0) || (a_tcp->dir==DIR_DOUBLE && a_tcp->curdir==DIR_S2C))
-			{
-				return APP_STATE_GIVEME;
-			}
 			
 			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, PROTO_MAX, &mid, all_result+hit_num, MAX_RESULT_NUM-hit_num);
 			if(ret>0)
@@ -144,26 +139,22 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);
 			}
 
-
-			if(a_tcp->curdir==DIR_C2S)
+			memset(&identify_info, 0, sizeof(identify_info));
+			
+			ret=tsg_scan_shared_policy(g_tsg_maat_feather, 
+										a_tcp->ptcpdetail->pdata,
+										a_tcp->ptcpdetail->datalen,
+										all_result+hit_num,
+										MAX_RESULT_NUM-hit_num,
+										&identify_info,
+										&mid,
+										g_tsg_para.logger,
+										thread_seq);
+			if(ret>0)
 			{
-				memset(&identify_info, 0, sizeof(identify_info));
-				
-				ret=tsg_scan_shared_policy(g_tsg_maat_feather, 
-											a_tcp->ptcpdetail->pdata,
-											a_tcp->ptcpdetail->datalen,
-											all_result+hit_num,
-											MAX_RESULT_NUM-hit_num,
-											&identify_info,
-											&mid,
-											g_tsg_para.logger,
-											thread_seq);
-				if(ret>0)
-				{
-					hit_num+=ret;
-					identify_flag=1;
-					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
-				}
+				hit_num+=ret;
+				identify_flag=1;
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
 			}
 			
 			p_result=tsg_policy_decision_criteria(all_result, hit_num);
@@ -239,6 +230,7 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 				}
 			}
 		break;
+		case	OP_STATE_DATA:
 		case	OP_STATE_CLOSE:
 		default:
 			break;
@@ -272,6 +264,7 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_ID", &g_tsg_para.device_id, 0);
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "POLICY_PRIORITY_LABEL", label_buff, sizeof(label_buff), "POLICY_PRIORITY");
 	g_tsg_para.priority_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_policy_label);

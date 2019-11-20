@@ -19,7 +19,7 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
-char TSG_SEND_LOG_VERSION_20191119=0;
+char TSG_SEND_LOG_VERSION_20191120=0;
 tsg_log_instance_t g_tsg_log_instance;
 
 const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"UNKOWN"},
@@ -29,6 +29,22 @@ const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"
 										   };
 
 extern "C" int MESA_get_dev_ipv4(const char *device, int *ip_add);
+
+
+unsigned long long tsg_get_stream_id(struct streaminfo * a_stream)
+{
+	int ret=0;
+	int device_id_size=sizeof(unsigned long long);
+	unsigned long long device_id=(unsigned long long)g_tsg_para.device_id;
+
+	ret=MESA_get_stream_opt(a_stream, MSO_GLOBAL_STREAM_ID, (void *)device_id, &device_id_size);
+	if(ret==0)
+	{
+		return device_id;
+	}
+
+	return -1;
+}
 
 int TLD_cancel(TLD_handle_t handle)
 {
@@ -159,6 +175,11 @@ int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handl
 	
 	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_STREAM_DIR].name, (void *)(long)a_stream->dir, TLD_TYPE_LONG);	
 	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ADDRESS_TYPE].name, (void *)(long)addr_type, TLD_TYPE_LONG);
+	
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->clientpktnum, TLD_TYPE_LONG);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->clientbytes, TLD_TYPE_LONG);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->serverpktnum, TLD_TYPE_LONG);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->serverbytes, TLD_TYPE_LONG);
 
 
 	addr_proto=(char *)layer_addr_prefix_ntop(a_stream);

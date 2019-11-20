@@ -32,5 +32,7 @@ int TLD_cancel(TLD_handle_t handle);
 
 int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *log_msg, int thread_id);
 
+unsigned long long tsg_get_stream_id(struct streaminfo *a_stream);
+
 
 #endif

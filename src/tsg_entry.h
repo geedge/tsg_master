@@ -35,6 +35,7 @@ typedef	struct _policy_priority_label
 
 typedef	struct _tsg_para
 {
+	int device_id;
 	int ip_addr_table_id;
 	int subscribe_id_table_id;
 	int priority_project_id;
