@@ -37,7 +37,7 @@ unsigned long long tsg_get_stream_id(struct streaminfo * a_stream)
 	int device_id_size=sizeof(unsigned long long);
 	unsigned long long device_id=(unsigned long long)g_tsg_para.device_id;
 
-	ret=MESA_get_stream_opt(a_stream, MSO_GLOBAL_STREAM_ID, (void *)device_id, &device_id_size);
+	ret=MESA_get_stream_opt(a_stream, MSO_GLOBAL_STREAM_ID, (void *)&device_id, &device_id_size);
 	if(ret==0)
 	{
 		return device_id;
@@ -134,6 +134,7 @@ int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handl
 	unsigned short tunnel_type=0;
 	char nest_addr_buf[1024];
 	char *addr_proto=NULL;
+	unsigned long long stream_id=0;
 	unsigned short c_port=0, s_port=0;
 	int tunnel_type_size=sizeof(tunnel_type);
 	struct layer_addr_ipv4 *ipv4=NULL;
@@ -181,7 +182,9 @@ int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handl
 	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->serverpktnum, TLD_TYPE_LONG);
 	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->serverbytes, TLD_TYPE_LONG);
 
-
+	stream_id=tsg_get_stream_id(a_stream);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_STREAM_TRACE_ID].name, (void *)(long)stream_id, TLD_TYPE_LONG);
+	
 	addr_proto=(char *)layer_addr_prefix_ntop(a_stream);
 	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_L4_PROTOCOL].name, (void *)addr_proto, TLD_TYPE_STRING);
 	

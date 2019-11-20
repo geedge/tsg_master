@@ -113,7 +113,7 @@ static Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result
 extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
 	int send_log=0,identify_flag=0;
-	int ret=0,hit_num=0,ip_policy=0;
+	int ret=0,hit_num=0;
 	int state=APP_STATE_DROPME;
 	scan_status_t mid=NULL;
 	char *domain_field_name=NULL;
@@ -160,23 +160,19 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			p_result=tsg_policy_decision_criteria(all_result, hit_num);
 			
 			if(p_result!=NULL)
-			{
-				if(q_result!=NULL && (p_result==q_result))
-				{
-					ip_policy=1;
-					send_log=1;
-				}
-				
+			{	
 				switch((unsigned char)p_result->action)
 				{
 					case	TSG_ACTION_DENY:
-						if(ip_policy==1)
-						{
-							MESA_kill_tcp(a_tcp, a_packet);
-							state|=APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
-						}
+						send_log=1;
+						MESA_kill_tcp(a_tcp, a_packet);
+						state|=APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
 						break;
 					case	TSG_ACTION_MONITOR:
+						if(q_result!=NULL && (p_result==q_result))
+						{
+							send_log=1;
+						}
 						break;
 					case	TSG_ACTION_BYPASS:
 						send_log=1;
@@ -184,7 +180,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 						break;
 					case	TSG_ACTION_INTERCEPT:
-						send_log=0;
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
 						priority_label=(policy_priority_label_t *)dictator_malloc(thread_seq, sizeof(policy_priority_label_t));
 						
