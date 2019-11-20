@@ -14,7 +14,7 @@
 
 
 
-char TSG_MASTER_VERSION_20191119=0;
+char TSG_MASTER_VERSION_20191120=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -182,14 +182,14 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 						if(ip_policy==1)
 						{
 							MESA_kill_tcp(a_tcp, a_packet);
-							state|=APP_STATE_DROPPKT;
+							state|=APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
 						}
 						break;
 					case	TSG_ACTION_MONITOR:
 						break;
 					case	TSG_ACTION_BYPASS:
 						send_log=1;
-						state|=APP_STATE_DROPPKT; //TODO
+						state|=APP_STATE_KILL_OTHER; //TODO
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 						break;
 					case	TSG_ACTION_INTERCEPT:
@@ -199,6 +199,7 @@ extern "C" char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, in
 						
 						priority_label->result_num=1;
 						priority_label->result_type=PULL_KNI_RESULT;
+						priority_label->proto=identify_info.proto;
 						priority_label->domain_len=identify_info.domain_len;
 						memcpy(priority_label->domain, identify_info.domain, identify_info.domain_len);
 						memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
