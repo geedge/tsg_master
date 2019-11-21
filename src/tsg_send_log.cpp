@@ -81,7 +81,7 @@ int TLD_append(TLD_handle_t handle, char *key, void *value, TLD_TYPE type)
 {
 	struct _tld_handle *_handle=(struct _tld_handle *)handle;
 	
-	if(_handle==NULL || key==NULL || value==NULL)
+	if(_handle==NULL || key==NULL || (value==NULL && type!=TLD_TYPE_LONG))
 	{
 		return -1;
 	}
@@ -177,10 +177,10 @@ int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handl
 	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_STREAM_DIR].name, (void *)(long)a_stream->dir, TLD_TYPE_LONG);	
 	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ADDRESS_TYPE].name, (void *)(long)addr_type, TLD_TYPE_LONG);
 	
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->clientpktnum, TLD_TYPE_LONG);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->clientbytes, TLD_TYPE_LONG);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->serverpktnum, TLD_TYPE_LONG);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->serverbytes, TLD_TYPE_LONG);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->clientpktnum, TLD_TYPE_LONG);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->clientbytes, TLD_TYPE_LONG);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->serverpktnum, TLD_TYPE_LONG);
+	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->serverbytes, TLD_TYPE_LONG);
 
 	stream_id=tsg_get_stream_id(a_stream);
 	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_STREAM_TRACE_ID].name, (void *)(long)stream_id, TLD_TYPE_LONG);
@@ -346,8 +346,7 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 	int i=0,ret=0,status=0;
 	char *payload=NULL;
 	time_t cur_time;
-	struct vxlan_info vinfo;
-	int opt_val_len = sizeof(vinfo);
+	long common_con_duration_ms=0;
 	struct _tld_handle *_handle = (struct _tld_handle *)handle;
 	struct _tsg_log_instance *_instance = (struct _tsg_log_instance *)instance;
 		
@@ -365,14 +364,12 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 
 	//TODO
 	//common_user_tags
-	//common_user_region
 	//common_isp
 	//common_app_label
 	//common_app_id
 	//common_protocol_id
 	//common_has_dup_traffic
 	//common_stream_error
-	//common_stream_trace_id
 	
 	TLD_append_streaminfo(_instance, _handle, log_msg->a_stream);
 
@@ -381,16 +378,22 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 	if(log_msg->a_stream!=NULL && log_msg->a_stream->ptcpdetail!=NULL)
 	{
 		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);		
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);
+		
+		common_con_duration_ms=log_msg->a_stream->ptcpdetail->lastmtime-log_msg->a_stream->ptcpdetail->createtime;
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
 	}
 	else
 	{
 		cur_time=time(NULL);
 		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);	
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);		
+		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
 	}
 
-
+#if 0
+	struct vxlan_info vinfo;
+	int opt_val_len = sizeof(vinfo);
 	status=MESA_get_stream_opt(log_msg->a_stream, MSO_STREAM_VXLAN_INFO, &vinfo, &opt_val_len);
 	if(status < 0)
 	{
@@ -404,6 +407,7 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ENTRANCE_ID].name, (void *)(long)vinfo.entrance_id, TLD_TYPE_LONG);	
 		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ENCAPSULATION].name, (void *)(long)vinfo.encap_type, TLD_TYPE_LONG);
 	}
+#endif
 
 	for(i=0;i<log_msg->result_num; i++)
 	{
@@ -437,12 +441,11 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 		}
 		else
 		{
-			char *service_defined=(char *)dictator_malloc(thread_id, log_msg->result[i].serv_def_len+1);
+			char *service_defined=(char *)calloc(1, log_msg->result[i].serv_def_len+1);
 			ret=Maat_read_rule(g_tsg_maat_feather, &log_msg->result[i], MAAT_RULE_SERV_DEFINE, service_defined, log_msg->result[i].serv_def_len);
 			if(ret==log_msg->result[i].serv_def_len)
 			{
-				service_defined[log_msg->result[i].serv_def_len]='\0';
-				TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)(log_msg->result[i].service_defined), TLD_TYPE_STRING);			
+				TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)service_defined, TLD_TYPE_STRING);			
 			}
 			else
 			{
@@ -455,7 +458,7 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 										log_msg->result[i].action,
 										printaddr(&log_msg->a_stream->addr, thread_id));
 			}
-			dictator_free(thread_id, (void *)service_defined);
+			free((void *)service_defined);
 			service_defined=NULL;
 		}
 
