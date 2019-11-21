@@ -148,7 +148,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 }
 
 static void protocol_identify(char *buff, int buff_len, struct _identify_info *result){
-    result->proto = PROTO_MAX;
+    result->proto = PROTO_UNKONWN;
 	//TODO:  http: get from http protocol plugin
 	/*
 	if(is_http){
@@ -169,7 +169,6 @@ static void protocol_identify(char *buff, int buff_len, struct _identify_info *r
 			result->domain_len = strnlen(chello->sni, sizeof(result->domain) - 1);
 			strncpy(result->domain, chello->sni, result->domain_len);
 		}
-		result->domain[result->domain_len] = '\0';
 	}
     ssl_chello_free(chello);
 	return;
