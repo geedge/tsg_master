@@ -76,7 +76,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_PERF_ON, NULL, 0);
 		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_REDIS_INDEX, &redis_index, sizeof(redis_index));
 		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_SCAN_DETAIL, &scan_detail, sizeof(scan_detail));
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_DEFERRED_LOAD, NULL,0);
+		//Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_DEFERRED_LOAD, NULL,0);
 	}
 	else
 	{
@@ -304,7 +304,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 	}while(cur_stream != NULL && hit_num < result_num);
 
 
-	if(hit_num < result_num)
+	if(hit_num<result_num && subscribe_id!=NULL && strlen(subscribe_id)>0)
 	{
 		maat_ret=Maat_full_scan_string(maat_feather,
 										g_tsg_para.subscribe_id_table_id,

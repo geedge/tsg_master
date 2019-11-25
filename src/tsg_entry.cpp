@@ -14,7 +14,7 @@
 
 
 
-char TSG_MASTER_VERSION_20191120=0;
+char TSG_MASTER_VERSION_20191125=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -155,6 +155,26 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				hit_num+=ret;
 				identify_flag=1;
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
+				MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_IP_AND_DOAMIN",
+											"Hit %s: %s addr: %s",
+											(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
+											identify_info.domain,
+											printaddr(&a_tcp->addr, thread_seq)
+										);
+				
+			}
+			else
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_IP_AND_DOAMIN",
+											"Not hit %s: %s addr: %s",
+											(ret==0) ? ((identify_info.proto==PROTO_HTTP) ? "host" : "sni") : "NULL",
+											(ret==0) ? identify_info.domain : "NULL",
+											printaddr(&a_tcp->addr, thread_seq)
+										);
 			}
 			
 			p_result=tsg_policy_decision_criteria(all_result, hit_num);
