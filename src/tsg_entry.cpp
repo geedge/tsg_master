@@ -171,8 +171,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 											RLOG_LV_DEBUG,
 											"SCAN_IP_AND_DOAMIN",
 											"Not hit %s: %s addr: %s",
-											(ret==0) ? ((identify_info.proto==PROTO_HTTP) ? "host" : "sni") : "NULL",
-											(ret==0) ? identify_info.domain : "NULL",
+											(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
+											(ret==-1) ? "NULL" : identify_info.domain,
 											printaddr(&a_tcp->addr, thread_seq)
 										);
 			}
