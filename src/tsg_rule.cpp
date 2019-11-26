@@ -9,6 +9,7 @@
 #include "MESA/MESA_handle_logger.h"
 #include "Maat_rule.h"
 #include "Maat_command.h"
+#include "MESA/http.h"
 #include "tsg_ssl_utils.h"
 #include "tsg_rule.h"
 #include "tsg_entry.h"
@@ -16,6 +17,10 @@
 Maat_feather_t g_tsg_maat_feather;
 
 #define	MAX_PATH_LEN	1024
+
+#ifndef MIN
+#define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
+#endif
 
 enum kni_scan_table{
     TSG_FIELD_SSL_SNI,
@@ -149,13 +154,21 @@ int tsg_rule_init(const char* conffile, void *logger)
 
 static void protocol_identify(char *buff, int buff_len, struct _identify_info *result){
     result->proto = PROTO_UNKONWN;
-	//TODO:  http: get from http protocol plugin
-	/*
-	if(is_http){
-		result->protocol = PROTO_HTTP;
+	//http
+	char *host = NULL;
+	int ret = http_host_parser(buff, (uint32_t)buff_len, DIR_C2S, &host);
+	//printf("http_host_parse: ret = %d, buff_len = %d, buff = %s\n", ret, buff_len, buff);
+	if(ret >= 0){
+		result->proto = PROTO_HTTP;
+		if(ret == 0){
+			result->domain_len = 0;
+		}
+		else{
+			result->domain_len = MIN(ret, (int)sizeof(result->domain) - 1);
+			strncpy(result->domain, host, result->domain_len);
+		}
 		return;
 	}
-	*/
 	//ssl
 	enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
 	struct ssl_chello *chello = NULL;
