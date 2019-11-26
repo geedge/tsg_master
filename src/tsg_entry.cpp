@@ -14,7 +14,7 @@
 
 
 
-char TSG_MASTER_VERSION_20191125=0;
+char TSG_MASTER_VERSION_20191126=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -100,7 +100,7 @@ static Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result
 		
 		if(result[i].action==p_result->action)
 		{
-			if(result[i].config_id<p_result->config_id)
+			if(result[i].config_id>p_result->config_id)
 			{
 				p_result=&result[i];
 			}
@@ -157,7 +157,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
 				MESA_handle_runtime_log(g_tsg_para.logger,
 											RLOG_LV_DEBUG,
-											"SCAN_IP_AND_DOAMIN",
+											"SCAN_IP_AND_FQDN",
 											"Hit %s: %s addr: %s",
 											(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
 											identify_info.domain,
@@ -169,7 +169,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			{
 				MESA_handle_runtime_log(g_tsg_para.logger,
 											RLOG_LV_DEBUG,
-											"SCAN_IP_AND_DOAMIN",
+											"SCAN_IP_AND_FQDN",
 											"Not hit %s: %s addr: %s",
 											(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
 											(ret==-1) ? "NULL" : identify_info.domain,
