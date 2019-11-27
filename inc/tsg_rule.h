@@ -56,6 +56,6 @@ int tsg_shared_table_init(const char *conffile, Maat_feather_t maat_feather, voi
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, scan_status_t *mid, void *logger, int thread_seq);
 
 //return NULL if none exists, otherwise return one deny rule;
-Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);
+struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);
 
 #endif

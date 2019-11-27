@@ -121,7 +121,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	Maat_rule_t *p_result=NULL;
 	Maat_rule_t *q_result=NULL;
 	tsg_log_t log_msg;
-	TLD_handle_t TLD_handle=NULL;
+	struct TLD_handle_t *TLD_handle=NULL;
 	struct _identify_info identify_info;
 	Maat_rule_t all_result[MAX_RESULT_NUM];
 	policy_priority_label_t *priority_label=NULL;

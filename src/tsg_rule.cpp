@@ -365,7 +365,7 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, 
 }
 
 
-Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num)
+struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num)
 {
 	int i=0;
 	Maat_rule_t *p_result=NULL; 

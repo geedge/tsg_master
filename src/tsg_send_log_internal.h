@@ -69,13 +69,13 @@ typedef	struct _id2field
 	char name[MAX_STRING_LEN];
 }id2field_t;
 
-struct _tld_handle
+struct TLD_handle_t
 {
 	int thread_id;
 	cJSON *object;
 };
 
-struct _tsg_log_instance
+struct tsg_log_instance_t
 {
 	int mode;
 	int max_service;
@@ -88,8 +88,8 @@ struct _tsg_log_instance
 	id2field_t *service2topic;
 };
 
-char *log_field_id2name(tsg_log_instance_t instance, tsg_log_field_id_t id);
-tsg_log_instance_t tsg_sendlog_init(const char *filename);
+char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t id);
+struct tsg_log_instance_t *tsg_sendlog_init(const char *filename);
 
 #endif
 

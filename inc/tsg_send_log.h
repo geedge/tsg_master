@@ -21,17 +21,17 @@ typedef enum _tld_type
 }TLD_TYPE;
 
 
-typedef	void* TLD_handle_t;
-typedef	void* tsg_log_instance_t;
+struct TLD_handle_t;
+struct tsg_log_instance_t;
 
-extern tsg_log_instance_t g_tsg_log_instance;
+extern struct tsg_log_instance_t *g_tsg_log_instance;
 
-TLD_handle_t TLD_create(int thread_id);
-int TLD_append(TLD_handle_t handle, char *key, void *value, TLD_TYPE type);
-int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handle *_handle, struct streaminfo *a_stream);
-int TLD_cancel(TLD_handle_t handle);
+struct TLD_handle_t *TLD_create(int thread_id);
+int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE type);
+int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream);
+int TLD_cancel(struct TLD_handle_t *handle);
 
-int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *log_msg, int thread_id);
+int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, tsg_log_t *log_msg, int thread_id);
 
 unsigned long long tsg_get_stream_id(struct streaminfo *a_stream);
 

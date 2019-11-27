@@ -20,7 +20,8 @@
 #include "tsg_send_log_internal.h"
 
 char TSG_SEND_LOG_VERSION_20191121=0;
-tsg_log_instance_t g_tsg_log_instance;
+struct tsg_log_instance_t *g_tsg_log_instance;
+
 
 const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"UNKOWN"},
 								 			{TLD_TYPE_LONG, 	TLD_TYPE_LONG,		"LONG"},
@@ -46,12 +47,12 @@ unsigned long long tsg_get_stream_id(struct streaminfo * a_stream)
 	return -1;
 }
 
-int TLD_cancel(TLD_handle_t handle)
+int TLD_cancel(struct TLD_handle_t *handle)
 {
-	struct _tld_handle *_handle=NULL;
-	if(handle!=NULL)
+	struct TLD_handle_t *_handle=handle;
+	
+	if(_handle!=NULL)
 	{
-		_handle=(struct _tld_handle *)handle;
 		if(_handle->object!=NULL)
 		{
 			cJSON_Delete(_handle->object);
@@ -65,9 +66,9 @@ int TLD_cancel(TLD_handle_t handle)
 	return 0;
 }
 
-int TLD_delete(TLD_handle_t handle, char *key)
+int TLD_delete(struct TLD_handle_t *handle, char *key)
 {
-	struct _tld_handle *_handle=(struct _tld_handle *)handle;
+	struct TLD_handle_t *_handle=handle;
 	
 	if(_handle!=NULL && key!=NULL)
 	{
@@ -77,9 +78,9 @@ int TLD_delete(TLD_handle_t handle, char *key)
 	return 0;
 }
 
-int TLD_append(TLD_handle_t handle, char *key, void *value, TLD_TYPE type)
+int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE type)
 {
-	struct _tld_handle *_handle=(struct _tld_handle *)handle;
+	struct TLD_handle_t *_handle=handle;
 	
 	if(_handle==NULL || key==NULL || (value==NULL && type!=TLD_TYPE_LONG))
 	{
@@ -105,30 +106,30 @@ int TLD_append(TLD_handle_t handle, char *key, void *value, TLD_TYPE type)
 	return 0;	
 }
 
-TLD_handle_t TLD_create(int thread_id)
+struct TLD_handle_t *TLD_create(int thread_id)
 {
 	//struct _tld_handle *_handle=(struct _tld_handle *)dictator_malloc(thread_id, sizeof(struct _tld_handle));
 	
-	struct _tld_handle *_handle=(struct _tld_handle *)calloc(1, sizeof(struct _tld_handle));
+	struct TLD_handle_t *_handle=(struct TLD_handle_t *)calloc(1, sizeof(struct TLD_handle_t));
 	_handle->thread_id = thread_id;
 	_handle->object = cJSON_CreateObject();
 	
-	return (TLD_handle_t)_handle;
+	return _handle;
 }
 
 
-char *log_field_id2name(tsg_log_instance_t instance, tsg_log_field_id_t id)
+char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t id)
 {
-	struct _tsg_log_instance *log_instance = (struct _tsg_log_instance *)instance;
-	if(log_instance!=NULL)
+	struct tsg_log_instance_t *_instance=instance;
+	if(_instance!=NULL)
 	{
-		return log_instance->id2field[id].name;
+		return _instance->id2field[id].name;
 	}
 
 	return NULL;
 }
 
-int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handle *_handle, struct streaminfo *a_stream)
+int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
 	int ret=0,addr_type=0;
 	unsigned short tunnel_type=0;
@@ -141,6 +142,14 @@ int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handl
 	struct layer_addr_ipv6 *ipv6=NULL;
 	char server_ip[MAX_IPV4_LEN*8]={0};
 	char client_ip[MAX_IPV4_LEN*8]={0};
+	
+	struct TLD_handle_t *_handle=handle;
+	struct tsg_log_instance_t *_instance=instance;
+
+	if(_instance==NULL || _handle==NULL || a_stream==NULL)
+	{
+		return -1;
+	}
 
 	switch(a_stream->addr.addrtype)
 	{
@@ -169,24 +178,24 @@ int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handl
 	}
 
 	
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVER_IP].name, (void *)server_ip, TLD_TYPE_STRING);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CLIENT_IP].name, (void *)client_ip, TLD_TYPE_STRING);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVER_PORT].name, (void *)(long)s_port, TLD_TYPE_LONG);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CLIENT_PORT].name, (void *)(long)c_port, TLD_TYPE_LONG);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_IP].name, (void *)server_ip, TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_CLIENT_IP].name, (void *)client_ip, TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_PORT].name, (void *)(long)s_port, TLD_TYPE_LONG);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_CLIENT_PORT].name, (void *)(long)c_port, TLD_TYPE_LONG);
 	
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_STREAM_DIR].name, (void *)(long)a_stream->dir, TLD_TYPE_LONG);	
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ADDRESS_TYPE].name, (void *)(long)addr_type, TLD_TYPE_LONG);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_STREAM_DIR].name, (void *)(long)a_stream->dir, TLD_TYPE_LONG);	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_ADDRESS_TYPE].name, (void *)(long)addr_type, TLD_TYPE_LONG);
 	
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->clientpktnum, TLD_TYPE_LONG);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->clientbytes, TLD_TYPE_LONG);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->serverpktnum, TLD_TYPE_LONG);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->serverbytes, TLD_TYPE_LONG);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->clientpktnum, TLD_TYPE_LONG);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->clientbytes, TLD_TYPE_LONG);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->serverpktnum, TLD_TYPE_LONG);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->serverbytes, TLD_TYPE_LONG);
 
 	stream_id=tsg_get_stream_id(a_stream);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_STREAM_TRACE_ID].name, (void *)(long)stream_id, TLD_TYPE_LONG);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_STREAM_TRACE_ID].name, (void *)(long)stream_id, TLD_TYPE_LONG);
 	
 	addr_proto=(char *)layer_addr_prefix_ntop(a_stream);
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_L4_PROTOCOL].name, (void *)addr_proto, TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_L4_PROTOCOL].name, (void *)addr_proto, TLD_TYPE_STRING);
 	
 
 	ret=MESA_get_stream_opt(a_stream, MSO_STREAM_TUNNEL_TYPE, &tunnel_type, &tunnel_type_size);
@@ -200,7 +209,8 @@ int TLD_append_streaminfo(struct _tsg_log_instance *_instance, struct _tld_handl
 		stream_addr_list_ntop(a_stream,nest_addr_buf, sizeof(nest_addr_buf));
 	}
 	
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ADDRESS_LIST].name, (void *)nest_addr_buf, TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_ADDRESS_LIST].name, (void *)nest_addr_buf, TLD_TYPE_STRING);
+	
 	return 0;
 }
 
@@ -265,7 +275,7 @@ static int load_log_common_field(const char *filename, id2field_t *id2field, id2
 	return 0;
 }
 
-tsg_log_instance_t tsg_sendlog_init(const char *conffile)
+struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 {
 	int i=0,ret=0,level=30;
 	char nic_name[32]={0};
@@ -275,9 +285,9 @@ tsg_log_instance_t tsg_sendlog_init(const char *conffile)
 	rd_kafka_t *kafka_handle = NULL;
 	rd_kafka_conf_t *rdkafka_conf = NULL;
 	rd_kafka_topic_conf_t *topic_conf;
-	struct _tsg_log_instance *_instance=NULL;
+	struct tsg_log_instance_t *_instance=NULL;
 	
-	_instance=(struct _tsg_log_instance *)calloc(1, sizeof(struct _tsg_log_instance));
+	_instance=(struct tsg_log_instance_t *)calloc(1, sizeof(struct tsg_log_instance_t));
 	
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "MODE",&(_instance->mode), 0);	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "COMMON_FIELD_FILE", _instance->common_field_file, sizeof(_instance->common_field_file), NULL);
@@ -337,27 +347,29 @@ tsg_log_instance_t tsg_sendlog_init(const char *conffile)
 		}
 	}
 	
-	return (tsg_log_instance_t)_instance;
+	return _instance;
 }
 
 
-int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *log_msg, int thread_id)
+int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, tsg_log_t *log_msg, int thread_id)
 {
 	int i=0,ret=0,status=0;
 	char *payload=NULL;
 	time_t cur_time;
 	long common_con_duration_ms=0;
-	struct _tld_handle *_handle = (struct _tld_handle *)handle;
-	struct _tsg_log_instance *_instance = (struct _tsg_log_instance *)instance;
+	struct TLD_handle_t *_handle=handle;
+	struct tsg_log_instance_t *_instance=instance;
 		
 	if(_instance==NULL || _handle==NULL || log_msg==NULL)
 	{
+		TLD_cancel(handle);
 		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "TSG_SEND_LOG", " instance==NULL || TLD_handle==NULL || log_msg==NULL ");
 		return -1;
 	}
 
 	if(_instance->mode==CLOSE)
 	{
+		TLD_cancel(handle);
 		MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO, "TSG_SEND_LOG", "Disable tsg_send_log.");
 		return 0;
 	}
@@ -371,24 +383,24 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 	//common_has_dup_traffic
 	//common_stream_error
 	
-	TLD_append_streaminfo(_instance, _handle, log_msg->a_stream);
+	TLD_append_streaminfo(instance, handle, log_msg->a_stream);
 
-	TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
 
 	if(log_msg->a_stream!=NULL && log_msg->a_stream->ptcpdetail!=NULL)
 	{
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);
 		
 		common_con_duration_ms=log_msg->a_stream->ptcpdetail->lastmtime-log_msg->a_stream->ptcpdetail->createtime;
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
 	}
 	else
 	{
 		cur_time=time(NULL);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);		
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);		
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
 	}
 
 #if 0
@@ -431,13 +443,13 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 				break;
 		}
 
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(log_msg->result[i].config_id), TLD_TYPE_LONG);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
-		TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(log_msg->result[i].config_id), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
 
 		if(log_msg->result[i].serv_def_len<128)
 		{
-			TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)(log_msg->result[i].service_defined), TLD_TYPE_STRING);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)(log_msg->result[i].service_defined), TLD_TYPE_STRING);
 		}
 		else
 		{
@@ -445,7 +457,7 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 			ret=Maat_read_rule(g_tsg_maat_feather, &log_msg->result[i], MAAT_RULE_SERV_DEFINE, service_defined, log_msg->result[i].serv_def_len);
 			if(ret==log_msg->result[i].serv_def_len)
 			{
-				TLD_append((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)service_defined, TLD_TYPE_STRING);			
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)service_defined, TLD_TYPE_STRING);			
 			}
 			else
 			{
@@ -481,20 +493,15 @@ int tsg_send_log(tsg_log_instance_t instance, TLD_handle_t handle, tsg_log_t *lo
 		free(payload);
 		payload=NULL;
 
-		TLD_delete((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name);
-		TLD_delete((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
-		TLD_delete((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_ACTION].name);
-		TLD_delete((TLD_handle_t)_handle, _instance->id2field[LOG_COMMON_USER_REGION].name);
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name);
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name);
 
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LOG], 0, FS_OP_ADD, 1);
 	}
 
-
-	cJSON_Delete(_handle->object);
-	_handle->object=NULL;
-	
-	free(handle);
-	handle=NULL;
+	TLD_cancel(handle);
 
 	return 0;
 }
