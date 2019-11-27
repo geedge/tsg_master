@@ -147,7 +147,13 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	struct tsg_log_instance_t *_instance=instance;
 
 	if(_instance==NULL || _handle==NULL || a_stream==NULL)
-	{
+	{		
+		MESA_handle_runtime_log(_instance->logger,
+								((a_stream==NULL) ? RLOG_LV_DEBUG: RLOG_LV_FATAL),
+								"TLD_APPEND_STREAM",
+								"instance==NULL || TLD_handle==NULL || addr: %s", 
+								((a_stream==NULL) ? "NULL": (printaddr(&a_stream->addr, a_stream->threadnum)))
+								);
 		return -1;
 	}
 
