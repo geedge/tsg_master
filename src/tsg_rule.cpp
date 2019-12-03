@@ -372,7 +372,7 @@ struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num)
 
 	for(i=0; i< result_num; i++)
 	{
-		if(result[i].action==TSG_ACTION_DENY)
+		if(result[i].action==TSG_ACTION_DENY || result[i].action==TSG_ACTION_BYPASS)
 		{
 			if(p_result==NULL)
 			{
@@ -381,6 +381,12 @@ struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num)
 			}
 
 			if(result[i].action > p_result->action)
+			{
+				p_result=&result[i];
+				continue;
+			}
+
+			if((result[i].action==p_result->action) && (result[i].config_id > p_result->config_id))
 			{
 				p_result=&result[i];
 			}

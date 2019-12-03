@@ -14,7 +14,7 @@
 
 
 
-char TSG_MASTER_VERSION_20191126=0;
+char TSG_MASTER_VERSION_20191129=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -23,7 +23,8 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_LINKS, "link
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_ADDR, "hit_addr"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_SHARE, "hit_share"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_INTERCEPT, "intercept"},
-										 {TLD_TYPE_UNKNOWN, TSG_FS2_LOG, "log"}
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_LOG, "log"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_DENY, "deny"}
 	};
 static void free_policy_label(int thread_seq, void *project_req_value)
 {
@@ -79,7 +80,7 @@ static int is_ip_policy(Maat_rule_t *p_result, char *protocol, int len, int thre
 	return ret;
 }
 #endif
-static Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result_num)
+static struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result_num)
 {
 	int i=0;
 	Maat_rule_t *p_result=NULL;
@@ -136,8 +137,22 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			{
 				hit_num+=ret;
 				q_result=tsg_policy_decision_criteria(all_result, hit_num);
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);				
+				MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"SCAN_IP",
+										"Hit addr: %s scan ret: %d policy_id: %d service: %d action: %d",
+										printaddr(&a_tcp->addr, thread_seq),
+										ret,
+										q_result->config_id,
+										q_result->service_id,
+										q_result->action);			
 			}
+			else
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_IP", "Not hit %s scan ret: %d",printaddr(&a_tcp->addr, thread_seq), ret);			
+			}
+
 
 			memset(&identify_info, 0, sizeof(identify_info));
 			
@@ -152,24 +167,28 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 										thread_seq);
 			if(ret>0)
 			{
-				hit_num+=ret;
-				identify_flag=1;
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
 				MESA_handle_runtime_log(g_tsg_para.logger,
 											RLOG_LV_DEBUG,
-											"SCAN_IP_AND_FQDN",
-											"Hit %s: %s addr: %s",
+											"SCAN_FQDN",
+											"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
 											(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
 											identify_info.domain,
+											all_result[hit_num].config_id,
+											all_result[hit_num].service_id,
+											all_result[hit_num].action,
 											printaddr(&a_tcp->addr, thread_seq)
 										);
+
+				hit_num+=ret;
+				identify_flag=1;
 				
 			}
 			else
 			{
 				MESA_handle_runtime_log(g_tsg_para.logger,
 											RLOG_LV_DEBUG,
-											"SCAN_IP_AND_FQDN",
+											"SCAN_FQDN",
 											"Not hit %s: %s addr: %s",
 											(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
 											(ret==-1) ? "NULL" : identify_info.domain,
@@ -187,6 +206,9 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 						send_log=1;
 						MESA_kill_tcp(a_tcp, a_packet);
 						state|=APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
+						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
+						MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "DENY", "Hit deny policy, policy_id: %d action: %d addr: %s",
+															p_result[0].config_id, p_result[0].action, printaddr(&a_tcp->addr, thread_seq));
 						break;
 					case	TSG_ACTION_MONITOR:
 						if(q_result!=NULL && (p_result==q_result))

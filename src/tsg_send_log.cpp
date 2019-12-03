@@ -19,7 +19,7 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
-char TSG_SEND_LOG_VERSION_20191121=0;
+char TSG_SEND_LOG_VERSION_20191129=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
 
@@ -135,6 +135,8 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	unsigned short tunnel_type=0;
 	char nest_addr_buf[1024];
 	char *addr_proto=NULL;
+	time_t cur_time;
+	long common_con_duration_ms=0;
 	unsigned long long stream_id=0;
 	unsigned short c_port=0, s_port=0;
 	int tunnel_type_size=sizeof(tunnel_type);
@@ -196,6 +198,22 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->clientbytes, TLD_TYPE_LONG);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->serverpktnum, TLD_TYPE_LONG);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->serverbytes, TLD_TYPE_LONG);
+
+	if(a_stream!=NULL && a_stream->ptcpdetail!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);
+		
+		common_con_duration_ms=(a_stream->ptcpdetail->lastmtime-a_stream->ptcpdetail->createtime)*1000;
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+	}
+	else
+	{
+		cur_time=time(NULL);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);		
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+	}
 
 	stream_id=tsg_get_stream_id(a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_STREAM_TRACE_ID].name, (void *)(long)stream_id, TLD_TYPE_LONG);
@@ -361,8 +379,6 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 {
 	int i=0,ret=0,status=0;
 	char *payload=NULL;
-	time_t cur_time;
-	long common_con_duration_ms=0;
 	struct TLD_handle_t *_handle=handle;
 	struct tsg_log_instance_t *_instance=instance;
 		
@@ -390,24 +406,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	//common_stream_error
 	
 	TLD_append_streaminfo(instance, handle, log_msg->a_stream);
-
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
-
-	if(log_msg->a_stream!=NULL && log_msg->a_stream->ptcpdetail!=NULL)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(log_msg->a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);
-		
-		common_con_duration_ms=log_msg->a_stream->ptcpdetail->lastmtime-log_msg->a_stream->ptcpdetail->createtime;
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
-	}
-	else
-	{
-		cur_time=time(NULL);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
-	}
 
 #if 0
 	struct vxlan_info vinfo;
