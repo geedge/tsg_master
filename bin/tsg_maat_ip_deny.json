@@ -1,0 +1,40 @@
+{
+    "compile_table": "TSG_SECURITY_COMPILE",
+    "group_table": "POLICY_OBJECT",
+    "rules": [
+        {
+            "compile_id": 1,
+            "service": 0,
+            "action": 16,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "effective_rage": 0,
+            "user_region": "anything",
+            "is_valid": "yes",
+            "groups": [
+                {
+                    "group_name": "group_1",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_IP_ADDR",
+                            "table_type": "ip",
+                            "table_content": {
+                                "addr_type": "ipv4",
+                                "src_ip": "117.18.237.29",
+                                "mask_src_ip": "255.255.255.255",
+                                "src_port": "80",
+                                "mask_src_port": "65535",
+                                "dst_ip": "192.168.41.228",
+                                "mask_dst_ip": "255.255.255.255",
+                                "dst_port": "0",
+                                "mask_dst_port": "65535",
+                                "protocol": 6,
+                                "direction": "double"
+                            }
+                        }
+                    ]
+                }
+            ]    
+        }
+    ]
+}
