@@ -14,7 +14,7 @@
 
 
 
-char TSG_MASTER_VERSION_20191129=0;
+char TSG_MASTER_VERSION_20191211=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -150,7 +150,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			}
 			else
 			{
-				MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_IP", "Not hit %s scan ret: %d",printaddr(&a_tcp->addr, thread_seq), ret);			
+				MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_IP", "Not hit %s scan ret: %d",
+printaddr(&a_tcp->addr, thread_seq), ret);			
 			}
 
 
@@ -171,7 +172,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				MESA_handle_runtime_log(g_tsg_para.logger,
 											RLOG_LV_DEBUG,
 											"SCAN_FQDN",
-											"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
+											"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
+
 											(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
 											identify_info.domain,
 											all_result[hit_num].config_id,
@@ -182,16 +184,17 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 
 				hit_num+=ret;
 				identify_flag=1;
-				
 			}
 			else
 			{
 				MESA_handle_runtime_log(g_tsg_para.logger,
 											RLOG_LV_DEBUG,
 											"SCAN_FQDN",
-											"Not hit %s: %s addr: %s",
+											"Not hit %s: %s stream_dir: %d addr: %s",
+
 											(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
 											(ret==-1) ? "NULL" : identify_info.domain,
+											a_tcp->dir,
 											printaddr(&a_tcp->addr, thread_seq)
 										);
 			}
@@ -207,7 +210,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 						MESA_kill_tcp(a_tcp, a_packet);
 						state|=APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
-						MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "DENY", "Hit deny policy, policy_id: %d action: %d addr: %s",
+						MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "DENY", "Hit deny policy, policy_id: %d action: %d addr: %s",
+
 															p_result[0].config_id, p_result[0].action, printaddr(&a_tcp->addr, thread_seq));
 						break;
 					case	TSG_ACTION_MONITOR:
@@ -239,7 +243,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 							MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_ADD", "Add policy_priority_label failed ...");
 						}
 						
-						MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "INTERCEPT", "Hit intercept policy, policy_id: %d action: %d addr: %s",
+						MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "INTERCEPT", "Hit intercept policy, policy_id: %d action: %d addr: %s",
+
 															priority_label->result[0].config_id, priority_label->result[0].action, printaddr(&a_tcp->addr, thread_seq));
 						break;
 					case	TSG_ACTION_NONE:

@@ -40,6 +40,7 @@ typedef	struct _tsg_para
 	int device_id;
 	int ip_addr_table_id;
 	int subscribe_id_table_id;
+	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
 	int fs2_field_id[TSG_FS2_MAX];
 	void *logger;
