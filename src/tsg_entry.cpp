@@ -14,7 +14,7 @@
 
 
 
-char TSG_MASTER_VERSION_20191129=0;
+char TSG_MASTER_VERSION_20191211=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -182,16 +182,16 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 
 				hit_num+=ret;
 				identify_flag=1;
-				
 			}
 			else
 			{
 				MESA_handle_runtime_log(g_tsg_para.logger,
 											RLOG_LV_DEBUG,
 											"SCAN_FQDN",
-											"Not hit %s: %s addr: %s",
+											"Not hit %s: %s stream_dir: %d addr: %s",
 											(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
 											(ret==-1) ? "NULL" : identify_info.domain,
+											a_tcp->dir,
 											printaddr(&a_tcp->addr, thread_seq)
 										);
 			}

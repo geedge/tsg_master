@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <time.h>
+#include <arpa/inet.h>
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
 
@@ -15,8 +16,10 @@
 #include "tsg_entry.h"
 
 Maat_feather_t g_tsg_maat_feather;
+Maat_feather_t g_tsg_dynamic_maat_feather;
 
 #define	MAX_PATH_LEN	1024
+#define	MAX_IPV6_ADDR_LEN	128
 
 #ifndef MIN
 #define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
@@ -31,15 +34,73 @@ enum kni_scan_table{
 const char *g_kni_scan_table_name[SCAN_TABLE_MAX];
 int g_kni_scan_tableid[SCAN_TABLE_MAX] = {0};
 
-int tsg_rule_init(const char* conffile, void *logger)
+void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+{
+	void *logger=argp;
+	
+	*to=calloc(1, strlen((char *)*from)+1);
+	memcpy(*to, *from, strlen((char *)*from));
+	
+	MESA_handle_runtime_log(logger, RLOG_LV_INFO, "SUBSCRIBE_ID", "Dup subscribe_id: %s table_id: %d", (char *)*to, table_id);
+	return;
+}
+
+void subscribe_id_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	void *logger=argp;
+	int ret=0,id=0,type=0,is_valid=0;
+	char subscribe_id[256]={0};
+	char ip_addr[MAX_IPV6_ADDR_LEN]={0};
+	
+	ret=sscanf(table_line, "%d\t%d\t%s\t%s\t%d", &id, &type, ip_addr, subscribe_id, &is_valid);
+	if(ret!=5)
+	{
+		MESA_handle_runtime_log(logger, 
+								RLOG_LV_FATAL,
+								"SUBSCRIBE_ID",
+								"Parse subscribe_id failed, ret: %d table_id: %d key: %s table_line: %s",
+								ret,
+								table_id,
+								key,
+								table_line
+								);
+		return;
+	}
+	
+	*ad=calloc(1, strlen(subscribe_id)+1);
+	
+	memcpy(*ad, subscribe_id, strlen(subscribe_id));
+	MESA_handle_runtime_log(logger, 
+								RLOG_LV_INFO,
+								"SUBSCRIBE_ID",
+								"Add subscribe_id: %s table_id: %d key: %s table_line: %s",
+								*ad,
+								table_id,
+								key,
+								table_line
+								);
+	return;
+}
+
+void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	void *logger=argp;
+	MESA_handle_runtime_log(logger, RLOG_LV_INFO, "SUBSCRIBE_ID", "Delete subscribe_id: %s table_id: %d", (char *)*ad, table_id);
+	free(*ad);
+	*ad=NULL;
+
+	return;
+}
+
+
+static Maat_feather_t init_maat_feather(const char* conffile, char* instance_name, char *module, void *logger)
 {
 	unsigned short redis_port = 0;
 	int ret=0,scan_detail=0,effect_interval=60;
-	const char* instance_name="TSG",*module="MAAT";
+	Maat_feather_t _maat_feather=NULL;
 	int factor=0, redis_port_num=0,redis_index=0;
 	char redis_ip[16]={0}, effective_flag[1024]={0};
 	int maat_mode=0,maat_stat_on=0,maat_perf_on=0,thread_max=0;
-	char ip_addr_table[32]={0},subscriber_id_table[32]={0};
 	char json_cfg_file[MAX_PATH_LEN]={0},maat_stat_file[MAX_PATH_LEN]={0};
 	char table_info[MAX_PATH_LEN]={0},inc_cfg_dir[MAX_PATH_LEN]={0},ful_cfg_dir[MAX_PATH_LEN]={0};
 
@@ -56,7 +117,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	effect_interval*=1000;//convert s to ms
 
 	thread_max=get_thread_count();
-	g_tsg_maat_feather=Maat_feather(thread_max, table_info, logger);
+	_maat_feather=Maat_feather(thread_max, table_info, logger);
 	
 	if(maat_mode==2)
 	{
@@ -67,34 +128,34 @@ int tsg_rule_init(const char* conffile, void *logger)
 		
 		if(strlen(effective_flag)!=0)
 		{
-			Maat_set_feather_opt(g_tsg_maat_feather,MAAT_OPT_ACCEPT_TAGS,effective_flag, strlen(effective_flag)+1);
+			Maat_set_feather_opt(_maat_feather,MAAT_OPT_ACCEPT_TAGS,effective_flag, strlen(effective_flag)+1);
 		}
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_EFFECT_INVERVAL_MS, &effect_interval, sizeof(effect_interval));
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_EFFECT_INVERVAL_MS, &effect_interval, sizeof(effect_interval));
 
 		srand((unsigned int)time(NULL));
 		factor = rand()%redis_port_num;
 		redis_port = redis_port+factor;
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_REDIS_IP, redis_ip, strlen(redis_ip)+1);
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_REDIS_PORT, (void *)&redis_port, sizeof(redis_port));
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_STAT_FILE_PATH, maat_stat_file, strlen(maat_stat_file)+1);
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_STAT_ON, NULL, 0);
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_PERF_ON, NULL, 0);
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_REDIS_INDEX, &redis_index, sizeof(redis_index));
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_SCAN_DETAIL, &scan_detail, sizeof(scan_detail));
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_REDIS_IP, redis_ip, strlen(redis_ip)+1);
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_REDIS_PORT, (void *)&redis_port, sizeof(redis_port));
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_STAT_FILE_PATH, maat_stat_file, strlen(maat_stat_file)+1);
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_STAT_ON, NULL, 0);
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_PERF_ON, NULL, 0);
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_REDIS_INDEX, &redis_index, sizeof(redis_index));
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_SCAN_DETAIL, &scan_detail, sizeof(scan_detail));
 		//Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_DEFERRED_LOAD, NULL,0);
 	}
 	else
 	{
 		if(strlen(effective_flag)!=0)
 		{
-			ret=Maat_set_feather_opt(g_tsg_maat_feather,MAAT_OPT_ACCEPT_TAGS,effective_flag, strlen(effective_flag)+1);
+			ret=Maat_set_feather_opt(_maat_feather,MAAT_OPT_ACCEPT_TAGS,effective_flag, strlen(effective_flag)+1);
 			assert(ret>=0);
 		}
-		Maat_set_feather_opt(g_tsg_maat_feather,MAAT_OPT_INSTANCE_NAME,instance_name, strlen(instance_name)+1);
+		Maat_set_feather_opt(_maat_feather,MAAT_OPT_INSTANCE_NAME,instance_name, strlen(instance_name)+1);
 		if(maat_mode==1)
 		{
 			MESA_load_profile_string_def(conffile,module,"JSON_CFG_FILE",json_cfg_file, sizeof(json_cfg_file),"");
-			Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_JSON_FILE_PATH, json_cfg_file, strlen(json_cfg_file)+1);
+			Maat_set_feather_opt(_maat_feather, MAAT_OPT_JSON_FILE_PATH, json_cfg_file, strlen(json_cfg_file)+1);
 		}
 		else
 		{
@@ -102,32 +163,53 @@ int tsg_rule_init(const char* conffile, void *logger)
 			MESA_load_profile_string_def(conffile,module,"FULL_CFG_DIR",ful_cfg_dir, sizeof(ful_cfg_dir),"");	
 			assert(strlen(inc_cfg_dir)!=0&&strlen(ful_cfg_dir)!=0);
 			
-			Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_FULL_CFG_DIR, ful_cfg_dir, strlen(ful_cfg_dir)+1);
-			Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_INC_CFG_DIR, inc_cfg_dir, strlen(inc_cfg_dir)+1);
+			Maat_set_feather_opt(_maat_feather, MAAT_OPT_FULL_CFG_DIR, ful_cfg_dir, strlen(ful_cfg_dir)+1);
+			Maat_set_feather_opt(_maat_feather, MAAT_OPT_INC_CFG_DIR, inc_cfg_dir, strlen(inc_cfg_dir)+1);
 		}
 		if(maat_stat_on)
 		{
-			Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_STAT_FILE_PATH, maat_stat_file, strlen(maat_stat_file)+1);
-			Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_STAT_ON, NULL, 0);
+			Maat_set_feather_opt(_maat_feather, MAAT_OPT_STAT_FILE_PATH, maat_stat_file, strlen(maat_stat_file)+1);
+			Maat_set_feather_opt(_maat_feather, MAAT_OPT_STAT_ON, NULL, 0);
 			if(maat_perf_on)
 			{
-				Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_PERF_ON, NULL, 0);
+				Maat_set_feather_opt(_maat_feather, MAAT_OPT_PERF_ON, NULL, 0);
 			}
 		}
 
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_EFFECT_INVERVAL_MS, &effect_interval, sizeof(effect_interval));
-		Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_SCAN_DETAIL, &scan_detail, sizeof(scan_detail));
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_EFFECT_INVERVAL_MS, &effect_interval, sizeof(effect_interval));
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_SCAN_DETAIL, &scan_detail, sizeof(scan_detail));
 	}
 	
-	ret=Maat_initiate_feather(g_tsg_maat_feather);
+	ret=Maat_initiate_feather(_maat_feather);
 	if(ret<0)
 	{
-		return -1;
+		return NULL;
 	}
 
-	MESA_load_profile_string_def(conffile, module, "IP_ADDR_TABLE", ip_addr_table, sizeof(ip_addr_table), "TSG_OBJ_IP_ADDR");
-	MESA_load_profile_string_def(conffile, module, "SUBSCRIBER_ID_TABLE", subscriber_id_table, sizeof(subscriber_id_table), "TSG_OBJ_SUBSCRIBER_ID");
+	return _maat_feather;
+}
 
+int tsg_rule_init(const char* conffile, void *logger)
+{
+	int ret=0;
+	char maat_conffile[256]={0};
+	char ip_addr_table[32]={0};
+	char subscriber_id_table[32]={0};
+	char cb_subscriber_ip_table[32]={0};
+	
+	MESA_load_profile_string_def(conffile, "MAAT", "PROFILE", maat_conffile, sizeof(maat_conffile), "./tsgconf/maat_profile.conf");	
+	MESA_load_profile_string_def(conffile, "MAAT", "IP_ADDR_TABLE", ip_addr_table, sizeof(ip_addr_table), "TSG_OBJ_IP_ADDR");
+	MESA_load_profile_string_def(conffile, "MAAT", "SUBSCRIBER_ID_TABLE", subscriber_id_table, sizeof(subscriber_id_table), "TSG_OBJ_SUBSCRIBER_ID");
+
+
+	//init dynamic maat feather
+	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", logger);
+	if(g_tsg_maat_feather==NULL)
+	{
+		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "init_maat_feather failed, instance_name: %s module: %s", "TSG_STATIC", "STATIC"); 
+		return -1;
+	}
+	
 	g_tsg_para.ip_addr_table_id=Maat_table_register(g_tsg_maat_feather, ip_addr_table);
 	if(g_tsg_para.ip_addr_table_id<0)
 	{
@@ -142,6 +224,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 		return -1;
 	}
 
+	// init sni or host share table
 	ret=tsg_shared_table_init(conffile, g_tsg_maat_feather, logger);
 	if(ret<0)
 	{
@@ -149,6 +232,37 @@ int tsg_rule_init(const char* conffile, void *logger)
 		return -1;	
 	}
 	
+
+	//init dynamic maat feather
+	g_tsg_dynamic_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_DYNAMIC", (char *)"DYNAMIC", logger);
+	if(g_tsg_maat_feather==NULL)
+	{
+		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "init_maat_feather failed, instance_name: %s module: %s", "TSG_DYNAMIC", "DYNAMIC"); 
+		return -1;
+	}
+
+	MESA_load_profile_string_def(conffile, "MAAT", "CB_SUBSCRIBER_IP_TABLE", cb_subscriber_ip_table, sizeof(cb_subscriber_ip_table), "TSG_DYN_SUBSCRIBER_IP");
+
+	g_tsg_para.dyn_subscribe_ip_table_id=Maat_table_register(g_tsg_dynamic_maat_feather, cb_subscriber_ip_table);
+	if(g_tsg_para.dyn_subscribe_ip_table_id<0)
+	{
+		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "RULE_INIT", "Maat_table_register %s failed", cb_subscriber_ip_table); 
+		return -1;
+	}
+	ret=Maat_plugin_EX_register(g_tsg_dynamic_maat_feather,
+							g_tsg_para.dyn_subscribe_ip_table_id,
+							subscribe_id_new_data,
+							subscribe_id_free_data,
+							subscribe_id_dup_data,
+							NULL,
+							0,
+							logger);
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "RULE_INIT", "Maat_plugin_EX_register failed, table_name: %s table_id: %d", cb_subscriber_ip_table, g_tsg_para.dyn_subscribe_ip_table_id); 
+		return -1;		
+	}
+
 	return 0;
 }
 
@@ -249,14 +363,53 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 	return 0;
 }
 
+
+int tsg_get_subscribe_id(const struct streaminfo *a_stream, char **source_subscribe_id, char **dest_subscribe_id)
+{
+	char source_ip[MAX_IPV6_ADDR_LEN]={0};
+	char dest_ip[MAX_IPV6_ADDR_LEN]={0};
+	struct stream_tuple4_v4 *v4=NULL;
+	struct stream_tuple4_v6 *v6=NULL;
+	
+	switch(a_stream->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4:
+			v4=a_stream->addr.tuple4_v4;
+			inet_ntop(AF_INET, &(v4->saddr), source_ip, MAX_IPV6_ADDR_LEN);
+			inet_ntop(AF_INET, &(v4->daddr), dest_ip, MAX_IPV6_ADDR_LEN);
+			break;
+		case	ADDR_TYPE_IPV6:
+			v6=a_stream->addr.tuple4_v6;
+			inet_ntop(AF_INET6, v6->saddr, source_ip, MAX_IPV6_ADDR_LEN);
+			inet_ntop(AF_INET6, v6->daddr, dest_ip, MAX_IPV6_ADDR_LEN);
+			break;
+		default:
+			break;
+	}
+
+	if(strlen(dest_ip)>0)
+	{
+		*dest_subscribe_id = (char*)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, dest_ip);
+	}
+
+	if(strlen(source_ip)>0)
+	{
+		*source_subscribe_id = (char*)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, source_ip);
+	}
+
+	return 0;
+}
+
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	struct ipaddr t_addr;
-	struct ipaddr* p_addr = NULL;
-	char subscribe_id[64]={0};
+	struct ipaddr* p_addr=NULL;
 	int hit_num=0,tans_proto=0;
+	char *source_subscribe_id=NULL;
+	char *dest_subscribe_id=NULL;
 	int is_scan_addr=1, maat_ret=0,found_pos=0;
 	const struct streaminfo *cur_stream = a_stream;
+
 
 	if(result == NULL || result_num <= 0 || a_stream == NULL || maat_feather == NULL)
 	{
@@ -322,21 +475,48 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 	}while(cur_stream != NULL && hit_num < result_num);
 
 
-	if(hit_num<result_num && subscribe_id!=NULL && strlen(subscribe_id)>0)
+	if(hit_num<result_num)
 	{
-		maat_ret=Maat_full_scan_string(maat_feather,
+		tsg_get_subscribe_id(a_stream, &source_subscribe_id, &dest_subscribe_id);
+		
+		if(source_subscribe_id!=NULL)
+		{
+			maat_ret=Maat_full_scan_string(maat_feather,
 										g_tsg_para.subscribe_id_table_id,
 										CHARSET_GBK,
-										subscribe_id,
-										strlen(subscribe_id),
+										source_subscribe_id,
+										strlen(source_subscribe_id),
 										result+hit_num,
 										&found_pos,
 										result_num-hit_num,
 										mid,
 										a_stream->threadnum);
-		if(maat_ret > 0)
+			if(maat_ret > 0)
+			{
+				hit_num+=maat_ret;
+			}
+			
+			subscribe_id_free_data(g_tsg_para.dyn_subscribe_ip_table_id,(MAAT_PLUGIN_EX_DATA *)&source_subscribe_id, 0, g_tsg_para.logger);
+		}
+		
+		if(dest_subscribe_id!=NULL)
 		{
-			hit_num+=maat_ret;
+			maat_ret=Maat_full_scan_string(maat_feather,
+										g_tsg_para.subscribe_id_table_id,
+										CHARSET_GBK,
+										dest_subscribe_id,
+										strlen(dest_subscribe_id),
+										result+hit_num,
+										&found_pos,
+										result_num-hit_num,
+										mid,
+										a_stream->threadnum);
+			if(maat_ret > 0)
+			{
+				hit_num+=maat_ret;
+			}
+			
+			subscribe_id_free_data(g_tsg_para.dyn_subscribe_ip_table_id,(MAAT_PLUGIN_EX_DATA *)&dest_subscribe_id, 0, g_tsg_para.logger);
 		}
 	}
 
