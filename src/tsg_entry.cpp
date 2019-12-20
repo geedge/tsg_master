@@ -14,7 +14,7 @@
 
 
 
-char TSG_MASTER_VERSION_20191211=0;
+char TSG_MASTER_VERSION_20191220=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -360,6 +360,13 @@ extern "C" int TSG_MASTER_INIT()
 
 	
 	FS_start(g_tsg_para.fs2_handle);
+
+	ret=tsg_statistic_init(tsg_conffile, g_tsg_para.logger);
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_STATISTIC", "tsg_statistic_init failed ...");
+		return -1;
+	}
 	
 	return 0;
 }

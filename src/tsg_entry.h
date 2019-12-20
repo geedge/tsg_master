@@ -11,6 +11,7 @@
 #define	TSG_ACTION_DENY			0x10
 #define	TSG_ACTION_MANIPULATE	0x30
 #define	TSG_ACTION_BYPASS		0x80
+#define	TSG_ACTION_MAX			0x80
 
 
 enum TSG_FS2_TYPE{
@@ -23,6 +24,14 @@ enum TSG_FS2_TYPE{
 	TSG_FS2_DENY,
 	TSG_FS2_MAX
 };
+
+struct _str2index
+{
+	int index;
+	int len;
+	char *type;
+};
+
 
 typedef	struct _policy_priority_label
 {
@@ -49,5 +58,74 @@ typedef	struct _tsg_para
 
 extern g_tsg_para_t g_tsg_para;
 
+
+
+typedef enum _tsg_statis_field_id
+{
+	STATIS_UNKNOWN=0,
+	STATIS_ENTRANCE_ID=1,
+	STATIS_TOTAL_CON_NUM,
+	STATIS_NEW_CON_NUM,
+	STATIS_LIVE_CON_NUM,
+	STATIS_CLOSE_CON_NUM,
+	STATIS_TOTAL_IN_BYTES,
+	STATIS_TOTAL_OUT_BYTES,
+	STATIS_TOTAL_IN_PACKETS,
+	STATIS_TOTAL_OUT_PACKETS,
+	STATIS_DEFAULT_CON_NUM,
+	STATIS_DEFAULT_IN_BYTES,
+	STATIS_DEFAULT_OUT_BYTES,
+	STATIS_DEFAULT_IN_PACKETS,
+	STATIS_DEFAULT_OUT_PACKETS,
+	STATIS_ALLOW_CON_NUM,
+	STATIS_ALLOW_IN_BYTES,
+	STATIS_ALLOW_OUT_BYTES,
+	STATIS_ALLOW_IN_PACKETS,
+	STATIS_ALLOW_OUT_PACKETS,
+	STATIS_DENY_CON_NUM,
+	STATIS_DENY_IN_BYTES,
+	STATIS_DENY_OUT_BYTES,
+	STATIS_DENY_IN_PACKETS,
+	STATIS_DENY_OUT_PACKETS,
+	STATIS_MONITOR_CON_NUM,
+	STATIS_MONITOR_IN_BYTES,
+	STATIS_MONITOR_OUT_BYTES,
+	STATIS_MONITOR_IN_PACKETS,
+	STATIS_MONITOR_OUT_PACKETS,
+	STATIS_INTERCEPT_CON_NUM,
+	STATIS_INTERCEPT_IN_BYTES,
+	STATIS_INTERCEPT_OUT_BYTES,
+	STATIS_INTERCEPT_IN_PACKETS,
+	STATIS_INTERCEPT_OUT_PACKETS,
+	STATIS_MAX
+}tsg_statis_field_id_t;
+
+enum TRAFFIC_INFO_IDX
+{
+	TRAFFIC_INFO_ALLOW=0,
+	TRAFFIC_INFO_DENY,
+	TRAFFIC_INFO_MONITOR,
+	TRAFFIC_INFO_INTERCEPT,
+	TRAFFIC_INFO_MAX
+};
+
+struct _traffic_info
+{
+	long long con_num;
+	long long in_bytes;
+	long long out_bytes;
+	long long in_packets;
+	long long out_packets;
+};
+
+typedef	struct _tsg_statistic
+{
+	int cycle;
+	int fs_field_id[STATIS_MAX];
+	struct _traffic_info *traffic_info[TSG_ACTION_MAX];
+	screen_stat_handle_t fs2_handle;
+}tsg_statis_para_t;
+
+int tsg_statistic_init(const char *conffile, void *logger);
 
 #endif

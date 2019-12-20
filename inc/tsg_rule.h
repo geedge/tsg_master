@@ -3,6 +3,17 @@
 
 #include <MESA/Maat_rule.h>
 
+enum TSG_ETHOD_TYPE
+{
+	TSG_METHOD_TYPE_UNKNOWN=0,
+	TSG_METHOD_TYPE_DROP,
+	TSG_METHOD_TYPE_REDIRECTION,
+	TSG_METHOD_TYPE_BLOCK,
+	TSG_METHOD_TYPE_RESET,
+	TSG_METHOD_TYPE_MAX
+};
+
+
 typedef enum _tsg_protocol
 {
    PROTO_UNKONWN=0,
@@ -57,5 +68,7 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, 
 
 //return NULL if none exists, otherwise return one deny rule;
 struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);
+
+int tsg_get_method_id(char *method);
 
 #endif

@@ -238,7 +238,7 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	return 0;
 }
 
-static int load_log_common_field(const char *filename, id2field_t *id2field, id2field_t *service2topic)
+int load_log_common_field(const char *filename, id2field_t *id2field, id2field_t *service2topic)
 {
 	int i=0;
 	int ret=0,id=0;
@@ -312,10 +312,6 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	struct tsg_log_instance_t *_instance=NULL;
 	
 	_instance=(struct tsg_log_instance_t *)calloc(1, sizeof(struct tsg_log_instance_t));
-	
-	MESA_load_profile_int_def(conffile, "TSG_LOG", "MODE",&(_instance->mode), 0);	
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "COMMON_FIELD_FILE", _instance->common_field_file, sizeof(_instance->common_field_file), NULL);
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "BROKER_LIST", _instance->broker_list, sizeof(_instance->broker_list), NULL);
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(level), 30);	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", log_path, sizeof(log_path), NULL);
@@ -326,6 +322,15 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 		printf("MESA_create_runtime_log_handle failed ..., path: %s level: %d", log_path, level);
 		return NULL;
 	}
+	
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "MODE",&(_instance->mode), 0);
+	if(_instance->mode==CLOSE)
+	{
+		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "TSG_LOG", "Disable tsg_send_log");
+		return _instance;
+	}
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "COMMON_FIELD_FILE", _instance->common_field_file, sizeof(_instance->common_field_file), NULL);
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "BROKER_LIST", _instance->broker_list, sizeof(_instance->broker_list), NULL);
 
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "NIC_NAME", nic_name, sizeof(nic_name), "eth0");	
 	ret=MESA_get_dev_ipv4(nic_name, (int *)&local_ip_nr);

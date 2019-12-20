@@ -34,6 +34,15 @@ enum kni_scan_table{
 const char *g_kni_scan_table_name[SCAN_TABLE_MAX];
 int g_kni_scan_tableid[SCAN_TABLE_MAX] = {0};
 
+
+const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNKNOWN, 7, (char *)"unknown"},
+													{TSG_METHOD_TYPE_DROP, 4, (char *)"drop"},
+													{TSG_METHOD_TYPE_REDIRECTION, 8, (char *)"redirect"},
+													{TSG_METHOD_TYPE_BLOCK, 5, (char *)"block"},
+													{TSG_METHOD_TYPE_BLOCK, 5, (char *)"rst"}
+	};
+
+
 void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
 	void *logger=argp;
@@ -574,5 +583,20 @@ struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num)
 	}
 
 	return p_result;
+}
+
+int tsg_get_method_id(char *method)
+{
+	int i=0;
+
+	for(i=0; i<TSG_METHOD_TYPE_MAX; i++)
+	{
+		if(method2index[i].len==(int)strlen(method) && (strncasecmp(method2index[i].type, method, method2index[i].len))==0)
+		{
+			return method2index[i].index;
+		}
+	}
+
+	return -1;
 }
 
