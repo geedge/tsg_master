@@ -39,7 +39,7 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
 													{TSG_METHOD_TYPE_DROP, 4, (char *)"drop"},
 													{TSG_METHOD_TYPE_REDIRECTION, 8, (char *)"redirect"},
 													{TSG_METHOD_TYPE_BLOCK, 5, (char *)"block"},
-													{TSG_METHOD_TYPE_BLOCK, 5, (char *)"rst"}
+													{TSG_METHOD_TYPE_RESET, 3, (char *)"rst"}
 	};
 
 

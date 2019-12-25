@@ -12,9 +12,29 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#define GIT_VERSION_CATTER(v) __attribute__((__used__)) const char * GIT_VERSION_##v = NULL
+#define GIT_VERSION_EXPEND(v) GIT_VERSION_CATTER(v)
+
+/* VERSION TAG */
+#ifdef GIT_VERSION
+GIT_VERSION_EXPEND(GIT_VERSION);
+#else
+static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
+#endif
+#undef GIT_VERSION_CATTER
+#undef GIT_VERSION_EXPEND
+
+#ifdef __cplusplus
+}
+#endif
 
 
-char TSG_MASTER_VERSION_20191220=0;
+char TSG_MASTER_VERSION_20191224=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
