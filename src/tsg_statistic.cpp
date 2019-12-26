@@ -26,7 +26,7 @@ int tsg_set_policy_flow(struct streaminfo *a_stream, Maat_rule_t *p_result, int 
 		return -1;
 	}
 	
-	traffic_info=&g_tsg_statis_para.traffic_info[thread_seq][(int)p_result->action];
+	traffic_info=&(g_tsg_statis_para.traffic_info[(int)p_result->action][thread_seq]);
 
 	traffic_info->con_num++;
 	traffic_info->in_bytes+=a_stream->ptcpdetail->clientbytes;	
@@ -204,6 +204,12 @@ int tsg_statistic_init(const char *conffile, void *logger)
 
 	memset(&g_tsg_statis_para, 0, sizeof(g_tsg_statis_para));
 
+	thread_num=get_thread_count();
+	for(i=0; i<TSG_ACTION_MAX; i++)
+	{
+		g_tsg_statis_para.traffic_info[i]=(struct _traffic_info *)calloc(1, sizeof(struct _traffic_info)*thread_num);
+	}
+	
 	MESA_load_profile_int_def(conffile, "STATISTIC", "CYCLE", &g_tsg_statis_para.cycle, 30);
 	if(g_tsg_statis_para.cycle<=0)
 	{
@@ -211,14 +217,6 @@ int tsg_statistic_init(const char *conffile, void *logger)
 		return 0;
 	}
 
-
-	thread_num=get_thread_count();
-	for(i=0; i<TSG_ACTION_MAX; i++)
-	{
-		g_tsg_statis_para.traffic_info[i]=(struct _traffic_info *)calloc(1, sizeof(struct _traffic_info)*thread_num);
-	}
-
-	MESA_load_profile_int_def(conffile, "STATISTIC", "CYCLE", &g_tsg_statis_para.cycle, 30);
 	MESA_load_profile_short_nodef(conffile, "STATISTIC", "TELEGRAF_PORT", (short *)&(fs_server_port));
 	MESA_load_profile_string_nodef(conffile,"STATISTIC", "TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
 	MESA_load_profile_string_def(conffile,"STATISTIC", "OUTPUT_PATH",fs_output_path, sizeof(fs_output_path), "statistic.log");
