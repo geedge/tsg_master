@@ -14,6 +14,8 @@ tsg_statis_para_t g_tsg_statis_para;
 
 int tsg_set_policy_flow(struct streaminfo *a_stream, Maat_rule_t *p_result, int thread_seq)
 {
+	unsigned long long value=0;
+	int value_len=sizeof(unsigned long long);
 	struct _traffic_info *traffic_info=NULL;
 
 	if(g_tsg_statis_para.cycle<=0)
@@ -26,15 +28,39 @@ int tsg_set_policy_flow(struct streaminfo *a_stream, Maat_rule_t *p_result, int 
 		return -1;
 	}
 	
-	traffic_info=&(g_tsg_statis_para.traffic_info[(int)p_result->action][thread_seq]);
+	traffic_info=&(g_tsg_statis_para.traffic_info[(unsigned char)p_result->action][thread_seq]);
 
 	traffic_info->con_num++;
-	traffic_info->in_bytes+=a_stream->ptcpdetail->clientbytes;	
-	traffic_info->in_packets+=a_stream->ptcpdetail->clientpktnum;
+
+	value=0;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_BYTE, (void *)&value, &value_len);
+	traffic_info->in_bytes+=value;
+
+	value=0;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_PKT, (void *)&value, &value_len);
+	traffic_info->in_packets+=value;
+
+	value=0;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_BYTE, (void *)&value, &value_len);	
+	traffic_info->out_bytes+=value;
 	
-	traffic_info->out_bytes+=a_stream->ptcpdetail->serverbytes;
-	traffic_info->out_packets+=a_stream->ptcpdetail->serverpktnum;
+	value=0;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_PKT, (void *)&value, &value_len);
+	traffic_info->out_packets+=value;
 	
+	return 0;
+}
+
+static int _get_traffic_info(struct _traffic_info *total, struct _traffic_info *policy, struct _traffic_info *out)
+{
+	if(total!=NULL && policy!=NULL && out!=NULL)
+	{
+		out->con_num=total->con_num-policy->con_num;
+		out->in_bytes=total->in_bytes-policy->in_bytes;
+		out->in_packets=total->in_packets-policy->in_packets;
+		out->out_bytes=total->out_bytes-policy->out_bytes;
+		out->out_packets=total->out_packets-policy->out_packets;
+	}
 	return 0;
 }
 
@@ -129,24 +155,24 @@ static int _set_traffic_info(struct _traffic_info *from, struct _traffic_info *t
 			break;
 	}
 
-	FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_field_id[con_num_id], 0, FS_OP_SET, con_num_sum);
-	FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_field_id[in_bytes_id], 0, FS_OP_SET, in_bytes_sum);
-	FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_field_id[in_packets_id], 0, FS_OP_SET, in_packets_sum);
-	FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_field_id[out_bytes_id], 0, FS_OP_SET, out_bytes_sum);
-	FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_field_id[out_packets_id], 0, FS_OP_SET, out_packets_sum);
+	FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[con_num_id], FS_OP_SET, con_num_sum);
+	FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[in_bytes_id], FS_OP_SET, in_bytes_sum);
+	FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[in_packets_id], FS_OP_SET, in_packets_sum);
+	FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[out_bytes_id], FS_OP_SET, out_bytes_sum);
+	FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[out_packets_id], FS_OP_SET, out_packets_sum);
 
 	return 0;
 }
 static void *tsg_statistic_thread(void *arg)
 {
 	long long value=0;
-	int value_len=sizeof(value);
+	int value_len=sizeof(long long);
 	int thread_num=get_thread_count();
 	struct _traffic_info policy_traffic_info;
 	struct _traffic_info total_traffic_info;
 	struct _traffic_info default_traffic_info;
 
-	FS_start(g_tsg_para.fs2_handle);
+	FS_start(g_tsg_statis_para.fs2_handle);
 
 	while(1)
 	{
@@ -155,38 +181,42 @@ static void *tsg_statistic_thread(void *arg)
 		memset(&default_traffic_info, 0, sizeof(default_traffic_info));
 
 		value=0;
-		value_len=sizeof(value);		
 		sapp_get_platform_opt(SPO_TCP_STREAM_NEW, (void *)&value, &value_len);
-		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_field_id[STATIS_NEW_CON_NUM], 0, FS_OP_SET, value);
 		total_traffic_info.con_num+=value;
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_NEW_CON_NUM], FS_OP_SET, value);
 		
 		value=0;
-		value_len=sizeof(value);
-		sapp_get_platform_opt(SPO_TCP_STREAM_LIVE, (void *)&value, &value_len);
-		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_field_id[STATIS_LIVE_CON_NUM], 0, FS_OP_SET, value);
+		sapp_get_platform_opt(SPO_TCP_STREAM_ESTAB, (void *)&value, &value_len);
 		total_traffic_info.con_num+=value;
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_ESTABLISHED_CON_NUM], FS_OP_SET, value);
 		
 		value=0;
-		value_len=sizeof(value);
 		sapp_get_platform_opt(SPO_TCP_STREAM_CLOSE, (void *)&value, &value_len);
-		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_field_id[STATIS_CLOSE_CON_NUM], 0, FS_OP_SET, value);
 		total_traffic_info.con_num+=value;
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_CLOSE_CON_NUM], FS_OP_SET, value);
+
+		value_len=sizeof(total_traffic_info.in_bytes);
+		sapp_get_platform_opt(SPO_TOTAL_INBOUND_BYTE, (void *)&total_traffic_info.in_bytes, &value_len);
+		value_len=sizeof(total_traffic_info.in_packets);
+		sapp_get_platform_opt(SPO_TOTAL_INBOUND_PKT, (void *)&total_traffic_info.in_packets, &value_len);
 
 		value_len=sizeof(total_traffic_info.out_bytes);
-		sapp_get_platform_opt(SPO_TOTAL_EGRESS_BYTE, (void *)&total_traffic_info.out_bytes, &value_len);
-
-		value_len=sizeof(total_traffic_info.out_bytes);
-		sapp_get_platform_opt(SPO_TOTAL_EGRESS_BYTE, (void *)&total_traffic_info.out_bytes, &value_len);
+		sapp_get_platform_opt(SPO_TOTAL_OUTBOUND_BYTE, (void *)&total_traffic_info.out_bytes, &value_len);
+		value_len=sizeof(total_traffic_info.out_packets);
+		sapp_get_platform_opt(SPO_TOTAL_OUTBOUND_PKT, (void *)&total_traffic_info.out_packets, &value_len);
 		
 		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_BYPASS], &policy_traffic_info, TSG_ACTION_BYPASS, thread_num);
 		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_DENY], &policy_traffic_info, TSG_ACTION_DENY, thread_num);
 		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_MONITOR], &policy_traffic_info, TSG_ACTION_MONITOR, thread_num);
 		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_INTERCEPT], &policy_traffic_info, TSG_ACTION_INTERCEPT, thread_num);
 
-	
 		_set_traffic_info(&total_traffic_info, NULL, -1, 0);
+		
+		_get_traffic_info(&total_traffic_info, &policy_traffic_info, &default_traffic_info);
 		_set_traffic_info(&default_traffic_info, NULL, TSG_ACTION_NONE, 0);
 
+		FS_passive_output(g_tsg_statis_para.fs2_handle);
+		
 		sleep(g_tsg_statis_para.cycle);
 	}
 
@@ -205,7 +235,7 @@ int tsg_statistic_init(const char *conffile, void *logger)
 	memset(&g_tsg_statis_para, 0, sizeof(g_tsg_statis_para));
 
 	thread_num=get_thread_count();
-	for(i=0; i<TSG_ACTION_MAX; i++)
+	for(i=0; i<TSG_ACTION_MAX+1; i++)
 	{
 		g_tsg_statis_para.traffic_info[i]=(struct _traffic_info *)calloc(1, sizeof(struct _traffic_info)*thread_num);
 	}
@@ -226,10 +256,10 @@ int tsg_statistic_init(const char *conffile, void *logger)
 
 	value=1;//Rewrite
 	FS_set_para(g_tsg_statis_para.fs2_handle, PRINT_MODE, &value, sizeof(value));
-	value=1;//Do not create stat thread
+	value=0;//Do not create stat thread
 	FS_set_para(g_tsg_statis_para.fs2_handle, CREATE_THREAD, &value, sizeof(value));
-	
-    FS_set_para(g_tsg_statis_para.fs2_handle, STAT_CYCLE, &g_tsg_statis_para.cycle, sizeof(g_tsg_statis_para.cycle));
+
+	FS_set_para(g_tsg_statis_para.fs2_handle, STAT_CYCLE, &g_tsg_statis_para.cycle, sizeof(g_tsg_statis_para.cycle));
     FS_set_para(g_tsg_statis_para.fs2_handle, APP_NAME, app_name, strlen(app_name)+1);
 	FS_set_para(g_tsg_statis_para.fs2_handle, OUTPUT_DEVICE, fs_output_path, strlen(fs_output_path)+1);
 
@@ -239,45 +269,49 @@ int tsg_statistic_init(const char *conffile, void *logger)
         FS_set_para(g_tsg_statis_para.fs2_handle, STATS_SERVER_PORT,&(fs_server_port), sizeof(fs_server_port));
     }
 
-	g_tsg_statis_para.fs_field_id[STATIS_ENTRANCE_ID]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"entrance_id");
-	g_tsg_statis_para.fs_field_id[STATIS_TOTAL_CON_NUM]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"total_conn_num");
-	g_tsg_statis_para.fs_field_id[STATIS_NEW_CON_NUM]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"new_conn_num");
-	g_tsg_statis_para.fs_field_id[STATIS_LIVE_CON_NUM]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"live_conn_num");
-	g_tsg_statis_para.fs_field_id[STATIS_CLOSE_CON_NUM]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"close_conn_num");
-	g_tsg_statis_para.fs_field_id[STATIS_TOTAL_IN_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"total_in_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_TOTAL_OUT_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"total_out_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_TOTAL_IN_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"total_in_packets");
-	g_tsg_statis_para.fs_field_id[STATIS_TOTAL_OUT_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"total_out_packets");
+	value=FS_OUTPUT_INFLUX_LINE;
+	FS_set_para(g_tsg_statis_para.fs2_handle, STATS_FORMAT, &value, sizeof(value));
 
-	g_tsg_statis_para.fs_field_id[STATIS_DEFAULT_CON_NUM]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"default_conn_num");
-	g_tsg_statis_para.fs_field_id[STATIS_DEFAULT_IN_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"default_in_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_DEFAULT_OUT_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"default_out_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_DEFAULT_IN_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"default_in_packets");
-	g_tsg_statis_para.fs_field_id[STATIS_DEFAULT_OUT_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"default_out_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_NEW_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"new_conn_num");
+	g_tsg_statis_para.fs_field_id[STATIS_ESTABLISHED_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_CURRENT, (char *)"established_conn_num");
+	g_tsg_statis_para.fs_field_id[STATIS_CLOSE_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"close_conn_num");
+	g_tsg_statis_para.fs_field_id[STATIS_TOTAL_IN_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"total_in_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_TOTAL_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"total_out_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_TOTAL_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"total_in_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_TOTAL_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"total_out_packets");
 
-	g_tsg_statis_para.fs_field_id[STATIS_ALLOW_CON_NUM]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"allow_conn_num");
-	g_tsg_statis_para.fs_field_id[STATIS_ALLOW_IN_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"allow_in_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_ALLOW_OUT_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"allow_out_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_ALLOW_IN_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"allow_in_packets");
-	g_tsg_statis_para.fs_field_id[STATIS_ALLOW_OUT_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"allow_out_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_DEFAULT_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"default_conn_num");
+	g_tsg_statis_para.fs_field_id[STATIS_DEFAULT_IN_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"default_in_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_DEFAULT_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"default_out_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_DEFAULT_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"default_in_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_DEFAULT_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"default_out_packets");
 
-	g_tsg_statis_para.fs_field_id[STATIS_DENY_CON_NUM]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"deny_conn_num");
-	g_tsg_statis_para.fs_field_id[STATIS_DENY_IN_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"deny_in_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_DENY_OUT_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"deny_out_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_DENY_IN_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"deny_in_packets");
-	g_tsg_statis_para.fs_field_id[STATIS_DENY_OUT_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"deny_out_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_ALLOW_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"allow_conn_num");
+	g_tsg_statis_para.fs_field_id[STATIS_ALLOW_IN_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"allow_in_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_ALLOW_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"allow_out_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_ALLOW_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"allow_in_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_ALLOW_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"allow_out_packets");
 
-	g_tsg_statis_para.fs_field_id[STATIS_MONITOR_CON_NUM]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"monitor_conn_num");
-	g_tsg_statis_para.fs_field_id[STATIS_MONITOR_IN_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"monitor_in_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_MONITOR_OUT_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"monitor_out_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_MONITOR_IN_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"monitor_in_packets");
-	g_tsg_statis_para.fs_field_id[STATIS_MONITOR_OUT_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"monitor_out_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_DENY_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"deny_conn_num");
+	g_tsg_statis_para.fs_field_id[STATIS_DENY_IN_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"deny_in_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_DENY_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"deny_out_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_DENY_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"deny_in_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_DENY_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"deny_out_packets");
 
-	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_CON_NUM]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"intercept_conn_num");
-	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_IN_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"intercept_in_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_OUT_BYTES]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"intercept_out_bytes");
-	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_IN_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"intercept_in_packets");
-	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_OUT_PACKETS]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, (char *)"intercept_out_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_MONITOR_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"monitor_conn_num");
+	g_tsg_statis_para.fs_field_id[STATIS_MONITOR_IN_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"monitor_in_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_MONITOR_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"monitor_out_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_MONITOR_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"monitor_in_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_MONITOR_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"monitor_out_packets");
+
+	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"intercept_conn_num");
+	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_IN_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"intercept_in_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"intercept_out_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"intercept_in_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"intercept_out_packets");
+
+
+	g_tsg_statis_para.fs_line_id=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_LINE, FS_CALC_CURRENT, (const char *)"TRAFFIC");
 
 	pthread_t stat_thread_t;
 	pthread_create(&stat_thread_t, NULL, tsg_statistic_thread, NULL);

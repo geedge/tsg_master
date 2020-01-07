@@ -5,15 +5,6 @@
 #include <MESA/field_stat2.h>
 #include "tsg_rule.h"
 
-#define	TSG_ACTION_NONE			0x00
-#define	TSG_ACTION_MONITOR		0x01
-#define	TSG_ACTION_INTERCEPT	0x02
-#define	TSG_ACTION_DENY			0x10
-#define	TSG_ACTION_MANIPULATE	0x30
-#define	TSG_ACTION_BYPASS		0x80
-#define	TSG_ACTION_MAX			0x80
-
-
 enum TSG_FS2_TYPE{
 	TSG_FS2_LINKS=0,
 	TSG_FS2_BYPASS,
@@ -43,6 +34,11 @@ typedef	struct _policy_priority_label
 	Maat_rule_t result[MAX_RESULT_NUM];
 }policy_priority_label_t;
 
+struct _master_context
+{
+	int hit_cnt;
+	struct Maat_rule_t *result;
+};
 
 typedef	struct _tsg_para
 {
@@ -66,7 +62,7 @@ typedef enum _tsg_statis_field_id
 	STATIS_ENTRANCE_ID=1,
 	STATIS_TOTAL_CON_NUM,
 	STATIS_NEW_CON_NUM,
-	STATIS_LIVE_CON_NUM,
+	STATIS_ESTABLISHED_CON_NUM,
 	STATIS_CLOSE_CON_NUM,
 	STATIS_TOTAL_IN_BYTES,
 	STATIS_TOTAL_OUT_BYTES,
@@ -121,8 +117,9 @@ struct _traffic_info
 typedef	struct _tsg_statistic
 {
 	int cycle;
+	int fs_line_id;
 	int fs_field_id[STATIS_MAX];
-	struct _traffic_info *traffic_info[TSG_ACTION_MAX];
+	struct _traffic_info *traffic_info[TSG_ACTION_MAX+1];
 	screen_stat_handle_t fs2_handle;
 }tsg_statis_para_t;
 

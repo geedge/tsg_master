@@ -10,6 +10,7 @@
 #include "tsg_rule.h"
 #include "tsg_entry.h"
 #include "tsg_send_log.h"
+#include "tsg_statistic.h"
 #include "tsg_send_log_internal.h"
 
 #ifdef __cplusplus
@@ -52,54 +53,32 @@ static void free_policy_label(int thread_seq, void *project_req_value)
 	project_req_value=NULL;
 }
 
-#if 0
-static int is_ip_policy(Maat_rule_t *p_result, char *protocol, int len, int thread_seq)
+static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_result, int result_num, struct _identify_info *identify_info, int thread_seq)
 {
-	int ret=0;
-	cJSON *item=NULL;
-	char *service_defined=NULL;
-	cJSON *user_define_object=NULL;	
+	tsg_log_t log_msg;	
+	char *domain_field_name=NULL;
+	char *schema_field_name=NULL;
+	struct TLD_handle_t *TLD_handle=NULL;
 
-	if(p_result->serv_def_len>MAX_SERVICE_DEFINE_LEN)
+	TLD_handle=TLD_create(thread_seq);
+	if(identify_info!=NULL)
 	{
-		service_defined=dictator_malloc(thread_seq, p_result->serv_def_len+1);
-		ret=Maat_read_rule(g_tsg_maat_feather, p_result, MAAT_RULE_SERV_DEFINE, service_defined, p_result->serv_def_len+1);
-		assert(ret==p_result->serv_def_len+1);
+		schema_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_SCHAME_TYPE);
+		TLD_append(TLD_handle, schema_field_name, (void *)((identify_info->proto==PROTO_HTTP) ? "HTTP" : "SSL"), TLD_TYPE_STRING);
 		
-		user_define_object=cJSON_Parse(service_defined);
-	}
-	else
-	{
-		user_define_object=cJSON_Parse(p_result->service_defined);
-	}
-
-	if(user_define_object!=NULL)
-	{
-		item=cJSON_GetObjectItem(user_define_object, "protocol");
-		if(item!=NULL && item->valuestring!=NULL)
-		{
-			memcpy(protocol, item->valuestring, (len>strlen(item->valuestring)) ? strlen(item->valuestring): len);
-		}
-		
-		item=cJSON_GetObjectItem(user_define_object, "method");
-		if((item==NULL) || ((strncasecmp(item->valuestring, "http", strlen(item->valuestring)))!=0 && (strncasecmp(item->valuestring, "ssl", strlen(item->valuestring)))!=0))
-		{
-			ret=1;
-		}
-
-		cJSON_Delete(user_define_object);
-		user_define_object=NULL;
-	}
-
-	if(service_defined!=NULL)
-	{
-		dictator_free(thread_seq, service_defined);
-		service_defined=NULL;
+		domain_field_name=log_field_id2name(g_tsg_log_instance, ((identify_info->proto==PROTO_HTTP) ? LOG_HTTP_HOST : LOG_SSL_SNI));
+		TLD_append(TLD_handle, domain_field_name, (void *)identify_info->domain, TLD_TYPE_STRING);
 	}
 	
-	return ret;
+	log_msg.a_stream=a_stream;
+	log_msg.result=p_result;
+	log_msg.result_num=result_num;
+	tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);
+	tsg_set_policy_flow(a_stream, p_result, thread_seq);
+	
+	return 1;
 }
-#endif
+
 static struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result_num)
 {
 	int i=0;
@@ -133,19 +112,16 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int
 
 extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
-	int send_log=0,identify_flag=0;
+	int identify_flag=0;
 	int ret=0,hit_num=0;
 	int state=APP_STATE_DROPME;
 	scan_status_t mid=NULL;
-	char *domain_field_name=NULL;
-	char *schema_field_name=NULL;
 	Maat_rule_t *p_result=NULL;
 	Maat_rule_t *q_result=NULL;
-	tsg_log_t log_msg;
-	struct TLD_handle_t *TLD_handle=NULL;
 	struct _identify_info identify_info;
 	Maat_rule_t all_result[MAX_RESULT_NUM];
 	policy_priority_label_t *priority_label=NULL;
+	struct _master_context *_context=(struct _master_context *)*pme;
 	
 	switch(a_tcp->opstate)
 	{
@@ -226,27 +202,41 @@ printaddr(&a_tcp->addr, thread_seq), ret);
 				switch((unsigned char)p_result->action)
 				{
 					case	TSG_ACTION_DENY:
-						send_log=1;
 						MESA_kill_tcp(a_tcp, a_packet);
-						state|=APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
 						MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "DENY", "Hit deny policy, policy_id: %d action: %d addr: %s",
-
 															p_result[0].config_id, p_result[0].action, printaddr(&a_tcp->addr, thread_seq));
+
+						master_send_log(a_tcp, p_result, 1, ((identify_flag==1) ? &identify_info : NULL), thread_seq);
+						state|=APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
 						break;
 					case	TSG_ACTION_MONITOR:
 						if(q_result!=NULL && (p_result==q_result))
 						{
-							send_log=1;
+							*pme=dictator_malloc(thread_seq, sizeof(struct _master_context));
+							_context=(struct _master_context *)*pme;
+							_context->hit_cnt=1;
+							_context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
+							memcpy(_context->result, p_result, sizeof(struct Maat_rule_t));
+
+							state=APP_STATE_GIVEME;
 						}
 						break;
 					case	TSG_ACTION_BYPASS:
-						send_log=1;
-						state|=APP_STATE_KILL_OTHER; //TODO
+						*pme=dictator_malloc(thread_seq, sizeof(struct _master_context));
+						_context=(struct _master_context *)*pme;
+						_context->hit_cnt=1;
+						_context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
+						memcpy(_context->result, p_result, sizeof(struct Maat_rule_t));
+							
+						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 						break;
 					case	TSG_ACTION_INTERCEPT:
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
+
+						tsg_set_policy_flow(a_tcp, p_result, thread_seq);
+						
 						priority_label=(policy_priority_label_t *)dictator_malloc(thread_seq, sizeof(policy_priority_label_t));
 						
 						priority_label->result_num=1;
@@ -272,28 +262,19 @@ printaddr(&a_tcp->addr, thread_seq), ret);
 						assert(0);
 						break;
 				}
-
-				if(send_log==1 && p_result->do_log>0)
-				{
-					TLD_handle=TLD_create(thread_seq);
-					if(identify_flag==1)
-					{
-						schema_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_SCHAME_TYPE);
-						TLD_append(TLD_handle, schema_field_name, (void *)((identify_info.proto==PROTO_HTTP) ? "HTTP" : "SSL"), TLD_TYPE_STRING);
-						
-						domain_field_name=log_field_id2name(g_tsg_log_instance, ((identify_info.proto==PROTO_HTTP) ? LOG_HTTP_HOST : LOG_SSL_SNI));
-						TLD_append(TLD_handle, domain_field_name, (void *)identify_info.domain, TLD_TYPE_STRING);
-					}
-					
-					log_msg.a_stream=a_tcp;
-					log_msg.result=p_result;
-					log_msg.result_num=1;
-					tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);
-				}
 			}
 		break;
 		case	OP_STATE_DATA:
 		case	OP_STATE_CLOSE:
+			if(_context!=NULL)
+			{
+				if(_context->hit_cnt>0 && _context->result!=NULL)
+				{
+					master_send_log(a_tcp, _context->result, _context->hit_cnt, NULL, thread_seq);
+					dictator_free(thread_seq, (void *)_context->result);
+					_context->result=NULL;
+				}
+			}
 		default:
 			break;
 	}
