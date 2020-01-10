@@ -11,7 +11,6 @@
 #include "Maat_rule.h"
 #include "Maat_command.h"
 #include "MESA/http.h"
-#include "tsg_ssl_utils.h"
 #include "tsg_rule.h"
 #include "tsg_entry.h"
 
@@ -20,10 +19,6 @@ Maat_feather_t g_tsg_dynamic_maat_feather;
 
 #define	MAX_PATH_LEN	1024
 #define	MAX_IPV6_ADDR_LEN	128
-
-#ifndef MIN
-#define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
-#endif
 
 enum kni_scan_table{
     TSG_FIELD_SSL_SNI,
@@ -42,6 +37,21 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
 													{TSG_METHOD_TYPE_RESET, 3, (char *)"rst"}
 	};
 
+const struct _str2index g_tsg_proto_string[PROTO_MAX+1]={{PROTO_UNKONWN, 0, (char *)""}, 
+										 {PROTO_IPv4, 5, (char *)"IPv4."},
+										 {PROTO_IPv6, 5, (char *)"IPv6."},
+										 {PROTO_TCP, 4, (char *)"TCP."},
+										 {PROTO_UDP, 4, (char *)"UDP."},
+										 {PROTO_HTTP, 5, (char *)"HTTP."},
+										 {PROTO_MAIL, 5, (char *)"MAIL."},
+										 {PROTO_DNS, 4, (char *)"DNS."},
+										 {PROTO_FTP, 4, (char *)"FTP."},
+										 {PROTO_SSL, 4, (char *)"SSL."},
+										 {PROTO_SIP, 4, (char *)"SIP."},
+										 {PROTO_BGP, 4, (char *)"BGP."},
+										 {PROTO_STREAMING_MEDIA, 16, (char *)"STREAMING_MEDIA."},
+										 {PROTO_MAX, 0, (char *)""}
+};
 
 void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
@@ -200,16 +210,16 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 
 int tsg_rule_init(const char* conffile, void *logger)
 {
-	int ret=0;
+	int i=0,ret=0;
 	char maat_conffile[256]={0};
-	char ip_addr_table[32]={0};
-	char subscriber_id_table[32]={0};
 	char cb_subscriber_ip_table[32]={0};
 	
 	MESA_load_profile_string_def(conffile, "MAAT", "PROFILE", maat_conffile, sizeof(maat_conffile), "./tsgconf/maat_profile.conf");	
-	MESA_load_profile_string_def(conffile, "MAAT", "IP_ADDR_TABLE", ip_addr_table, sizeof(ip_addr_table), "TSG_OBJ_IP_ADDR");
-	MESA_load_profile_string_def(conffile, "MAAT", "SUBSCRIBER_ID_TABLE", subscriber_id_table, sizeof(subscriber_id_table), "TSG_OBJ_SUBSCRIBER_ID");
-
+	MESA_load_profile_string_def(conffile, "MAAT", "IP_ADDR_TABLE", g_tsg_para.table_name[TABLE_IP_ADDR], _MAX_TABLE_NAME_LEN, "TSG_OBJ_IP_ADDR");
+	MESA_load_profile_string_def(conffile, "MAAT", "SUBSCRIBER_ID_TABLE", g_tsg_para.table_name[TABLE_SUBSCRIBER_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_SUBSCRIBER_ID");
+	MESA_load_profile_string_def(conffile, "MAAT", "APP_ID_TABLE", g_tsg_para.table_name[TABLE_APP_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_APP_ID");
+	MESA_load_profile_string_def(conffile, "MAAT", "HTTP_HOST_TABLE", g_tsg_para.table_name[TABLE_HTTP_HOST], _MAX_TABLE_NAME_LEN, "TSG_FIELD_HTTP_HOST");
+	MESA_load_profile_string_def(conffile, "MAAT", "SSL_SNI_TABLE", g_tsg_para.table_name[TABLE_SSL_SNI], _MAX_TABLE_NAME_LEN, "TSG_FIELD_SSL_SNI");
 
 	//init dynamic maat feather
 	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", logger);
@@ -218,29 +228,16 @@ int tsg_rule_init(const char* conffile, void *logger)
 		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "init_maat_feather failed, instance_name: %s module: %s", "TSG_STATIC", "STATIC"); 
 		return -1;
 	}
-	
-	g_tsg_para.ip_addr_table_id=Maat_table_register(g_tsg_maat_feather, ip_addr_table);
-	if(g_tsg_para.ip_addr_table_id<0)
-	{
-		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "Maat_table_register %s failed", ip_addr_table); 
-		return -1;
-	}
-	
-	g_tsg_para.subscribe_id_table_id=Maat_table_register(g_tsg_maat_feather, subscriber_id_table);
-	if(g_tsg_para.subscribe_id_table_id<0)
-	{
-		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "RULE_INIT", "Maat_table_register %s failed", subscriber_id_table); 
-		return -1;
-	}
 
-	// init sni or host share table
-	ret=tsg_shared_table_init(conffile, g_tsg_maat_feather, logger);
-	if(ret<0)
+	for(i=0; i<TABLE_MAX; i++)
 	{
-		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "RULE_INIT", "tsg_shared_table_init %s failed"); 
-		return -1;	
-	}
-	
+		g_tsg_para.table_id[i]=Maat_table_register(g_tsg_maat_feather, g_tsg_para.table_name[i]);
+		if(g_tsg_para.table_id[i]<0)
+		{
+			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "Maat_table_register %s failed, Please check tsgconf/tsg_static_tableinfo.conf", g_tsg_para.table_name[i]); 
+			return -1;
+		}
+	}	
 
 	//init dynamic maat feather
 	g_tsg_dynamic_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_DYNAMIC", (char *)"DYNAMIC", logger);
@@ -274,59 +271,6 @@ int tsg_rule_init(const char* conffile, void *logger)
 
 	return 0;
 }
-
-static void protocol_identify(char *buff, int buff_len, struct _identify_info *result){
-    result->proto = PROTO_UNKONWN;
-	//http
-	char *host = NULL;
-	int ret = http_host_parser(buff, (uint32_t)buff_len, DIR_C2S, &host);
-	//printf("http_host_parse: ret = %d, buff_len = %d, buff = %s\n", ret, buff_len, buff);
-	if(ret >= 0){
-		result->proto = PROTO_HTTP;
-		if(ret == 0){
-			result->domain_len = 0;
-		}
-		else{
-			result->domain_len = MIN(ret, (int)sizeof(result->domain) - 1);
-			strncpy(result->domain, host, result->domain_len);
-		}
-		return;
-	}
-	//ssl
-	enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
-	struct ssl_chello *chello = NULL;
-	chello = ssl_chello_parse((const unsigned char*)buff, buff_len, &chello_status);
-	if(chello_status == CHELLO_PARSE_SUCCESS){
-		result->proto = PROTO_SSL;
-		if(chello->sni == NULL){
-			result->domain_len = 0;
-		}
-		else{
-			result->domain_len = strnlen(chello->sni, sizeof(result->domain) - 1);
-			strncpy(result->domain, chello->sni, result->domain_len);
-		}
-	}
-    ssl_chello_free(chello);
-	return;
-}
-
-//return -1 if failed, return 0 on success;
-int tsg_shared_table_init(const char *conffile, Maat_feather_t maat_feather, void *logger){
-    g_tsg_maat_feather = maat_feather;
-    g_kni_scan_table_name[TSG_FIELD_HTTP_HOST] = "TSG_FIELD_HTTP_HOST";
-    g_kni_scan_table_name[TSG_FIELD_SSL_SNI] = "TSG_FIELD_SSL_SNI";
-    int i;
-    for(i = 0; i < SCAN_TABLE_MAX; i++){
-		g_kni_scan_tableid[i] = Maat_table_register(maat_feather, g_kni_scan_table_name[i]);
-		if(g_kni_scan_tableid[i] < 0){
-            MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "Failed at Maat_table_register, tablename = %s, ret = %d", 
-				g_kni_scan_table_name[i], g_kni_scan_tableid[i]);
-			return -1;
-		}
-	}
-    return 0;
-}
-
 
 int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t*result, int result_num, struct _identify_info *identify_info)
 {
@@ -466,7 +410,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 			}
 			
  			maat_ret=Maat_scan_proto_addr(maat_feather,
- 											g_tsg_para.ip_addr_table_id,
+ 											g_tsg_para.table_id[TABLE_IP_ADDR],
  											p_addr,
  											tans_proto,
  											result+hit_num,
@@ -483,6 +427,24 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		
 	}while(cur_stream != NULL && hit_num < result_num);
 
+	if(hit_num<result_num && proto>PROTO_UNKONWN && proto<PROTO_MAX)
+	{
+		maat_ret=Maat_full_scan_string(maat_feather,
+									g_tsg_para.table_id[TABLE_APP_ID],
+									CHARSET_GBK,
+									g_tsg_proto_string[proto].type,
+									strlen(g_tsg_proto_string[proto].type),
+									result+hit_num,
+									&found_pos,
+									result_num-hit_num,
+									mid,
+									a_stream->threadnum);
+		if(maat_ret > 0)
+		{
+			hit_num+=maat_ret;
+		}
+	}
+
 
 	if(hit_num<result_num)
 	{
@@ -491,7 +453,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		if(source_subscribe_id!=NULL)
 		{
 			maat_ret=Maat_full_scan_string(maat_feather,
-										g_tsg_para.subscribe_id_table_id,
+										g_tsg_para.table_id[TABLE_SUBSCRIBER_ID],
 										CHARSET_GBK,
 										source_subscribe_id,
 										strlen(source_subscribe_id),
@@ -511,7 +473,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		if(dest_subscribe_id!=NULL)
 		{
 			maat_ret=Maat_full_scan_string(maat_feather,
-										g_tsg_para.subscribe_id_table_id,
+										g_tsg_para.table_id[TABLE_SUBSCRIBER_ID],
 										CHARSET_GBK,
 										dest_subscribe_id,
 										strlen(dest_subscribe_id),
@@ -534,23 +496,39 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 
 
 //return value: -1: failed, 0: not hit, >0: hit count 
-int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, Maat_rule_t *result, int result_num, 
-			struct _identify_info *identify_info, scan_status_t *mid, void *logger, int thread_seq)
+int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct _identify_info *identify_info, Maat_rule_t *result, int result_num,  scan_status_t *mid, int thread_seq)
 {
-    memset(identify_info, 0, sizeof(*identify_info));
-    protocol_identify((char*)pkt, pkt_len, identify_info);
-	if(identify_info->proto != PROTO_SSL && identify_info->proto != PROTO_HTTP){
-		return -1;
+	int ret=0,idx=0;
+	
+	if(identify_info->proto!=PROTO_UNKONWN && identify_info->domain_len>0)
+	{
+		switch(identify_info->proto)
+		{
+			case	PROTO_HTTP:
+				idx=TABLE_HTTP_HOST;
+				break;
+			case	PROTO_SSL:
+				idx=TABLE_SSL_SNI;
+				break;
+			default:
+				return 0;
+				break;
+		}
+		
+		ret=Maat_full_scan_string(g_tsg_maat_feather,
+									g_tsg_para.table_id[idx],
+									CHARSET_UTF8,
+									identify_info->domain,
+									identify_info->domain_len,
+									result,
+									NULL,
+									result_num,
+									mid,
+									thread_seq
+								);
 	}
-	int tableid;
-	if(identify_info->proto == PROTO_SSL){
-		tableid = g_kni_scan_tableid[TSG_FIELD_SSL_SNI];
-	}
-	else{
-		tableid = g_kni_scan_tableid[TSG_FIELD_HTTP_HOST];
-	}
-	return Maat_full_scan_string(g_tsg_maat_feather, tableid, CHARSET_UTF8, identify_info->domain, identify_info->domain_len,
-									result, NULL, result_num, mid, thread_seq);
+
+	return ret;
 }
 
 

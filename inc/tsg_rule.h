@@ -65,15 +65,6 @@ int tsg_rule_init(const char *conffile, void *logger);
 
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num);
 
-//return 0 if failed, return >0 on success;
-int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t *result, int result_num, struct _identify_info *identify_info);
-
-//return -1 if failed, return 0 on success;
-int tsg_shared_table_init(const char *conffile, Maat_feather_t maat_feather, void *logger);
-
-//return value: -1: failed, 0: not hit, >0: hit count 
-int tsg_scan_shared_policy(Maat_feather_t maat_feather, void *pkt, int pkt_len, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, scan_status_t *mid, void *logger, int thread_seq);
-
 //return NULL if none exists, otherwise return one deny rule;
 struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);
 

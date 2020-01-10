@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
+#include <MESA/http.h>
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
@@ -12,6 +13,7 @@
 #include "tsg_send_log.h"
 #include "tsg_statistic.h"
 #include "tsg_send_log_internal.h"
+#include "tsg_ssl_utils.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -35,7 +37,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20191226=0;
+char TSG_MASTER_VERSION_20200110=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -47,10 +49,48 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_LINKS, "link
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_LOG, "log"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_DENY, "deny"}
 	};
+
 static void free_policy_label(int thread_seq, void *project_req_value)
 {
 	dictator_free(thread_seq, project_req_value);
 	project_req_value=NULL;
+}
+
+static char *schema_index2string(tsg_protocol_t proto)
+{
+	char *schema_field_value=NULL;
+
+	switch(proto)
+	{
+		case	PROTO_HTTP:
+			schema_field_value=(char *)"HTTP";
+			break;
+		case	PROTO_SSL:
+			schema_field_value=(char *)"SSL";
+			break;
+		case	PROTO_DNS:
+			schema_field_value=(char *)"DNS";
+			break;
+		case	PROTO_FTP:
+			schema_field_value=(char *)"FTP";
+			break;
+		case	PROTO_BGP:
+			schema_field_value=(char *)"BGP";
+			break;
+		case	PROTO_SIP:
+			schema_field_value=(char *)"SIP";
+			break;
+		case	PROTO_MAIL:
+			schema_field_value=(char *)"MAIL";
+			break;
+		case	PROTO_STREAMING_MEDIA:
+			schema_field_value=(char *)"STREAMING_MEDIA";
+			break;
+		default:
+			break;
+	}
+
+	return schema_field_value;
 }
 
 static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_result, int result_num, struct _identify_info *identify_info, int thread_seq)
@@ -58,16 +98,25 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	tsg_log_t log_msg;	
 	char *domain_field_name=NULL;
 	char *schema_field_name=NULL;
+	char *schema_field_value=NULL;
 	struct TLD_handle_t *TLD_handle=NULL;
 
 	TLD_handle=TLD_create(thread_seq);
-	if(identify_info!=NULL)
+	if(identify_info!=NULL && (identify_info->proto>PROTO_UNKONWN) && (identify_info->proto<PROTO_MAX))
 	{
 		schema_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_SCHAME_TYPE);
-		TLD_append(TLD_handle, schema_field_name, (void *)((identify_info->proto==PROTO_HTTP) ? "HTTP" : "SSL"), TLD_TYPE_STRING);
-		
-		domain_field_name=log_field_id2name(g_tsg_log_instance, ((identify_info->proto==PROTO_HTTP) ? LOG_HTTP_HOST : LOG_SSL_SNI));
-		TLD_append(TLD_handle, domain_field_name, (void *)identify_info->domain, TLD_TYPE_STRING);
+
+		schema_field_value=schema_index2string(identify_info->proto);
+		if(schema_field_value!=NULL)
+		{
+			TLD_append(TLD_handle, schema_field_name, (void *)schema_field_value, TLD_TYPE_STRING);
+		}
+
+		if(identify_info->proto==PROTO_HTTP || identify_info->proto==PROTO_SSL)
+		{
+			domain_field_name=log_field_id2name(g_tsg_log_instance, ((identify_info->proto==PROTO_HTTP) ? LOG_HTTP_HOST : LOG_SSL_SNI));
+			TLD_append(TLD_handle, domain_field_name, (void *)identify_info->domain, TLD_TYPE_STRING);
+		}
 	}
 	
 	log_msg.a_stream=a_stream;
@@ -110,9 +159,80 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int
 	return p_result;
 }
 
+static int identify_application_protocol(struct streaminfo *a_stream, struct _identify_info *identify_info)
+{
+	int ret=0;
+
+	identify_info->proto = PROTO_UNKONWN;
+	//http
+	char *host = NULL;
+	ret=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, DIR_C2S, &host);
+	if(ret>=0)
+	{
+		identify_info->proto=PROTO_HTTP;
+		if(ret==0)
+		{
+			identify_info->domain_len=0;
+		}
+		else
+		{
+			identify_info->domain_len=MIN(ret, (int)sizeof(identify_info->domain) - 1);
+			strncpy(identify_info->domain, host, identify_info->domain_len);
+		}
+		return 1;
+	}
+	
+	//ssl
+	enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
+	struct ssl_chello *chello = NULL;
+
+	chello=ssl_chello_parse((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, &chello_status);
+	if(chello_status==CHELLO_PARSE_SUCCESS)
+	{
+		identify_info->proto=PROTO_SSL;
+		if(chello->sni==NULL)
+		{
+			identify_info->domain_len = 0;
+		}
+		else
+		{
+			identify_info->domain_len = strnlen(chello->sni, sizeof(identify_info->domain) - 1);
+			strncpy(identify_info->domain, chello->sni, identify_info->domain_len);
+		}
+		
+		ret=1;
+	}
+    ssl_chello_free(chello);
+
+	//dns
+	struct stream_tuple4_v4 *tpl4 = NULL;
+	struct stream_tuple4_v6 *tpl6 = NULL;
+
+	switch(a_stream->addr.addrtype)
+	{
+		case ADDR_TYPE_IPV4:
+			tpl4=a_stream->addr.tuple4_v4;
+			if((ntohs(tpl4->source)==53) || (ntohs(tpl4->dest)==53))
+			{
+				identify_info->proto=PROTO_DNS;
+			}
+			break;
+		case ADDR_TYPE_IPV6:
+			tpl6=a_stream->addr.tuple4_v6;
+			if((ntohs(tpl6->source)==53) || (ntohs(tpl6->dest)==53))
+			{
+				identify_info->proto=PROTO_DNS;
+			}
+			break;
+		default:
+			break;
+	}
+	
+	return ret;
+}
+
 extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
-	int identify_flag=0;
 	int ret=0,hit_num=0;
 	int state=APP_STATE_DROPME;
 	scan_status_t mid=NULL;
@@ -128,7 +248,10 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 		case	OP_STATE_PENDING:
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LINKS], 0, FS_OP_ADD, 1);
 			
-			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, PROTO_MAX, &mid, all_result+hit_num, MAX_RESULT_NUM-hit_num);
+			memset(&identify_info, 0, sizeof(identify_info));
+			identify_application_protocol(a_tcp, &identify_info);
+			
+			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, identify_info.proto, &mid, all_result+hit_num, MAX_RESULT_NUM-hit_num);
 			if(ret>0)
 			{
 				hit_num+=ret;
@@ -146,22 +269,15 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			}
 			else
 			{
-				MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_IP", "Not hit %s scan ret: %d",
-printaddr(&a_tcp->addr, thread_seq), ret);			
+				MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"SCAN_IP",
+										"Not hit %s scan ret: %d",
+										printaddr(&a_tcp->addr, thread_seq), ret);			
 			}
-
-
-			memset(&identify_info, 0, sizeof(identify_info));
 			
-			ret=tsg_scan_shared_policy(g_tsg_maat_feather, 
-										a_tcp->ptcpdetail->pdata,
-										a_tcp->ptcpdetail->datalen,
-										all_result+hit_num,
-										MAX_RESULT_NUM-hit_num,
-										&identify_info,
-										&mid,
-										g_tsg_para.logger,
-										thread_seq);
+			ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, all_result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
+
 			if(ret>0)
 			{
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
@@ -179,7 +295,6 @@ printaddr(&a_tcp->addr, thread_seq), ret);
 										);
 
 				hit_num+=ret;
-				identify_flag=1;
 			}
 			else
 			{
@@ -204,11 +319,18 @@ printaddr(&a_tcp->addr, thread_seq), ret);
 					case	TSG_ACTION_DENY:
 						MESA_kill_tcp(a_tcp, a_packet);
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
-						MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "DENY", "Hit deny policy, policy_id: %d action: %d addr: %s",
-															p_result[0].config_id, p_result[0].action, printaddr(&a_tcp->addr, thread_seq));
 
-						master_send_log(a_tcp, p_result, 1, ((identify_flag==1) ? &identify_info : NULL), thread_seq);
+						master_send_log(a_tcp, p_result, 1, &identify_info, thread_seq);
 						state|=APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
+
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"DENY",
+												"Hit deny policy, policy_id: %d action: %d addr: %s",
+												p_result[0].config_id,
+												p_result[0].action,
+												printaddr(&a_tcp->addr, thread_seq)
+												);
 						break;
 					case	TSG_ACTION_MONITOR:
 						if(q_result!=NULL && (p_result==q_result))
