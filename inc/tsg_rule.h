@@ -64,6 +64,7 @@ extern Maat_feather_t g_tsg_maat_feather;
 int tsg_rule_init(const char *conffile, void *logger);
 
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num);
+int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t*result, int result_num, struct _identify_info *identify_info);
 
 //return NULL if none exists, otherwise return one deny rule;
 struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);

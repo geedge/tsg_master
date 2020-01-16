@@ -60,7 +60,7 @@ void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX
 	*to=calloc(1, strlen((char *)*from)+1);
 	memcpy(*to, *from, strlen((char *)*from));
 	
-	MESA_handle_runtime_log(logger, RLOG_LV_INFO, "SUBSCRIBE_ID", "Dup subscribe_id: %s table_id: %d", (char *)*to, table_id);
+	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Dup subscribe_id: %s table_id: %d", (char *)*to, table_id);
 	return;
 }
 
@@ -90,7 +90,7 @@ void subscribe_id_new_data(int table_id, const char* key, const char* table_line
 	
 	memcpy(*ad, subscribe_id, strlen(subscribe_id));
 	MESA_handle_runtime_log(logger, 
-								RLOG_LV_INFO,
+								RLOG_LV_DEBUG,
 								"SUBSCRIBE_ID",
 								"Add subscribe_id: %s table_id: %d key: %s table_line: %s",
 								*ad,
@@ -104,7 +104,7 @@ void subscribe_id_new_data(int table_id, const char* key, const char* table_line
 void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
 	void *logger=argp;
-	MESA_handle_runtime_log(logger, RLOG_LV_INFO, "SUBSCRIBE_ID", "Delete subscribe_id: %s table_id: %d", (char *)*ad, table_id);
+	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Delete subscribe_id: %s table_id: %d", (char *)*ad, table_id);
 	free(*ad);
 	*ad=NULL;
 
@@ -364,8 +364,13 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 	const struct streaminfo *cur_stream = a_stream;
 
 
-	if(result == NULL || result_num <= 0 || a_stream == NULL || maat_feather == NULL)
+	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
 	{
+		MESA_handle_runtime_log(g_tsg_para.logger,
+								RLOG_LV_FATAL,
+								"SCAN_NESTING_ADDR",
+								"result==NULL || result_num<=0 || maat_feather==NULL || a_stream==%s",
+								(a_stream!=NULL) ? printaddr(&a_stream->addr, a_stream->threadnum) : "NULL");
 		return -1;
 	}
 	
@@ -417,15 +422,37 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
  											result_num-hit_num,
  											mid,
  											cur_stream->threadnum);
-			if(maat_ret > 0)
+			if(maat_ret>0)
 			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_IP",
+											"Hit addr: %s scan ret: %d policy_id: %d service: %d action: %d",
+											printaddr(&cur_stream->addr, cur_stream->threadnum),
+											maat_ret,
+											result[hit_num].config_id,
+											result[hit_num].service_id,
+											result[hit_num].action
+										);
+
 				hit_num+=maat_ret;
+			}
+			else
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_IP",
+											"No hit addr: %s scan ret: %d",
+											printaddr(&cur_stream->addr, cur_stream->threadnum),
+											maat_ret
+										);	
 			}
 		}
 		
 		cur_stream = cur_stream->pfather;
 		
 	}while(cur_stream != NULL && hit_num < result_num);
+
 
 	if(hit_num<result_num && proto>PROTO_UNKONWN && proto<PROTO_MAX)
 	{
@@ -441,7 +468,30 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 									a_stream->threadnum);
 		if(maat_ret > 0)
 		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_PROTO",
+									"Hit PROTO: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+									g_tsg_proto_string[proto].type,
+									maat_ret,
+									result[hit_num].config_id,
+									result[hit_num].service_id,
+									result[hit_num].action,
+									printaddr(&a_stream->addr, a_stream->threadnum)
+									);
+
 			hit_num+=maat_ret;
+		}
+		else
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_PROTO",
+									"No hit PROTO: %s scan ret: %d addr: %s",
+									g_tsg_proto_string[proto].type,
+									maat_ret,
+									printaddr(&a_stream->addr, a_stream->threadnum)
+									);
 		}
 	}
 
@@ -463,8 +513,31 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 										mid,
 										a_stream->threadnum);
 			if(maat_ret > 0)
-			{
+			{				
+				MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_SUBSCRIBER",
+											"Hit source subscribe id: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+											source_subscribe_id,
+											maat_ret,
+											result[hit_num].config_id,
+											result[hit_num].service_id,
+											result[hit_num].action,
+											printaddr(&a_stream->addr, a_stream->threadnum)
+										);
+
 				hit_num+=maat_ret;
+			}
+			else
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_SUBSCRIBER",
+											"No hit source subscribe id: %s scan ret: %d addr: %s",
+											source_subscribe_id,
+											maat_ret,
+											printaddr(&a_stream->addr, a_stream->threadnum)
+										);
 			}
 			
 			subscribe_id_free_data(g_tsg_para.dyn_subscribe_ip_table_id,(MAAT_PLUGIN_EX_DATA *)&source_subscribe_id, 0, g_tsg_para.logger);
@@ -484,7 +557,30 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 										a_stream->threadnum);
 			if(maat_ret > 0)
 			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_SUBSCRIBER",
+											"Hit dest subscribe id: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+											dest_subscribe_id,
+											maat_ret,
+											result[hit_num].config_id,
+											result[hit_num].service_id,
+											result[hit_num].action,
+											printaddr(&a_stream->addr, a_stream->threadnum)
+										);
+
 				hit_num+=maat_ret;
+			}
+			else
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_SUBSCRIBER",
+											"No hit dest subscribe id: %s scan ret: %d addr: %s",
+											dest_subscribe_id,
+											maat_ret,
+											printaddr(&a_stream->addr, a_stream->threadnum)
+										);
 			}
 			
 			subscribe_id_free_data(g_tsg_para.dyn_subscribe_ip_table_id,(MAAT_PLUGIN_EX_DATA *)&dest_subscribe_id, 0, g_tsg_para.logger);

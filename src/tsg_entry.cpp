@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #include <MESA/http.h>
+#include <MESA/ftp.h>
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
@@ -37,7 +38,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200110=0;
+char TSG_MASTER_VERSION_20200113=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -200,8 +201,10 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 			strncpy(identify_info->domain, chello->sni, identify_info->domain_len);
 		}
 		
-		ret=1;
+		ssl_chello_free(chello);
+		return 1;
 	}
+	
     ssl_chello_free(chello);
 
 	//dns
@@ -215,6 +218,7 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 			if((ntohs(tpl4->source)==53) || (ntohs(tpl4->dest)==53))
 			{
 				identify_info->proto=PROTO_DNS;
+				return 1;
 			}
 			break;
 		case ADDR_TYPE_IPV6:
@@ -222,11 +226,22 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 			if((ntohs(tpl6->source)==53) || (ntohs(tpl6->dest)==53))
 			{
 				identify_info->proto=PROTO_DNS;
+				return 1;
 			}
 			break;
 		default:
 			break;
 	}
+
+	//ftp
+	ret=ftp_control_identify(a_stream);
+	if(ret>0)
+	{
+		identify_info->proto=PROTO_FTP;
+		return 1;
+	}
+
+	//mail
 	
 	return ret;
 }
@@ -256,24 +271,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			{
 				hit_num+=ret;
 				q_result=tsg_policy_decision_criteria(all_result, hit_num);
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);				
-				MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"SCAN_IP",
-										"Hit addr: %s scan ret: %d policy_id: %d service: %d action: %d",
-										printaddr(&a_tcp->addr, thread_seq),
-										ret,
-										q_result->config_id,
-										q_result->service_id,
-										q_result->action);			
-			}
-			else
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"SCAN_IP",
-										"Not hit %s scan ret: %d",
-										printaddr(&a_tcp->addr, thread_seq), ret);			
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 			
 			ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, all_result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
@@ -384,6 +382,12 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 						assert(0);
 						break;
 				}
+			}
+
+			if(mid!=NULL)
+			{
+				Maat_clean_status(&mid);
+				mid=NULL;
 			}
 		break;
 		case	OP_STATE_DATA:
