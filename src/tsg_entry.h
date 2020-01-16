@@ -5,6 +5,21 @@
 #include <MESA/field_stat2.h>
 #include "tsg_rule.h"
 
+
+#ifndef MIN
+#define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
+#endif
+
+enum MASTER_TABLE{
+	TABLE_IP_ADDR=0,
+	TABLE_SUBSCRIBER_ID,
+	TABLE_APP_ID,
+	TABLE_HTTP_HOST,
+	TABLE_SSL_SNI,
+	TABLE_MAX
+};
+
+
 enum TSG_FS2_TYPE{
 	TSG_FS2_LINKS=0,
 	TSG_FS2_BYPASS,
@@ -40,14 +55,15 @@ struct _master_context
 	struct Maat_rule_t *result;
 };
 
+#define	_MAX_TABLE_NAME_LEN	64
 typedef	struct _tsg_para
 {
-	int device_id;
-	int ip_addr_table_id;
-	int subscribe_id_table_id;
+	int device_id;	
+	int table_id[TABLE_MAX];
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
 	int fs2_field_id[TSG_FS2_MAX];
+	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;
 	screen_stat_handle_t fs2_handle;
 }g_tsg_para_t;
@@ -124,5 +140,7 @@ typedef	struct _tsg_statistic
 }tsg_statis_para_t;
 
 int tsg_statistic_init(const char *conffile, void *logger);
+
+int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct _identify_info *identify_info, Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq);
 
 #endif
