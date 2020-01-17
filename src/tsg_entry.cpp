@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include <MESA/http.h>
 #include <MESA/ftp.h>
@@ -507,6 +508,7 @@ extern "C" int TSG_MASTER_INIT()
 
 extern "C" int TSG_MASTER_UNLOAD()
 {
+	sleep(5);
 	return 0;
 }
 
