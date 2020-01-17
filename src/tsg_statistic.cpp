@@ -60,6 +60,15 @@ static int _get_traffic_info(struct _traffic_info *total, struct _traffic_info *
 		out->in_packets=total->in_packets-policy->in_packets;
 		out->out_bytes=total->out_bytes-policy->out_bytes;
 		out->out_packets=total->out_packets-policy->out_packets;
+
+		if(out->con_num<0 || out->in_bytes<0 || out->in_packets<0 || out->out_bytes<0 || out->out_packets<0)
+		{
+			out->con_num=total->con_num;
+			out->in_bytes=total->in_bytes;
+			out->in_packets=total->in_packets;
+			out->out_bytes=total->out_bytes;
+			out->out_packets=total->out_packets;
+		}
 	}
 	return 0;
 }
