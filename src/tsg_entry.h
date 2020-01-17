@@ -51,6 +51,7 @@ typedef	struct _policy_priority_label
 
 struct _master_context
 {
+	tsg_protocol_t proto;
 	int hit_cnt;
 	struct Maat_rule_t *result;
 };

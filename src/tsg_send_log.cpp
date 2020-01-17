@@ -314,7 +314,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	_instance=(struct tsg_log_instance_t *)calloc(1, sizeof(struct tsg_log_instance_t));
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(level), 30);	
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", log_path, sizeof(log_path), NULL);
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", log_path, sizeof(log_path), "./tsglog/tsglog");
 
 	_instance->logger=MESA_create_runtime_log_handle(log_path, level);
 	if(_instance->logger==NULL)

@@ -38,7 +38,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200113=0;
+char TSG_MASTER_VERSION_20200117=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -311,7 +311,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			p_result=tsg_policy_decision_criteria(all_result, hit_num);
 			
 			if(p_result!=NULL)
-			{	
+			{
 				switch((unsigned char)p_result->action)
 				{
 					case	TSG_ACTION_DENY:
@@ -335,6 +335,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 						{
 							*pme=dictator_malloc(thread_seq, sizeof(struct _master_context));
 							_context=(struct _master_context *)*pme;
+							_context->proto=identify_info.proto;
 							_context->hit_cnt=1;
 							_context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
 							memcpy(_context->result, p_result, sizeof(struct Maat_rule_t));
@@ -345,6 +346,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 					case	TSG_ACTION_BYPASS:
 						*pme=dictator_malloc(thread_seq, sizeof(struct _master_context));
 						_context=(struct _master_context *)*pme;
+						_context->proto=identify_info.proto;
 						_context->hit_cnt=1;
 						_context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
 						memcpy(_context->result, p_result, sizeof(struct Maat_rule_t));
@@ -396,7 +398,10 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			{
 				if(_context->hit_cnt>0 && _context->result!=NULL)
 				{
-					master_send_log(a_tcp, _context->result, _context->hit_cnt, NULL, thread_seq);
+					memset(&identify_info, 0, sizeof(identify_info));
+					identify_info.proto=_context->proto;
+					
+					master_send_log(a_tcp, _context->result, _context->hit_cnt, &identify_info, thread_seq);
 					dictator_free(thread_seq, (void *)_context->result);
 					_context->result=NULL;
 				}
@@ -424,7 +429,7 @@ extern "C" int TSG_MASTER_INIT()
 	memset(&g_tsg_para, 0, sizeof(g_tsg_para));
 	
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","LOG_LEVEL", &level, 30);
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM","LOG_PATH", log_path, sizeof(log_path), NULL);
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM","LOG_PATH", log_path, sizeof(log_path), "tsglog/tsg_master");
 
 	g_tsg_para.logger=MESA_create_runtime_log_handle(log_path, level);
 	if(g_tsg_para.logger==NULL)

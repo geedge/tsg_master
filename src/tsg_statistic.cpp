@@ -130,25 +130,13 @@ static int _set_traffic_info(struct _traffic_info *from, struct _traffic_info *t
 			in_packets_id=STATIS_DEFAULT_IN_PACKETS;
 			out_bytes_id=STATIS_DEFAULT_OUT_BYTES;
 			out_packets_id=STATIS_DEFAULT_OUT_PACKETS;
-
-			con_num_sum+=from->con_num;
-			in_bytes_sum+=from->in_bytes;
-			in_packets_sum+=from->in_packets;
-			out_bytes_sum+=from->out_bytes;
-			out_packets_sum+=from->out_packets;
 			break;
 		case	-1:
-			con_num_id=STATIS_TOTAL_CON_NUM;
+			con_num_id=STATIS_NEW_CON_NUM;
 			in_bytes_id=STATIS_TOTAL_IN_BYTES;
 			in_packets_id=STATIS_TOTAL_IN_PACKETS;
 			out_bytes_id=STATIS_TOTAL_OUT_BYTES;
 			out_packets_id=STATIS_TOTAL_OUT_PACKETS;
-			
-			con_num_sum+=from->con_num;
-			in_bytes_sum+=from->in_bytes;
-			in_packets_sum+=from->in_packets;
-			out_bytes_sum+=from->out_bytes;
-			out_packets_sum+=from->out_packets;
 			break;
 		default:
 			return 0;
@@ -180,20 +168,24 @@ static void *tsg_statistic_thread(void *arg)
 		memset(&total_traffic_info, 0, sizeof(total_traffic_info));
 		memset(&default_traffic_info, 0, sizeof(default_traffic_info));
 
-		value=0;
-		sapp_get_platform_opt(SPO_TCP_STREAM_NEW, (void *)&value, &value_len);
-		total_traffic_info.con_num+=value;
-		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_NEW_CON_NUM], FS_OP_SET, value);
+		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_BYPASS], &policy_traffic_info, TSG_ACTION_BYPASS, thread_num);
+		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_DENY], &policy_traffic_info, TSG_ACTION_DENY, thread_num);
+		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_MONITOR], &policy_traffic_info, TSG_ACTION_MONITOR, thread_num);
+		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_INTERCEPT], &policy_traffic_info, TSG_ACTION_INTERCEPT, thread_num);
 		
 		value=0;
 		sapp_get_platform_opt(SPO_TCP_STREAM_ESTAB, (void *)&value, &value_len);
-		total_traffic_info.con_num+=value;
 		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_ESTABLISHED_CON_NUM], FS_OP_SET, value);
 		
 		value=0;
 		sapp_get_platform_opt(SPO_TCP_STREAM_CLOSE, (void *)&value, &value_len);
-		total_traffic_info.con_num+=value;
 		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_CLOSE_CON_NUM], FS_OP_SET, value);
+
+		value=0;
+		sapp_get_platform_opt(SPO_TCP_STREAM_NEW, (void *)&value, &value_len);
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_NEW_CON_NUM], FS_OP_SET, value);
+
+		total_traffic_info.con_num+=value;
 
 		value_len=sizeof(total_traffic_info.in_bytes);
 		sapp_get_platform_opt(SPO_TOTAL_INBOUND_BYTE, (void *)&total_traffic_info.in_bytes, &value_len);
@@ -204,16 +196,11 @@ static void *tsg_statistic_thread(void *arg)
 		sapp_get_platform_opt(SPO_TOTAL_OUTBOUND_BYTE, (void *)&total_traffic_info.out_bytes, &value_len);
 		value_len=sizeof(total_traffic_info.out_packets);
 		sapp_get_platform_opt(SPO_TOTAL_OUTBOUND_PKT, (void *)&total_traffic_info.out_packets, &value_len);
-		
-		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_BYPASS], &policy_traffic_info, TSG_ACTION_BYPASS, thread_num);
-		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_DENY], &policy_traffic_info, TSG_ACTION_DENY, thread_num);
-		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_MONITOR], &policy_traffic_info, TSG_ACTION_MONITOR, thread_num);
-		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_INTERCEPT], &policy_traffic_info, TSG_ACTION_INTERCEPT, thread_num);
 
-		_set_traffic_info(&total_traffic_info, NULL, -1, 0);
+		_set_traffic_info(&total_traffic_info, NULL, -1, 1);
 		
 		_get_traffic_info(&total_traffic_info, &policy_traffic_info, &default_traffic_info);
-		_set_traffic_info(&default_traffic_info, NULL, TSG_ACTION_NONE, 0);
+		_set_traffic_info(&default_traffic_info, NULL, TSG_ACTION_NONE, 1);
 
 		FS_passive_output(g_tsg_statis_para.fs2_handle);
 		
