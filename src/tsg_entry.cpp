@@ -364,7 +364,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	int opt_value=0;
 	int ret=0,hit_num=0;
 	int method_type=-1;
-	int state=APP_STATE_DROPME;
+	int state=APP_STATE_GIVEME;
 	scan_status_t mid=NULL;
 	Maat_rule_t *p_result=NULL;
 	Maat_rule_t *q_result=NULL;
