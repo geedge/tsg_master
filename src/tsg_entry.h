@@ -59,6 +59,7 @@ struct _master_context
 #define	_MAX_TABLE_NAME_LEN	64
 typedef	struct _tsg_para
 {
+	unsigned short timeout;
 	int device_id;	
 	int table_id[TABLE_MAX];
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
