@@ -170,6 +170,53 @@ static int master_method_type(struct streaminfo *a_stream, struct Maat_rule_t *p
 	return method_type;
 }
 
+static int master_do_deny(struct streaminfo *a_stream, struct Maat_rule_t *p_result, int thread_seq)
+{
+	int opt_value=0;	
+	int method_type=-1;
+	struct rst_tcp_para rst_paras;
+
+	method_type=master_method_type(a_stream, p_result);
+	switch(method_type)
+	{
+		case	TSG_METHOD_TYPE_DROP:
+			opt_value=1;
+			MESA_set_stream_opt(a_stream, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
+			break;
+		case	TSG_METHOD_TYPE_BLOCK:
+			MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_FATAL,
+									"TSG_ACTION_DENY",
+									"Unsupport block of deny, policy_id: %d service: %d action: %d addr: %s",
+									p_result[0].config_id,
+									p_result[0].service_id,
+									(unsigned char)p_result[0].action,
+									printaddr(&a_stream->addr, thread_seq)
+								);
+			//break; // not break
+		case	TSG_METHOD_TYPE_RESET:
+			opt_value=1;
+			MESA_set_stream_opt(a_stream, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
+			
+			rst_paras.dir=DIR_DOUBLE;
+			rst_paras.rst_pkt_num=1;
+			rst_paras.signature_seed1=65535;
+			rst_paras.signature_seed2=13;
+			rst_paras.th_flags=4;
+			rst_paras.__pad_no_use=0;
+			MESA_rst_tcp(a_stream, &rst_paras, sizeof(rst_paras));
+
+			opt_value=1;
+			MESA_set_stream_opt(a_stream, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
+			MESA_set_stream_opt(a_stream, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
+			break;
+		default:
+			break;
+	}
+
+	return 0;
+}
+
 static char *schema_index2string(tsg_protocol_t proto)
 {
 	char *schema_field_value=NULL;
@@ -361,9 +408,7 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 
 extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
-	int opt_value=0;
 	int ret=0,hit_num=0;
-	int method_type=-1;
 	int state=APP_STATE_GIVEME;
 	scan_status_t mid=NULL;
 	Maat_rule_t *p_result=NULL;
@@ -371,7 +416,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	struct _identify_info identify_info;
 	Maat_rule_t all_result[MAX_RESULT_NUM];
 	policy_priority_label_t *priority_label=NULL;	
-	struct rst_tcp_para rst_paras;
 	struct _master_context *_context=(struct _master_context *)*pme;
 	
 	switch(a_tcp->opstate)
@@ -422,6 +466,12 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 											printaddr(&a_tcp->addr, thread_seq)
 										);
 			}
+
+			if(mid!=NULL)
+			{
+				Maat_clean_status(&mid);
+				mid=NULL;
+			}
 			
 			p_result=tsg_policy_decision_criteria(all_result, hit_num);
 			
@@ -430,49 +480,9 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				switch((unsigned char)p_result->action)
 				{
 					case	TSG_ACTION_DENY:
-						method_type=master_method_type(a_tcp, p_result);
-						switch(method_type)
-						{
-							case	TSG_METHOD_TYPE_DROP:
-								opt_value=1;
-								MESA_set_stream_opt(a_tcp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
-								state=PROT_STATE_DROPME|PROT_STATE_DROPPKT;
-								break;
-							case	TSG_METHOD_TYPE_BLOCK:
-								MESA_handle_runtime_log(g_tsg_para.logger,
-														RLOG_LV_FATAL,
-														"TSG_ACTION_DENY",
-														"Unsupport block of deny, policy_id: %d service: %d action: %d addr: %s",
-														p_result[0].config_id,
-														p_result[0].service_id,
-														(unsigned char)all_result[hit_num].action,
-														printaddr(&a_tcp->addr, thread_seq)
-													);
-								//break; // not break
-							case	TSG_METHOD_TYPE_RESET:
-								opt_value=1;
-								MESA_set_stream_opt(a_tcp, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
-								
-								rst_paras.dir=DIR_DOUBLE;
-								rst_paras.rst_pkt_num=1;
-								rst_paras.signature_seed1=65535;
-								rst_paras.signature_seed2=13;
-								rst_paras.th_flags=4;
-								rst_paras.__pad_no_use=0;
-								MESA_rst_tcp(a_tcp, &rst_paras, sizeof(rst_paras));
-
-								opt_value=1;
-								MESA_set_stream_opt(a_tcp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
-								MESA_set_stream_opt(a_tcp, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
-								break;
-							default:
-								break;
-						}
-						
-						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
-
+						master_do_deny(a_tcp, p_result, thread_seq);
 						master_send_log(a_tcp, p_result, 1, &identify_info, thread_seq);
-						state|=APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
+						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
 
 						MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
@@ -483,6 +493,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												(unsigned char)p_result[0].action,
 												printaddr(&a_tcp->addr, thread_seq)
 												);
+
+						return APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
 						break;
 					case	TSG_ACTION_MONITOR:
 						if(q_result!=NULL && (p_result==q_result))
@@ -532,19 +544,15 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												(unsigned char)priority_label->result[0].action,
 												printaddr(&a_tcp->addr, thread_seq)
 												);
+						return APP_STATE_DROPME;
 						break;
 					case	TSG_ACTION_NONE:
 					default:
-						assert(0);
+						return APP_STATE_DROPME;
 						break;
 				}
 			}
 
-			if(mid!=NULL)
-			{
-				Maat_clean_status(&mid);
-				mid=NULL;
-			}
 			break;
 		case	OP_STATE_DATA:
 			break;
@@ -571,7 +579,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 {
 	int ret=0,opt_value=0;
 	scan_status_t mid=NULL;
-	int state=APP_STATE_DROPME;
+	int state=APP_STATE_GIVEME;
 	Maat_rule_t *p_result=NULL;
 	Maat_rule_t result[MAX_RESULT_NUM];
 	struct _identify_info identify_info;
@@ -584,7 +592,12 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 			identify_application_protocol(a_udp, &identify_info);
 
 			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_udp, identify_info.proto, &mid, result, MAX_RESULT_NUM);
-			
+
+			if(mid!=NULL)
+			{
+				Maat_clean_status(&mid);
+				mid=NULL;
+			}
 			p_result=tsg_policy_decision_criteria(result, ret);
 			if(p_result!=NULL)
 			{
@@ -593,13 +606,14 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 					case	TSG_ACTION_DENY:
 						opt_value=1;
 						MESA_set_stream_opt(a_udp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
-						state=PROT_STATE_DROPME|PROT_STATE_DROPPKT;
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
+						
+						return APP_STATE_DROPME|APP_STATE_DROPPKT;
 						break;
 					case	TSG_ACTION_BYPASS:
 						init_context(pme, identify_info.proto, p_result, thread_seq);
-						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
+						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 						break;
 					case	TSG_ACTION_MONITOR:
 						init_context(pme, identify_info.proto, p_result, thread_seq);
@@ -608,6 +622,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 					case	TSG_ACTION_INTERCEPT:
 					case	TSG_ACTION_MANIPULATE:
 					default:
+						return APP_STATE_DROPME;
 						break;
 				}
 			}
