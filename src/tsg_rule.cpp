@@ -432,7 +432,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											maat_ret,
 											result[hit_num].config_id,
 											result[hit_num].service_id,
-											result[hit_num].action
+											(unsigned char)result[hit_num].action
 										);
 
 				hit_num+=maat_ret;
@@ -476,7 +476,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 									maat_ret,
 									result[hit_num].config_id,
 									result[hit_num].service_id,
-									result[hit_num].action,
+									(unsigned char)result[hit_num].action,
 									printaddr(&a_stream->addr, a_stream->threadnum)
 									);
 
@@ -522,7 +522,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											maat_ret,
 											result[hit_num].config_id,
 											result[hit_num].service_id,
-											result[hit_num].action,
+											(unsigned char)result[hit_num].action,
 											printaddr(&a_stream->addr, a_stream->threadnum)
 										);
 
@@ -565,7 +565,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											maat_ret,
 											result[hit_num].config_id,
 											result[hit_num].service_id,
-											result[hit_num].action,
+											(unsigned char)result[hit_num].action,
 											printaddr(&a_stream->addr, a_stream->threadnum)
 										);
 
