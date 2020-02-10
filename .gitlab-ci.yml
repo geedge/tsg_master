@@ -10,10 +10,22 @@ variables:
 
 stages:
   - build
+  - fvt
   - package
   - release
   - docker
-  
+
+.fvt:
+  image:  git.mesalab.cn:7443/mesa_platform/mesa_protocol:master
+  script:
+    - rpm -ivh build/*.rpm
+    - source /etc/profile.d/MESA.sh
+    - cd /home/mesasoft/
+    - git clone https://$USER_NAME:$CI_TOKEN@git.mesalab.cn/tango/fvt.git
+    - cd fvt/
+    - sh +x ./fvt_verify.sh /home/mesasoft/sapp_run/ /home/mesasoft/sapp_run/tsgconf/tsg_maat.json /home/mesasoft/sapp_run/tsglog/tsglog /home/mesasoft/fvt/master
+
+
 .build_before_script:
   before_script:
     - mkdir -p /tmp/padding_for_CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX/$CI_PROJECT_NAMESPACE/
@@ -52,6 +64,14 @@ build:
     name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
     paths:
       -  ./build/*.rpm
+  except:
+    - tags
+
+fvt:
+  stage: fvt
+  extends:   .fvt
+  tags:
+    - share
   except:
     - tags
 
