@@ -141,6 +141,7 @@ typedef	struct _tsg_statistic
 	int fs_line_id;
 	int fs_field_id[STATIS_MAX];
 	struct _traffic_info *traffic_info[TSG_ACTION_MAX+1];
+	struct _traffic_info default_total_info;
 	screen_stat_handle_t fs2_handle;
 }tsg_statis_para_t;
 

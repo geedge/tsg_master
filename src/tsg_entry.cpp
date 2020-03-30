@@ -41,7 +41,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200322=0;
+char TSG_MASTER_VERSION_20200330=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -418,6 +418,8 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
 	int ret=0,hit_num=0;
+	struct timespec tv;
+	long establish_latency_ms=0;
 	int state=APP_STATE_GIVEME;
 	scan_status_t mid=NULL;
 	Maat_rule_t *p_result=NULL;
@@ -436,10 +438,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			identify_application_protocol(a_tcp, &identify_info);
 			if(identify_info.proto==PROTO_HTTP)
 			{
-				struct timeval tv;
-				long establish_latency_ms=0;
-				gettimeofday(&tv, NULL);
-				establish_latency_ms=(tv.tv_sec-a_tcp->ptcpdetail->createtime)*1000+tv.tv_usec/1000;
+				clock_gettime(CLOCK_REALTIME, &tv);
+				establish_latency_ms=(tv.tv_sec-a_tcp->ptcpdetail->createtime)*1000+tv.tv_nsec/1000/1000;
 				ret=project_req_add_long(a_tcp, g_tsg_para.establish_latency_project_id, establish_latency_ms);
 				if(ret<0)
 				{
@@ -741,7 +741,6 @@ extern "C" int TSG_MASTER_INIT()
 	if(g_tsg_para.establish_latency_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed ...", label_buff);
-		return -1;
 	}
 
 	ret=tsg_rule_init(tsg_conffile, g_tsg_para.logger);
@@ -757,6 +756,7 @@ extern "C" int TSG_MASTER_INIT()
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_SENDLOG", "tsg_sendlog_init failed ...");
 		return -1;
 	}
+	g_tsg_log_instance->establish_latency_project_id=g_tsg_para.establish_latency_project_id;
 
 	MESA_load_profile_int_def(tsg_conffile, "FIELD_STAT", "CYCLE", &cycle, 30);
 	MESA_load_profile_short_nodef(tsg_conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));

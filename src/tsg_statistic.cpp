@@ -61,15 +61,20 @@ static int _get_traffic_info(struct _traffic_info *total, struct _traffic_info *
 		out->out_bytes=total->out_bytes-policy->out_bytes;
 		out->out_packets=total->out_packets-policy->out_packets;
 
-		if(out->con_num<0 || out->in_bytes<0 || out->in_packets<0 || out->out_bytes<0 || out->out_packets<0)
+		if(out->con_num-g_tsg_statis_para.default_total_info.con_num<0 
+			|| out->in_bytes-g_tsg_statis_para.default_total_info.in_bytes<0
+			|| out->in_packets-g_tsg_statis_para.default_total_info.in_packets<0
+			|| out->out_bytes-g_tsg_statis_para.default_total_info.out_bytes<0
+			|| out->out_packets-g_tsg_statis_para.default_total_info.out_packets<0)
 		{
-			out->con_num=total->con_num;
-			out->in_bytes=total->in_bytes;
-			out->in_packets=total->in_packets;
-			out->out_bytes=total->out_bytes;
-			out->out_packets=total->out_packets;
+			memcpy(out, &g_tsg_statis_para.default_total_info, sizeof(struct _traffic_info));
 		}
+		else
+		{
+			memcpy(&g_tsg_statis_para.default_total_info, out, sizeof(struct _traffic_info));
+		}	
 	}
+	
 	return 0;
 }
 
