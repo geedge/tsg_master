@@ -50,6 +50,7 @@ const struct _str2index g_tsg_proto_string[PROTO_MAX+1]={{PROTO_UNKONWN, 0, (cha
 										 {PROTO_SIP, 4, (char *)"SIP."},
 										 {PROTO_BGP, 4, (char *)"BGP."},
 										 {PROTO_STREAMING_MEDIA, 16, (char *)"STREAMING_MEDIA."},
+										 {PROTO_SSH, 4, (char *)"SSH."},
 										 {PROTO_MAX, 0, (char *)""}
 };
 

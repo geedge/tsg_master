@@ -16,6 +16,7 @@
 #include "tsg_statistic.h"
 #include "tsg_send_log_internal.h"
 #include "tsg_ssl_utils.h"
+#include "tsg_ssh_utils.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -247,6 +248,9 @@ static char *schema_index2string(tsg_protocol_t proto)
 		case	PROTO_STREAMING_MEDIA:
 			schema_field_value=(char *)"STREAMING_MEDIA";
 			break;
+		case	PROTO_SSH:
+			schema_field_value=(char *)"SSH";
+			break;
 		default:
 			break;
 	}
@@ -323,7 +327,7 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int
 static int identify_application_protocol(struct streaminfo *a_stream, struct _identify_info *identify_info)
 {
 	int ret=0;
-
+                                      
 	identify_info->proto = PROTO_UNKONWN;
 	//http
 	char *host = NULL;
@@ -402,7 +406,13 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 	}
 
 	//mail
-	
+	ret = ssh_protocol_identify((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen,g_tsg_para.logger);
+	if(ret > 0)
+	{
+		identify_info->proto=PROTO_SSH;
+		return 1;
+	}
+	//ssh
 	return ret;
 }
 
