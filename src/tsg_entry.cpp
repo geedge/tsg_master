@@ -291,17 +291,56 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	return 1;
 }
 
-static struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result_num)
+static struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result_num, char *domain, int domain_len, int thread_seq)
 {
-	int i=0;
+	int i=0,ret=0;
 	Maat_rule_t *p_result=NULL;
+	Maat_rule_t q_result;
+	scan_status_t mid=NULL;
+	
 	if(result==NULL || result_num<=0)
 	{
 		return NULL;
 	}
-	
+
+	ret=Maat_rule_sort_by_evaluation_order(g_tsg_maat_feather, result, result_num);
+	if(ret!=result_num)
+	{
+		return NULL;
+	}
+
 	p_result=&result[0];
 	
+	if(p_result->action==TSG_ACTION_INTERCEPT && domain!=NULL && domain_len>0)
+	{
+		ret=Maat_full_scan_string(g_tsg_maat_feather,
+									g_tsg_para.table_id[TABLE_EXCLUSION_SSL_SNI],
+									CHARSET_UTF8,
+									domain,
+									domain_len,
+									&q_result,
+									NULL,
+									1,
+									&mid,
+									thread_seq);
+		if(ret>0)
+		{
+			p_result=NULL;
+			for(i=1; i<result_num; i++)
+			{
+				if(p_result->action==TSG_ACTION_INTERCEPT)
+				{
+					continue;
+				}
+				p_result=&result[i];
+			}
+		}
+	}
+	
+	return 	p_result;
+	
+	p_result=&result[0];
+
 	for(i=1; i<result_num; i++)
 	{
 		if((unsigned char)result[i].action>(unsigned char)p_result->action)
@@ -467,7 +506,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			if(ret>0)
 			{
 				hit_num+=ret;
-				q_result=tsg_policy_decision_criteria(all_result, hit_num);
+				q_result=tsg_policy_decision_criteria(all_result, hit_num, identify_info.domain, identify_info.domain_len, thread_seq);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 			
@@ -510,7 +549,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				mid=NULL;
 			}
 			
-			p_result=tsg_policy_decision_criteria(all_result, hit_num);
+			p_result=tsg_policy_decision_criteria(all_result, hit_num, identify_info.domain, identify_info.domain_len, thread_seq);
 			
 			if(p_result!=NULL)
 			{
@@ -651,7 +690,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				Maat_clean_status(&mid);
 				mid=NULL;
 			}
-			p_result=tsg_policy_decision_criteria(result, ret);
+			p_result=tsg_policy_decision_criteria(result, ret, identify_info.domain, identify_info.domain_len, thread_seq);
 			if(p_result!=NULL)
 			{
 				switch((unsigned char)p_result->action)
