@@ -129,6 +129,39 @@ char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t 
 	return NULL;
 }
 
+static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, struct Maat_rule_t *p_result)
+{
+	cJSON *item=NULL;
+	cJSON *object=NULL;
+	char *tmp_buff=NULL;
+	
+	if(p_result->serv_def_len<128)
+	{
+		object=cJSON_Parse(p_result->service_defined);
+	}
+	else
+	{
+		tmp_buff=(char *)calloc(1, p_result->serv_def_len+1);
+		Maat_read_rule(g_tsg_maat_feather, p_result, MAAT_RULE_SERV_DEFINE, tmp_buff, p_result->serv_def_len);
+		object=cJSON_Parse(tmp_buff);
+
+		free(tmp_buff);
+		tmp_buff=NULL;
+	}
+
+	if(object!=NULL)
+	{
+		item=cJSON_GetObjectItem(object, "method");
+		TLD_append(handle, field_name, (void *)item->valuestring, TLD_TYPE_STRING);
+
+		cJSON_Delete(object);
+		object=NULL;
+	}
+
+	return 0;
+}
+
+
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
 	int ret=0,addr_type=0;
@@ -472,7 +505,8 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(log_msg->result[i].config_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
-
+		set_common_sub_action(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name, &(log_msg->result[i]));
+		
 		payload = cJSON_PrintUnformatted(_handle->object);
 
 		status = rd_kafka_produce(_instance->topic_rkt[log_msg->result[i].service_id], RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, payload, strlen(payload), NULL, 0, NULL);			
@@ -495,6 +529,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name);
 
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LOG], 0, FS_OP_ADD, 1);
