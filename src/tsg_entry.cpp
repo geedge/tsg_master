@@ -593,7 +593,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												(unsigned char)priority_label->result[0].action,
 												printaddr(&a_tcp->addr, thread_seq)
 												);
-						return APP_STATE_DROPME;
+						return APP_STATE_DROPME|APP_STATE_KILL_OTHER;
 						break;
 					case	TSG_ACTION_NONE:
 					default:
