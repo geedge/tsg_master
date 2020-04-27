@@ -162,7 +162,7 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_PERF_ON, NULL, 0);
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_REDIS_INDEX, &redis_index, sizeof(redis_index));
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_SCAN_DETAIL, &scan_detail, sizeof(scan_detail));
-		//Maat_set_feather_opt(g_tsg_maat_feather, MAAT_OPT_DEFERRED_LOAD, NULL,0);
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_FOREIGN_CONT_DIR, "./alerts_files", strlen("./alerts_files")+1);
 	}
 	else
 	{
@@ -236,7 +236,11 @@ int tsg_rule_init(const char* conffile, void *logger)
 		g_tsg_para.table_id[i]=Maat_table_register(g_tsg_maat_feather, g_tsg_para.table_name[i]);
 		if(g_tsg_para.table_id[i]<0)
 		{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "Maat_table_register %s failed, Please check tsgconf/tsg_static_tableinfo.conf", g_tsg_para.table_name[i]); 
+			MESA_handle_runtime_log(logger,
+									RLOG_LV_FATAL,
+									"Maat_table_register %s failed, Please check tsgconf/tsg_static_tableinfo.conf",
+									g_tsg_para.table_name[i]
+									); 
 			return -1;
 		}
 	}	
@@ -254,7 +258,12 @@ int tsg_rule_init(const char* conffile, void *logger)
 	g_tsg_para.dyn_subscribe_ip_table_id=Maat_table_register(g_tsg_dynamic_maat_feather, cb_subscriber_ip_table);
 	if(g_tsg_para.dyn_subscribe_ip_table_id<0)
 	{
-		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "RULE_INIT", "Maat_table_register %s failed", cb_subscriber_ip_table); 
+		MESA_handle_runtime_log(logger,
+								RLOG_LV_FATAL,
+								"RULE_INIT",
+								"Maat_table_register %s failed, Please check tsgconf/tsg_static_tableinfo.conf",
+								cb_subscriber_ip_table
+								); 
 		return -1;
 	}
 	ret=Maat_plugin_EX_register(g_tsg_dynamic_maat_feather,
