@@ -19,7 +19,7 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
-char TSG_SEND_LOG_VERSION_20200119=0;
+char TSG_SEND_LOG_VERSION_20200330=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
 
@@ -417,6 +417,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 {
 	int i=0,status=0;
 	char *payload=NULL;
+	long establish_latency_ms=0;
 	struct TLD_handle_t *_handle=handle;
 	struct tsg_log_instance_t *_instance=instance;
 		
@@ -459,6 +460,15 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 				break;
 		}
 
+		if(log_msg->result[i].action==TSG_ACTION_MONITOR && _instance->establish_latency_project_id>0)
+		{
+			establish_latency_ms=project_req_get_long(log_msg->a_stream, _instance->establish_latency_project_id);
+			if(establish_latency_ms>=0)
+			{
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)establish_latency_ms, TLD_TYPE_LONG);
+			}
+		}
+
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(log_msg->result[i].config_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
@@ -485,6 +495,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name);
 
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LOG], 0, FS_OP_ADD, 1);
 	}

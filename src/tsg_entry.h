@@ -53,6 +53,8 @@ struct _master_context
 {
 	tsg_protocol_t proto;
 	int hit_cnt;
+	int domain_len;
+	char domain[MAX_DOAMIN_LEN];
 	struct Maat_rule_t *result;
 };
 
@@ -64,6 +66,7 @@ typedef	struct _tsg_para
 	int table_id[TABLE_MAX];
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
+	int establish_latency_project_id;
 	int fs2_field_id[TSG_FS2_MAX];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;
@@ -138,6 +141,7 @@ typedef	struct _tsg_statistic
 	int fs_line_id;
 	int fs_field_id[STATIS_MAX];
 	struct _traffic_info *traffic_info[TSG_ACTION_MAX+1];
+	struct _traffic_info default_total_info;
 	screen_stat_handle_t fs2_handle;
 }tsg_statis_para_t;
 

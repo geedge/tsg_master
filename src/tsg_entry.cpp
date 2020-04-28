@@ -2,10 +2,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include <MESA/http.h>
 #include <MESA/ftp.h>
+#include <MESA/mail.h>
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
@@ -39,7 +41,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200119=0;
+char TSG_MASTER_VERSION_20200330=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -402,6 +404,13 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 	}
 
 	//mail
+
+	ret=mail_protocol_identify(a_stream);
+	if(ret>=SMTP_PROTOCOL&& ret<=IMAP_PROTOCOL)
+	{
+		identify_info->proto=PROTO_MAIL;
+		return 1;
+	}
 	
 	return ret;
 }
@@ -409,6 +418,8 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
 	int ret=0,hit_num=0;
+	struct timespec tv;
+	long establish_latency_ms=0;
 	int state=APP_STATE_GIVEME;
 	scan_status_t mid=NULL;
 	Maat_rule_t *p_result=NULL;
@@ -425,6 +436,32 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			
 			memset(&identify_info, 0, sizeof(identify_info));
 			identify_application_protocol(a_tcp, &identify_info);
+			if(identify_info.proto==PROTO_HTTP)
+			{
+				clock_gettime(CLOCK_REALTIME, &tv);
+				establish_latency_ms=(tv.tv_sec-a_tcp->ptcpdetail->createtime)*1000+tv.tv_nsec/1000/1000;
+				ret=project_req_add_long(a_tcp, g_tsg_para.establish_latency_project_id, establish_latency_ms);
+				if(ret<0)
+				{
+					MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_FATAL,
+											"PROJECT_ADD",
+											"Add policy_priority_label failed, establish latency ms: %llu addr: %s",
+											establish_latency_ms,
+											printaddr(&a_tcp->addr, thread_seq)
+											);
+				}
+				else
+				{
+					MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"PROJECT_ADD",
+											"Add policy_priority_label successfully, establish latency ms: %llu addr: %s",
+											establish_latency_ms,
+											printaddr(&a_tcp->addr, thread_seq)
+											);	
+				}
+			}
 			
 			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, identify_info.proto, &mid, all_result+hit_num, MAX_RESULT_NUM-hit_num);
 			if(ret>0)
@@ -500,11 +537,23 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 						if(q_result!=NULL && (p_result==q_result))
 						{
 							init_context(pme, identify_info.proto, p_result, thread_seq);
+							if(identify_info.proto>PROTO_UNKONWN && identify_info.proto<PROTO_MAX)
+							{
+								_context=(struct _master_context *)*pme;
+								memcpy(_context->domain, identify_info.domain, identify_info.domain_len);
+								_context->domain_len=identify_info.domain_len;
+							}
 							state=APP_STATE_GIVEME;
 						}
 						break;
 					case	TSG_ACTION_BYPASS:
 						init_context(pme, identify_info.proto, p_result, thread_seq);
+						if(identify_info.proto>PROTO_UNKONWN && identify_info.proto<PROTO_MAX)
+						{
+							_context=(struct _master_context *)*pme;
+							memcpy(_context->domain, identify_info.domain, identify_info.domain_len);
+							_context->domain_len=identify_info.domain_len;
+						}
 						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 						break;
@@ -544,7 +593,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												(unsigned char)priority_label->result[0].action,
 												printaddr(&a_tcp->addr, thread_seq)
 												);
-						return APP_STATE_DROPME;
+						return APP_STATE_DROPME|APP_STATE_KILL_OTHER;
 						break;
 					case	TSG_ACTION_NONE:
 					default:
@@ -563,7 +612,11 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				{
 					memset(&identify_info, 0, sizeof(identify_info));
 					identify_info.proto=_context->proto;
-					
+					if(_context->domain_len>0)
+					{
+						memcpy(identify_info.domain, _context->domain, _context->domain_len);
+						identify_info.domain_len=_context->domain_len;
+					}
 					master_send_log(a_tcp, _context->result, _context->hit_cnt, &identify_info, thread_seq);
 					free_context(pme, thread_seq);
 				}
@@ -683,6 +736,13 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "ESTABLISH_LATENCY_LABEL", label_buff, sizeof(label_buff), "ESTABLISH_LATENCY");
+	g_tsg_para.establish_latency_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_LONG, NULL);
+	if(g_tsg_para.establish_latency_project_id<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed ...", label_buff);
+	}
+
 	ret=tsg_rule_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
 	{
@@ -696,6 +756,7 @@ extern "C" int TSG_MASTER_INIT()
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_SENDLOG", "tsg_sendlog_init failed ...");
 		return -1;
 	}
+	g_tsg_log_instance->establish_latency_project_id=g_tsg_para.establish_latency_project_id;
 
 	MESA_load_profile_int_def(tsg_conffile, "FIELD_STAT", "CYCLE", &cycle, 30);
 	MESA_load_profile_short_nodef(tsg_conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));
