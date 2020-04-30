@@ -19,7 +19,7 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
-char TSG_SEND_LOG_VERSION_20200330=0;
+char TSG_SEND_LOG_VERSION_20200427=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
 
@@ -128,6 +128,42 @@ char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t 
 
 	return NULL;
 }
+
+static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, struct Maat_rule_t *p_result)
+{
+	cJSON *item=NULL;
+	cJSON *object=NULL;
+	char *tmp_buff=NULL;
+	
+	if(p_result->serv_def_len<128)
+	{
+		object=cJSON_Parse(p_result->service_defined);
+	}
+	else
+	{
+		tmp_buff=(char *)calloc(1, p_result->serv_def_len+1);
+		Maat_read_rule(g_tsg_maat_feather, p_result, MAAT_RULE_SERV_DEFINE, tmp_buff, p_result->serv_def_len);
+		object=cJSON_Parse(tmp_buff);
+
+		free(tmp_buff);
+		tmp_buff=NULL;
+	}
+
+	if(object!=NULL)
+	{
+		item=cJSON_GetObjectItem(object, "method");
+		if(item!=NULL && item->valuestring!=NULL)
+		{
+			TLD_append(handle, field_name, (void *)item->valuestring, TLD_TYPE_STRING);
+		}
+		
+		cJSON_Delete(object);
+		object=NULL;
+	}
+
+	return 0;
+}
+
 
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
@@ -366,7 +402,12 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	ret=MESA_get_dev_ipv4(nic_name, (int *)&local_ip_nr);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "GET_LOCAL_IP", "MESA_get_dev_ipv4 is error, nic_name: %s", nic_name);
+		MESA_handle_runtime_log(_instance->logger,
+									RLOG_LV_FATAL,
+									"GET_LOCAL_IP",
+									"MESA_get_dev_ipv4 is error, nic_name: %s, please check tsgconf/main.conf",
+									nic_name
+								);
 		return NULL;
 	}
 	inet_ntop(AF_INET,&(local_ip_nr),_instance->local_ip_str,sizeof(_instance->local_ip_str));
@@ -385,7 +426,12 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 
 	if(rd_kafka_brokers_add(kafka_handle, _instance->broker_list) == 0)
 	{
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "KAFKA_INIT", "rd_kafka_brokers_add is error, broker_list: %s", _instance->broker_list);
+		MESA_handle_runtime_log(_instance->logger,
+									RLOG_LV_FATAL,
+									"KAFKA_INIT",
+									"rd_kafka_brokers_add is error, broker_list: %s, please check tsgconf/main.conf",
+									_instance->broker_list
+								);
 		return NULL;
 	}
 	
@@ -395,7 +441,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	{
 		_instance->topic_rkt=(rd_kafka_topic_t **)calloc(1, (_instance->max_service)*sizeof(rd_kafka_topic_t*));
 
-		for(i=0; i<_instance->max_service+1; i++)
+		for(i=0; i<_instance->max_service; i++)
 		{
 			if(_instance->service2topic[i].type==TLD_TYPE_MAX)
 			{
@@ -406,7 +452,12 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	}
 	else
 	{
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "KAFKA_INIT", "load_log_common_field is error, please check %s", _instance->common_field_file);		
+		MESA_handle_runtime_log(_instance->logger,
+									RLOG_LV_FATAL,
+									"KAFKA_INIT",
+									"load_log_common_field is error, please check %s",
+									_instance->common_field_file
+								);		
 	}
 	
 	return _instance;
@@ -472,7 +523,12 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(log_msg->result[i].config_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
-
+		
+		if(log_msg->result[i].action==TSG_ACTION_DENY)
+		{
+			set_common_sub_action(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name, &(log_msg->result[i]));
+		}
+		
 		payload = cJSON_PrintUnformatted(_handle->object);
 
 		status = rd_kafka_produce(_instance->topic_rkt[log_msg->result[i].service_id], RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, payload, strlen(payload), NULL, 0, NULL);			
@@ -495,6 +551,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name);
 
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LOG], 0, FS_OP_ADD, 1);

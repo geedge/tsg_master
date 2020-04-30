@@ -41,7 +41,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200330=0;
+char TSG_MASTER_VERSION_20200430=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -291,23 +291,69 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	return 1;
 }
 
-static struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result_num)
+static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, int thread_seq)
 {
-	int i=0;
+	int i=0,ret=0;
+	Maat_rule_t tmp_result;
 	Maat_rule_t *p_result=NULL;
+	Maat_rule_t *q_result=NULL;
+	scan_status_t mid=NULL;
+	
 	if(result==NULL || result_num<=0)
 	{
 		return NULL;
 	}
-	
+#if 0
+	ret=Maat_rule_sort_by_evaluation_order(g_tsg_maat_feather, result, result_num);
+	if(ret!=result_num)
+	{
+		return NULL;
+	}
+
 	p_result=&result[0];
 	
+	if(p_result->action==TSG_ACTION_INTERCEPT && domain!=NULL && domain_len>0)
+	{
+		ret=Maat_full_scan_string(g_tsg_maat_feather,
+									g_tsg_para.table_id[TABLE_EXCLUSION_SSL_SNI],
+									CHARSET_UTF8,
+									domain,
+									domain_len,
+									&tmp_result,
+									NULL,
+									1,
+									&mid,
+									thread_seq);
+		if(ret>0)
+		{
+			p_result=NULL;
+			for(i=1; i<result_num; i++)
+			{
+				if(p_result->action==TSG_ACTION_INTERCEPT)
+				{
+					continue;
+				}
+				p_result=&result[i];
+			}
+		}
+	}
+	
+	return 	p_result;
+#endif
+	p_result=&result[0];
+
 	for(i=1; i<result_num; i++)
 	{
 		if((unsigned char)result[i].action>(unsigned char)p_result->action)
 		{
+			q_result=p_result;
 			p_result=&result[i];
 			continue;
+		}
+
+		if(q_result==NULL)
+		{
+			q_result=&result[i];
 		}
 		
 		if(result[i].action==p_result->action)
@@ -317,6 +363,49 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int
 				p_result=&result[i];
 			}
 		}	
+	}
+
+	if(p_result->action==TSG_ACTION_INTERCEPT && identify_info!=NULL && identify_info->domain_len>0)
+	{
+		ret=Maat_full_scan_string(g_tsg_maat_feather,
+									g_tsg_para.table_id[TABLE_EXCLUSION_SSL_SNI],
+									CHARSET_UTF8,
+									identify_info->domain,
+									identify_info->domain_len,
+									&tmp_result,
+									NULL,
+									1,
+									&mid,
+									thread_seq);
+
+		if(ret>0)
+		{
+			p_result=q_result;
+			MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"EXCLUSION_SSL_SNI",
+										"Hit %s policy_id: %d service: %d action: %d addr: %s",
+										identify_info->domain,
+										tmp_result.config_id,
+										tmp_result.service_id,
+										(unsigned char)tmp_result.action,
+										printaddr(&a_stream->addr, thread_seq)
+									);
+			
+			master_send_log(a_stream, &tmp_result, 1, identify_info, thread_seq);
+		}
+		else
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"EXCLUSION_SSL_SNI",
+										"Not hit %s stream_dir: %d addr: %s  scan ret: %d",
+										identify_info->domain,
+										a_stream->dir,
+										printaddr(&a_stream->addr, thread_seq),
+										ret
+									);
+		}
 	}
 
 	return p_result;
@@ -467,7 +556,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			if(ret>0)
 			{
 				hit_num+=ret;
-				q_result=tsg_policy_decision_criteria(all_result, hit_num);
+				q_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, NULL, thread_seq);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 			
@@ -510,7 +599,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				mid=NULL;
 			}
 			
-			p_result=tsg_policy_decision_criteria(all_result, hit_num);
+			p_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, &identify_info, thread_seq);
 			
 			if(p_result!=NULL)
 			{
@@ -543,6 +632,16 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 								memcpy(_context->domain, identify_info.domain, identify_info.domain_len);
 								_context->domain_len=identify_info.domain_len;
 							}
+
+							MESA_handle_runtime_log(g_tsg_para.logger,
+													RLOG_LV_DEBUG,
+													"MONITOR",
+													"Hit monitor policy, policy_id: %d service: %d action: %d addr: %s",
+													p_result[0].config_id,
+													p_result[0].service_id,
+													(unsigned char)p_result[0].action,
+													printaddr(&a_tcp->addr, thread_seq)
+													);
 							state=APP_STATE_GIVEME;
 						}
 						break;
@@ -554,6 +653,17 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 							memcpy(_context->domain, identify_info.domain, identify_info.domain_len);
 							_context->domain_len=identify_info.domain_len;
 						}
+						
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"ALLOW",
+												"Hit allow policy, policy_id: %d service: %d action: %d addr: %s",
+												p_result[0].config_id,
+												p_result[0].service_id,
+												(unsigned char)p_result[0].action,
+												printaddr(&a_tcp->addr, thread_seq)
+												);
+						
 						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 						break;
@@ -651,7 +761,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				Maat_clean_status(&mid);
 				mid=NULL;
 			}
-			p_result=tsg_policy_decision_criteria(result, ret);
+			p_result=tsg_policy_decision_criteria(a_udp, result, ret, NULL, thread_seq);
 			if(p_result!=NULL)
 			{
 				switch((unsigned char)p_result->action)
@@ -732,7 +842,13 @@ extern "C" int TSG_MASTER_INIT()
 	g_tsg_para.priority_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_policy_label);
 	if(g_tsg_para.priority_project_id<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed ...", label_buff);
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_FATAL,
+									"PROJECT_REGISTER",
+									"Register %s failed; please check :%s and add <POLICY_PRIORITY	struct>",
+									label_buff,
+									"etc/project_list.conf"
+								);
 		return -1;
 	}
 
@@ -740,7 +856,13 @@ extern "C" int TSG_MASTER_INIT()
 	g_tsg_para.establish_latency_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_LONG, NULL);
 	if(g_tsg_para.establish_latency_project_id<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed ...", label_buff);
+		MESA_handle_runtime_log(g_tsg_para.logger, 
+									RLOG_LV_FATAL,
+									"PROJECT_REGISTER",
+									"Register %s failed; please check :%s and add <ESTABLISH_LATENCY	long>",
+									label_buff,
+									"etc/project_list.conf"
+								);
 	}
 
 	ret=tsg_rule_init(tsg_conffile, g_tsg_para.logger);
