@@ -41,7 +41,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200330=0;
+char TSG_MASTER_VERSION_20200430=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -291,7 +291,7 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	return 1;
 }
 
-static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, char *domain, int domain_len, int thread_seq)
+static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, int thread_seq)
 {
 	int i=0,ret=0;
 	Maat_rule_t tmp_result;
@@ -365,13 +365,13 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 		}	
 	}
 
-	if(p_result->action==TSG_ACTION_INTERCEPT && domain!=NULL && domain_len>0)
+	if(p_result->action==TSG_ACTION_INTERCEPT && identify_info!=NULL && identify_info->domain_len>0)
 	{
 		ret=Maat_full_scan_string(g_tsg_maat_feather,
 									g_tsg_para.table_id[TABLE_EXCLUSION_SSL_SNI],
 									CHARSET_UTF8,
-									domain,
-									domain_len,
+									identify_info->domain,
+									identify_info->domain_len,
 									&tmp_result,
 									NULL,
 									1,
@@ -385,12 +385,14 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 										RLOG_LV_DEBUG,
 										"EXCLUSION_SSL_SNI",
 										"Hit %s policy_id: %d service: %d action: %d addr: %s",
-										domain,
+										identify_info->domain,
 										tmp_result.config_id,
 										tmp_result.service_id,
 										(unsigned char)tmp_result.action,
 										printaddr(&a_stream->addr, thread_seq)
 									);
+			
+			master_send_log(a_stream, &tmp_result, 1, identify_info, thread_seq);
 		}
 		else
 		{
@@ -398,7 +400,7 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 										RLOG_LV_DEBUG,
 										"EXCLUSION_SSL_SNI",
 										"Not hit %s stream_dir: %d addr: %s  scan ret: %d",
-										domain,
+										identify_info->domain,
 										a_stream->dir,
 										printaddr(&a_stream->addr, thread_seq),
 										ret
@@ -554,7 +556,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			if(ret>0)
 			{
 				hit_num+=ret;
-				q_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, identify_info.domain, identify_info.domain_len, thread_seq);
+				q_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, NULL, thread_seq);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 			
@@ -597,7 +599,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				mid=NULL;
 			}
 			
-			p_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, identify_info.domain, identify_info.domain_len, thread_seq);
+			p_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, &identify_info, thread_seq);
 			
 			if(p_result!=NULL)
 			{
@@ -759,7 +761,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				Maat_clean_status(&mid);
 				mid=NULL;
 			}
-			p_result=tsg_policy_decision_criteria(a_udp, result, ret, identify_info.domain, identify_info.domain_len, thread_seq);
+			p_result=tsg_policy_decision_criteria(a_udp, result, ret, NULL, thread_seq);
 			if(p_result!=NULL)
 			{
 				switch((unsigned char)p_result->action)
