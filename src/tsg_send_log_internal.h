@@ -60,6 +60,7 @@ typedef enum _tsg_log_field_id
 	LOG_HTTP_HOST,
 	LOG_SSL_SNI,
 	LOG_COMMON_ESTABLISH_LATENCY_MS,
+	LOG_COMMON_SUB_ACTION,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
