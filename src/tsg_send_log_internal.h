@@ -1,7 +1,7 @@
 #ifndef	__TSG_SEND_LOG_INTERNAL_H__
 #define	__TSG_SEND_LOG_INTERNAL_H__
 
-#include <MESA/rdkafka.h>
+#include <librdkafka/rdkafka.h>
 #include <MESA/cJSON.h>
 
 
