@@ -1,6 +1,7 @@
 cmake_minimum_required (VERSION 2.8)
 
-project(tsg_master)
+set(lib_name tsg_master)
+project($(lib_name))
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(Version)
