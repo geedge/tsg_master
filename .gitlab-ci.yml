@@ -1,143 +1,104 @@
-image: "docker:stable"
-
-services:
-  - docker:dind
-
+image: "git.mesalab.cn:7443/mesa_platform/build-env:master"
 variables:
   GIT_STRATEGY: "clone"
-  IMAGE_TAG: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
-
+  BUILD_PADDING_PREFIX: /tmp/padding_for_CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX_PREFIX_PREFIX_PREFIX_PREFIX_PREFIX/
+  INSTALL_PREFIX: "/home/mesasoft/sapp_run/"
+  INSTALL_DEPENDENCY_LIBRARY: libMESA_handle_logger-devel  libcjson-devel libMESA_field_stat2-devel  sapp-devel framework_env  libMESA_prof_load-devel http-devel dns-devel ftp-devel mail-devel ssl-devel  librdkafka-devel libmaatframe-devel
 
 stages:
-  - build
-  - fvt
-  - package
-  - release
-  - docker
+- build
 
-.fvt:
-  image:  git.mesalab.cn:7443/mesa_platform/mesa_protocol:master
-  script:
-    - rpm -ivh build/*.rpm
-    - source /etc/profile.d/MESA.sh
-    - cd /home/mesasoft/
-    - git clone https://$USER_NAME:$CI_TOKEN@git.mesalab.cn/tango/fvt.git
-    - cd fvt/
-    - sh +x ./fvt_verify.sh /home/mesasoft/sapp_run/ /home/mesasoft/sapp_run/tsgconf/tsg_maat.json /home/mesasoft/sapp_run/tsglog/tsglog /home/mesasoft/fvt/master
-
-
-.build_before_script:
+.build_by_travis:
   before_script:
-    - mkdir -p /tmp/padding_for_CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX/$CI_PROJECT_NAMESPACE/
-    - ln -s $CI_PROJECT_DIR /tmp/padding_for_CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX/$CI_PROJECT_PATH
-    - cd /tmp/padding_for_CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX/$CI_PROJECT_PATH
-
-.build_master:
-  extends: .build_before_script
-  image:  git.mesalab.cn:7443/mesa_platform/mesa_protocol:master
+  - mkdir -p $BUILD_PADDING_PREFIX/$CI_PROJECT_NAMESPACE/
+  - ln -s $CI_PROJECT_DIR $BUILD_PADDING_PREFIX/$CI_PROJECT_PATH
+  - cd $BUILD_PADDING_PREFIX/$CI_PROJECT_PATH
+  - chmod +x ./ci/travis.sh
   script:
-    - source /etc/profile.d/MESA.sh
-    - mkdir -p build
-    - cd build
-    - cmake ..  -DCMAKE_BUILD_TYPE=$BUILD_TYPE
-    - make
-    - make package
-    
-.package_master:
-    extends: .build_before_script
-    image:  git.mesalab.cn:7443/mesa_platform/mesa_protocol:master
-    script:
-      - source /etc/profile.d/MESA.sh
-      - mkdir -p build
-      - cd build
-      - cmake ..  -DCMAKE_BUILD_TYPE=$BUILD_TYPE
-      - make package
+  - yum makecache
+  - ./ci/travis.sh
+  - cd build
+  tags:
+  - share
 
-build:
+branch_build_debug:
   stage: build
-  extends:   .build_master
-  tags:
-    - share
+  extends: .build_by_travis
   variables:
-    BUILD_TYPE: "Debug"
-  artifacts:
-    name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
-    paths:
-      -  ./build/*.rpm
+    BUILD_TYPE: Debug
   except:
+    - /^develop.*$/i
+    - /^master.*$/i
     - tags
 
-fvt:
-  stage: fvt
-  extends:   .fvt
-  tags:
-    - share
+branch_build_release:
+  stage: build
+  variables:
+    BUILD_TYPE: RelWithDebInfo
+  extends: .build_by_travis
   except:
+    - /^develop.*$/i
+    - /^master.*$/i
     - tags
 
-tsg-master-release:
-  stage: package
-  extends: .package_master
-  tags:
-    - share
+develop_build_debug:
+  stage: build
+  extends: .build_by_travis
   variables:
-    BUILD_TYPE: "Release"
+    BUILD_TYPE: Debug
+    PACKAGE: 1
   artifacts:
-    name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
+    name: "tsg_master-$CI_COMMIT_REF_NAME-debug"
     paths:
-      -  ./build/*.rpm
+      - build/*.rpm
   only:
-    - tags
+    - /^develop.*$/i
+    - /^master.*$/i
 
-tsg-master-debug:
-  stage: package
-  extends: .package_master
-  tags:
-    - share
+develop_build_release:
+  stage: build
+  extends: .build_by_travis
   variables:
-    BUILD_TYPE: "Debug"
+    BUILD_TYPE: RelWithDebInfo
+    PACKAGE: 1
   artifacts:
-    name: "$CI_JOB_NAME-$CI_COMMIT_REF_NAME"
+    name: "tsg_master-$CI_COMMIT_REF_NAME-release"
     paths:
-      -  ./build/*.rpm
+      - build/*.rpm
   only:
-    - tags
- 
-release-tsg-master-debug:
-  stage: release
-  image:  git.mesalab.cn:7443/mesa_platform/mesa_protocol:master
-  tags:
-    - share
-  variables:
-    ARTIFACTS_JOB: "tsg-master-debug"
-    PROJECT_NAME: "tsg-master"
-    USER_DEFINE: "debug"
-  only:
-    - tags
-  script:
-    - /bin/bash -x ./autorelease.sh $CI_API_V4_URL $CI_PROJECT_URL $CI_PROJECT_ID $CI_TOKEN $CI_COMMIT_TAG $ARTIFACTS_JOB $PROJECT_NAME $USER_DEFINE
-   
-release-tsg-master-release:
-  stage: release
-  image:  git.mesalab.cn:7443/mesa_platform/mesa_protocol:master
-  tags:
-    - share
-  variables:
-    ARTIFACTS_JOB: "tsg-master-release"
-    PROJECT_NAME: "tsg-master"
-    USER_DEFINE: "release"
-  only:
-    - tags
-  script:
-    - /bin/bash -x ./autorelease.sh $CI_API_V4_URL $CI_PROJECT_URL $CI_PROJECT_ID $CI_TOKEN $CI_COMMIT_TAG $ARTIFACTS_JOB $PROJECT_NAME $USER_DEFINE
+    - /^develop.*$/i
+    - /^master.*$/i
 
-build-docker:
-  stage: docker
-  script:
-    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
-    - docker build -t $IMAGE_TAG .
-    - docker push $IMAGE_TAG
-  tags:
-    - share
+
+release_build_release:
+  stage: build
+  variables:
+    BUILD_TYPE: RelWithDebInfo
+    PACKAGE: 1
+    UPLOAD: 1
+    PULP3_REPO_NAME: tsg-stable-x86_64.el7
+    PULP3_DIST_NAME: tsg-stable-x86_64.el7
+  extends: .build_by_travis
+  artifacts:
+    name: "tsg_master-$CI_COMMIT_REF_NAME-release"
+    paths:
+      - build/*.rpm
   only:
-    - master
+    - tags
+
+release_build_release_devel:
+  stage: build
+  variables:
+    BUILD_TYPE: RelWithDebInfo
+    ENABLE_DEVEL_SWITCH: "ON"
+    PACKAGE: 1
+    UPLOAD: 1
+    PULP3_REPO_NAME: tsg-stable-x86_64.el7
+    PULP3_DIST_NAME: tsg-stable-x86_64.el7
+  extends: .build_by_travis
+  artifacts:
+    name: "tsg_master-$CI_COMMIT_REF_NAME-release"
+    paths:
+      - build/*.rpm
+  only:
+    - tags
