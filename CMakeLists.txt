@@ -32,7 +32,7 @@ endif()
 
 set(CMAKE_INSTALL_PREFIX /home/mesasoft/sapp_run)
 
-add_subdirectory (src) 
+add_subdirectory(src) 
 
 SET(CPACK_RPM_PRE_INSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/preinstall/install.sh")
 SET(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/preinstall/uninstall.sh")
