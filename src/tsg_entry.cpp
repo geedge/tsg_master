@@ -41,7 +41,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200430=0;
+char TSG_MASTER_VERSION_20200507=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -606,6 +606,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				switch((unsigned char)p_result->action)
 				{
 					case	TSG_ACTION_DENY:
+						#if 0 /* support block/alert(deny), Do action in fw_http_plug */
 						master_do_deny(a_tcp, p_result, thread_seq);
 						master_send_log(a_tcp, p_result, 1, &identify_info, thread_seq);
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
@@ -621,6 +622,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												);
 
 						return APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
+						#endif
 						break;
 					case	TSG_ACTION_MONITOR:
 						if(q_result!=NULL && (p_result==q_result))
