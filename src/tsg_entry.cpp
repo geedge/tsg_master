@@ -41,7 +41,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200507=0;
+char TSG_MASTER_VERSION_20200514=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -53,6 +53,8 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_LINKS, "link
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_LOG, "log"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_DENY, "deny"}
 	};
+
+#define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
 
 static void free_policy_label(int thread_seq, void *project_req_value)
 {
@@ -286,7 +288,11 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	log_msg.result=p_result;
 	log_msg.result_num=result_num;
 	tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);
-	tsg_set_policy_flow(a_stream, p_result, thread_seq);
+	
+	if(p_result->config_id!=DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID)
+	{
+		tsg_set_policy_flow(a_stream, p_result, thread_seq);
+	}
 	
 	return 1;
 }
@@ -340,19 +346,27 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 	
 	return 	p_result;
 #endif
-	p_result=&result[0];
 
-	for(i=1; i<result_num; i++)
+	for(i=0; i<result_num; i++)
 	{
+		if(p_result==NULL)
+		{
+			p_result=&result[i];
+			continue;
+		}
+		
 		if((unsigned char)result[i].action>(unsigned char)p_result->action)
 		{
-			q_result=p_result;
+			if(p_result->action!=TSG_ACTION_INTERCEPT)
+			{
+				q_result=p_result;
+			}
 			p_result=&result[i];
 			continue;
 		}
 
-		if(q_result==NULL)
-		{
+		if((unsigned char)result[i].action<(unsigned char)p_result->action && (unsigned char)result[i].action!=TSG_ACTION_INTERCEPT)
+		{		
 			q_result=&result[i];
 		}
 		
@@ -379,19 +393,22 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 									thread_seq);
 
 		if(ret>0)
-		{
-			p_result=q_result;
+		{	
 			MESA_handle_runtime_log(g_tsg_para.logger,
 										RLOG_LV_DEBUG,
 										"EXCLUSION_SSL_SNI",
-										"Hit %s policy_id: %d service: %d action: %d addr: %s",
+										"Hit %s policy_id: %d service: %d action: %d Decryption Exclusion: [ policy_id: %d service: %d action: %d ] addr: %s",
 										identify_info->domain,
 										tmp_result.config_id,
 										tmp_result.service_id,
 										(unsigned char)tmp_result.action,
+										p_result->config_id,
+										p_result->service_id,
+										(unsigned char)p_result->action,
 										printaddr(&a_stream->addr, thread_seq)
 									);
 			
+			p_result=q_result;
 			master_send_log(a_stream, &tmp_result, 1, identify_info, thread_seq);
 		}
 		else
@@ -512,7 +529,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	int state=APP_STATE_GIVEME;
 	scan_status_t mid=NULL;
 	Maat_rule_t *p_result=NULL;
-	Maat_rule_t *q_result=NULL;
+	//Maat_rule_t *q_result=NULL;
 	struct _identify_info identify_info;
 	Maat_rule_t all_result[MAX_RESULT_NUM];
 	policy_priority_label_t *priority_label=NULL;	
@@ -556,7 +573,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			if(ret>0)
 			{
 				hit_num+=ret;
-				q_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, NULL, thread_seq);
+				//q_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, NULL, thread_seq);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 			
@@ -625,6 +642,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 						#endif
 						break;
 					case	TSG_ACTION_MONITOR:
+						#if 0
 						if(q_result!=NULL && (p_result==q_result))
 						{
 							init_context(pme, identify_info.proto, p_result, thread_seq);
@@ -646,6 +664,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 													);
 							state=APP_STATE_GIVEME;
 						}
+						#endif
 						break;
 					case	TSG_ACTION_BYPASS:
 						init_context(pme, identify_info.proto, p_result, thread_seq);
