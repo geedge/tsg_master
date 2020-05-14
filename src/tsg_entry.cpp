@@ -691,7 +691,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 					case	TSG_ACTION_INTERCEPT:
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
 
-						tsg_set_policy_flow(a_tcp, p_result, thread_seq);
+						//tsg_set_policy_flow(a_tcp, p_result, thread_seq);
 						
 						priority_label=(policy_priority_label_t *)dictator_malloc(thread_seq, sizeof(policy_priority_label_t));
 						
