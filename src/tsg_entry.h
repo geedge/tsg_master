@@ -4,6 +4,7 @@
 #include <MESA/Maat_rule.h>
 #include <MESA/field_stat2.h>
 #include "tsg_rule.h"
+#include "tsg_statistic.h"
 
 
 #ifndef MIN

@@ -8,6 +8,7 @@
 
 #include "tsg_entry.h"
 #include "tsg_send_log.h"
+#include "tsg_statistic.h"
 #include "tsg_send_log_internal.h"
 
 tsg_statis_para_t g_tsg_statis_para;
