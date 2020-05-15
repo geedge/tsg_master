@@ -127,15 +127,6 @@ enum TRAFFIC_INFO_IDX
 	TRAFFIC_INFO_MAX
 };
 
-struct _traffic_info
-{
-	long long con_num;
-	long long in_bytes;
-	long long out_bytes;
-	long long in_packets;
-	long long out_packets;
-};
-
 typedef	struct _tsg_statistic
 {
 	int cycle;

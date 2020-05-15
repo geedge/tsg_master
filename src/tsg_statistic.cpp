@@ -12,6 +12,24 @@
 
 tsg_statis_para_t g_tsg_statis_para;
 
+int tsg_set_intercept_flow(Maat_rule_t *p_result, struct _traffic_info *traffic_info, int thread_seq)
+{
+	struct _traffic_info *_info=NULL;
+
+	if(p_result!=NULL && traffic_info!=NULL && thread_seq>=0)
+	{
+		_info=&(g_tsg_statis_para.traffic_info[(unsigned char)p_result->action][thread_seq]);
+		
+		_info->con_num+=traffic_info->con_num;
+		_info->in_bytes+=traffic_info->in_bytes;
+		_info->in_packets+=traffic_info->in_packets;
+		_info->out_bytes+=traffic_info->out_bytes;
+		_info->out_packets+=traffic_info->out_packets;
+	}
+	
+	return 0;
+}
+
 int tsg_set_policy_flow(struct streaminfo *a_stream, Maat_rule_t *p_result, int thread_seq)
 {
 	unsigned long long value=0;
