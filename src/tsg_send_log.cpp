@@ -26,7 +26,8 @@ struct tsg_log_instance_t *g_tsg_log_instance;
 const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"UNKOWN"},
 								 			{TLD_TYPE_LONG, 	TLD_TYPE_LONG,		"LONG"},
 								 			{TLD_TYPE_STRING, 	TLD_TYPE_STRING, 	"STRING"},
-											{TLD_TYPE_FILE,		TLD_TYPE_FILE,		"FILE"}
+											{TLD_TYPE_FILE,		TLD_TYPE_FILE,		"FILE"},
+											{TLD_TYPE_TOPIC,	TLD_TYPE_TOPIC,		"TOPIC"}
 										   };
 
 extern "C" int MESA_get_dev_ipv4(const char *device, int *ip_add);
@@ -303,7 +304,7 @@ int load_log_common_field(const char *filename, id2field_t *id2field, id2field_t
 		ret=sscanf(line, "%s %s %d", type_name, field_name, &id);
 		assert(ret==3 && id<LOG_COMMON_MAX);
 
-		for(i=0; i<LOG_COMMON_MAX; i++)
+		for(i=0; i<TLD_TYPE_MAX; i++)
 		{
 			if((strncasecmp(tld_type[i].name, type_name, strlen(tld_type[i].name)))==0)
 			{
@@ -316,12 +317,22 @@ int load_log_common_field(const char *filename, id2field_t *id2field, id2field_t
 						id2field[id].id = id;
 						memcpy(id2field[id].name, field_name, strlen(field_name));
 						break;
-					default:
-						if((strncasecmp("TOPIC", type_name, strlen("TOPIC")))==0)
+					case	TLD_TYPE_TOPIC:
+						if(_service2topic==NULL)
 						{
-							if(_service2topic==NULL)
+							_service2topic=(id2field_t *)calloc(1, sizeof(id2field_t)*(id+1));
+							_service2topic[id].type = TLD_TYPE_MAX;
+							_service2topic[id].id = id;
+							memcpy(_service2topic[id].name, field_name, strlen(field_name));
+
+							*max_service=id+1;
+						}
+						else
+						{
+							if(*max_service<=id)
 							{
-								_service2topic=(id2field_t *)calloc(1, sizeof(id2field_t)*(id+1));
+								_service2topic=(id2field_t *)realloc(_service2topic, sizeof(id2field_t)*(id+1));
+								memset(&_service2topic[id], 0, sizeof(id2field_t));
 								_service2topic[id].type = TLD_TYPE_MAX;
 								_service2topic[id].id = id;
 								memcpy(_service2topic[id].name, field_name, strlen(field_name));
@@ -330,26 +341,14 @@ int load_log_common_field(const char *filename, id2field_t *id2field, id2field_t
 							}
 							else
 							{
-								if(*max_service<=id)
-								{
-									_service2topic=(id2field_t *)realloc(_service2topic, sizeof(id2field_t)*(id+1));
-									memset(&_service2topic[id], 0, sizeof(id2field_t));
-									_service2topic[id].type = TLD_TYPE_MAX;
-									_service2topic[id].id = id;
-									memcpy(_service2topic[id].name, field_name, strlen(field_name));
-
-									*max_service=id+1;
-								}
-								else
-								{
-									memset(&_service2topic[id], 0, sizeof(id2field_t));
-									_service2topic[id].type = TLD_TYPE_MAX;
-									_service2topic[id].id = id;
-									memcpy(_service2topic[id].name, field_name, strlen(field_name));
-								}
+								memset(&_service2topic[id], 0, sizeof(id2field_t));
+								_service2topic[id].type = TLD_TYPE_MAX;
+								_service2topic[id].id = id;
+								memcpy(_service2topic[id].name, field_name, strlen(field_name));
 							}
-							
 						}
+						break;
+					default:
 						break;
 				}
 			}

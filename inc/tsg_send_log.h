@@ -17,6 +17,7 @@ typedef enum _tld_type
 	TLD_TYPE_LONG=1,
 	TLD_TYPE_STRING,
 	TLD_TYPE_FILE,
+	TLD_TYPE_TOPIC,
 	TLD_TYPE_MAX
 }TLD_TYPE;
 
