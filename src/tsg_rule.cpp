@@ -65,13 +65,13 @@ void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *fr
 	MESA_handle_runtime_log(logger, 
 								RLOG_LV_DEBUG,
 								"IP_ASN",
-								"Add ip ASN: [ start_ip: %s end_ip: %s asn: %d organization: %s ref_cnt: %d ] table_id: %d",
+								"Dup(table_id: %d) ip ASN: start_ip: %s end_ip: %s asn: %s organization: %s ref_cnt: %d",
+								table_id,
 								asn->start_ip,
 								asn->end_ip, 
 								asn->asn, 
 								asn->organization,
-								asn->ref_cnt,
-								table_id
+								asn->ref_cnt
 							);
 
 	return;
@@ -103,18 +103,19 @@ void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PL
 	}
 	
 	atomic_inc(&asn->ref_cnt);
+	asn->table_id=table_id;
 	*ad=(MAAT_PLUGIN_EX_DATA)asn;
 	
 	MESA_handle_runtime_log(logger, 
 								RLOG_LV_DEBUG,
 								"IP_ASN",
-								"Add ip ASN: [ start_ip: %s end_ip: %s asn: %d organization: %s ] table_id: %d table_line: %s",
+								"Add(table_id: %d) ip ASN: start_ip: %s end_ip: %s asn: %s organization: %s ref_cnt: %d",
+								table_id,
 								asn->start_ip,
 								asn->end_ip, 
 								asn->asn, 
 								asn->organization,
-								table_id,
-								table_line
+								asn->ref_cnt
 							);
 	return;
 }
@@ -123,6 +124,18 @@ void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
 	void *logger=argp;
 	struct _asn_info *asn=(struct _asn_info *)(*ad);
+
+	MESA_handle_runtime_log(logger, 
+								RLOG_LV_DEBUG,
+								"IP_ASN",
+								"Delate(table_id: %d) ip ASN: start_ip: %s end_ip: %s asn: %s organization: %s ref_cnt: %d",
+								table_id,
+								asn->start_ip,
+								asn->end_ip, 
+								asn->asn, 
+								asn->organization,
+								asn->ref_cnt
+							);
 	
 	atomic_dec(&asn->ref_cnt);
 	if(asn->ref_cnt<=0)
@@ -130,18 +143,6 @@ void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 		free(*ad);
 		*ad=NULL;
 	}
-
-	MESA_handle_runtime_log(logger, 
-								RLOG_LV_DEBUG,
-								"IP_ASN",
-								"Add ip ASN: [ start_ip: %s end_ip: %s asn: %d organization: %s ref_cnt: %d ] table_id: %d",
-								asn->start_ip,
-								asn->end_ip, 
-								asn->asn, 
-								asn->organization,
-								asn->ref_cnt,
-								table_id
-							);
 
 	return;
 }
@@ -157,13 +158,16 @@ void location_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DAT
 	MESA_handle_runtime_log(logger,
 							RLOG_LV_DEBUG,
 							"IP_LOCATION", 
-							"Dup location: [ start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d ] table_id: %d",
+							"Dup(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d",
+							table_id,
+							location->geoname_id,
 							location->start_ip,
 							location->end_ip,
 							location->continent_full,
 							location->country_full,
 							location->city_full,
-							table_id);
+							location->ref_cnt
+							);
 	return;
 }
 
@@ -176,8 +180,9 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 	location=(struct _location_info *)calloc(1, sizeof(struct _location_info));
 	
 	ret=sscanf(table_line,
-				"%d\t%d\t%s\t%s\t%lf\t%lf\t%lf\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%u\t%d",
+				"%d\t%d\t%d\t%s\t%s\t%lf\t%lf\t%lf\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d",
 				&id,
+				&location->geoname_id,
 				&location->addr_type,
 				location->start_ip,
 				location->end_ip,
@@ -193,7 +198,6 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 				location->province_full,
 				location->city_full,
 				location->time_zone,
-				&location->parent_location_id,
 				&is_valid);
 	if(ret!=18)
 	{
@@ -218,15 +222,15 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 	MESA_handle_runtime_log(logger, 
 								RLOG_LV_DEBUG,
 								"IP_LOCATION",
-								"Add ip location: [ start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d ] table_id: %d table_line: %s",
+								"Add(table_id: %d) ip location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d",
+								table_id,
+								location->geoname_id,
 								location->start_ip,
 								location->end_ip,
 								location->continent_full,
 								location->country_full,
 								location->city_full,
-								location->ref_cnt,
-								table_id,
-								table_line
+								location->ref_cnt
 							);
 	return;
 }
@@ -236,6 +240,20 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 	void *logger=argp;
 	struct _location_info *location=(struct _location_info *)(*ad);
 
+	MESA_handle_runtime_log(logger,
+								RLOG_LV_DEBUG,
+								"IP_LOCATION", 
+								"Delete(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d",
+								table_id,
+								location->geoname_id,
+								location->start_ip,
+								location->end_ip,
+								location->continent_full,
+								location->country_full,
+								location->city_full,
+								location->ref_cnt
+							);
+
 	atomic_dec(&location->ref_cnt);
 	if(location->ref_cnt<=0)
 	{
@@ -243,18 +261,6 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 		*ad=NULL;
 	}
 	
-	MESA_handle_runtime_log(logger,
-								RLOG_LV_DEBUG,
-								"IP_LOCATION", 
-								"Delete location: [ start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d ] table_id: %d",
-								location->start_ip,
-								location->end_ip,
-								location->continent_full,
-								location->country_full,
-								location->city_full,
-								location->ref_cnt,
-								table_id
-							);
 	return;
 }
 
@@ -267,7 +273,7 @@ void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX
 	atomic_inc(&subscribe_id->ref_cnt);
 	*to=*from;
 	
-	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Dup subscribe_id: %s ref_cnt: %d table_id: %d", subscribe_id->subscribe_id, subscribe_id->ref_cnt, table_id);
+	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Dup(table_id: %d ) subscribe_id: %s ref_cnt: %d", table_id, subscribe_id->subscribe_id, subscribe_id->ref_cnt);
 	
 	return;
 }
@@ -301,15 +307,16 @@ void subscribe_id_new_data(int table_id, const char* key, const char* table_line
 	
 	
 	atomic_inc(&subscribe_id->ref_cnt);
+	subscribe_id->table_id=table_id;
 	*ad=(MAAT_PLUGIN_EX_DATA)subscribe_id;
 	
 	MESA_handle_runtime_log(logger, 
 								RLOG_LV_DEBUG,
 								"SUBSCRIBE_ID",
-								"Add subscribe_id: %s table_id: %d table_line: %s",
-								subscribe_id->subscribe_id,
+								"Add(table_id: %d ) subscribe_id: %s ref_cnt: %d",
 								table_id,
-								table_line
+								subscribe_id->subscribe_id,
+								subscribe_id->ref_cnt
 								);
 	return;
 }
@@ -319,6 +326,8 @@ void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, vo
 	void *logger=argp;
 	struct _subscribe_id_info *subscribe_id=(struct _subscribe_id_info *)(*ad);
 
+	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Delete(table_id: %d ) subscribe_id: %s ref_cnt: %d", table_id, subscribe_id->subscribe_id, subscribe_id->ref_cnt);
+
 	atomic_dec(&subscribe_id->ref_cnt);
 	if(subscribe_id->ref_cnt<=0)
 	{
@@ -326,8 +335,6 @@ void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, vo
 		*ad=NULL;
 	}
 	
-	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Delete subscribe_id: %s ref_cnt: %d table_id: %d", subscribe_id->subscribe_id, subscribe_id->ref_cnt, table_id);
-
 	return;
 }
 
@@ -762,7 +769,7 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 									);
 	}
 
-	return ret;
+	return (ret>0 ? ret : 0);
 }
 
 
@@ -819,7 +826,7 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 									);
 	}
 
-	return ret;
+	return (ret>0 ? ret : 0);
 }
 
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)

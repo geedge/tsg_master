@@ -10,7 +10,7 @@ echo 'POLICY_PRIORITY	struct' >> ${DST}/etc/project_list.conf
 fi
 
 if [[ -z `grep -rn 'ESTABLISH_LATENCY' ${DST}/etc/project_list.conf` ]];then
-echo 'ESTABLISH_LATENCY	long' >> ${DST}/etc/project_list.conf
+echo 'TSG_MASTER_INTERNAL_LABEL       struct' >> ${DST}/etc/project_list.conf
 fi
 
 if [[ -z `grep -rn 'tsg_master.inf' ${DST}/plug/conflist.inf` ]];then

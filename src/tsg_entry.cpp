@@ -64,44 +64,47 @@ static void free_internal_label(int thread_seq, void *project_req_value)
 {
 	struct _internal_label *label=(struct _internal_label *)project_req_value;
 
-	if(label->client_asn!=NULL)
+	if(label!=NULL)
 	{
-		ASN_free_data(label->client_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_asn), 0, g_tsg_para.logger);
-		label->client_asn=NULL;
-	}
+		if(label->client_asn!=NULL)
+		{
+			ASN_free_data(label->client_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_asn), 0, g_tsg_para.logger);
+			label->client_asn=NULL;
+		}
 
-	if(label->server_asn!=NULL)
-	{
-		ASN_free_data(label->server_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_asn), 0, g_tsg_para.logger);
-		label->server_asn=NULL;
-	}
+		if(label->server_asn!=NULL)
+		{
+			ASN_free_data(label->server_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_asn), 0, g_tsg_para.logger);
+			label->server_asn=NULL;
+		}
 
-	if(label->client_location!=NULL)
-	{
-		location_free_data(label->client_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_location), 0, g_tsg_para.logger);
-		label->client_location=NULL;
-	}
+		if(label->client_location!=NULL)
+		{
+			location_free_data(label->client_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_location), 0, g_tsg_para.logger);
+			label->client_location=NULL;
+		}
 
-	if(label->server_location!=NULL)
-	{
-		location_free_data(label->server_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_location), 0, g_tsg_para.logger);
-		label->server_location=NULL;
-	}
+		if(label->server_location!=NULL)
+		{
+			location_free_data(label->server_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_location), 0, g_tsg_para.logger);
+			label->server_location=NULL;
+		}
 
-	if(label->client_subscribe_id!=NULL)
-	{
-		free(label->client_subscribe_id);
-		label->client_subscribe_id=NULL;
-	}
+		if(label->client_subscribe_id!=NULL)
+		{
+			subscribe_id_free_data(label->client_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->client_subscribe_id, 0, g_tsg_para.logger);
+			label->client_subscribe_id=NULL;
+		}
 
-	if(label->server_subscribe_id!=NULL)
-	{
-		free(label->server_subscribe_id);
-		label->server_subscribe_id=NULL;
+		if(label->server_subscribe_id!=NULL)
+		{
+			subscribe_id_free_data(label->server_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->server_subscribe_id, 0, g_tsg_para.logger);
+			label->server_subscribe_id=NULL;
+		}
+		
+		dictator_free(thread_seq, project_req_value);
+		project_req_value=NULL;
 	}
-	
-	dictator_free(thread_seq, project_req_value);
-	project_req_value=NULL;
 }
 
 static void free_context(void **pme, int thread_seq)

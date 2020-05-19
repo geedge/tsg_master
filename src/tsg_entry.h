@@ -86,13 +86,14 @@ struct _location_info
 	char province_full[256];
 	char city_full[256];
 	char time_zone[128];
-	int parent_location_id;
+	int geoname_id;
 	int table_id;
 };
 
 struct _subscribe_id_info
 {
 	int ref_cnt;
+	int table_id;
 	char subscribe_id[256];
 };
 
@@ -221,6 +222,7 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct _identify_info *i
 
 void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 
 
 #endif
