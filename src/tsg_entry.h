@@ -69,6 +69,7 @@ typedef	struct _tsg_para
 	int priority_project_id;
 	int establish_latency_project_id;
 	int fs2_field_id[TSG_FS2_MAX];
+	char device_sn[MAX_DOAMIN_LEN/8];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;
 	screen_stat_handle_t fs2_handle;

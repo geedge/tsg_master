@@ -19,7 +19,7 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
-char TSG_SEND_LOG_VERSION_20200427=0;
+char TSG_SEND_LOG_VERSION_20200522=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
 
@@ -488,6 +488,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	
 	TLD_append_streaminfo(instance, handle, log_msg->a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
 
 	for(i=0;i<log_msg->result_num; i++)
 	{
