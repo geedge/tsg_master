@@ -54,6 +54,7 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_LINKS, "link
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_DENY, "deny"}
 	};
 
+#define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
 
 static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
 {
