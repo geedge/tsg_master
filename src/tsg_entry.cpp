@@ -41,7 +41,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200514=0;
+char TSG_MASTER_VERSION_20200522=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -54,7 +54,39 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_LINKS, "link
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_DENY, "deny"}
 	};
 
-#define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
+
+static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
+{
+	int ret=0,flags=0;
+	char buff[4096]={0};
+	cJSON *object=NULL;
+	
+	FILE *fp=fopen(filename, "rb");
+	if(fp)
+	{
+		ret=fread(buff, sizeof(buff), 1, fp);
+		if(ret<(int)sizeof(buff))
+		{
+			object=cJSON_Parse(buff);
+			if(object)
+			{
+				cJSON *item=cJSON_GetObjectItem(object, "sn");
+				if(item && device_sn_len>(int)strlen(item->valuestring))
+				{
+					flags=1;
+					memcpy(device_sn, item->valuestring, strlen(item->valuestring));
+				}
+				cJSON_Delete(object);
+				object=NULL;
+			}
+		}
+
+		fclose(fp);
+		fp=NULL;
+	}
+
+	return flags;
+}
 
 static void free_policy_label(int thread_seq, void *project_req_value)
 {
@@ -843,7 +875,8 @@ extern "C" int TSG_MASTER_INIT()
 	char label_buff[MAX_STRING_LEN*4]={0};
 	char fs_server_ip[MAX_IPV4_LEN]={0};
 	char fs_output_path[MAX_STRING_LEN*4]={0};
-
+	char device_sn_filename[MAX_STRING_LEN]={0};
+	
 	memset(&g_tsg_para, 0, sizeof(g_tsg_para));
 	
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","LOG_LEVEL", &level, 30);
@@ -858,7 +891,14 @@ extern "C" int TSG_MASTER_INIT()
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_ID", &g_tsg_para.device_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
-
+	
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "DEVICE_SN_FILENAME", device_sn_filename, sizeof(device_sn_filename), "/opt/tsg/etc/tsg_sn.json");
+	ret=tsg_get_sn(device_sn_filename, g_tsg_para.device_sn, sizeof(g_tsg_para.device_sn));
+	if(ret==0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "GET_DEVICE_SN", "Get device SN failed; please check :%s", device_sn_filename);
+	}
+	
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "POLICY_PRIORITY_LABEL", label_buff, sizeof(label_buff), "POLICY_PRIORITY");
 	g_tsg_para.priority_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_policy_label);
 	if(g_tsg_para.priority_project_id<0)
