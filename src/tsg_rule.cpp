@@ -54,14 +54,227 @@ const struct _str2index g_tsg_proto_string[PROTO_MAX+1]={{PROTO_UNKONWN, 0, (cha
 										 {PROTO_MAX, 0, (char *)""}
 };
 
+void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+{
+	void *logger=argp;
+	struct _asn_info *asn=(struct _asn_info *)(*from);
+	
+	atomic_inc(&asn->ref_cnt);
+	*to=*from;
+
+	MESA_handle_runtime_log(logger, 
+								RLOG_LV_DEBUG,
+								"IP_ASN",
+								"Dup(table_id: %d) ip ASN: start_ip: %s end_ip: %s asn: %s organization: %s ref_cnt: %d",
+								table_id,
+								asn->start_ip,
+								asn->end_ip, 
+								asn->asn, 
+								asn->organization,
+								asn->ref_cnt
+							);
+
+	return;
+}
+
+void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	void *logger=argp;
+	int ret=0,id=0,is_valid=0;
+
+	struct _asn_info *asn=NULL;
+	asn=(struct _asn_info *)calloc(1, sizeof(struct _asn_info));
+	
+	ret=sscanf(table_line, "%d\t%d\t%s\t%s\t%s\t%s\t%d", &id, &asn->addr_type, asn->start_ip, asn->end_ip, asn->asn, asn->organization, &is_valid);
+	if(ret!=7)
+	{
+		free(asn);
+		asn=NULL;
+		
+		MESA_handle_runtime_log(logger, 
+									RLOG_LV_FATAL,
+									"IP_ASN",
+									"Parse ip ASN failed, ret: %d table_id: %d table_line: %s",
+									ret,
+									table_id,
+									table_line
+								);
+		return;
+	}
+	
+	atomic_inc(&asn->ref_cnt);
+	asn->table_id=table_id;
+	*ad=(MAAT_PLUGIN_EX_DATA)asn;
+	
+	MESA_handle_runtime_log(logger, 
+								RLOG_LV_DEBUG,
+								"IP_ASN",
+								"Add(table_id: %d) ip ASN: start_ip: %s end_ip: %s asn: %s organization: %s ref_cnt: %d",
+								table_id,
+								asn->start_ip,
+								asn->end_ip, 
+								asn->asn, 
+								asn->organization,
+								asn->ref_cnt
+							);
+	return;
+}
+
+void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	void *logger=argp;
+	struct _asn_info *asn=(struct _asn_info *)(*ad);
+
+	MESA_handle_runtime_log(logger, 
+								RLOG_LV_DEBUG,
+								"IP_ASN",
+								"Delate(table_id: %d) ip ASN: start_ip: %s end_ip: %s asn: %s organization: %s ref_cnt: %d",
+								table_id,
+								asn->start_ip,
+								asn->end_ip, 
+								asn->asn, 
+								asn->organization,
+								asn->ref_cnt
+							);
+	
+	atomic_dec(&asn->ref_cnt);
+	if(asn->ref_cnt<=0)
+	{
+		free(*ad);
+		*ad=NULL;
+	}
+
+	return;
+}
+
+void location_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+{
+	void *logger=argp;
+	struct _location_info *location=(struct _location_info *)(*from);
+
+	atomic_inc(&location->ref_cnt);
+	*to=*from;
+	
+	MESA_handle_runtime_log(logger,
+							RLOG_LV_DEBUG,
+							"IP_LOCATION", 
+							"Dup(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d",
+							table_id,
+							location->geoname_id,
+							location->start_ip,
+							location->end_ip,
+							location->continent_full,
+							location->country_full,
+							location->city_full,
+							location->ref_cnt
+							);
+	return;
+}
+
+void location_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	void *logger=argp;
+	int ret=0,id=0,is_valid=0;
+	struct _location_info *location=NULL;
+
+	location=(struct _location_info *)calloc(1, sizeof(struct _location_info));
+	
+	ret=sscanf(table_line,
+				"%d\t%d\t%d\t%s\t%s\t%lf\t%lf\t%lf\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d",
+				&id,
+				&location->geoname_id,
+				&location->addr_type,
+				location->start_ip,
+				location->end_ip,
+				&location->latitude,
+				&location->longitude,
+				&location->coords,
+				location->language,
+				location->continent_abbr,
+				location->continent_full,
+				location->country_abbr,
+				location->country_full,
+				location->province_abbr,
+				location->province_full,
+				location->city_full,
+				location->time_zone,
+				&is_valid);
+	if(ret!=18)
+	{
+		free(location);
+		location=NULL;
+		
+		MESA_handle_runtime_log(logger, 
+									RLOG_LV_FATAL,
+									"IP_LOCATION",
+									"Parse ip location failed, ret: %d table_id: %d table_line: %s",
+									ret,
+									table_id,
+									table_line
+								);
+		return;
+	}
+	
+	atomic_inc(&location->ref_cnt);
+	location->table_id=table_id;
+	*ad=(MAAT_PLUGIN_EX_DATA)location;
+	
+	MESA_handle_runtime_log(logger, 
+								RLOG_LV_DEBUG,
+								"IP_LOCATION",
+								"Add(table_id: %d) ip location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d",
+								table_id,
+								location->geoname_id,
+								location->start_ip,
+								location->end_ip,
+								location->continent_full,
+								location->country_full,
+								location->city_full,
+								location->ref_cnt
+							);
+	return;
+}
+
+void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	void *logger=argp;
+	struct _location_info *location=(struct _location_info *)(*ad);
+
+	MESA_handle_runtime_log(logger,
+								RLOG_LV_DEBUG,
+								"IP_LOCATION", 
+								"Delete(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d",
+								table_id,
+								location->geoname_id,
+								location->start_ip,
+								location->end_ip,
+								location->continent_full,
+								location->country_full,
+								location->city_full,
+								location->ref_cnt
+							);
+
+	atomic_dec(&location->ref_cnt);
+	if(location->ref_cnt<=0)
+	{
+		free(*ad);
+		*ad=NULL;
+	}
+	
+	return;
+}
+
+
 void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
 	void *logger=argp;
+	struct _subscribe_id_info *subscribe_id=(struct _subscribe_id_info *)(*from);
+
+	atomic_inc(&subscribe_id->ref_cnt);
+	*to=*from;
 	
-	*to=calloc(1, strlen((char *)*from)+1);
-	memcpy(*to, *from, strlen((char *)*from));
+	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Dup(table_id: %d ) subscribe_id: %s ref_cnt: %d", table_id, subscribe_id->subscribe_id, subscribe_id->ref_cnt);
 	
-	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Dup subscribe_id: %s table_id: %d", (char *)*to, table_id);
 	return;
 }
 
@@ -69,35 +282,41 @@ void subscribe_id_new_data(int table_id, const char* key, const char* table_line
 {
 	void *logger=argp;
 	int ret=0,id=0,type=0,is_valid=0;
-	char subscribe_id[256]={0};
 	char ip_addr[MAX_IPV6_ADDR_LEN]={0};
+	struct _subscribe_id_info *subscribe_id=NULL;
+
+	subscribe_id=(struct _subscribe_id_info *)calloc(1, sizeof(struct _subscribe_id_info));
 	
-	ret=sscanf(table_line, "%d\t%d\t%s\t%s\t%d", &id, &type, ip_addr, subscribe_id, &is_valid);
+	ret=sscanf(table_line, "%d\t%d\t%s\t%s\t%d", &id, &type, ip_addr, subscribe_id->subscribe_id, &is_valid);
 	if(ret!=5)
 	{
+		free(subscribe_id);
+		subscribe_id=NULL;
+		
 		MESA_handle_runtime_log(logger, 
 								RLOG_LV_FATAL,
 								"SUBSCRIBE_ID",
-								"Parse subscribe_id failed, ret: %d table_id: %d key: %s table_line: %s",
+								"Parse subscribe_id failed, ret: %d table_id: %d table_line: %s",
 								ret,
 								table_id,
-								key,
 								table_line
 								);
 		return;
 	}
 	
-	*ad=calloc(1, strlen(subscribe_id)+1);
 	
-	memcpy(*ad, subscribe_id, strlen(subscribe_id));
+	
+	atomic_inc(&subscribe_id->ref_cnt);
+	subscribe_id->table_id=table_id;
+	*ad=(MAAT_PLUGIN_EX_DATA)subscribe_id;
+	
 	MESA_handle_runtime_log(logger, 
 								RLOG_LV_DEBUG,
 								"SUBSCRIBE_ID",
-								"Add subscribe_id: %s table_id: %d key: %s table_line: %s",
-								*ad,
+								"Add(table_id: %d ) subscribe_id: %s ref_cnt: %d",
 								table_id,
-								key,
-								table_line
+								subscribe_id->subscribe_id,
+								subscribe_id->ref_cnt
 								);
 	return;
 }
@@ -105,10 +324,17 @@ void subscribe_id_new_data(int table_id, const char* key, const char* table_line
 void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
 	void *logger=argp;
-	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Delete subscribe_id: %s table_id: %d", (char *)*ad, table_id);
-	free(*ad);
-	*ad=NULL;
+	struct _subscribe_id_info *subscribe_id=(struct _subscribe_id_info *)(*ad);
 
+	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Delete(table_id: %d ) subscribe_id: %s ref_cnt: %d", table_id, subscribe_id->subscribe_id, subscribe_id->ref_cnt);
+
+	atomic_dec(&subscribe_id->ref_cnt);
+	if(subscribe_id->ref_cnt<=0)
+	{
+		free(*ad);
+		*ad=NULL;
+	}
+	
 	return;
 }
 
@@ -223,7 +449,15 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "SSL_SNI_TABLE", g_tsg_para.table_name[TABLE_SSL_SNI], _MAX_TABLE_NAME_LEN, "TSG_FIELD_SSL_SNI");
 	MESA_load_profile_string_def(conffile, "MAAT", "DECYPTION_EXCLUSION_SSL_SNI", g_tsg_para.table_name[TABLE_EXCLUSION_SSL_SNI], _MAX_TABLE_NAME_LEN, "TSG_DECYPTION_EXCLUSION_SSL_SNI");
 
-	//init dynamic maat feather
+	MESA_load_profile_string_def(conffile, "MAAT", "IP_ASN_TABLE", g_tsg_para.table_name[TABLE_IP_ASN], _MAX_TABLE_NAME_LEN, "TSG_OBJ_IP_ASN");
+	MESA_load_profile_string_def(conffile, "MAAT", "IP_LOCATION_TABLE", g_tsg_para.table_name[TABLE_IP_LOCATION], _MAX_TABLE_NAME_LEN, "TSG_OBJ_IP_LOCATION");
+	
+	MESA_load_profile_string_def(conffile, "MAAT", "ASN_BUILT_IN_TABLE", g_tsg_para.table_name[TABLE_ASN_BUILT_IN], _MAX_TABLE_NAME_LEN, "TSG_IP_ASN_BUILT_IN");
+	MESA_load_profile_string_def(conffile, "MAAT", "ASN_USER_DEFINED_TABLE", g_tsg_para.table_name[TABLE_ASN_USER_DEFINED], _MAX_TABLE_NAME_LEN, "TSG_IP_ASN_USER_DEFINED");
+	MESA_load_profile_string_def(conffile, "MAAT", "LOCATION_BUILT_IN_TABLE", g_tsg_para.table_name[TABLE_LOCATION_BUILT_IN], _MAX_TABLE_NAME_LEN, "TSG_IP_LOCATION_BUILT_IN");
+	MESA_load_profile_string_def(conffile, "MAAT", "LOCATION_USER_DEFINED_TABLE", g_tsg_para.table_name[TABLE_LOCATION_USER_DEFINED], _MAX_TABLE_NAME_LEN, "TSG_IP_LOCATION_USER_DEFINED");
+
+	//init static maat feather
 	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", logger);
 	if(g_tsg_maat_feather==NULL)
 	{
@@ -244,6 +478,49 @@ int tsg_rule_init(const char* conffile, void *logger)
 			return -1;
 		}
 	}	
+
+	for(i=TABLE_ASN_USER_DEFINED; i<=TABLE_ASN_BUILT_IN; i++)
+	{
+		ret=Maat_ip_plugin_EX_register(g_tsg_maat_feather,
+									g_tsg_para.table_id[i],
+									ASN_new_data,
+									ASN_free_data,
+									ASN_dup_data,
+									0,
+									logger);
+		if(ret<0)
+		{
+			MESA_handle_runtime_log(logger, RLOG_LV_FATAL,
+										"RULE_INIT",
+										"Maat_ip_plugin_EX_register failed, table_name: %s table_id: %d",
+										g_tsg_para.table_name[i],
+										g_tsg_para.table_id[i]
+									); 
+			return -1;		
+		}
+	}
+
+
+	for(i=TABLE_LOCATION_USER_DEFINED; i<=TABLE_LOCATION_BUILT_IN; i++)
+	{
+		ret=Maat_ip_plugin_EX_register(g_tsg_maat_feather,
+									g_tsg_para.table_id[i],
+									location_new_data,
+									location_free_data,
+									location_dup_data,
+									0,
+									logger);
+		if(ret<0)
+		{
+			MESA_handle_runtime_log(logger, RLOG_LV_FATAL,
+										"RULE_INIT",
+										"Maat_ip_plugin_EX_register failed, table_name: %s table_id: %d",
+										g_tsg_para.table_name[i],
+										g_tsg_para.table_id[i]
+									); 
+			return -1;		
+		}
+	}
 
 	//init dynamic maat feather
 	g_tsg_dynamic_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_DYNAMIC", (char *)"DYNAMIC", logger);
@@ -327,8 +604,83 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 	return 0;
 }
 
+int tsg_get_ip_asn(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_EX_DATA* client_asn, MAAT_PLUGIN_EX_DATA* server_asn)
+{
+	struct ip_address dest_ip={0}, source_ip={0};
+	
+	switch(a_stream->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4:
+			source_ip.ip_type=4;
+			source_ip.ipv4=a_stream->addr.tuple4_v4->saddr;
+			
+			dest_ip.ip_type=4;
+			dest_ip.ipv4=a_stream->addr.tuple4_v4->daddr;
+			break;
+		case	ADDR_TYPE_IPV6:
+			source_ip.ip_type=6;
+			memcpy((char *)(source_ip.ipv6), a_stream->addr.tuple4_v6->saddr, IPV6_ADDR_LEN);
+			
+			dest_ip.ip_type=6;
+			memcpy((char *)(source_ip.ipv6), a_stream->addr.tuple4_v6->daddr, IPV6_ADDR_LEN);
+			break;
+		default:
+			return 0;
+			break;
+	}
 
-int tsg_get_subscribe_id(const struct streaminfo *a_stream, char **source_subscribe_id, char **dest_subscribe_id)
+	if(*client_asn==NULL)
+	{
+		Maat_ip_plugin_get_EX_data(g_tsg_maat_feather, table_id, &source_ip, client_asn, 1);
+	}
+
+	if(*server_asn==NULL)
+	{
+		Maat_ip_plugin_get_EX_data(g_tsg_maat_feather, table_id, &dest_ip, server_asn, 1);
+	}
+	
+	return 0;
+}
+
+
+int tsg_get_ip_location(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_EX_DATA *client_location, MAAT_PLUGIN_EX_DATA *server_location)
+{
+	struct ip_address dest_ip={0}, source_ip={0};
+	
+	switch(a_stream->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4:
+			source_ip.ip_type=4;
+			source_ip.ipv4=a_stream->addr.tuple4_v4->saddr;
+			
+			dest_ip.ip_type=4;
+			dest_ip.ipv4=a_stream->addr.tuple4_v4->daddr;
+			break;
+		case	ADDR_TYPE_IPV6:
+			source_ip.ip_type=6;
+			memcpy((char *)(source_ip.ipv6), a_stream->addr.tuple4_v6->saddr, IPV6_ADDR_LEN);
+			
+			dest_ip.ip_type=6;
+			memcpy((char *)(source_ip.ipv6), a_stream->addr.tuple4_v6->daddr, IPV6_ADDR_LEN);
+			break;
+		default:
+			return 0;
+			break;
+	}
+
+	if(*client_location==NULL)
+	{
+		Maat_ip_plugin_get_EX_data(g_tsg_maat_feather, table_id, &source_ip, client_location, 1);
+	}
+	if(*server_location==NULL)
+	{
+		Maat_ip_plugin_get_EX_data(g_tsg_maat_feather, table_id, &dest_ip, server_location, 1);
+	}
+	
+	return 0;
+}
+
+int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct _subscribe_id_info **source_subscribe_id, struct _subscribe_id_info **dest_subscribe_id)
 {
 	char source_ip[MAX_IPV6_ADDR_LEN]={0};
 	char dest_ip[MAX_IPV6_ADDR_LEN]={0};
@@ -351,29 +703,141 @@ int tsg_get_subscribe_id(const struct streaminfo *a_stream, char **source_subscr
 			break;
 	}
 
-	if(strlen(dest_ip)>0)
+	if(strlen(dest_ip)>0 && *dest_subscribe_id==NULL)
 	{
-		*dest_subscribe_id = (char*)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, dest_ip);
+		*dest_subscribe_id = (struct _subscribe_id_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, dest_ip);
 	}
 
-	if(strlen(source_ip)>0)
+	if(strlen(source_ip)>0 && *source_subscribe_id==NULL)
 	{
-		*source_subscribe_id = (char*)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, source_ip);
+		*source_subscribe_id = (struct _subscribe_id_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, source_ip);
 	}
 
 	return 0;
 }
 
+int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _asn_info *asn, scan_status_t *mid, Maat_rule_t*result, int result_num)
+{
+	int ret=0;
+
+	if(asn!=NULL)
+	{
+		ret=Maat_full_scan_string(maat_feather,
+								g_tsg_para.table_id[TABLE_IP_ASN],
+								CHARSET_GBK,
+								asn->asn,
+								strlen(asn->asn),
+								result,
+								NULL,
+								result_num,
+								mid,
+								a_stream->threadnum);
+		if(ret > 0)
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_IP_ASN",
+									"Hit IP_ASN: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+									asn->asn,
+									ret,
+									result[0].config_id,
+									result[0].service_id,
+									(unsigned char)result[0].action,
+									printaddr(&a_stream->addr, a_stream->threadnum)
+									);
+		}
+		else
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_IP_ASN",
+									"No hit IP_ASN: %s scan ret: %d addr: %s",
+									asn->asn,
+									ret,
+									printaddr(&a_stream->addr, a_stream->threadnum)
+									);
+		}
+	}	
+	else
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_IP_ASN",
+									"IP_ASN is NULL scan ret: %d addr: %s",
+									ret,
+									printaddr(&a_stream->addr, a_stream->threadnum)
+									);
+	}
+
+	return (ret>0 ? ret : 0);
+}
+
+
+int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _location_info *location, scan_status_t *mid, Maat_rule_t*result, int result_num)
+{
+	int ret=0;
+	
+	if(location!=NULL)
+	{
+		ret=Maat_full_scan_string(maat_feather,
+								g_tsg_para.table_id[TABLE_IP_LOCATION],
+								CHARSET_GBK,
+								location->country_full,
+								strlen(location->country_full),
+								result,
+								NULL,
+								result_num,
+								mid,
+								a_stream->threadnum);
+		if(ret > 0)
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_IP_LOCATION",
+									"Hit IP_LOCATION: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+									location->country_full,
+									ret,
+									result[0].config_id,
+									result[0].service_id,
+									(unsigned char)result[0].action,
+									printaddr(&a_stream->addr, a_stream->threadnum)
+									);
+		}
+		else
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_IP_LOCATION",
+									"No hit IP_LOCATION: %s scan ret: %d addr: %s",
+									location->country_full,
+									ret,
+									printaddr(&a_stream->addr, a_stream->threadnum)
+									);
+		}
+	}	
+	else
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_IP_LOCATION",
+									"IP_LOCATION is NULL scan ret: %d addr: %s",
+									ret,
+									printaddr(&a_stream->addr, a_stream->threadnum)
+									);
+	}
+
+	return (ret>0 ? ret : 0);
+}
+
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
+	int ret=0;
 	struct ipaddr t_addr;
 	struct ipaddr* p_addr=NULL;
 	int hit_num=0,tans_proto=0;
-	char *source_subscribe_id=NULL;
-	char *dest_subscribe_id=NULL;
 	int is_scan_addr=1, maat_ret=0,found_pos=0;
 	const struct streaminfo *cur_stream = a_stream;
-
+	struct _internal_label *internal_label=NULL;
 
 	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
 	{
@@ -464,7 +928,6 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		
 	}while(cur_stream != NULL && hit_num < result_num);
 
-
 	if(hit_num<result_num && proto>PROTO_UNKONWN && proto<PROTO_MAX)
 	{
 		maat_ret=Maat_full_scan_string(maat_feather,
@@ -506,18 +969,43 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		}
 	}
 
+	internal_label=(struct _internal_label *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
+	if(internal_label==NULL)
+	{
+		internal_label=(struct _internal_label *)calloc(1, sizeof(struct _internal_label));
+		memset(internal_label, 0, sizeof(struct _internal_label));
+	}
 
 	if(hit_num<result_num)
 	{
-		tsg_get_subscribe_id(a_stream, &source_subscribe_id, &dest_subscribe_id);
+		tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_USER_DEFINED], (void **)&(internal_label->client_location), (void **)&(internal_label->server_location));
+		tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_BUILT_IN], (void **)&(internal_label->client_location), (void **)&(internal_label->server_location));
 		
-		if(source_subscribe_id!=NULL)
+		hit_num+=tsg_scan_ip_location(maat_feather, a_stream, internal_label->client_location, mid, result+hit_num, result_num-hit_num);
+		hit_num+=tsg_scan_ip_location(maat_feather, a_stream, internal_label->server_location, mid, result+hit_num, result_num-hit_num);
+	}
+
+	if(hit_num<result_num)
+	{
+		tsg_get_ip_asn(a_stream, g_tsg_para.table_id[TABLE_ASN_USER_DEFINED], (void **)&(internal_label->client_asn), (void **)&(internal_label->server_asn));
+		tsg_get_ip_asn(a_stream, g_tsg_para.table_id[TABLE_ASN_BUILT_IN], (void **)&(internal_label->client_asn), (void **)&(internal_label->server_asn));
+		
+		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, internal_label->client_asn, mid, result+hit_num, result_num-hit_num);
+		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, internal_label->server_asn, mid, result+hit_num, result_num-hit_num);
+	}
+
+
+	if(hit_num<result_num)
+	{
+		tsg_get_subscribe_id(a_stream, &internal_label->client_subscribe_id, &internal_label->server_subscribe_id);
+		
+		if(internal_label->client_subscribe_id!=NULL)
 		{
 			maat_ret=Maat_full_scan_string(maat_feather,
 										g_tsg_para.table_id[TABLE_SUBSCRIBER_ID],
 										CHARSET_GBK,
-										source_subscribe_id,
-										strlen(source_subscribe_id),
+										internal_label->client_subscribe_id->subscribe_id,
+										strlen(internal_label->client_subscribe_id->subscribe_id),
 										result+hit_num,
 										&found_pos,
 										result_num-hit_num,
@@ -529,7 +1017,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_SUBSCRIBER",
 											"Hit source subscribe id: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
-											source_subscribe_id,
+											internal_label->client_subscribe_id->subscribe_id,
 											maat_ret,
 											result[hit_num].config_id,
 											result[hit_num].service_id,
@@ -545,22 +1033,20 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_SUBSCRIBER",
 											"No hit source subscribe id: %s scan ret: %d addr: %s",
-											source_subscribe_id,
+											internal_label->client_subscribe_id->subscribe_id,
 											maat_ret,
 											printaddr(&a_stream->addr, a_stream->threadnum)
 										);
 			}
-			
-			subscribe_id_free_data(g_tsg_para.dyn_subscribe_ip_table_id,(MAAT_PLUGIN_EX_DATA *)&source_subscribe_id, 0, g_tsg_para.logger);
 		}
 		
-		if(dest_subscribe_id!=NULL)
+		if(internal_label->server_subscribe_id!=NULL)
 		{
 			maat_ret=Maat_full_scan_string(maat_feather,
 										g_tsg_para.table_id[TABLE_SUBSCRIBER_ID],
 										CHARSET_GBK,
-										dest_subscribe_id,
-										strlen(dest_subscribe_id),
+										internal_label->server_subscribe_id->subscribe_id,
+										strlen(internal_label->server_subscribe_id->subscribe_id),
 										result+hit_num,
 										&found_pos,
 										result_num-hit_num,
@@ -572,7 +1058,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_SUBSCRIBER",
 											"Hit dest subscribe id: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
-											dest_subscribe_id,
+											internal_label->server_subscribe_id->subscribe_id,
 											maat_ret,
 											result[hit_num].config_id,
 											result[hit_num].service_id,
@@ -588,14 +1074,24 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_SUBSCRIBER",
 											"No hit dest subscribe id: %s scan ret: %d addr: %s",
-											dest_subscribe_id,
+											internal_label->server_subscribe_id->subscribe_id,
 											maat_ret,
 											printaddr(&a_stream->addr, a_stream->threadnum)
 										);
 			}
-			
-			subscribe_id_free_data(g_tsg_para.dyn_subscribe_ip_table_id,(MAAT_PLUGIN_EX_DATA *)&dest_subscribe_id, 0, g_tsg_para.logger);
 		}
+	}
+
+	ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.internal_project_id, (void *)internal_label);
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_FATAL,
+											"ADD_INTERNAL_LABEL",
+											"Add internal label failed, ret: %d addr: %s",
+											ret,
+											printaddr(&a_stream->addr, a_stream->threadnum)
+										);
 	}
 
 	return hit_num;

@@ -165,6 +165,46 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 	return 0;
 }
 
+int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	char buff[512]={0};
+	struct _location_info *location=NULL;
+	struct _internal_label *internal_label=NULL;
+
+	internal_label=(struct _internal_label *)project_req_get_struct(a_stream, _instance->internal_project_id);
+	if(internal_label!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)internal_label->establish_latency_ms, TLD_TYPE_LONG);
+
+		if(internal_label->client_asn!=NULL)
+		{
+			snprintf(buff, sizeof(buff), "%s(%s)", internal_label->client_asn->asn, internal_label->client_asn->organization);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_ASN].name, (void *)buff, TLD_TYPE_STRING);
+		}
+		
+		if(internal_label->server_asn!=NULL)
+		{
+			snprintf(buff, sizeof(buff), "%s(%s)", internal_label->server_asn->asn, internal_label->server_asn->organization);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_ASN].name, (void *)buff, TLD_TYPE_STRING);
+		}
+
+		if(internal_label->client_location!=NULL)
+		{
+			location=internal_label->client_location;
+			snprintf(buff, sizeof(buff), "%s%s%s%s%s", location->country_full, (strlen(location->province_full)>0) ? "/" : "", location->province_full, (strlen(location->city_full)>0) ? "/" : "", location->city_full);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
+		}
+
+		if(internal_label->server_location!=NULL)
+		{
+			location=internal_label->server_location;
+			snprintf(buff, sizeof(buff), "%s%s%s%s%s", location->country_full, (strlen(location->province_full)>0) ? "/" : "", location->province_full, (strlen(location->city_full)>0) ? "/" : "", location->city_full);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
+		}
+	}
+
+	return 0;
+}
 
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
@@ -467,10 +507,9 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 {
 	int i=0,status=0;
 	char *payload=NULL;
-	long establish_latency_ms=0;
 	struct TLD_handle_t *_handle=handle;
 	struct tsg_log_instance_t *_instance=instance;
-		
+	
 	if(_instance==NULL || _handle==NULL || log_msg==NULL)
 	{
 		TLD_cancel(handle);
@@ -488,6 +527,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	TLD_append_streaminfo(instance, handle, log_msg->a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
+	set_common_field_from_label(_instance, _handle, log_msg->a_stream);
 
 	for(i=0;i<log_msg->result_num; i++)
 	{
@@ -509,15 +549,6 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 				break;
 			default:
 				break;
-		}
-
-		if(log_msg->result[i].action==TSG_ACTION_MONITOR && _instance->establish_latency_project_id>0)
-		{
-			establish_latency_ms=project_req_get_long(log_msg->a_stream, _instance->establish_latency_project_id);
-			if(establish_latency_ms>=0)
-			{
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)establish_latency_ms, TLD_TYPE_LONG);
-			}
 		}
 
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(log_msg->result[i].config_id), TLD_TYPE_LONG);

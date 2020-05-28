@@ -6,6 +6,18 @@
 #include "tsg_rule.h"
 #include "tsg_statistic.h"
 
+#if(__GNUC__ * 100 + __GNUC_MINOR__ * 10 + __GNUC_PATCHLEVEL__ >= 411)
+#define atomic_inc(x) __sync_add_and_fetch((x),1)
+#define atomic_dec(x) __sync_sub_and_fetch((x),1)
+#define atomic_add(x,y) __sync_add_and_fetch((x),(y))
+#define atomic_sub(x,y) __sync_sub_and_fetch((x),(y))
+typedef int atomic_t;
+#define ATOMIC_INIT(i)  { (i) }
+#define atomic_read(x) __sync_add_and_fetch((x),0)
+#define atomic_set(x,y) __sync_lock_test_and_set((x),y)
+#else 
+#include <alsa/iatomic.h>
+#endif 
 
 #ifndef MIN
 #define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
@@ -18,6 +30,12 @@ enum MASTER_TABLE{
 	TABLE_HTTP_HOST,
 	TABLE_SSL_SNI,
 	TABLE_EXCLUSION_SSL_SNI,
+	TABLE_IP_ASN,
+	TABLE_IP_LOCATION,
+	TABLE_ASN_USER_DEFINED,
+	TABLE_ASN_BUILT_IN,
+	TABLE_LOCATION_USER_DEFINED,
+	TABLE_LOCATION_BUILT_IN,
 	TABLE_MAX
 };
 
@@ -38,6 +56,58 @@ struct _str2index
 	int index;
 	int len;
 	char *type;
+};
+
+struct _asn_info
+{
+	int ref_cnt;
+	int addr_type;
+	char start_ip[40];
+	char end_ip[40];
+	char asn[40];
+	char organization[256];
+	int table_id;
+};
+
+struct _location_info
+{
+	int ref_cnt;
+	int addr_type;
+	char start_ip[40];
+	char end_ip[40];
+	double latitude;
+	double longitude;
+	double coords;
+	char language[40];
+	char continent_abbr[256];
+	char continent_full[256];
+	char country_abbr[256];
+	char country_full[256];
+	char province_abbr[256];
+	char province_full[256];
+	char city_full[256];
+	char time_zone[128];
+	int geoname_id;
+	int table_id;
+};
+
+struct _subscribe_id_info
+{
+	int ref_cnt;
+	int table_id;
+	char subscribe_id[256];
+};
+
+
+struct _internal_label
+{
+	long establish_latency_ms;
+	struct _asn_info *client_asn;
+	struct _asn_info *server_asn;
+	struct _location_info *client_location;
+	struct _location_info *server_location;
+	struct _subscribe_id_info *client_subscribe_id;
+	struct _subscribe_id_info *server_subscribe_id;
 };
 
 
@@ -68,7 +138,7 @@ typedef	struct _tsg_para
 	int table_id[TABLE_MAX];
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
-	int establish_latency_project_id;
+	int internal_project_id;
 	int fs2_field_id[TSG_FS2_MAX];
 	char device_sn[MAX_DOAMIN_LEN/8];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
@@ -142,5 +212,10 @@ typedef	struct _tsg_statistic
 int tsg_statistic_init(const char *conffile, void *logger);
 
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct _identify_info *identify_info, Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq);
+
+void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+
 
 #endif

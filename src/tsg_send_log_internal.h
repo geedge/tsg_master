@@ -61,6 +61,10 @@ typedef enum _tsg_log_field_id
 	LOG_SSL_SNI,
 	LOG_COMMON_ESTABLISH_LATENCY_MS,
 	LOG_COMMON_SUB_ACTION,
+	LOG_COMMON_CLINET_ASN,
+	LOG_COMMON_SERVER_ASN,
+	LOG_COMMON_CLINET_LOCATION,
+	LOG_COMMON_SERVER_LOCATION,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
@@ -81,7 +85,7 @@ struct tsg_log_instance_t
 {
 	int mode;
 	int max_service;
-	int establish_latency_project_id;
+	int internal_project_id;
 	void *logger;
 	char common_field_file[MAX_STRING_LEN*4];
 	char broker_list[MAX_STRING_LEN*4];

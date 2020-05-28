@@ -95,6 +95,53 @@ static void free_policy_label(int thread_seq, void *project_req_value)
 	project_req_value=NULL;
 }
 
+static void free_internal_label(int thread_seq, void *project_req_value)
+{
+	struct _internal_label *label=(struct _internal_label *)project_req_value;
+
+	if(label!=NULL)
+	{
+		if(label->client_asn!=NULL)
+		{
+			ASN_free_data(label->client_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_asn), 0, g_tsg_para.logger);
+			label->client_asn=NULL;
+		}
+
+		if(label->server_asn!=NULL)
+		{
+			ASN_free_data(label->server_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_asn), 0, g_tsg_para.logger);
+			label->server_asn=NULL;
+		}
+
+		if(label->client_location!=NULL)
+		{
+			location_free_data(label->client_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_location), 0, g_tsg_para.logger);
+			label->client_location=NULL;
+		}
+
+		if(label->server_location!=NULL)
+		{
+			location_free_data(label->server_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_location), 0, g_tsg_para.logger);
+			label->server_location=NULL;
+		}
+
+		if(label->client_subscribe_id!=NULL)
+		{
+			subscribe_id_free_data(label->client_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->client_subscribe_id, 0, g_tsg_para.logger);
+			label->client_subscribe_id=NULL;
+		}
+
+		if(label->server_subscribe_id!=NULL)
+		{
+			subscribe_id_free_data(label->server_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->server_subscribe_id, 0, g_tsg_para.logger);
+			label->server_subscribe_id=NULL;
+		}
+		
+		dictator_free(thread_seq, project_req_value);
+		project_req_value=NULL;
+	}
+}
+
 static void free_context(void **pme, int thread_seq)
 {
 	struct _master_context *_context=(struct _master_context *)*pme;
@@ -127,6 +174,7 @@ static int init_context(void **pme, tsg_protocol_t proto, struct Maat_rule_t *p_
 	return 0;
 }
 
+#if 0
 static int master_method_type(struct streaminfo *a_stream, struct Maat_rule_t *p_result)
 {
 	cJSON *item=NULL;
@@ -207,6 +255,7 @@ static int master_method_type(struct streaminfo *a_stream, struct Maat_rule_t *p
 	return method_type;
 }
 
+
 static int master_do_deny(struct streaminfo *a_stream, struct Maat_rule_t *p_result, int thread_seq)
 {
 	int opt_value=0;	
@@ -253,6 +302,7 @@ static int master_do_deny(struct streaminfo *a_stream, struct Maat_rule_t *p_res
 
 	return 0;
 }
+#endif
 
 static char *schema_index2string(tsg_protocol_t proto)
 {
@@ -567,7 +617,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	Maat_rule_t all_result[MAX_RESULT_NUM];
 	policy_priority_label_t *priority_label=NULL;	
 	struct _master_context *_context=(struct _master_context *)*pme;
-	
+	struct _internal_label *internal_label=NULL;
 	switch(a_tcp->opstate)
 	{
 		case	OP_STATE_PENDING:
@@ -577,9 +627,13 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			identify_application_protocol(a_tcp, &identify_info);
 			if(identify_info.proto==PROTO_HTTP)
 			{
+				internal_label=(struct _internal_label *)dictator_malloc(1, sizeof(struct _internal_label));
+				memset(internal_label, 0, sizeof(struct _internal_label));
+				
 				clock_gettime(CLOCK_REALTIME, &tv);
-				establish_latency_ms=(tv.tv_sec-a_tcp->ptcpdetail->createtime)*1000+tv.tv_nsec/1000/1000;
-				ret=project_req_add_long(a_tcp, g_tsg_para.establish_latency_project_id, establish_latency_ms);
+				internal_label->establish_latency_ms=(tv.tv_sec-a_tcp->ptcpdetail->createtime)*1000+tv.tv_nsec/1000/1000;
+				
+				ret=project_req_add_struct(a_tcp, g_tsg_para.internal_project_id, (const void *)internal_label);
 				if(ret<0)
 				{
 					MESA_handle_runtime_log(g_tsg_para.logger,
@@ -611,7 +665,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			}
 			
 			ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, all_result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
-
 			if(ret>0)
 			{
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
@@ -635,7 +688,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 											RLOG_LV_DEBUG,
 											"SCAN_FQDN",
 											"Not hit %s: %s stream_dir: %d addr: %s",
-
 											(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
 											(ret==-1) ? "NULL" : identify_info.domain,
 											a_tcp->dir,
@@ -914,14 +966,14 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "ESTABLISH_LATENCY_LABEL", label_buff, sizeof(label_buff), "ESTABLISH_LATENCY");
-	g_tsg_para.establish_latency_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_LONG, NULL);
-	if(g_tsg_para.establish_latency_project_id<0)
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_INTERNAL_LABEL", label_buff, sizeof(label_buff), "TSG_MASTER_INTERNAL_LABEL");
+	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_internal_label);
+	if(g_tsg_para.internal_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, 
 									RLOG_LV_FATAL,
 									"PROJECT_REGISTER",
-									"Register %s failed; please check :%s and add <ESTABLISH_LATENCY	long>",
+									"Register %s failed; please check :%s and add <TSG_MASTER_INTERNAL_LABEL	struct>",
 									label_buff,
 									"etc/project_list.conf"
 								);
@@ -940,7 +992,7 @@ extern "C" int TSG_MASTER_INIT()
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_SENDLOG", "tsg_sendlog_init failed ...");
 		return -1;
 	}
-	g_tsg_log_instance->establish_latency_project_id=g_tsg_para.establish_latency_project_id;
+	g_tsg_log_instance->internal_project_id=g_tsg_para.internal_project_id;
 
 	MESA_load_profile_int_def(tsg_conffile, "FIELD_STAT", "CYCLE", &cycle, 30);
 	MESA_load_profile_short_nodef(tsg_conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));
