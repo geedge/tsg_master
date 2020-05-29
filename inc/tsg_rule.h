@@ -38,6 +38,7 @@ typedef enum _tsg_protocol
    PROTO_SIP,
    PROTO_BGP,
    PROTO_STREAMING_MEDIA,
+   PROTO_QUIC,
    PROTO_MAX
 }tsg_protocol_t;
 

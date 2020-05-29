@@ -191,14 +191,14 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 		if(internal_label->client_location!=NULL)
 		{
 			location=internal_label->client_location;
-			snprintf(buff, sizeof(buff), "%s%s%s%s%s", location->country_full, (strlen(location->province_full)>0) ? "/" : "", location->province_full, (strlen(location->city_full)>0) ? "/" : "", location->city_full);
+			snprintf(buff, sizeof(buff), "%s%s%s", location->country_full, (strlen(location->city_full)>0) ? "." : "", location->city_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 
 		if(internal_label->server_location!=NULL)
 		{
 			location=internal_label->server_location;
-			snprintf(buff, sizeof(buff), "%s%s%s%s%s", location->country_full, (strlen(location->province_full)>0) ? "/" : "", location->province_full, (strlen(location->city_full)>0) ? "/" : "", location->city_full);
+			snprintf(buff, sizeof(buff), "%s%s%s", location->country_full, (strlen(location->city_full)>0) ? "." : "", location->city_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 	}
@@ -311,6 +311,8 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	}
 	
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_ADDRESS_LIST].name, (void *)nest_addr_buf, TLD_TYPE_STRING);
+
+	set_common_field_from_label(_instance, _handle, a_stream);
 	
 	return 0;
 }
@@ -527,7 +529,6 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	TLD_append_streaminfo(instance, handle, log_msg->a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
-	set_common_field_from_label(_instance, _handle, log_msg->a_stream);
 
 	for(i=0;i<log_msg->result_num; i++)
 	{

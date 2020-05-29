@@ -51,6 +51,7 @@ const struct _str2index g_tsg_proto_string[PROTO_MAX+1]={{PROTO_UNKONWN, 0, (cha
 										 {PROTO_SIP, 4, (char *)"SIP."},
 										 {PROTO_BGP, 4, (char *)"BGP."},
 										 {PROTO_STREAMING_MEDIA, 16, (char *)"STREAMING_MEDIA."},
+										 {PROTO_QUIC, 5, (char *)"QUIC."},
 										 {PROTO_MAX, 0, (char *)""}
 };
 
@@ -449,8 +450,10 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "SSL_SNI_TABLE", g_tsg_para.table_name[TABLE_SSL_SNI], _MAX_TABLE_NAME_LEN, "TSG_FIELD_SSL_SNI");
 	MESA_load_profile_string_def(conffile, "MAAT", "DECYPTION_EXCLUSION_SSL_SNI", g_tsg_para.table_name[TABLE_EXCLUSION_SSL_SNI], _MAX_TABLE_NAME_LEN, "TSG_DECYPTION_EXCLUSION_SSL_SNI");
 
-	MESA_load_profile_string_def(conffile, "MAAT", "IP_ASN_TABLE", g_tsg_para.table_name[TABLE_IP_ASN], _MAX_TABLE_NAME_LEN, "TSG_OBJ_IP_ASN");
-	MESA_load_profile_string_def(conffile, "MAAT", "IP_LOCATION_TABLE", g_tsg_para.table_name[TABLE_IP_LOCATION], _MAX_TABLE_NAME_LEN, "TSG_OBJ_IP_LOCATION");
+	MESA_load_profile_string_def(conffile, "MAAT", "SRC_ASN_TABLE", g_tsg_para.table_name[TABLE_SRC_ASN], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_SOURCE_ASN");
+	MESA_load_profile_string_def(conffile, "MAAT", "DST_ASN_TABLE", g_tsg_para.table_name[TABLE_DST_ASN], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_DESTINATION_ASN");
+	MESA_load_profile_string_def(conffile, "MAAT", "SRC_LOCATION_TABLE", g_tsg_para.table_name[TABLE_SRC_LOCATION], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_SOURCE_LOCATION");
+	MESA_load_profile_string_def(conffile, "MAAT", "DST_LOCATION_TABLE", g_tsg_para.table_name[TABLE_DST_LOCATION], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_DESTINATION_LOCATION");
 	
 	MESA_load_profile_string_def(conffile, "MAAT", "ASN_BUILT_IN_TABLE", g_tsg_para.table_name[TABLE_ASN_BUILT_IN], _MAX_TABLE_NAME_LEN, "TSG_IP_ASN_BUILT_IN");
 	MESA_load_profile_string_def(conffile, "MAAT", "ASN_USER_DEFINED_TABLE", g_tsg_para.table_name[TABLE_ASN_USER_DEFINED], _MAX_TABLE_NAME_LEN, "TSG_IP_ASN_USER_DEFINED");
@@ -716,14 +719,14 @@ int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct _subscribe_id
 	return 0;
 }
 
-int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _asn_info *asn, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _asn_info *asn, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
 
 	if(asn!=NULL)
 	{
 		ret=Maat_full_scan_string(maat_feather,
-								g_tsg_para.table_id[TABLE_IP_ASN],
+								g_tsg_para.table_id[idx],
 								CHARSET_GBK,
 								asn->asn,
 								strlen(asn->asn),
@@ -737,9 +740,10 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 			MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_ASN",
-									"Hit IP_ASN: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+									"Hit IP_ASN: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
 									asn->asn,
 									ret,
+									g_tsg_para.table_name[idx],
 									result[0].config_id,
 									result[0].service_id,
 									(unsigned char)result[0].action,
@@ -751,9 +755,10 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 			MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_ASN",
-									"No hit IP_ASN: %s scan ret: %d addr: %s",
+									"No hit IP_ASN: %s scan ret: %d table_name: %s addr: %s",
 									asn->asn,
 									ret,
+									g_tsg_para.table_name[idx],
 									printaddr(&a_stream->addr, a_stream->threadnum)
 									);
 		}
@@ -763,8 +768,9 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 		MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_ASN",
-									"IP_ASN is NULL scan ret: %d addr: %s",
+									"IP_ASN is NULL scan ret: %d table_name: %s addr: %s",
 									ret,
+									g_tsg_para.table_name[idx],
 									printaddr(&a_stream->addr, a_stream->threadnum)
 									);
 	}
@@ -773,17 +779,19 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 }
 
 
-int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _location_info *location, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _location_info *location, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
+	char buff[1024]={0};
 	
 	if(location!=NULL)
 	{
+		snprintf(buff, sizeof(buff), "%s.%s.", location->country_full, location->city_full);
 		ret=Maat_full_scan_string(maat_feather,
-								g_tsg_para.table_id[TABLE_IP_LOCATION],
+								g_tsg_para.table_id[idx],
 								CHARSET_GBK,
-								location->country_full,
-								strlen(location->country_full),
+								buff,
+								strlen(buff),
 								result,
 								NULL,
 								result_num,
@@ -794,9 +802,10 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 			MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_LOCATION",
-									"Hit IP_LOCATION: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
-									location->country_full,
+									"Hit IP_LOCATION: %s scan ret: %d table_name: %d policy_id: %d service: %d action: %d addr: %s",
+									buff,
 									ret,
+									g_tsg_para.table_name[idx],
 									result[0].config_id,
 									result[0].service_id,
 									(unsigned char)result[0].action,
@@ -808,9 +817,10 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 			MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_LOCATION",
-									"No hit IP_LOCATION: %s scan ret: %d addr: %s",
-									location->country_full,
+									"No hit IP_LOCATION: %s scan ret: %d table_name: %s addr: %s",
+									buff,
 									ret,
+									g_tsg_para.table_name[idx],
 									printaddr(&a_stream->addr, a_stream->threadnum)
 									);
 		}
@@ -820,8 +830,9 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 		MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_LOCATION",
-									"IP_LOCATION is NULL scan ret: %d addr: %s",
+									"IP_LOCATION is NULL scan ret: %d table_name: %s addr: %s",
 									ret,
+									g_tsg_para.table_name[idx],
 									printaddr(&a_stream->addr, a_stream->threadnum)
 									);
 	}
@@ -981,8 +992,8 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_USER_DEFINED], (void **)&(internal_label->client_location), (void **)&(internal_label->server_location));
 		tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_BUILT_IN], (void **)&(internal_label->client_location), (void **)&(internal_label->server_location));
 		
-		hit_num+=tsg_scan_ip_location(maat_feather, a_stream, internal_label->client_location, mid, result+hit_num, result_num-hit_num);
-		hit_num+=tsg_scan_ip_location(maat_feather, a_stream, internal_label->server_location, mid, result+hit_num, result_num-hit_num);
+		hit_num+=tsg_scan_ip_location(maat_feather, a_stream, internal_label->client_location, TABLE_SRC_LOCATION, mid, result+hit_num, result_num-hit_num);
+		hit_num+=tsg_scan_ip_location(maat_feather, a_stream, internal_label->server_location, TABLE_DST_LOCATION, mid, result+hit_num, result_num-hit_num);
 	}
 
 	if(hit_num<result_num)
@@ -990,8 +1001,8 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		tsg_get_ip_asn(a_stream, g_tsg_para.table_id[TABLE_ASN_USER_DEFINED], (void **)&(internal_label->client_asn), (void **)&(internal_label->server_asn));
 		tsg_get_ip_asn(a_stream, g_tsg_para.table_id[TABLE_ASN_BUILT_IN], (void **)&(internal_label->client_asn), (void **)&(internal_label->server_asn));
 		
-		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, internal_label->client_asn, mid, result+hit_num, result_num-hit_num);
-		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, internal_label->server_asn, mid, result+hit_num, result_num-hit_num);
+		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, internal_label->client_asn, TABLE_SRC_ASN, mid, result+hit_num, result_num-hit_num);
+		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, internal_label->server_asn, TABLE_DST_ASN, mid, result+hit_num, result_num-hit_num);
 	}
 
 
