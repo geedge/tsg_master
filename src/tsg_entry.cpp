@@ -8,6 +8,7 @@
 #include <MESA/http.h>
 #include <MESA/ftp.h>
 #include <MESA/mail.h>
+#include "MESA/gquic.h"
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
@@ -41,7 +42,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200522=0;
+char TSG_MASTER_VERSION_20200601=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -511,7 +512,7 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 	return p_result;
 }
 
-static int identify_application_protocol(struct streaminfo *a_stream, struct _identify_info *identify_info)
+static int identify_application_protocol(struct streaminfo *a_stream, struct _identify_info *identify_info, void *a_packet)
 {
 	int ret=0;
 
@@ -600,6 +601,22 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 		identify_info->proto=PROTO_MAIL;
 		return 1;
 	}
+
+	//quic
+	struct _quic_context *_context=NULL;
+	quic_init_stream((void **)&_context, a_stream->threadnum);
+	ret=quic_process(a_stream, _context, a_stream->threadnum, a_packet);
+	if(ret!=PROT_STATE_DROPME)
+	{
+		identify_info->proto=PROTO_QUIC;
+		if(_context->quic_info.client_hello!=NULL)
+		{
+			char *sni=(char *)(_context->quic_info.client_hello->ext_tags[_context->quic_info.client_hello->sni_idx].value);
+			identify_info->domain_len=MIN(strlen(sni), sizeof(identify_info->domain)-1);
+			strncpy(identify_info->domain, sni, identify_info->domain_len);
+		}
+	}
+	
 	
 	return ret;
 }
@@ -624,7 +641,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LINKS], 0, FS_OP_ADD, 1);
 			
 			memset(&identify_info, 0, sizeof(identify_info));
-			identify_application_protocol(a_tcp, &identify_info);
+			identify_application_protocol(a_tcp, &identify_info, a_packet);
 			if(identify_info.proto==PROTO_HTTP)
 			{
 				internal_label=(struct _internal_label *)dictator_malloc(1, sizeof(struct _internal_label));
@@ -847,10 +864,11 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int thread_seq,void *a_packet)
 {
 	int ret=0,opt_value=0;
+	int hit_num=0;
 	scan_status_t mid=NULL;
 	int state=APP_STATE_GIVEME;
 	Maat_rule_t *p_result=NULL;
-	Maat_rule_t result[MAX_RESULT_NUM];
+	Maat_rule_t result[MAX_RESULT_NUM]={0};
 	struct _identify_info identify_info;
 	struct _master_context *_context=(struct _master_context *)*pme;
 
@@ -858,15 +876,53 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 	{
 		case	OP_STATE_PENDING:
 			memset(&identify_info, 0, sizeof(identify_info));
-			identify_application_protocol(a_udp, &identify_info);
+			identify_application_protocol(a_udp, &identify_info, a_packet);
 
 			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_udp, identify_info.proto, &mid, result, MAX_RESULT_NUM);
+			if(ret>0)
+			{
+				hit_num+=ret;
+				//q_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, NULL, thread_seq);
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
+			}
 
+			ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
+			if(ret>0)
+			{
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
+				MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_FQDN",
+											"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
+											"QUIC SNI",
+											identify_info.domain,
+											result[hit_num].config_id,
+											result[hit_num].service_id,
+											(unsigned char)result[hit_num].action,
+											printaddr(&a_udp->addr, thread_seq)
+										);
+
+				hit_num+=ret;
+			}
+			else
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_FQDN",
+											"Not hit %s: %s stream_dir: %d addr: %s",
+											(ret==-1) ?  "NULL" :  "QUIC SNI",
+											(ret==-1) ? "NULL" : identify_info.domain,
+											a_udp->dir,
+											printaddr(&a_udp->addr, thread_seq)
+										);
+			}
+			
 			if(mid!=NULL)
 			{
 				Maat_clean_status(&mid);
 				mid=NULL;
 			}
+			
 			p_result=tsg_policy_decision_criteria(a_udp, result, ret, NULL, thread_seq);
 			if(p_result!=NULL)
 			{

@@ -1124,6 +1124,9 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct _identify_info *i
 			case	PROTO_SSL:
 				idx=TABLE_SSL_SNI;
 				break;
+			case	PROTO_QUIC:
+				idx=TABLE_SSL_SNI;
+				break;
 			default:
 				return 0;
 				break;
