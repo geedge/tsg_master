@@ -886,35 +886,38 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 
-			ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
-			if(ret>0)
+			if(PROTO_QUIC==identify_info.proto)
 			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_FQDN",
-											"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
-											"QUIC SNI",
-											identify_info.domain,
-											result[hit_num].config_id,
-											result[hit_num].service_id,
-											(unsigned char)result[hit_num].action,
-											printaddr(&a_udp->addr, thread_seq)
-										);
+				ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
+				if(ret>0)
+				{
+					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
+					MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN",
+												"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
+												"QUIC SNI",
+												identify_info.domain,
+												result[hit_num].config_id,
+												result[hit_num].service_id,
+												(unsigned char)result[hit_num].action,
+												printaddr(&a_udp->addr, thread_seq)
+											);
 
-				hit_num+=ret;
-			}
-			else
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_FQDN",
-											"Not hit %s: %s stream_dir: %d addr: %s",
-											(ret==-1) ?  "NULL" :  "QUIC SNI",
-											(ret==-1) ? "NULL" : identify_info.domain,
-											a_udp->dir,
-											printaddr(&a_udp->addr, thread_seq)
-										);
+					hit_num+=ret;
+				}
+				else
+				{
+					MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN",
+												"Not hit %s: %s stream_dir: %d addr: %s",
+												(ret==-1) ?  "NULL" :  "QUIC SNI",
+												(ret==-1) ? "NULL" : identify_info.domain,
+												a_udp->dir,
+												printaddr(&a_udp->addr, thread_seq)
+											);
+				}
 			}
 			
 			if(mid!=NULL)
@@ -923,7 +926,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				mid=NULL;
 			}
 			
-			p_result=tsg_policy_decision_criteria(a_udp, result, ret, NULL, thread_seq);
+			p_result=tsg_policy_decision_criteria(a_udp, result, hit_num, NULL, thread_seq);
 			if(p_result!=NULL)
 			{
 				switch((unsigned char)p_result->action)
