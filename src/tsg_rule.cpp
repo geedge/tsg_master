@@ -460,6 +460,8 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "LOCATION_BUILT_IN_TABLE", g_tsg_para.table_name[TABLE_LOCATION_BUILT_IN], _MAX_TABLE_NAME_LEN, "TSG_IP_LOCATION_BUILT_IN");
 	MESA_load_profile_string_def(conffile, "MAAT", "LOCATION_USER_DEFINED_TABLE", g_tsg_para.table_name[TABLE_LOCATION_USER_DEFINED], _MAX_TABLE_NAME_LEN, "TSG_IP_LOCATION_USER_DEFINED");
 
+	MESA_load_profile_string_def(conffile, "MAAT", "QUIC_SNI_TABLE", g_tsg_para.table_name[TABLE_QUIC_SNI], _MAX_TABLE_NAME_LEN, "TSG_FIELD_QUIC_SNI");
+
 	//init static maat feather
 	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", logger);
 	if(g_tsg_maat_feather==NULL)
@@ -1125,7 +1127,7 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct _identify_info *i
 				idx=TABLE_SSL_SNI;
 				break;
 			case	PROTO_QUIC:
-				idx=TABLE_SSL_SNI;
+				idx=TABLE_QUIC_SNI;
 				break;
 			default:
 				return 0;
