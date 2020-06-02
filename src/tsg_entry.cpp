@@ -335,6 +335,9 @@ static char *schema_index2string(tsg_protocol_t proto)
 		case	PROTO_STREAMING_MEDIA:
 			schema_field_value=(char *)"STREAMING_MEDIA";
 			break;
+		case	PROTO_QUIC:
+			schema_field_value=(char *)"QUIC";
+			break;
 		default:
 			break;
 	}
@@ -361,10 +364,22 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 			TLD_append(TLD_handle, schema_field_name, (void *)schema_field_value, TLD_TYPE_STRING);
 		}
 
-		if(identify_info->proto==PROTO_HTTP || identify_info->proto==PROTO_SSL)
+		switch(identify_info->proto)
 		{
-			domain_field_name=log_field_id2name(g_tsg_log_instance, ((identify_info->proto==PROTO_HTTP) ? LOG_HTTP_HOST : LOG_SSL_SNI));
-			TLD_append(TLD_handle, domain_field_name, (void *)identify_info->domain, TLD_TYPE_STRING);
+			case	PROTO_HTTP:
+				domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_HTTP_HOST);
+				TLD_append(TLD_handle, domain_field_name, (void *)identify_info->domain, TLD_TYPE_STRING);
+				break;
+			case	PROTO_SSL:
+				domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_SSL_SNI);
+				TLD_append(TLD_handle, domain_field_name, (void *)identify_info->domain, TLD_TYPE_STRING);
+				break;
+			case	PROTO_QUIC:
+				domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_QUIC_SNI);
+				TLD_append(TLD_handle, domain_field_name, (void *)identify_info->domain, TLD_TYPE_STRING);
+				break;
+			default:
+				break;
 		}
 	}
 	
@@ -863,7 +878,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 
 extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int thread_seq,void *a_packet)
 {
-	int ret=0,opt_value=0;
+	int ret=0;
 	int hit_num=0;
 	scan_status_t mid=NULL;
 	int state=APP_STATE_GIVEME;
@@ -932,20 +947,42 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				switch((unsigned char)p_result->action)
 				{
 					case	TSG_ACTION_DENY:
-						opt_value=1;
+						#if 0
+						int opt_value=1;
 						MESA_set_stream_opt(a_udp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
 						
 						return APP_STATE_DROPME|APP_STATE_DROPPKT;
+						#endif
 						break;
 					case	TSG_ACTION_BYPASS:
 						init_context(pme, identify_info.proto, p_result, thread_seq);
+						if(identify_info.proto>PROTO_UNKONWN && identify_info.proto<PROTO_MAX)
+						{
+							_context=(struct _master_context *)*pme;
+							memcpy(_context->domain, identify_info.domain, identify_info.domain_len);
+							_context->domain_len=identify_info.domain_len;
+						}
+						
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
+
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"ALLOW",
+												"Hit allow policy, policy_id: %d service: %d action: %d addr: %s",
+												p_result[0].config_id,
+												p_result[0].service_id,
+												(unsigned char)p_result[0].action,
+												printaddr(&a_udp->addr, thread_seq)
+												);
+						
 						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 						break;
 					case	TSG_ACTION_MONITOR:
+						#if 0
 						init_context(pme, identify_info.proto, p_result, thread_seq);
 						state=APP_STATE_GIVEME;
+						#endif
 						break;
 					case	TSG_ACTION_INTERCEPT:
 					case	TSG_ACTION_MANIPULATE:
@@ -964,6 +1001,11 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				{
 					memset(&identify_info, 0, sizeof(identify_info));
 					identify_info.proto=_context->proto;
+					if(_context->domain_len>0)
+					{
+						memcpy(identify_info.domain, _context->domain, _context->domain_len);
+						identify_info.domain_len=_context->domain_len;
+					}
 					
 					master_send_log(a_udp, _context->result, _context->hit_cnt, &identify_info, thread_seq);
 					free_context(pme, thread_seq);

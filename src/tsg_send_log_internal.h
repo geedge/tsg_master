@@ -65,6 +65,7 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_SERVER_ASN,
 	LOG_COMMON_CLINET_LOCATION,
 	LOG_COMMON_SERVER_LOCATION,
+	LOG_QUIC_SNI,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
