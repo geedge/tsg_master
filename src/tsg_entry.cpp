@@ -533,7 +533,7 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 
 	identify_info->proto = PROTO_UNKONWN;
 	//http
-	char *host = NULL;
+	char *host=NULL;
 	ret=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, DIR_C2S, &host);
 	if(ret>=0)
 	{
@@ -632,6 +632,7 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 		}
 	}
 	
+	quic_release_stream(a_stream, (void **)&_context, a_stream->threadnum);
 	
 	return ret;
 }
