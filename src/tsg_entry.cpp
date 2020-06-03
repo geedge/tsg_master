@@ -42,7 +42,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200603=0;
+char TSG_MASTER_VERSION_20200604=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -88,6 +88,27 @@ static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
 	}
 
 	return flags;
+}
+
+int tsg_set_device_id_to_telegraf(char *device_sn)
+{
+	char buff[128]={0};
+	FILE *fp=NULL;
+
+	if(device_sn)
+	{
+		fp=fopen("/etc/default/telegraf", "wb");
+		if(fp)
+		{
+			snprintf(buff, sizeof(buff), "device_id=\"%s\"\n", device_sn);
+			fwrite(buff, strlen(buff), 1, fp);
+			fclose(fp);
+			fp=NULL;
+			return 0;
+		}
+	}
+
+	return -1;
 }
 
 static void free_policy_label(int thread_seq, void *project_req_value)
@@ -1044,6 +1065,12 @@ extern "C" int TSG_MASTER_INIT()
 	if(ret==0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "GET_DEVICE_SN", "Get device SN failed; please check :%s", device_sn_filename);
+	}
+
+	ret=tsg_set_device_id_to_telegraf(g_tsg_para.device_sn);
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "SET_DEVICE_SN_TO_TELEGRAF", "Set device SN(%s) failed; please check :%s", g_tsg_para.device_sn, "/etc/default/telegraf");
 	}
 	
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "POLICY_PRIORITY_LABEL", label_buff, sizeof(label_buff), "POLICY_PRIORITY");
