@@ -42,7 +42,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200601=0;
+char TSG_MASTER_VERSION_20200603=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -618,21 +618,13 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 	}
 
 	//quic
-	struct _quic_context *_context=NULL;
-	quic_init_stream((void **)&_context, a_stream->threadnum);
-	ret=quic_process(a_stream, _context, a_stream->threadnum, a_packet);
-	if(ret!=PROT_STATE_DROPME)
+	ret=quic_protocol_identify(a_stream, a_packet, identify_info->domain, sizeof(identify_info->domain));
+	if(ret>0)
 	{
 		identify_info->proto=PROTO_QUIC;
-		if(_context->quic_info.client_hello!=NULL)
-		{
-			char *sni=(char *)(_context->quic_info.client_hello->ext_tags[_context->quic_info.client_hello->sni_idx].value);
-			identify_info->domain_len=MIN(strlen(sni), sizeof(identify_info->domain)-1);
-			strncpy(identify_info->domain, sni, identify_info->domain_len);
-		}
+		identify_info->domain_len=ret;
+		return 1;
 	}
-	
-	quic_release_stream(a_stream, (void **)&_context, a_stream->threadnum);
 	
 	return ret;
 }
@@ -910,7 +902,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
-												"SCAN_FQDN",
+												"SCAN_QUIC_SNI",
 												"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
 												"QUIC SNI",
 												identify_info.domain,
@@ -926,10 +918,10 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				{
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
-												"SCAN_FQDN",
+												"SCAN_QUIC_SNI",
 												"Not hit %s: %s stream_dir: %d addr: %s",
-												(ret==-1) ?  "NULL" :  "QUIC SNI",
-												(ret==-1) ? "NULL" : identify_info.domain,
+												"QUIC SNI",
+												identify_info.domain,
 												a_udp->dir,
 												printaddr(&a_udp->addr, thread_seq)
 											);
