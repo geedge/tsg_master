@@ -190,6 +190,11 @@ typedef enum _tsg_statis_field_id
 	STATIS_INTERCEPT_OUT_BYTES,
 	STATIS_INTERCEPT_IN_PACKETS,
 	STATIS_INTERCEPT_OUT_PACKETS,
+	STATIS_ALERT_BYTES,
+	STATIS_BLOCK_BYTES,
+	STATIS_PINNING_NUM,
+	STATIS_MAYBE_PINNING_NUM,
+	STATIS_NOT_PINNING_NUM,
 	STATIS_MAX
 }tsg_statis_field_id_t;
 
@@ -207,6 +212,7 @@ typedef	struct _tsg_statistic
 	int cycle;
 	int fs_line_id;
 	int fs_field_id[STATIS_MAX];
+	long long statistic_opt[_OPT_TYPE_MAX];
 	struct _traffic_info *traffic_info[TSG_ACTION_MAX+1];
 	struct _traffic_info default_total_info;
 	screen_stat_handle_t fs2_handle;

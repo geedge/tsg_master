@@ -13,6 +13,24 @@
 
 tsg_statis_para_t g_tsg_statis_para;
 
+int tsg_set_statistic_opt(int value, enum _STATISTIC_OPT_TYPE type, int thread_seq)
+{
+	switch(type)
+	{
+		case	OPT_TYPE_ALERT_BYTES:
+		case	OPT_TYPE_BLOCK_BYTES:
+		case	OPT_TYPE_PINNING_YES:
+		case	OPT_TYPE_PINNING_NOT:
+		case	OPT_TYPE_PINNING_MAYBE:
+			atomic_add(&(g_tsg_statis_para.statistic_opt[type]), value);
+			break;
+		default:
+			break;
+	}
+
+	return 0;
+}
+
 int tsg_set_intercept_flow(Maat_rule_t *p_result, struct _traffic_info *traffic_info, int thread_seq)
 {
 	struct _traffic_info *_info=NULL;
@@ -235,6 +253,12 @@ static void *tsg_statistic_thread(void *arg)
 		_get_traffic_info(&total_traffic_info, &policy_traffic_info, &default_traffic_info);
 		_set_traffic_info(&default_traffic_info, NULL, TSG_ACTION_NONE, 1);
 
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_ALERT_BYTES], FS_OP_SET, g_tsg_statis_para.statistic_opt[OPT_TYPE_ALERT_BYTES]);
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_BLOCK_BYTES], FS_OP_SET, g_tsg_statis_para.statistic_opt[OPT_TYPE_BLOCK_BYTES]);
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_PINNING_NUM], FS_OP_SET, g_tsg_statis_para.statistic_opt[OPT_TYPE_PINNING_YES]);
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_MAYBE_PINNING_NUM], FS_OP_SET, g_tsg_statis_para.statistic_opt[OPT_TYPE_PINNING_MAYBE]);
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_NOT_PINNING_NUM], FS_OP_SET, g_tsg_statis_para.statistic_opt[OPT_TYPE_PINNING_NOT]);
+
 		FS_passive_output(g_tsg_statis_para.fs2_handle);
 		
 		sleep(g_tsg_statis_para.cycle);
@@ -330,6 +354,11 @@ int tsg_statistic_init(const char *conffile, void *logger)
 	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"intercept_in_packets");
 	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"intercept_out_packets");
 
+	g_tsg_statis_para.fs_field_id[STATIS_ALERT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"alert_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_BLOCK_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"block_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_PINNING_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"pinning_num");
+	g_tsg_statis_para.fs_field_id[STATIS_MAYBE_PINNING_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"maybe_pinning_num");
+	g_tsg_statis_para.fs_field_id[STATIS_NOT_PINNING_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"not_pinning_num");
 
 	g_tsg_statis_para.fs_line_id=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_LINE, FS_CALC_CURRENT, (const char *)"TRAFFIC");
 

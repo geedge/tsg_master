@@ -42,7 +42,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200604=0;
+char TSG_MASTER_VERSION_20200605=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -195,136 +195,6 @@ static int init_context(void **pme, tsg_protocol_t proto, struct Maat_rule_t *p_
 
 	return 0;
 }
-
-#if 0
-static int master_method_type(struct streaminfo *a_stream, struct Maat_rule_t *p_result)
-{
-	cJSON *item=NULL;
-	cJSON *object=NULL;
-	char *tmp_buff=NULL;
-	int method_type=-1;
-
-	if(p_result->serv_def_len<128)
-	{
-		object=cJSON_Parse(p_result->service_defined);
-
-		MESA_handle_runtime_log(g_tsg_para.logger, 
-								RLOG_LV_DEBUG,
-								"DO_ACTION",
-								"Hit policy_id: %d service: %d action: %d user_reagion: %s addr: %s",
-								p_result->config_id,
-								p_result->service_id,
-								(unsigned char)p_result->action,
-								p_result->service_defined,
-								printaddr(&a_stream->addr, a_stream->threadnum)
-								);
-	}
-	else
-	{
-		tmp_buff=(char *)calloc(1, p_result->serv_def_len+1);
-		Maat_read_rule(g_tsg_maat_feather, p_result, MAAT_RULE_SERV_DEFINE, tmp_buff, p_result->serv_def_len);
-		object=cJSON_Parse(tmp_buff);
-
-		MESA_handle_runtime_log(g_tsg_para.logger, 
-								RLOG_LV_DEBUG,
-								"DO_ACTION",
-								"Hit policy_id: %d service: %d action: %d user_reagion: %s addr: %s",
-								p_result->config_id,
-								p_result->service_id,
-								(unsigned char)p_result->action,
-								tmp_buff,
-								printaddr(&a_stream->addr, a_stream->threadnum)
-								);
-	}
-
-	if(object==NULL)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, 
-								RLOG_LV_FATAL,
-								"DO_ACTION",
-								"Hit policy_id: %d service: %d action: %d user_reagion: %s addr: %s",
-								p_result->config_id,
-								p_result->service_id,
-								(unsigned char)p_result->action,
-								(tmp_buff==NULL) ? p_result->service_defined : tmp_buff,
-								printaddr(&a_stream->addr, a_stream->threadnum)
-								);
-
-		if(tmp_buff!=NULL)
-		{
-			free(tmp_buff);
-			tmp_buff=NULL;
-		}
-		
-		return -1;
-	}
-
-	item=cJSON_GetObjectItem(object, "method");
-	if(item!=NULL)
-	{
-		method_type=tsg_get_method_id(item->valuestring);
-	}
-
-	if(tmp_buff!=NULL)
-	{
-		free(tmp_buff);
-		tmp_buff=NULL;
-	}
-
-	cJSON_Delete(object);
-	object=NULL;
-
-	return method_type;
-}
-
-
-static int master_do_deny(struct streaminfo *a_stream, struct Maat_rule_t *p_result, int thread_seq)
-{
-	int opt_value=0;	
-	int method_type=-1;
-	struct rst_tcp_para rst_paras;
-
-	method_type=master_method_type(a_stream, p_result);
-	switch(method_type)
-	{
-		case	TSG_METHOD_TYPE_DROP:
-			opt_value=1;
-			MESA_set_stream_opt(a_stream, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
-			break;
-		case	TSG_METHOD_TYPE_BLOCK:
-			MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_FATAL,
-									"TSG_ACTION_DENY",
-									"Unsupport block of deny, policy_id: %d service: %d action: %d addr: %s",
-									p_result[0].config_id,
-									p_result[0].service_id,
-									(unsigned char)p_result[0].action,
-									printaddr(&a_stream->addr, thread_seq)
-								);
-			//break; // not break
-		case	TSG_METHOD_TYPE_RESET:
-			opt_value=1;
-			MESA_set_stream_opt(a_stream, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
-			
-			rst_paras.dir=DIR_DOUBLE;
-			rst_paras.rst_pkt_num=1;
-			rst_paras.signature_seed1=65535;
-			rst_paras.signature_seed2=13;
-			rst_paras.th_flags=4;
-			rst_paras.__pad_no_use=0;
-			MESA_rst_tcp(a_stream, &rst_paras, sizeof(rst_paras));
-
-			opt_value=1;
-			MESA_set_stream_opt(a_stream, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
-			MESA_set_stream_opt(a_stream, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
-			break;
-		default:
-			break;
-	}
-
-	return 0;
-}
-#endif
 
 static char *schema_index2string(tsg_protocol_t proto)
 {
@@ -754,48 +624,9 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				switch((unsigned char)p_result->action)
 				{
 					case	TSG_ACTION_DENY:
-						#if 0 /* support block/alert(deny), Do action in fw_http_plug */
-						master_do_deny(a_tcp, p_result, thread_seq);
-						master_send_log(a_tcp, p_result, 1, &identify_info, thread_seq);
-						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
-
-						MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"DENY",
-												"Hit deny policy, policy_id: %d service: %d action: %d addr: %s",
-												p_result[0].config_id,
-												p_result[0].service_id,
-												(unsigned char)p_result[0].action,
-												printaddr(&a_tcp->addr, thread_seq)
-												);
-
-						return APP_STATE_DROPPKT|APP_STATE_KILL_OTHER;
-						#endif
+						/* support block/alert(deny), Do action in fw_http_plug */
 						break;
 					case	TSG_ACTION_MONITOR:
-						#if 0
-						if(q_result!=NULL && (p_result==q_result))
-						{
-							init_context(pme, identify_info.proto, p_result, thread_seq);
-							if(identify_info.proto>PROTO_UNKONWN && identify_info.proto<PROTO_MAX)
-							{
-								_context=(struct _master_context *)*pme;
-								memcpy(_context->domain, identify_info.domain, identify_info.domain_len);
-								_context->domain_len=identify_info.domain_len;
-							}
-
-							MESA_handle_runtime_log(g_tsg_para.logger,
-													RLOG_LV_DEBUG,
-													"MONITOR",
-													"Hit monitor policy, policy_id: %d service: %d action: %d addr: %s",
-													p_result[0].config_id,
-													p_result[0].service_id,
-													(unsigned char)p_result[0].action,
-													printaddr(&a_tcp->addr, thread_seq)
-													);
-							state=APP_STATE_GIVEME;
-						}
-						#endif
 						break;
 					case	TSG_ACTION_BYPASS:
 						init_context(pme, identify_info.proto, p_result, thread_seq);
@@ -821,8 +652,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 						break;
 					case	TSG_ACTION_INTERCEPT:
 						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
-
-						//tsg_set_policy_flow(a_tcp, p_result, thread_seq);
 						
 						priority_label=(policy_priority_label_t *)dictator_malloc(thread_seq, sizeof(policy_priority_label_t));
 						
@@ -911,7 +740,6 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 			if(ret>0)
 			{
 				hit_num+=ret;
-				//q_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, NULL, thread_seq);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 
@@ -961,13 +789,6 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				switch((unsigned char)p_result->action)
 				{
 					case	TSG_ACTION_DENY:
-						#if 0
-						int opt_value=1;
-						MESA_set_stream_opt(a_udp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
-						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DENY], 0, FS_OP_ADD, 1);
-						
-						return APP_STATE_DROPME|APP_STATE_DROPPKT;
-						#endif
 						break;
 					case	TSG_ACTION_BYPASS:
 						init_context(pme, identify_info.proto, p_result, thread_seq);
@@ -993,10 +814,6 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 						break;
 					case	TSG_ACTION_MONITOR:
-						#if 0
-						init_context(pme, identify_info.proto, p_result, thread_seq);
-						state=APP_STATE_GIVEME;
-						#endif
 						break;
 					case	TSG_ACTION_INTERCEPT:
 					case	TSG_ACTION_MANIPULATE:
