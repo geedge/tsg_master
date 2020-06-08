@@ -55,6 +55,44 @@ const struct _str2index g_tsg_proto_string[PROTO_MAX+1]={{PROTO_UNKONWN, 0, (cha
 										 {PROTO_MAX, 0, (char *)""}
 };
 
+static char* str_unescape(char* s)
+{
+	int i=0,j=0;
+	int len=strlen(s);
+	for(i=0,j=0;i<len;i++)
+	{
+		if(s[i]=='\\')
+		{
+			switch(s[i+1])
+			{
+				case '&':
+					s[j]='&';
+					break;
+				case 'b':
+					s[j]=' ';//space,0x20;
+					break;
+				case '\\':
+					s[j]='\\';
+					break;
+				default:
+					s[j]=s[i];
+					i--;	//undo the followed i++
+					break;
+			}
+			i++;
+			j++;
+		}
+		else
+		{
+			s[j]=s[i];
+			j++;
+		}
+	}
+	s[j]='\0';
+	return s;
+}
+
+
 void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
 	void *logger=argp;
@@ -103,6 +141,8 @@ void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PL
 		return;
 	}
 	
+	str_unescape(asn->organization);
+
 	atomic_inc(&asn->ref_cnt);
 	asn->table_id=table_id;
 	*ad=(MAAT_PLUGIN_EX_DATA)asn;
@@ -215,6 +255,11 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 								);
 		return;
 	}
+
+	str_unescape(location->continent_full);
+	str_unescape(location->country_full);
+	str_unescape(location->province_full);
+	str_unescape(location->city_full);
 	
 	atomic_inc(&location->ref_cnt);
 	location->table_id=table_id;
@@ -804,7 +849,7 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 			MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_LOCATION",
-									"Hit IP_LOCATION: %s scan ret: %d table_name: %d policy_id: %d service: %d action: %d addr: %s",
+									"Hit IP_LOCATION: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
 									buff,
 									ret,
 									g_tsg_para.table_name[idx],
