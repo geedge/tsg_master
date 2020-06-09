@@ -42,7 +42,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200608=0;
+char TSG_MASTER_VERSION_20200609=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -524,7 +524,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 {
 	int ret=0,hit_num=0;
 	struct timespec tv;
-	long establish_latency_ms=0;
 	int state=APP_STATE_GIVEME;
 	scan_status_t mid=NULL;
 	Maat_rule_t *p_result=NULL;
@@ -541,35 +540,39 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			
 			memset(&identify_info, 0, sizeof(identify_info));
 			identify_application_protocol(a_tcp, &identify_info, a_packet);
+
+			internal_label=(struct _internal_label *)dictator_malloc(1, sizeof(struct _internal_label));
+			memset(internal_label, 0, sizeof(struct _internal_label));
+			internal_label->proto=identify_info.proto;
+
 			if(identify_info.proto==PROTO_HTTP)
 			{
-				internal_label=(struct _internal_label *)dictator_malloc(1, sizeof(struct _internal_label));
-				memset(internal_label, 0, sizeof(struct _internal_label));
-				
 				clock_gettime(CLOCK_REALTIME, &tv);
 				internal_label->establish_latency_ms=(tv.tv_sec-a_tcp->ptcpdetail->createtime)*1000+tv.tv_nsec/1000/1000;
-				
-				ret=project_req_add_struct(a_tcp, g_tsg_para.internal_project_id, (const void *)internal_label);
-				if(ret<0)
-				{
-					MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_FATAL,
-											"PROJECT_ADD",
-											"Add policy_priority_label failed, establish latency ms: %llu addr: %s",
-											establish_latency_ms,
-											printaddr(&a_tcp->addr, thread_seq)
-											);
-				}
-				else
-				{
-					MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"PROJECT_ADD",
-											"Add policy_priority_label successfully, establish latency ms: %llu addr: %s",
-											establish_latency_ms,
-											printaddr(&a_tcp->addr, thread_seq)
-											);	
-				}
+			}
+			
+			ret=project_req_add_struct(a_tcp, g_tsg_para.internal_project_id, (const void *)internal_label);
+			if(ret<0)
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_FATAL,
+										"PROJECT_ADD",
+										"Add internal_label failed, establish latency ms: %llu proto: %d addr: %s",
+										internal_label->establish_latency_ms,
+										internal_label->proto,
+										printaddr(&a_tcp->addr, thread_seq)
+										);
+			}
+			else
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"PROJECT_ADD",
+										"Add internal_label successfully, establish latency ms: %llu proto: %d addr: %s",
+										internal_label->establish_latency_ms,
+										internal_label->proto,
+										printaddr(&a_tcp->addr, thread_seq)
+										);	
 			}
 			
 			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, identify_info.proto, &mid, all_result+hit_num, MAX_RESULT_NUM-hit_num);
@@ -729,12 +732,39 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 	Maat_rule_t result[MAX_RESULT_NUM]={0};
 	struct _identify_info identify_info;
 	struct _master_context *_context=(struct _master_context *)*pme;
+	struct _internal_label *internal_label=NULL;
 
 	switch(a_udp->opstate)
 	{
 		case	OP_STATE_PENDING:
 			memset(&identify_info, 0, sizeof(identify_info));
 			identify_application_protocol(a_udp, &identify_info, a_packet);
+
+			internal_label=(struct _internal_label *)dictator_malloc(1, sizeof(struct _internal_label));
+			memset(internal_label, 0, sizeof(struct _internal_label));
+			internal_label->proto=identify_info.proto;
+			
+			ret=project_req_add_struct(a_udp, g_tsg_para.internal_project_id, (const void *)internal_label);
+			if(ret<0)
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_FATAL,
+										"PROJECT_ADD",
+										"Add internal_label failed, proto: %d addr: %s",
+										internal_label->proto,
+										printaddr(&a_udp->addr, thread_seq)
+										);
+			}
+			else
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"PROJECT_ADD",
+										"Add internal_label successfully, proto: %d addr: %s",
+										internal_label->proto,
+										printaddr(&a_udp->addr, thread_seq)
+										);	
+			}
 
 			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_udp, identify_info.proto, &mid, result, MAX_RESULT_NUM);
 			if(ret>0)

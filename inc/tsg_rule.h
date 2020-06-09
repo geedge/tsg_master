@@ -53,6 +53,19 @@ struct _identify_info
 	char domain[MAX_DOAMIN_LEN];
 };
 
+struct _internal_label
+{
+	tsg_protocol_t proto;
+	long establish_latency_ms;
+	struct _asn_info *client_asn;
+	struct _asn_info *server_asn;
+	struct _location_info *client_location;
+	struct _location_info *server_location;
+	struct _subscribe_id_info *client_subscribe_id;
+	struct _subscribe_id_info *server_subscribe_id;
+};
+
+
 typedef	enum _PULL_RESULT_TYPE
 {
 	PULL_KNI_RESULT,

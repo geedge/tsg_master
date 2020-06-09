@@ -101,19 +101,6 @@ struct _subscribe_id_info
 	char subscribe_id[256];
 };
 
-
-struct _internal_label
-{
-	long establish_latency_ms;
-	struct _asn_info *client_asn;
-	struct _asn_info *server_asn;
-	struct _location_info *client_location;
-	struct _location_info *server_location;
-	struct _subscribe_id_info *client_subscribe_id;
-	struct _subscribe_id_info *server_subscribe_id;
-};
-
-
 typedef	struct _policy_priority_label
 {
 	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
