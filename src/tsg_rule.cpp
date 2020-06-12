@@ -672,7 +672,7 @@ int tsg_get_ip_asn(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_
 			memcpy((char *)(source_ip.ipv6), a_stream->addr.tuple4_v6->saddr, IPV6_ADDR_LEN);
 			
 			dest_ip.ip_type=6;
-			memcpy((char *)(source_ip.ipv6), a_stream->addr.tuple4_v6->daddr, IPV6_ADDR_LEN);
+			memcpy((char *)(dest_ip.ipv6), a_stream->addr.tuple4_v6->daddr, IPV6_ADDR_LEN);
 			break;
 		default:
 			return 0;
@@ -711,7 +711,7 @@ int tsg_get_ip_location(const struct streaminfo *a_stream, int table_id, MAAT_PL
 			memcpy((char *)(source_ip.ipv6), a_stream->addr.tuple4_v6->saddr, IPV6_ADDR_LEN);
 			
 			dest_ip.ip_type=6;
-			memcpy((char *)(source_ip.ipv6), a_stream->addr.tuple4_v6->daddr, IPV6_ADDR_LEN);
+			memcpy((char *)(dest_ip.ipv6), a_stream->addr.tuple4_v6->daddr, IPV6_ADDR_LEN);
 			break;
 		default:
 			return 0;
