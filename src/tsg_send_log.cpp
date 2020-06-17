@@ -19,7 +19,7 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
-char TSG_SEND_LOG_VERSION_20200602=0;
+char TSG_SEND_LOG_VERSION_20200617=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
 
@@ -191,14 +191,14 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 		if(internal_label->client_location!=NULL)
 		{
 			location=internal_label->client_location;
-			snprintf(buff, sizeof(buff), "%s%s%s%s%s", location->country_full, (strlen(location->province_full)>0) ? ";" : "", location->province_full, (strlen(location->city_full)>0) ? ";" : "", location->city_full);
+			snprintf(buff, sizeof(buff), "%s%s%s%s%s", location->country_full, (strlen(location->province_full)>0) ? "," : "", location->province_full, (strlen(location->city_full)>0) ? "," : "", location->city_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 
 		if(internal_label->server_location!=NULL)
 		{
 			location=internal_label->server_location;
-			snprintf(buff, sizeof(buff), "%s%s%s%s%s", location->country_full, (strlen(location->province_full)>0) ? ";" : "", location->province_full, (strlen(location->city_full)>0) ? ";" : "", location->city_full);
+			snprintf(buff, sizeof(buff), "%s%s%s%s%s", location->country_full, (strlen(location->province_full)>0) ? "," : "", location->province_full, (strlen(location->city_full)>0) ? "," : "", location->city_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 	}
