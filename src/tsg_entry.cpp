@@ -985,6 +985,9 @@ extern "C" int TSG_MASTER_INIT()
         FS_set_para(g_tsg_para.fs2_handle, STATS_SERVER_PORT,&(fs_server_port), sizeof(fs_server_port));
     }
 
+	value=FS_OUTPUT_INFLUX_LINE;
+	FS_set_para(g_tsg_para.fs2_handle, STATS_FORMAT, &value, sizeof(value));
+
 	for(i=0; i<TSG_FS2_MAX; i++)
 	{
 		g_tsg_para.fs2_field_id[g_tsg_fs2_field[i].id]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_CURRENT, g_tsg_fs2_field[i].name);
