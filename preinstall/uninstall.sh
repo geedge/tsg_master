@@ -1,7 +1,4 @@
-
 if [ $1 == 0 ]; then
-	echo "uninstall: $1"
-
 	DST=${RPM_INSTALL_PREFIX}
 
 	mkdir -p ${DST}/plug/platform/
