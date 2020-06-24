@@ -34,11 +34,16 @@ set(CMAKE_INSTALL_PREFIX /home/mesasoft/sapp_run)
 
 add_subdirectory(src) 
 
-SET(CPACK_RPM_PRE_INSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/preinstall/install.sh")
-SET(CPACK_RPM_PRE_UNINSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/preinstall/uninstall.sh")
+SET(CPACK_RPM_LIBRARY_PRE_INSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/preinstall/install.sh")
+SET(CPACK_RPM_LIBRARY_PRE_UNINSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/preinstall/uninstall.sh")
 
-set(CPACK_RPM_USER_FILELIST "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/main.conf"
-                           		 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/maat.conf")
+set(CPACK_RPM_LIBRARY_USER_FILELIST "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/main.conf"
+                           		 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/maat.conf"
+			 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/tsg_static_tableinfo.conf"
+			 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/tsg_dynamic_tableinfo.conf"
+			 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/tsg_log_field.conf"
+			 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/tsg_maat.json"
+)
 
 install(FILES bin/main.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
 install(FILES bin/maat.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)

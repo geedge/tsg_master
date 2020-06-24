@@ -42,7 +42,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200612=0;
+char TSG_MASTER_VERSION_20200624=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -73,7 +73,7 @@ static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
 			if(object)
 			{
 				cJSON *item=cJSON_GetObjectItem(object, "sn");
-				if(item && device_sn_len>(int)strlen(item->valuestring))
+				if(item && item->valuestring!=NULL && device_sn_len>(int)strlen(item->valuestring))
 				{
 					flags=1;
 					memcpy(device_sn, item->valuestring, strlen(item->valuestring));
