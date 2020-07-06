@@ -42,7 +42,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200624=0;
+char TSG_MASTER_VERSION_20200706=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -500,8 +500,7 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 	}
 
 	//mail
-
-	ret=mail_protocol_identify(a_stream);
+	ret=mail_protocol_identify_by_first_payload(a_stream,(char *)a_stream->ptcpdetail->pdata, a_stream->ptcpdetail->datalen, a_stream->threadnum);
 	if(ret>=SMTP_PROTOCOL&& ret<=IMAP_PROTOCOL)
 	{
 		identify_info->proto=PROTO_MAIL;
