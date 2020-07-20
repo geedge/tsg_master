@@ -19,7 +19,7 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
-char TSG_SEND_LOG_VERSION_20200617=0;
+char TSG_SEND_LOG_VERSION_20200720=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
 
@@ -32,7 +32,22 @@ const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"
 
 extern "C" int MESA_get_dev_ipv4(const char *device, int *ip_add);
 
+int is_multi_hit_same_policy(struct Maat_rule_t *result, int *policy_id, int *policy_id_num)
+{
+	int j=0;
+	
+	for(j=0;j<*policy_id_num;j++)
+	{
+		if(policy_id[j]==result->config_id)
+		{
+			return 1;
+		}
+	}
 
+	policy_id[(*policy_id_num)++]=result->config_id;
+
+	return 0;
+}
 unsigned long long tsg_get_stream_id(struct streaminfo * a_stream)
 {
 	int ret=0;
@@ -509,6 +524,8 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 {
 	int i=0,status=0;
 	char *payload=NULL;
+	int repeat_cnt=0;
+	int policy_id[MAX_RESULT_NUM]={0};
 	struct TLD_handle_t *_handle=handle;
 	struct tsg_log_instance_t *_instance=instance;
 	
@@ -532,6 +549,11 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 
 	for(i=0;i<log_msg->result_num; i++)
 	{
+		if(is_multi_hit_same_policy(&(log_msg->result[i]), policy_id, &repeat_cnt))
+		{
+			continue;
+		}
+		
 		switch(log_msg->result[i].do_log)
 		{
 			case	LOG_ABORT:

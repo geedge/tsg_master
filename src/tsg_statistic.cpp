@@ -205,6 +205,7 @@ static int _set_traffic_info(struct _traffic_info *from, struct _traffic_info *t
 static void *tsg_statistic_thread(void *arg)
 {
 	long long value=0;
+	long long total_value=0;
 	int value_len=sizeof(long long);
 	int thread_num=get_thread_count();
 	struct _traffic_info policy_traffic_info;
@@ -225,18 +226,33 @@ static void *tsg_statistic_thread(void *arg)
 		_set_traffic_info(g_tsg_statis_para.traffic_info[TSG_ACTION_INTERCEPT], &policy_traffic_info, TSG_ACTION_INTERCEPT, thread_num);
 		
 		value=0;
+		total_value=0;
 		sapp_get_platform_opt(SPO_TCP_STREAM_ESTAB, (void *)&value, &value_len);
-		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_ESTABLISHED_CON_NUM], FS_OP_SET, value);
+		total_value+=value;
+		value=0;
+		sapp_get_platform_opt(SPO_UDP_STREAM_CONCURRENT, (void *)&value, &value_len);
+		total_value+=value;
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_ESTABLISHED_CON_NUM], FS_OP_SET, total_value);
 		
 		value=0;
+		total_value=0;
 		sapp_get_platform_opt(SPO_TCP_STREAM_CLOSE, (void *)&value, &value_len);
-		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_CLOSE_CON_NUM], FS_OP_SET, value);
+		total_value+=value;
+		value=0;
+		sapp_get_platform_opt(SPO_UDP_STREAM_CLOSE, (void *)&value, &value_len);
+		total_value+=value;
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_CLOSE_CON_NUM], FS_OP_SET, total_value);
 
 		value=0;
+		total_value=0;
 		sapp_get_platform_opt(SPO_TCP_STREAM_NEW, (void *)&value, &value_len);
-		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_NEW_CON_NUM], FS_OP_SET, value);
+		total_value+=value;
+		value=0;
+		sapp_get_platform_opt(SPO_UDP_STREAM_NEW, (void *)&value, &value_len);
+		total_value+=value;
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_NEW_CON_NUM], FS_OP_SET, total_value);
 
-		total_traffic_info.con_num+=value;
+		total_traffic_info.con_num+=total_value;
 
 		value_len=sizeof(total_traffic_info.in_bytes);
 		sapp_get_platform_opt(SPO_TOTAL_INBOUND_BYTE, (void *)&total_traffic_info.in_bytes, &value_len);
