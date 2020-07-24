@@ -199,13 +199,14 @@ void location_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DAT
 	MESA_handle_runtime_log(logger,
 							RLOG_LV_DEBUG,
 							"IP_LOCATION", 
-							"Dup(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d",
+							"Dup(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s province: %s city: %s ref_cnt: %d",
 							table_id,
 							location->geoname_id,
 							location->start_ip,
 							location->end_ip,
 							location->continent_full,
 							location->country_full,
+							location->province_full,
 							location->city_full,
 							location->ref_cnt
 							);
@@ -268,13 +269,14 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 	MESA_handle_runtime_log(logger, 
 								RLOG_LV_DEBUG,
 								"IP_LOCATION",
-								"Add(table_id: %d) ip location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d",
+								"Add(table_id: %d) ip location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s province: %s city: %s ref_cnt: %d",
 								table_id,
 								location->geoname_id,
 								location->start_ip,
 								location->end_ip,
 								location->continent_full,
 								location->country_full,
+								location->province_full,
 								location->city_full,
 								location->ref_cnt
 							);
@@ -289,13 +291,14 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 	MESA_handle_runtime_log(logger,
 								RLOG_LV_DEBUG,
 								"IP_LOCATION", 
-								"Delete(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s city: %s ref_cnt: %d",
+								"Delete(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s province: %s city: %s ref_cnt: %d",
 								table_id,
 								location->geoname_id,
 								location->start_ip,
 								location->end_ip,
 								location->continent_full,
 								location->country_full,
+								location->province_full,
 								location->city_full,
 								location->ref_cnt
 							);
@@ -384,20 +387,21 @@ void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, vo
 	return;
 }
 
-
 static Maat_feather_t init_maat_feather(const char* conffile, char* instance_name, char *module, void *logger)
 {
 	unsigned short redis_port = 0;
 	int ret=0,scan_detail=0,effect_interval=60;
 	Maat_feather_t _maat_feather=NULL;
 	int factor=0, redis_port_num=0,redis_index=0;
+	char effective_range_filename[1024]={0};
 	char redis_ip[16]={0}, effective_flag[1024]={0};
 	int maat_mode=0,maat_stat_on=0,maat_perf_on=0,thread_max=0;
 	char json_cfg_file[MAX_PATH_LEN]={0},maat_stat_file[MAX_PATH_LEN]={0};
 	char table_info[MAX_PATH_LEN]={0},inc_cfg_dir[MAX_PATH_LEN]={0},ful_cfg_dir[MAX_PATH_LEN]={0};
 
-	memset(effective_flag, 0, sizeof(effective_flag));
-	MESA_load_profile_string_def(conffile,module,"EFFECTIVE_FLAG",effective_flag, sizeof(effective_flag),"");
+	memset(effective_flag, 0, sizeof(effective_flag));	
+	MESA_load_profile_string_def(conffile, module, "EFFECTIVE_RANGE_FILE", effective_range_filename, sizeof(effective_range_filename),"./tsgconf/maat.conf");
+	MESA_load_profile_string_def(conffile, "MAAT", "ACCEPT_TAGS", effective_flag, sizeof(effective_flag),"");
 
 	MESA_load_profile_int_def(conffile, module,"MAAT_MODE", &(maat_mode),0);
 	MESA_load_profile_int_def(conffile, module,"STAT_SWITCH", &(maat_stat_on),1);
@@ -442,6 +446,10 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 		{
 			ret=Maat_set_feather_opt(_maat_feather,MAAT_OPT_ACCEPT_TAGS,effective_flag, strlen(effective_flag)+1);
 			assert(ret>=0);
+		}
+		else
+		{
+			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "EFFECTIVE_RANGE", "Effective range is empty, please check %s", effective_range_filename);
 		}
 		Maat_set_feather_opt(_maat_feather,MAAT_OPT_INSTANCE_NAME,instance_name, strlen(instance_name)+1);
 		if(maat_mode==1)

@@ -87,7 +87,11 @@ struct tsg_log_instance_t
 	int mode;
 	int max_service;
 	int internal_project_id;
+	int tcp_flow_project_id;
+	int udp_flow_project_id;
 	void *logger;
+	char tcp_label[MAX_STRING_LEN];
+	char udp_label[MAX_STRING_LEN];
 	char common_field_file[MAX_STRING_LEN*4];
 	char broker_list[MAX_STRING_LEN*4];
 	char local_ip_str[MAX_IPV4_LEN];

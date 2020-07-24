@@ -19,7 +19,7 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
-char TSG_SEND_LOG_VERSION_20200720=0;
+char TSG_SEND_LOG_VERSION_20200724=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
 
@@ -206,14 +206,20 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 		if(internal_label->client_location!=NULL)
 		{
 			location=internal_label->client_location;
-			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
+			snprintf(buff, sizeof(buff), "%s,%s,%s", (memcmp(location->city_full, "null", 4) ? "" : location->city_full),
+													  (memcmp(location->province_full, "null", 4) ? "" : location->province_full),
+													  (memcmp(location->country_full, "null", 4) ? "" : location->country_full)
+													  );
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 
 		if(internal_label->server_location!=NULL)
 		{
 			location=internal_label->server_location;
-			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
+			snprintf(buff, sizeof(buff), "%s,%s,%s", (memcmp(location->city_full, "null", 4) ? "" : location->city_full),
+													  (memcmp(location->province_full, "null", 4) ? "" : location->province_full),
+													  (memcmp(location->country_full, "null", 4) ? "" : location->country_full)
+													  );
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 	}
@@ -236,6 +242,8 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	struct layer_addr_ipv6 *ipv6=NULL;
 	char server_ip[MAX_IPV4_LEN*8]={0};
 	char client_ip[MAX_IPV4_LEN*8]={0};
+	struct tcp_flow_stat *tflow_project=NULL;
+    struct udp_flow_stat *uflow_project=NULL;
 	
 	struct TLD_handle_t *_handle=handle;
 	struct tsg_log_instance_t *_instance=instance;
@@ -285,11 +293,32 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_STREAM_DIR].name, (void *)(long)a_stream->dir, TLD_TYPE_LONG);	
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_ADDRESS_TYPE].name, (void *)(long)addr_type, TLD_TYPE_LONG);
-	
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->clientpktnum, TLD_TYPE_LONG);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->clientbytes, TLD_TYPE_LONG);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)a_stream->ptcpdetail->serverpktnum, TLD_TYPE_LONG);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)a_stream->ptcpdetail->serverbytes, TLD_TYPE_LONG);
+
+	switch(a_stream->type)
+	{
+		case	STREAM_TYPE_TCP:
+			tflow_project=(struct tcp_flow_stat *)project_req_get_struct(a_stream, _instance->tcp_flow_project_id);
+			if(tflow_project!=NULL)
+			{
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)tflow_project->S2C_all_pkt, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)tflow_project->S2C_all_byte, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)tflow_project->C2S_all_pkt, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)tflow_project->C2S_all_byte, TLD_TYPE_LONG);
+			}
+			break;
+		case	STREAM_TYPE_UDP:
+			uflow_project=(struct udp_flow_stat *)project_req_get_struct(a_stream, _instance->udp_flow_project_id);
+			if(uflow_project!=NULL)
+			{
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)uflow_project->S2C_pkt, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)uflow_project->S2C_byte, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)uflow_project->C2S_pkt, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)uflow_project->C2S_byte, TLD_TYPE_LONG);
+			}
+			break;
+		default:
+			break;
+	}
 
 	if(a_stream!=NULL && a_stream->ptcpdetail!=NULL)
 	{
@@ -453,6 +482,23 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	}
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "COMMON_FIELD_FILE", _instance->common_field_file, sizeof(_instance->common_field_file), NULL);
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "BROKER_LIST", _instance->broker_list, sizeof(_instance->broker_list), NULL);
+
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "TCP_LABEL", _instance->tcp_label, sizeof(_instance->tcp_label), "tcp_flow_stat");
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "UDP_LABEL", _instance->udp_label, sizeof(_instance->udp_label), "udp_flow_stat");
+
+	_instance->tcp_flow_project_id=project_customer_register(_instance->tcp_label, "struct");
+	_instance->udp_flow_project_id=project_customer_register(_instance->udp_label, "struct");
+	if(_instance->tcp_flow_project_id<0 || _instance->udp_flow_project_id<0)
+	{
+		MESA_handle_runtime_log(_instance->logger,
+									RLOG_LV_FATAL,
+									"TCP_OR_UDP_LABEL",
+									"project_customer_register is error, tcp_label: %s udp_label: %s, please check etc/project.conf",
+									_instance->tcp_label,
+									_instance->udp_label
+								);
+	}
+	
 
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "NIC_NAME", nic_name, sizeof(nic_name), "eth0");	
 	ret=MESA_get_dev_ipv4(nic_name, (int *)&local_ip_nr);
