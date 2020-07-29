@@ -19,7 +19,7 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
-char TSG_SEND_LOG_VERSION_20200724=0;
+char TSG_SEND_LOG_VERSION_20200729=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
 
@@ -112,6 +112,9 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 			break;
 		case	TLD_TYPE_STRING:
 			cJSON_AddStringToObject(_handle->object, key, (char *)value);
+			break;
+		case	TLD_TYPE_CJSON:
+			cJSON_AddItemToObject(_handle->object, key, (cJSON *)value);
 			break;
 		default:
 			return -1;
