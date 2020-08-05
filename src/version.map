@@ -2,10 +2,7 @@ VERS_2.4{
 global: 
 	extern "C++" {	
 		g_*;
-		*TSG_MASTER_INIT*;
-		*TSG_MASTER_TCP_ENTRY*;
-		*TSG_MASTER_UDP_ENTRY*;
-		*TSG_MASTER_UNLOAD*;
+		*TSG_MASTER*;
   		*tsg_scan_nesting_addr*;
 		*tsg_pull_policy_result*;
 		*tsg_*;

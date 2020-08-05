@@ -42,7 +42,7 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 #endif
 
 
-char TSG_MASTER_VERSION_20200724=0;
+char TSG_MASTER_VERSION_20200805=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -425,18 +425,18 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 	identify_info->proto = PROTO_UNKONWN;
 	//http
 	char *host=NULL;
-	ret=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, DIR_C2S, &host);
+	ret=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->curdir, &host);
 	if(ret>=0)
 	{
 		identify_info->proto=PROTO_HTTP;
-		if(ret==0)
-		{
-			identify_info->domain_len=0;
-		}
-		else
+		if(ret>0 && host!=NULL)
 		{
 			identify_info->domain_len=MIN(ret, (int)sizeof(identify_info->domain) - 1);
 			strncpy(identify_info->domain, host, identify_info->domain_len);
+		}
+		else
+		{
+			identify_info->domain_len=0;
 		}
 		return 1;
 	}
