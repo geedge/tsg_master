@@ -96,7 +96,7 @@ static char* str_unescape(char* s)
 void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
 	void *logger=argp;
-	struct _asn_info *asn=(struct _asn_info *)(*from);
+	struct _asn_info_t *asn=(struct _asn_info_t *)(*from);
 	
 	atomic_inc(&asn->ref_cnt);
 	*to=*from;
@@ -121,8 +121,8 @@ void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PL
 	void *logger=argp;
 	int ret=0,id=0,is_valid=0;
 
-	struct _asn_info *asn=NULL;
-	asn=(struct _asn_info *)calloc(1, sizeof(struct _asn_info));
+	struct _asn_info_t *asn=NULL;
+	asn=(struct _asn_info_t *)calloc(1, sizeof(struct _asn_info_t));
 	
 	ret=sscanf(table_line, "%d\t%d\t%s\t%s\t%s\t%s\t%d", &id, &asn->addr_type, asn->start_ip, asn->end_ip, asn->asn, asn->organization, &is_valid);
 	if(ret!=7)
@@ -164,7 +164,7 @@ void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PL
 void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
 	void *logger=argp;
-	struct _asn_info *asn=(struct _asn_info *)(*ad);
+	struct _asn_info_t *asn=(struct _asn_info_t *)(*ad);
 
 	MESA_handle_runtime_log(logger, 
 								RLOG_LV_DEBUG,
@@ -191,7 +191,7 @@ void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 void location_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
 	void *logger=argp;
-	struct _location_info *location=(struct _location_info *)(*from);
+	struct _location_info_t *location=(struct _location_info_t *)(*from);
 
 	atomic_inc(&location->ref_cnt);
 	*to=*from;
@@ -217,9 +217,9 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 {
 	void *logger=argp;
 	int ret=0,id=0,is_valid=0;
-	struct _location_info *location=NULL;
+	struct _location_info_t *location=NULL;
 
-	location=(struct _location_info *)calloc(1, sizeof(struct _location_info));
+	location=(struct _location_info_t *)calloc(1, sizeof(struct _location_info_t));
 	
 	ret=sscanf(table_line,
 				"%d\t%d\t%d\t%s\t%s\t%lf\t%lf\t%lf\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d",
@@ -286,7 +286,7 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
 	void *logger=argp;
-	struct _location_info *location=(struct _location_info *)(*ad);
+	struct _location_info_t *location=(struct _location_info_t *)(*ad);
 
 	MESA_handle_runtime_log(logger,
 								RLOG_LV_DEBUG,
@@ -317,7 +317,7 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
 	void *logger=argp;
-	struct _subscribe_id_info *subscribe_id=(struct _subscribe_id_info *)(*from);
+	struct _subscribe_id_info_t *subscribe_id=(struct _subscribe_id_info_t *)(*from);
 
 	atomic_inc(&subscribe_id->ref_cnt);
 	*to=*from;
@@ -332,9 +332,9 @@ void subscribe_id_new_data(int table_id, const char* key, const char* table_line
 	void *logger=argp;
 	int ret=0,id=0,type=0,is_valid=0;
 	char ip_addr[MAX_IPV6_ADDR_LEN]={0};
-	struct _subscribe_id_info *subscribe_id=NULL;
+	struct _subscribe_id_info_t *subscribe_id=NULL;
 
-	subscribe_id=(struct _subscribe_id_info *)calloc(1, sizeof(struct _subscribe_id_info));
+	subscribe_id=(struct _subscribe_id_info_t *)calloc(1, sizeof(struct _subscribe_id_info_t));
 	
 	ret=sscanf(table_line, "%d\t%d\t%s\t%s\t%d", &id, &type, ip_addr, subscribe_id->subscribe_id, &is_valid);
 	if(ret!=5)
@@ -373,7 +373,7 @@ void subscribe_id_new_data(int table_id, const char* key, const char* table_line
 void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
 	void *logger=argp;
-	struct _subscribe_id_info *subscribe_id=(struct _subscribe_id_info *)(*ad);
+	struct _subscribe_id_info_t *subscribe_id=(struct _subscribe_id_info_t *)(*ad);
 
 	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Delete(table_id: %d ) subscribe_id: %s ref_cnt: %d", table_id, subscribe_id->subscribe_id, subscribe_id->ref_cnt);
 
@@ -738,7 +738,7 @@ int tsg_get_ip_location(const struct streaminfo *a_stream, int table_id, MAAT_PL
 	return 0;
 }
 
-int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct _subscribe_id_info **source_subscribe_id, struct _subscribe_id_info **dest_subscribe_id)
+int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct _subscribe_id_info_t **source_subscribe_id, struct _subscribe_id_info_t **dest_subscribe_id)
 {
 	char source_ip[MAX_IPV6_ADDR_LEN]={0};
 	char dest_ip[MAX_IPV6_ADDR_LEN]={0};
@@ -763,18 +763,18 @@ int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct _subscribe_id
 
 	if(strlen(dest_ip)>0 && *dest_subscribe_id==NULL)
 	{
-		*dest_subscribe_id = (struct _subscribe_id_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, dest_ip);
+		*dest_subscribe_id = (struct _subscribe_id_info_t *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, dest_ip);
 	}
 
 	if(strlen(source_ip)>0 && *source_subscribe_id==NULL)
 	{
-		*source_subscribe_id = (struct _subscribe_id_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, source_ip);
+		*source_subscribe_id = (struct _subscribe_id_info_t *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, source_ip);
 	}
 
 	return 0;
 }
 
-int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _asn_info *asn, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _asn_info_t *asn, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
 
@@ -834,7 +834,7 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 }
 
 
-int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _location_info *location, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _location_info_t *location, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
 	char buff[1024]={0};
@@ -903,7 +903,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 	int hit_num=0,tans_proto=0;
 	int is_scan_addr=1, maat_ret=0,found_pos=0;
 	const struct streaminfo *cur_stream = a_stream;
-	struct _internal_label *internal_label=NULL;
+	struct _session_attribute_label_t *internal_label=NULL;
 
 	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
 	{
@@ -1035,11 +1035,11 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		}
 	}
 
-	internal_label=(struct _internal_label *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
+	internal_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
 	if(internal_label==NULL)
 	{
-		internal_label=(struct _internal_label *)calloc(1, sizeof(struct _internal_label));
-		memset(internal_label, 0, sizeof(struct _internal_label));
+		internal_label=(struct _session_attribute_label_t *)calloc(1, sizeof(struct _session_attribute_label_t));
+		memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
 	}
 
 	if(hit_num<result_num)

@@ -117,9 +117,9 @@ static void free_policy_label(int thread_seq, void *project_req_value)
 	project_req_value=NULL;
 }
 
-static void free_internal_label(int thread_seq, void *project_req_value)
+static void free_session_attribute_label(int thread_seq, void *project_req_value)
 {
-	struct _internal_label *label=(struct _internal_label *)project_req_value;
+	struct _session_attribute_label_t *label=(struct _session_attribute_label_t *)project_req_value;
 
 	if(label!=NULL)
 	{
@@ -531,7 +531,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	Maat_rule_t all_result[MAX_RESULT_NUM];
 	policy_priority_label_t *priority_label=NULL;	
 	struct _master_context *_context=(struct _master_context *)*pme;
-	struct _internal_label *internal_label=NULL;
+	struct _session_attribute_label_t *internal_label=NULL;
 	switch(a_tcp->opstate)
 	{
 		case	OP_STATE_PENDING:
@@ -540,8 +540,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			memset(&identify_info, 0, sizeof(identify_info));
 			identify_application_protocol(a_tcp, &identify_info, a_packet);
 
-			internal_label=(struct _internal_label *)dictator_malloc(1, sizeof(struct _internal_label));
-			memset(internal_label, 0, sizeof(struct _internal_label));
+			internal_label=(struct _session_attribute_label_t *)dictator_malloc(1, sizeof(struct _session_attribute_label_t));
+			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
 			internal_label->proto=identify_info.proto;
 
 			if(identify_info.proto==PROTO_HTTP)
@@ -731,7 +731,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 	Maat_rule_t result[MAX_RESULT_NUM]={0};
 	struct _identify_info identify_info;
 	struct _master_context *_context=(struct _master_context *)*pme;
-	struct _internal_label *internal_label=NULL;
+	struct _session_attribute_label_t *internal_label=NULL;
 
 	switch(a_udp->opstate)
 	{
@@ -739,8 +739,8 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 			memset(&identify_info, 0, sizeof(identify_info));
 			identify_application_protocol(a_udp, &identify_info, a_packet);
 
-			internal_label=(struct _internal_label *)dictator_malloc(1, sizeof(struct _internal_label));
-			memset(internal_label, 0, sizeof(struct _internal_label));
+			internal_label=(struct _session_attribute_label_t *)dictator_malloc(1, sizeof(struct _session_attribute_label_t));
+			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
 			internal_label->proto=identify_info.proto;
 			
 			ret=project_req_add_struct(a_udp, g_tsg_para.internal_project_id, (const void *)internal_label);
@@ -934,7 +934,7 @@ extern "C" int TSG_MASTER_INIT()
 	}
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_INTERNAL_LABEL", label_buff, sizeof(label_buff), "TSG_MASTER_INTERNAL_LABEL");
-	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_internal_label);
+	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_label);
 	if(g_tsg_para.internal_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, 

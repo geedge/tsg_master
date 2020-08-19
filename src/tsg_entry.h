@@ -61,45 +61,6 @@ struct _str2index
 	char *type;
 };
 
-struct _asn_info
-{
-	int ref_cnt;
-	int addr_type;
-	char start_ip[40];
-	char end_ip[40];
-	char asn[40];
-	char organization[256];
-	int table_id;
-};
-
-struct _location_info
-{
-	int ref_cnt;
-	int addr_type;
-	char start_ip[40];
-	char end_ip[40];
-	double latitude;
-	double longitude;
-	double coords;
-	char language[40];
-	char continent_abbr[256];
-	char continent_full[256];
-	char country_abbr[256];
-	char country_full[256];
-	char province_abbr[256];
-	char province_full[256];
-	char city_full[256];
-	char time_zone[128];
-	int geoname_id;
-	int table_id;
-};
-
-struct _subscribe_id_info
-{
-	int ref_cnt;
-	int table_id;
-	char subscribe_id[256];
-};
 
 typedef	struct _policy_priority_label
 {
@@ -137,8 +98,6 @@ typedef	struct _tsg_para
 }g_tsg_para_t;
 
 extern g_tsg_para_t g_tsg_para;
-
-
 
 typedef enum _tsg_statis_field_id
 {

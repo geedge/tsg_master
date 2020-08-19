@@ -3,6 +3,8 @@
 
 #include <MESA/Maat_rule.h>
 
+#include "tsg_label.h"
+
 #define	TSG_ACTION_NONE			0x00
 #define	TSG_ACTION_MONITOR		0x01
 #define	TSG_ACTION_INTERCEPT	0x02
@@ -22,27 +24,6 @@ enum TSG_ETHOD_TYPE
 	TSG_METHOD_TYPE_MAX
 };
 
-
-typedef enum _tsg_protocol
-{
-   PROTO_UNKONWN=0,
-   PROTO_IPv4=1,
-   PROTO_IPv6,
-   PROTO_TCP,
-   PROTO_UDP,
-   PROTO_HTTP,
-   PROTO_MAIL,
-   PROTO_DNS,
-   PROTO_FTP,
-   PROTO_SSL,
-   PROTO_SIP,
-   PROTO_BGP,
-   PROTO_STREAMING_MEDIA,
-   PROTO_QUIC,
-   PROTO_MAX
-}tsg_protocol_t;
-
-
 #define	MAX_RESULT_NUM	8
 #define	MAX_DOAMIN_LEN	2048
 
@@ -51,18 +32,6 @@ struct _identify_info
 	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
 	int domain_len;
 	char domain[MAX_DOAMIN_LEN];
-};
-
-struct _internal_label
-{
-	tsg_protocol_t proto;
-	long establish_latency_ms;
-	struct _asn_info *client_asn;
-	struct _asn_info *server_asn;
-	struct _location_info *client_location;
-	struct _location_info *server_location;
-	struct _subscribe_id_info *client_subscribe_id;
-	struct _subscribe_id_info *server_subscribe_id;
 };
 
 

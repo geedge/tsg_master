@@ -186,10 +186,10 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	char buff[512]={0};
-	struct _location_info *location=NULL;
-	struct _internal_label *internal_label=NULL;
+	struct _location_info_t *location=NULL;
+	struct _session_attribute_label_t *internal_label=NULL;
 
-	internal_label=(struct _internal_label *)project_req_get_struct(a_stream, _instance->internal_project_id);
+	internal_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, _instance->internal_project_id);
 	if(internal_label!=NULL)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)internal_label->establish_latency_ms, TLD_TYPE_LONG);

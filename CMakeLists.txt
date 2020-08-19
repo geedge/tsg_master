@@ -54,5 +54,6 @@ install(FILES bin/tsg_maat.json DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMP
 install(FILES inc/tsg_send_log.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
 install(FILES inc/tsg_rule.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
 install(FILES inc/tsg_statistic.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
+install(FILES inc/tsg_label.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
 
 include(Package)
