@@ -18,6 +18,7 @@ typedef enum _tld_type
 	TLD_TYPE_STRING,
 	TLD_TYPE_FILE,
 	TLD_TYPE_TOPIC,
+	TLD_TYPE_CJSON, // cJSON *object
 	TLD_TYPE_MAX
 }TLD_TYPE;
 
