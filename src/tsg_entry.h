@@ -4,6 +4,7 @@
 #include <MESA/Maat_rule.h>
 #include <MESA/field_stat2.h>
 #include "tsg_rule.h"
+#include "tsg_label.h"
 #include "tsg_statistic.h"
 
 #if(__GNUC__ * 100 + __GNUC_MINOR__ * 10 + __GNUC_PATCHLEVEL__ >= 411)
@@ -90,6 +91,7 @@ typedef	struct _tsg_para
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
 	int internal_project_id;
+	int proto_flag; //tsg_protocol_t
 	int fs2_field_id[TSG_FS2_MAX];
 	char device_sn[MAX_DOAMIN_LEN/8];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];

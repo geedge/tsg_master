@@ -54,7 +54,24 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_LINKS, "link
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_INTERCEPT, "intercept"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_LOG, "log"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_DENY, "deny"}
-	};
+										};
+
+id2field_t g_tsg_proto_name2id[PROTO_MAX]={{TLD_TYPE_UNKNOWN, PROTO_UNKONWN, "unknown"}, 
+										 {TLD_TYPE_UNKNOWN, PROTO_IPv4, "IPV4"},
+										 {TLD_TYPE_UNKNOWN, PROTO_IPv6, "IPV6"},
+										 {TLD_TYPE_UNKNOWN, PROTO_TCP, "TCP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_UDP, "UDP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_HTTP, "HTTP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_MAIL, "MAIL"},
+										 {TLD_TYPE_UNKNOWN, PROTO_DNS, "DNS"},
+										 {TLD_TYPE_UNKNOWN, PROTO_FTP, "FTP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_SSL, "SSL"},
+										 {TLD_TYPE_UNKNOWN, PROTO_SIP, "SIP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_BGP, "BGP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_STREAMING_MEDIA, "STREAMING_MEDIA"},
+										 {TLD_TYPE_UNKNOWN, PROTO_QUIC, "QUIC"},
+										 {TLD_TYPE_UNKNOWN, PROTO_SSH, "SSH"}
+										};
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
 
@@ -89,6 +106,35 @@ static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
 	}
 
 	return flags;
+}
+
+static int tsg_proto_name2flag(char *proto_list, int *flag)
+{
+	int i=0;
+	char *s=NULL,*e=NULL;
+
+	s=proto_list;
+	while(s)
+	{
+		e=index(s, ';');
+		if(!e)
+		{
+			break;
+		}
+
+		for(i=0; i< PROTO_MAX; i++)
+		{
+			if((memcmp(s, g_tsg_proto_name2id[i].name, e-s))==0)
+			{
+				*flag|=(1<<g_tsg_proto_name2id[i].id);
+				break;
+			}
+		}
+		
+		s=e+1;	
+	}
+
+	return 0;
 }
 
 int tsg_set_device_id_to_telegraf(char *device_sn)
@@ -427,106 +473,121 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 	int ret=0;
                                       
 	identify_info->proto = PROTO_UNKONWN;
-	//http
-	char *host=NULL;
-	ret=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->curdir, &host);
-	if(ret>=0)
+	
+	if(g_tsg_para.proto_flag&(1<<PROTO_HTTP))  //http
 	{
-		identify_info->proto=PROTO_HTTP;
-		if(ret>0 && host!=NULL)
+		char *host=NULL;
+		ret=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->curdir, &host);
+		if(ret>=0)
 		{
-			identify_info->domain_len=MIN(ret, (int)sizeof(identify_info->domain) - 1);
-			strncpy(identify_info->domain, host, identify_info->domain_len);
+			identify_info->proto=PROTO_HTTP;
+			if(ret>0 && host!=NULL)
+			{
+				identify_info->domain_len=MIN(ret, (int)sizeof(identify_info->domain) - 1);
+				strncpy(identify_info->domain, host, identify_info->domain_len);
+			}
+			else
+			{
+				identify_info->domain_len=0;
+			}
+			return 1;
 		}
-		else
-		{
-			identify_info->domain_len=0;
-		}
-		return 1;
 	}
 	
-	//ssl
-	enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
-	struct ssl_chello *chello = NULL;
-
-	chello=ssl_chello_parse((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, &chello_status);
-	if(chello_status==CHELLO_PARSE_SUCCESS)
+	if(g_tsg_para.proto_flag&(1<<PROTO_SSL))  //ssl
 	{
-		identify_info->proto=PROTO_SSL;
-		if(chello->sni==NULL)
+		enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
+		struct ssl_chello *chello = NULL;
+
+		chello=ssl_chello_parse((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, &chello_status);
+		if(chello_status==CHELLO_PARSE_SUCCESS)
 		{
-			identify_info->domain_len = 0;
-		}
-		else
-		{
-			identify_info->domain_len = strnlen(chello->sni, sizeof(identify_info->domain) - 1);
-			strncpy(identify_info->domain, chello->sni, identify_info->domain_len);
+			identify_info->proto=PROTO_SSL;
+			if(chello->sni==NULL)
+			{
+				identify_info->domain_len = 0;
+			}
+			else
+			{
+				identify_info->domain_len = strnlen(chello->sni, sizeof(identify_info->domain) - 1);
+				strncpy(identify_info->domain, chello->sni, identify_info->domain_len);
+			}
+			
+			ssl_chello_free(chello);
+			return 1;
 		}
 		
-		ssl_chello_free(chello);
-		return 1;
+	    ssl_chello_free(chello);
+	}
+
+	if(g_tsg_para.proto_flag&(1<<PROTO_DNS))  //dns
+	{
+		struct stream_tuple4_v4 *tpl4 = NULL;
+		struct stream_tuple4_v6 *tpl6 = NULL;
+
+		switch(a_stream->addr.addrtype)
+		{
+			case ADDR_TYPE_IPV4:
+				tpl4=a_stream->addr.tuple4_v4;
+				if((ntohs(tpl4->source)==53) || (ntohs(tpl4->dest)==53))
+				{
+					identify_info->proto=PROTO_DNS;
+					return 1;
+				}
+				break;
+			case ADDR_TYPE_IPV6:
+				tpl6=a_stream->addr.tuple4_v6;
+				if((ntohs(tpl6->source)==53) || (ntohs(tpl6->dest)==53))
+				{
+					identify_info->proto=PROTO_DNS;
+					return 1;
+				}
+				break;
+			default:
+				break;
+		}
 	}
 	
-    ssl_chello_free(chello);
-
-	//dns
-	struct stream_tuple4_v4 *tpl4 = NULL;
-	struct stream_tuple4_v6 *tpl6 = NULL;
-
-	switch(a_stream->addr.addrtype)
+	if(g_tsg_para.proto_flag&(1<<PROTO_FTP))  //ftp
 	{
-		case ADDR_TYPE_IPV4:
-			tpl4=a_stream->addr.tuple4_v4;
-			if((ntohs(tpl4->source)==53) || (ntohs(tpl4->dest)==53))
-			{
-				identify_info->proto=PROTO_DNS;
-				return 1;
-			}
-			break;
-		case ADDR_TYPE_IPV6:
-			tpl6=a_stream->addr.tuple4_v6;
-			if((ntohs(tpl6->source)==53) || (ntohs(tpl6->dest)==53))
-			{
-				identify_info->proto=PROTO_DNS;
-				return 1;
-			}
-			break;
-		default:
-			break;
-	}
-
-	//ftp
-	ret=ftp_control_identify(a_stream);
-	if(ret>0)
-	{
-		identify_info->proto=PROTO_FTP;
-		return 1;
-	}
-
-	//mail
-	ret=mail_protocol_identify_by_first_payload(a_stream,(char *)a_stream->ptcpdetail->pdata, a_stream->ptcpdetail->datalen, a_stream->threadnum);
-	if(ret>=SMTP_PROTOCOL&& ret<=IMAP_PROTOCOL)
-	{
-		identify_info->proto=PROTO_MAIL;
-		return 1;
-	}
-
-	ret = ssh_protocol_identify((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen,g_tsg_para.logger);
-	if(ret > 0)
-	{
-		identify_info->proto=PROTO_SSH;
-		return 1;
-	}
-	//ssh
-	//quic
-	ret=quic_protocol_identify(a_stream, a_packet, identify_info->domain, sizeof(identify_info->domain));
-	if(ret>0)
-	{
-		identify_info->proto=PROTO_QUIC;
-		identify_info->domain_len=ret;
-		return 1;
+		ret=ftp_control_identify(a_stream);
+		if(ret>0)
+		{
+			identify_info->proto=PROTO_FTP;
+			return 1;
+		}
 	}
 	
+	if(g_tsg_para.proto_flag&(1<<PROTO_MAIL))  //mail
+	{
+		ret=mail_protocol_identify_by_first_payload(a_stream,(char *)a_stream->ptcpdetail->pdata, a_stream->ptcpdetail->datalen, a_stream->threadnum);
+		if(ret>=SMTP_PROTOCOL&& ret<=IMAP_PROTOCOL)
+		{
+			identify_info->proto=PROTO_MAIL;
+			return 1;
+		}
+	}
+
+	if(g_tsg_para.proto_flag&(1<<PROTO_SSH))  //ssh
+	{
+		ret = ssh_protocol_identify((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen,g_tsg_para.logger);
+		if(ret > 0)
+		{
+			identify_info->proto=PROTO_SSH;
+			return 1;
+		}
+	}
+	
+	if(g_tsg_para.proto_flag&(1<<PROTO_QUIC))  //quic
+	{
+		ret=quic_protocol_identify(a_stream, a_packet, identify_info->domain, sizeof(identify_info->domain));
+		if(ret>0)
+		{
+			identify_info->proto=PROTO_QUIC;
+			identify_info->domain_len=ret;
+			return 1;
+		}
+	}
 	return ret;
 }
 
@@ -901,6 +962,7 @@ extern "C" int TSG_MASTER_INIT()
 	char fs_server_ip[MAX_IPV4_LEN]={0};
 	char fs_output_path[MAX_STRING_LEN*4]={0};
 	char device_sn_filename[MAX_STRING_LEN]={0};
+	char identify_proto_name[MAX_STRING_LEN*4]={0};
 	
 	memset(&g_tsg_para, 0, sizeof(g_tsg_para));
 	
@@ -913,6 +975,9 @@ extern "C" int TSG_MASTER_INIT()
 		printf("MESA_create_runtime_log_handle failed ...\n");
 		return -1;
 	}
+	
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;SIP;MAIL;STREAMING_MEDIA;QUIC;");
+	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_ID", &g_tsg_para.device_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);

@@ -209,20 +209,14 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 		if(internal_label->client_location!=NULL)
 		{
 			location=internal_label->client_location;
-			snprintf(buff, sizeof(buff), "%s,%s,%s", (!(memcmp(location->city_full, "null", 4)) ? "" : location->city_full),
-													  (!(memcmp(location->province_full, "null", 4)) ? "" : location->province_full),
-													  (!(memcmp(location->country_full, "null", 4)) ? "" : location->country_full)
-													  );
+			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 
 		if(internal_label->server_location!=NULL)
 		{
 			location=internal_label->server_location;
-			snprintf(buff, sizeof(buff), "%s,%s,%s", (!(memcmp(location->city_full, "null", 4)) ? "" : location->city_full),
-													  (!(memcmp(location->province_full, "null", 4)) ? "" : location->province_full),
-													  (!(memcmp(location->country_full, "null", 4)) ? "" : location->country_full)
-													  );
+			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 	}

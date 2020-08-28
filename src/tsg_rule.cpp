@@ -93,6 +93,13 @@ static char* str_unescape(char* s)
 	return s;
 }
 
+static void eliminate_default_value(char *value)
+{
+	if(value!=NULL && (memcmp(value, "null", 4))==0)
+	{
+		value[0]='\0';
+	}
+}
 
 void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
@@ -143,6 +150,7 @@ void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PL
 	}
 	
 	str_unescape(asn->organization);
+	eliminate_default_value(asn->organization);
 
 	atomic_inc(&asn->ref_cnt);
 	asn->table_id=table_id;
@@ -262,6 +270,15 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 	str_unescape(location->country_full);
 	str_unescape(location->province_full);
 	str_unescape(location->city_full);
+	eliminate_default_value(location->language);
+	eliminate_default_value(location->continent_abbr);
+	eliminate_default_value(location->continent_full);
+	eliminate_default_value(location->country_abbr);
+	eliminate_default_value(location->country_full);
+	eliminate_default_value(location->province_abbr);
+	eliminate_default_value(location->province_full);
+	eliminate_default_value(location->city_full);
+	eliminate_default_value(location->time_zone);
 	
 	atomic_inc(&location->ref_cnt);
 	location->table_id=table_id;

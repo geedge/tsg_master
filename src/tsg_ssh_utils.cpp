@@ -9,7 +9,6 @@
 
 int ssh_protocol_identify(const unsigned char* buff, size_t buff_len, void* argp)
 {
-	void *logger=argp;
 	if(buff == NULL || buff_len < SSH_PROTOCOL_FIELD_LEN)
 	{
 		return -1;
