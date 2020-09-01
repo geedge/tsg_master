@@ -1079,6 +1079,11 @@ extern "C" int TSG_MASTER_INIT()
 	
 	FS_start(g_tsg_para.fs2_handle);
 
+	for(i=0; i<thread_num; i++)
+	{
+		FS_operate(g_tsg_para.fs2_handle,g_tsg_log_instance ->fs_status_ids[i], 0, FS_OP_SET, g_tsg_log_instance->send_log_percent[i]);
+	}
+	
 	ret=tsg_statistic_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
 	{
