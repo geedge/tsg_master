@@ -33,23 +33,6 @@ const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"
 
 extern "C" int MESA_get_dev_ipv4(const char *device, int *ip_add);
 
-static void on_delivery(int errno, int thread_id)
-{	
-	struct timespec cur_time;
-	struct tsg_log_instance_t *_instance=g_tsg_log_instance;
-	if(errno)
-	{
-		clock_gettime(CLOCK_REALTIME, &cur_time);
-		if(cur_time.tv_sec - _instance->drop_start[thread_id].tv_sec>=1)
-		{	
-			_instance->send_log_percent[thread_id]/=2;
-			clock_gettime(CLOCK_REALTIME, &_instance->drop_start[thread_id]);
-			FS_operate(g_tsg_para.fs2_handle,_instance ->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
-		}
-	}
-	
-}
-
 int is_multi_hit_same_policy(struct Maat_rule_t *result, int *policy_id, int *policy_id_num)
 {
 	return 0;
@@ -677,7 +660,6 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 
 		if(status < 0)
 		{
-			//on_delivery(status, thread_id);			
 			clock_gettime(CLOCK_REALTIME, &cur_time);
 			if(cur_time.tv_sec - _instance->drop_start[thread_id].tv_sec>=1)
 			{	
