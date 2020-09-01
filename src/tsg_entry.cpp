@@ -52,8 +52,9 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_LINKS, "link
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_ADDR, "hit_addr"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_SHARE, "hit_share"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_INTERCEPT, "intercept"},
-										 {TLD_TYPE_UNKNOWN, TSG_FS2_LOG, "log"},
-										 {TLD_TYPE_UNKNOWN, TSG_FS2_DENY, "deny"}
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_SUCCESS_LOG, "success_log"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_FAILED_LOG, "failed_log"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_DROP_LOG, "drop_log"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{TLD_TYPE_UNKNOWN, PROTO_UNKONWN, "unknown"}, 
@@ -1068,6 +1069,13 @@ extern "C" int TSG_MASTER_INIT()
 		g_tsg_para.fs2_field_id[g_tsg_fs2_field[i].id]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_CURRENT, g_tsg_fs2_field[i].name);
 	}
 
+	char buff[32]={0};
+	int thread_num=get_thread_count();
+	for(i=0; i<thread_num && g_tsg_log_instance!=NULL; i++)
+	{
+		snprintf(buff, sizeof(buff), "send_log_percent_%02d", i);
+		g_tsg_log_instance->fs_status_ids[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_STATUS, FS_CALC_CURRENT, buff);
+	}
 	
 	FS_start(g_tsg_para.fs2_handle);
 

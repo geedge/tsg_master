@@ -3,6 +3,8 @@
 
 #include <librdkafka/rdkafka.h>
 #include <MESA/cJSON.h>
+#include <time.h>
+
 
 
 #define	MAX_IPV4_LEN	16
@@ -85,19 +87,26 @@ struct TLD_handle_t
 struct tsg_log_instance_t
 {
 	int mode;
-	int max_service;
+	int max_service;	
+	int recovery_interval;
 	int internal_project_id;
 	int tcp_flow_project_id;
 	int udp_flow_project_id;
-	void *logger;
+	int *send_log_percent;
+	int *fs_status_ids;
+	struct timespec *drop_start;
 	char tcp_label[MAX_STRING_LEN];
 	char udp_label[MAX_STRING_LEN];
 	char common_field_file[MAX_STRING_LEN*4];
 	char broker_list[MAX_STRING_LEN*4];
+	char send_queue_max_msg[MAX_STRING_LEN];
+	char require_ack[MAX_STRING_LEN];
+	char refresh_interval_ms[MAX_STRING_LEN];
 	char local_ip_str[MAX_IPV4_LEN];
 	id2field_t id2field[LOG_COMMON_MAX];
 	rd_kafka_topic_t **topic_rkt;
-	id2field_t *service2topic;
+	id2field_t *service2topic;	
+	void *logger;
 };
 
 char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t id);
