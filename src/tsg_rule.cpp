@@ -156,6 +156,7 @@ void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *fr
 
 void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
+	void *logger=argp;
 	int ret=0,id=0,is_valid=0;
 
 	struct _asn_info_t *asn=NULL;
