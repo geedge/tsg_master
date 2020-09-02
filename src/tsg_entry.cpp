@@ -474,121 +474,146 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 	int ret=0;
                                       
 	identify_info->proto = PROTO_UNKONWN;
-	
-	if(g_tsg_para.proto_flag&(1<<PROTO_HTTP))  //http
-	{
-		char *host=NULL;
-		ret=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->curdir, &host);
-		if(ret>=0)
-		{
-			identify_info->proto=PROTO_HTTP;
-			if(ret>0 && host!=NULL)
-			{
-				identify_info->domain_len=MIN(ret, (int)sizeof(identify_info->domain) - 1);
-				strncpy(identify_info->domain, host, identify_info->domain_len);
-			}
-			else
-			{
-				identify_info->domain_len=0;
-			}
-			return 1;
-		}
-	}
-	
-	if(g_tsg_para.proto_flag&(1<<PROTO_SSL))  //ssl
-	{
-		enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
-		struct ssl_chello *chello = NULL;
 
-		chello=ssl_chello_parse((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, &chello_status);
-		if(chello_status==CHELLO_PARSE_SUCCESS)
-		{
-			identify_info->proto=PROTO_SSL;
-			if(chello->sni==NULL)
+	switch(a_stream->type)
+	{
+		case	STREAM_TYPE_TCP:
+			if(g_tsg_para.proto_flag&(1<<PROTO_HTTP))  //http
 			{
-				identify_info->domain_len = 0;
+				char *host=NULL;
+				ret=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->curdir, &host);
+				if(ret>=0)
+				{
+					identify_info->proto=PROTO_HTTP;
+					if(ret>0 && host!=NULL)
+					{
+						identify_info->domain_len=MIN(ret, (int)sizeof(identify_info->domain) - 1);
+						strncpy(identify_info->domain, host, identify_info->domain_len);
+					}
+					else
+					{
+						identify_info->domain_len=0;
+					}
+					return 1;
+				}
 			}
-			else
+
+			if(g_tsg_para.proto_flag&(1<<PROTO_SSL))  //ssl
 			{
-				identify_info->domain_len = strnlen(chello->sni, sizeof(identify_info->domain) - 1);
-				strncpy(identify_info->domain, chello->sni, identify_info->domain_len);
+				enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
+				struct ssl_chello *chello = NULL;
+
+				chello=ssl_chello_parse((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, &chello_status);
+				if(chello_status==CHELLO_PARSE_SUCCESS)
+				{
+					identify_info->proto=PROTO_SSL;
+					if(chello->sni==NULL)
+					{
+						identify_info->domain_len = 0;
+					}
+					else
+					{
+						identify_info->domain_len = strnlen(chello->sni, sizeof(identify_info->domain) - 1);
+						strncpy(identify_info->domain, chello->sni, identify_info->domain_len);
+					}
+					
+					ssl_chello_free(chello);
+					return 1;
+				}
+				
+			    ssl_chello_free(chello);
+			}
+	
+			if(g_tsg_para.proto_flag&(1<<PROTO_FTP))  //ftp
+			{
+				ret=ftp_control_identify(a_stream);
+				if(ret>0)
+				{
+					identify_info->proto=PROTO_FTP;
+					return 1;
+				}
 			}
 			
-			ssl_chello_free(chello);
-			return 1;
-		}
-		
-	    ssl_chello_free(chello);
-	}
-
-	if(g_tsg_para.proto_flag&(1<<PROTO_DNS))  //dns
-	{
-		struct stream_tuple4_v4 *tpl4 = NULL;
-		struct stream_tuple4_v6 *tpl6 = NULL;
-
-		switch(a_stream->addr.addrtype)
-		{
-			case ADDR_TYPE_IPV4:
-				tpl4=a_stream->addr.tuple4_v4;
-				if((ntohs(tpl4->source)==53) || (ntohs(tpl4->dest)==53))
+			if(g_tsg_para.proto_flag&(1<<PROTO_MAIL))  //mail
+			{
+				ret=mail_protocol_identify_by_first_payload(a_stream,(char *)a_stream->ptcpdetail->pdata, a_stream->ptcpdetail->datalen, a_stream->threadnum);
+				if(ret>0)
 				{
-					identify_info->proto=PROTO_DNS;
+					switch(ret)
+					{
+						case	SMTP_PROTOCOL:
+							identify_info->proto=PROTO_SMTP;
+							return 1;
+							break;
+						case	POP3_PROTOCOL:
+							identify_info->proto=PROTO_POP3;
+							return 1;
+							break;
+						case	IMAP_PROTOCOL:
+							identify_info->proto=PROTO_IMAP;
+							return 1;
+							break;
+						default:
+							break;
+					}
+				}
+			}
+
+			break;
+		case	STREAM_TYPE_UDP:
+			if(g_tsg_para.proto_flag&(1<<PROTO_DNS))  //dns
+			{
+				struct stream_tuple4_v4 *tpl4 = NULL;
+				struct stream_tuple4_v6 *tpl6 = NULL;
+
+				switch(a_stream->addr.addrtype)
+				{
+					case ADDR_TYPE_IPV4:
+						tpl4=a_stream->addr.tuple4_v4;
+						if((ntohs(tpl4->source)==53) || (ntohs(tpl4->dest)==53))
+						{
+							identify_info->proto=PROTO_DNS;
+							return 1;
+						}
+						break;
+					case ADDR_TYPE_IPV6:
+						tpl6=a_stream->addr.tuple4_v6;
+						if((ntohs(tpl6->source)==53) || (ntohs(tpl6->dest)==53))
+						{
+							identify_info->proto=PROTO_DNS;
+							return 1;
+						}
+						break;
+					default:
+						break;
+				}
+			}
+				
+			if(g_tsg_para.proto_flag&(1<<PROTO_SSH))  //ssh
+			{
+				ret = ssh_protocol_identify((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen,g_tsg_para.logger);
+				if(ret > 0)
+				{
+					identify_info->proto=PROTO_SSH;
 					return 1;
 				}
-				break;
-			case ADDR_TYPE_IPV6:
-				tpl6=a_stream->addr.tuple4_v6;
-				if((ntohs(tpl6->source)==53) || (ntohs(tpl6->dest)==53))
+			}
+			
+			if(g_tsg_para.proto_flag&(1<<PROTO_QUIC))  //quic
+			{
+				ret=quic_protocol_identify(a_stream, a_packet, identify_info->domain, sizeof(identify_info->domain));
+				if(ret>0)
 				{
-					identify_info->proto=PROTO_DNS;
+					identify_info->proto=PROTO_QUIC;
+					identify_info->domain_len=ret;
 					return 1;
 				}
-				break;
-			default:
-				break;
-		}
+			}
+			break;
+		default:
+			break;
 	}
 	
-	if(g_tsg_para.proto_flag&(1<<PROTO_FTP))  //ftp
-	{
-		ret=ftp_control_identify(a_stream);
-		if(ret>0)
-		{
-			identify_info->proto=PROTO_FTP;
-			return 1;
-		}
-	}
-	
-	if(g_tsg_para.proto_flag&(1<<PROTO_MAIL))  //mail
-	{
-		ret=mail_protocol_identify_by_first_payload(a_stream,(char *)a_stream->ptcpdetail->pdata, a_stream->ptcpdetail->datalen, a_stream->threadnum);
-		if(ret>=SMTP_PROTOCOL&& ret<=IMAP_PROTOCOL)
-		{
-			identify_info->proto=PROTO_MAIL;
-			return 1;
-		}
-	}
-
-	if(g_tsg_para.proto_flag&(1<<PROTO_SSH))  //ssh
-	{
-		ret = ssh_protocol_identify((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen,g_tsg_para.logger);
-		if(ret > 0)
-		{
-			identify_info->proto=PROTO_SSH;
-			return 1;
-		}
-	}
-	
-	if(g_tsg_para.proto_flag&(1<<PROTO_QUIC))  //quic
-	{
-		ret=quic_protocol_identify(a_stream, a_packet, identify_info->domain, sizeof(identify_info->domain));
-		if(ret>0)
-		{
-			identify_info->proto=PROTO_QUIC;
-			identify_info->domain_len=ret;
-			return 1;
-		}
-	}
 	return ret;
 }
 

@@ -53,6 +53,9 @@ const struct _str2index g_tsg_proto_string[PROTO_MAX+1]={{PROTO_UNKONWN, 0, (cha
 										 {PROTO_STREAMING_MEDIA, 16, (char *)"STREAMING_MEDIA."},
 										 {PROTO_QUIC, 5, (char *)"QUIC."},
 										 {PROTO_SSH, 4, (char *)"SSH."},
+										 {PROTO_SMTP, 5, (char *)"MAIL."},
+										 {PROTO_IMAP, 5, (char *)"MAIL."},
+										 {PROTO_POP3, 5, (char *)"MAIL."},
 										 {PROTO_MAX, 0, (char *)""}
 };
 
@@ -93,6 +96,33 @@ static char* str_unescape(char* s)
 	return s;
 }
 
+static int proto_str2id(tsg_protocol_t proto)
+{
+	switch(proto)
+	{
+		case	PROTO_TCP: return 100;
+		case	PROTO_UDP: return 101;
+		case	PROTO_HTTP: return 106;
+		case	PROTO_IMAP:	return 110;
+		case	PROTO_POP3: return 116;
+		case	PROTO_SMTP: return 122;
+		case	PROTO_DNS: return 103;
+		case	PROTO_FTP: return 104;
+		case	PROTO_SSL: return 126;
+		case	PROTO_SIP: return 120;
+		case	PROTO_QUIC: return 119;
+		case	PROTO_SSH: return 125;
+		case	PROTO_IPv6:
+		case	PROTO_IPv4:	
+		case	PROTO_STREAMING_MEDIA:
+		case	PROTO_BGP:
+		default:
+			break;
+	}
+
+	return 0;
+}
+
 static void eliminate_default_value(char *value)
 {
 	if(value!=NULL && (memcmp(value, "null", 4))==0)
@@ -126,7 +156,6 @@ void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *fr
 
 void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	void *logger=argp;
 	int ret=0,id=0,is_valid=0;
 
 	struct _asn_info_t *asn=NULL;
@@ -137,15 +166,6 @@ void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PL
 	{
 		free(asn);
 		asn=NULL;
-		
-		MESA_handle_runtime_log(logger, 
-									RLOG_LV_FATAL,
-									"IP_ASN",
-									"Parse ip ASN failed, ret: %d table_id: %d table_line: %s",
-									ret,
-									table_id,
-									table_line
-								);
 		return;
 	}
 	
@@ -284,20 +304,6 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 	location->table_id=table_id;
 	*ad=(MAAT_PLUGIN_EX_DATA)location;
 	
-	MESA_handle_runtime_log(logger, 
-								RLOG_LV_DEBUG,
-								"IP_LOCATION",
-								"Add(table_id: %d) ip location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s province: %s city: %s ref_cnt: %d",
-								table_id,
-								location->geoname_id,
-								location->start_ip,
-								location->end_ip,
-								location->continent_full,
-								location->country_full,
-								location->province_full,
-								location->city_full,
-								location->ref_cnt
-							);
 	return;
 }
 
@@ -377,14 +383,6 @@ void subscribe_id_new_data(int table_id, const char* key, const char* table_line
 	subscribe_id->table_id=table_id;
 	*ad=(MAAT_PLUGIN_EX_DATA)subscribe_id;
 	
-	MESA_handle_runtime_log(logger, 
-								RLOG_LV_DEBUG,
-								"SUBSCRIBE_ID",
-								"Add(table_id: %d ) subscribe_id: %s ref_cnt: %d",
-								table_id,
-								subscribe_id->subscribe_id,
-								subscribe_id->ref_cnt
-								);
 	return;
 }
 
@@ -513,6 +511,8 @@ int tsg_rule_init(const char* conffile, void *logger)
 	char maat_conffile[256]={0};
 	char cb_subscriber_ip_table[32]={0};
 	
+	MESA_load_profile_int_def(conffile, "MAAT","APP_ID_TABLE_TYPE", &g_tsg_para.app_id_table_type, 1);
+
 	MESA_load_profile_string_def(conffile, "MAAT", "PROFILE", maat_conffile, sizeof(maat_conffile), "./tsgconf/maat_profile.conf");	
 	MESA_load_profile_string_def(conffile, "MAAT", "IP_ADDR_TABLE", g_tsg_para.table_name[TABLE_IP_ADDR], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_ADDR");
 	MESA_load_profile_string_def(conffile, "MAAT", "SUBSCRIBER_ID_TABLE", g_tsg_para.table_name[TABLE_SUBSCRIBER_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_SUBSCRIBER_ID");
@@ -1014,16 +1014,35 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 
 	if(hit_num<result_num && proto>PROTO_UNKONWN && proto<PROTO_MAX)
 	{
-		maat_ret=Maat_full_scan_string(maat_feather,
-									g_tsg_para.table_id[TABLE_APP_ID],
-									CHARSET_GBK,
-									g_tsg_proto_string[proto].type,
-									strlen(g_tsg_proto_string[proto].type),
-									result+hit_num,
-									&found_pos,
-									result_num-hit_num,
-									mid,
-									a_stream->threadnum);
+		if(g_tsg_para.app_id_table_type==0)
+		{
+			maat_ret=Maat_full_scan_string(maat_feather,
+											g_tsg_para.table_id[TABLE_APP_ID],
+											CHARSET_GBK,
+											g_tsg_proto_string[proto].type,
+											strlen(g_tsg_proto_string[proto].type),
+											result+hit_num,
+											&found_pos,
+											result_num-hit_num,
+											mid,
+											a_stream->threadnum
+										);
+		}
+		else
+		{
+			unsigned int proto_id=proto_str2id(proto);
+			if(proto_id>0)
+			{
+				maat_ret=Maat_scan_intval(maat_feather,
+											g_tsg_para.table_id[TABLE_APP_ID],
+											proto_id,
+											result+hit_num,
+											result_num-hit_num,
+											mid,
+											a_stream->threadnum
+										);
+			}
+		}
 		if(maat_ret > 0)
 		{
 			MESA_handle_runtime_log(g_tsg_para.logger,

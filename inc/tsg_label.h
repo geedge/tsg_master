@@ -20,6 +20,9 @@ typedef enum _tsg_protocol
    PROTO_STREAMING_MEDIA,
    PROTO_QUIC,
    PROTO_SSH,
+   PROTO_SMTP,
+   PROTO_IMAP,
+   PROTO_POP3,
    PROTO_MAX
 }tsg_protocol_t;
 
