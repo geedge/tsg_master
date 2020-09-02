@@ -16,5 +16,5 @@ set_target_properties(tsg_master PROPERTIES LINK_FLAGS "-Wl,--version-script=${P
 target_link_libraries(tsg_master ${TSG_MASTER_DEPEND_DYN_LIB})
 set_target_properties(tsg_master  PROPERTIES PREFIX "")
 
-install(TARGETS tsg_master LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/plug/platform/tsg_master COMPONENT LIBRARY)
+install(TARGETS tsg_master LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/plug/platform/tsg_master COMPONENT LIBRARIES)
 install(FILES ../bin/tsg_master.inf DESTINATION ${CMAKE_INSTALL_PREFIX}/plug/platform/tsg_master COMPONENT PROFILE)
