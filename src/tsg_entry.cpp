@@ -703,9 +703,10 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				MESA_handle_runtime_log(g_tsg_para.logger,
 											RLOG_LV_DEBUG,
 											"SCAN_FQDN",
-											"Not hit %s: %s stream_dir: %d addr: %s",
+											"Not hit %s: %s ret: %d stream_dir: %d addr: %s",
 											(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
 											(ret==-1) ? "NULL" : identify_info.domain,
+											ret,
 											a_tcp->dir,
 											printaddr(&a_tcp->addr, thread_seq)
 										);
