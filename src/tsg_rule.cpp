@@ -1065,8 +1065,9 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 			MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_PROTO",
-									"No hit PROTO: %s scan ret: %d addr: %s",
+									"No hit PROTO: %s(%d) scan ret: %d addr: %s",
 									g_tsg_proto_string[proto].type,
+									proto_str2id(proto),
 									maat_ret,
 									printaddr(&a_stream->addr, a_stream->threadnum)
 									);
