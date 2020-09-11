@@ -221,6 +221,11 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
+
+		if(internal_label->ja3_fingerprint!=NULL)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_SSL_JA3_FINGERPRINT].name, (void *)internal_label->ja3_fingerprint, TLD_TYPE_STRING);
+		}
 	}
 
 	return 0;

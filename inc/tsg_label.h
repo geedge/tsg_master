@@ -77,6 +77,7 @@ struct _session_attribute_label_t
 	struct _location_info_t *server_location;
 	struct _subscribe_id_info_t *client_subscribe_id;
 	struct _subscribe_id_info_t *server_subscribe_id;
+	char *ja3_fingerprint;
 };
 
 #endif

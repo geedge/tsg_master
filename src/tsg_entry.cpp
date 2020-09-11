@@ -7,6 +7,7 @@
 
 #include <MESA/http.h>
 #include <MESA/ftp.h>
+#include <MESA/ssl.h>
 #include <MESA/mail.h>
 #include "MESA/gquic.h"
 #include <MESA/stream.h>
@@ -138,78 +139,10 @@ static int tsg_proto_name2flag(char *proto_list, int *flag)
 	return 0;
 }
 
-int tsg_set_device_id_to_telegraf(char *device_sn)
-{
-	char buff[128]={0};
-	FILE *fp=NULL;
-
-	if(device_sn)
-	{
-		fp=fopen("/etc/default/telegraf", "wb");
-		if(fp)
-		{
-			snprintf(buff, sizeof(buff), "device_id=\"%s\"\n", device_sn);
-			fwrite(buff, strlen(buff), 1, fp);
-			fclose(fp);
-			fp=NULL;
-			return 0;
-		}
-	}
-
-	return -1;
-}
-
 static void free_policy_label(int thread_seq, void *project_req_value)
 {
 	dictator_free(thread_seq, project_req_value);
 	project_req_value=NULL;
-}
-
-static void free_session_attribute_label(int thread_seq, void *project_req_value)
-{
-	struct _session_attribute_label_t *label=(struct _session_attribute_label_t *)project_req_value;
-
-	if(label!=NULL)
-	{
-		if(label->client_asn!=NULL)
-		{
-			ASN_free_data(label->client_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_asn), 0, g_tsg_para.logger);
-			label->client_asn=NULL;
-		}
-
-		if(label->server_asn!=NULL)
-		{
-			ASN_free_data(label->server_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_asn), 0, g_tsg_para.logger);
-			label->server_asn=NULL;
-		}
-
-		if(label->client_location!=NULL)
-		{
-			location_free_data(label->client_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_location), 0, g_tsg_para.logger);
-			label->client_location=NULL;
-		}
-
-		if(label->server_location!=NULL)
-		{
-			location_free_data(label->server_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_location), 0, g_tsg_para.logger);
-			label->server_location=NULL;
-		}
-
-		if(label->client_subscribe_id!=NULL)
-		{
-			subscribe_id_free_data(label->client_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->client_subscribe_id, 0, g_tsg_para.logger);
-			label->client_subscribe_id=NULL;
-		}
-
-		if(label->server_subscribe_id!=NULL)
-		{
-			subscribe_id_free_data(label->server_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->server_subscribe_id, 0, g_tsg_para.logger);
-			label->server_subscribe_id=NULL;
-		}
-		
-		dictator_free(thread_seq, project_req_value);
-		project_req_value=NULL;
-	}
 }
 
 static void free_context(void **pme, int thread_seq)
@@ -336,6 +269,80 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	}
 	
 	return 1;
+}
+
+int tsg_set_device_id_to_telegraf(char *device_sn)
+{
+	char buff[128]={0};
+	FILE *fp=NULL;
+
+	if(device_sn)
+	{
+		fp=fopen("/etc/default/telegraf", "wb");
+		if(fp)
+		{
+			snprintf(buff, sizeof(buff), "device_id=\"%s\"\n", device_sn);
+			fwrite(buff, strlen(buff), 1, fp);
+			fclose(fp);
+			fp=NULL;
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+static void free_session_attribute_label(int thread_seq, void *project_req_value)
+{
+	struct _session_attribute_label_t *label=(struct _session_attribute_label_t *)project_req_value;
+
+	if(label!=NULL)
+	{
+		if(label->client_asn!=NULL)
+		{
+			ASN_free_data(label->client_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_asn), 0, g_tsg_para.logger);
+			label->client_asn=NULL;
+		}
+
+		if(label->server_asn!=NULL)
+		{
+			ASN_free_data(label->server_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_asn), 0, g_tsg_para.logger);
+			label->server_asn=NULL;
+		}
+
+		if(label->client_location!=NULL)
+		{
+			location_free_data(label->client_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_location), 0, g_tsg_para.logger);
+			label->client_location=NULL;
+		}
+
+		if(label->server_location!=NULL)
+		{
+			location_free_data(label->server_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_location), 0, g_tsg_para.logger);
+			label->server_location=NULL;
+		}
+
+		if(label->client_subscribe_id!=NULL)
+		{
+			subscribe_id_free_data(label->client_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->client_subscribe_id, 0, g_tsg_para.logger);
+			label->client_subscribe_id=NULL;
+		}
+
+		if(label->server_subscribe_id!=NULL)
+		{
+			subscribe_id_free_data(label->server_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->server_subscribe_id, 0, g_tsg_para.logger);
+			label->server_subscribe_id=NULL;
+		}
+
+		if(label->ja3_fingerprint!=NULL)
+		{
+			dictator_free(thread_seq, (void *)label->ja3_fingerprint);
+			label->ja3_fingerprint=NULL;
+		}
+		
+		dictator_free(thread_seq, project_req_value);
+		project_req_value=NULL;
+	}
 }
 
 static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, int thread_seq)
@@ -469,10 +476,9 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 	return p_result;
 }
 
-static int identify_application_protocol(struct streaminfo *a_stream, struct _identify_info *identify_info, void *a_packet)
+static int identify_application_protocol(struct streaminfo *a_stream, struct _identify_info *identify_info, struct _session_attribute_label_t *attribute_label, void *a_packet)
 {
-	int ret=0;
-                                      
+	int ret=0;                            
 	identify_info->proto = PROTO_UNKONWN;
 
 	switch(a_stream->type)
@@ -500,6 +506,31 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 
 			if(g_tsg_para.proto_flag&(1<<PROTO_SSL))  //ssl
 			{
+				struct _ssl_ja3_info_t *ja3_info=NULL;
+				ja3_info=ssl_get_ja3_fingerprint(a_stream, (unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->threadnum);
+				if(ja3_info!=NULL)
+				{
+					identify_info->proto=PROTO_SSL;
+					if(ja3_info->sni==NULL || ja3_info->sni<=0)
+					{
+						identify_info->domain_len = 0;
+					}
+					else
+					{
+						identify_info->domain_len = strnlen(ja3_info->sni, sizeof(identify_info->domain) - 1);
+						strncpy(identify_info->domain, ja3_info->sni, identify_info->domain_len);
+					}
+
+					if(attribute_label!=NULL && ja3_info->fp!=NULL && ja3_info->fp_len>0)
+					{
+						attribute_label->ja3_fingerprint=(char *)dictator_malloc(a_stream->threadnum, ja3_info->fp_len+1);
+						memcpy(attribute_label->ja3_fingerprint, ja3_info->fp, ja3_info->fp_len);
+						attribute_label->ja3_fingerprint[ja3_info->fp_len]='\0';
+					}
+
+					return 1;
+				}
+			#if 0
 				enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
 				struct ssl_chello *chello = NULL;
 
@@ -522,6 +553,7 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 				}
 				
 			    ssl_chello_free(chello);
+			#endif
 			}
 	
 			if(g_tsg_para.proto_flag&(1<<PROTO_FTP))  //ftp
@@ -634,12 +666,12 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	{
 		case	OP_STATE_PENDING:
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LINKS], 0, FS_OP_ADD, 1);
-			
-			memset(&identify_info, 0, sizeof(identify_info));
-			identify_application_protocol(a_tcp, &identify_info, a_packet);
 
 			internal_label=(struct _session_attribute_label_t *)dictator_malloc(1, sizeof(struct _session_attribute_label_t));
 			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
+			
+			memset(&identify_info, 0, sizeof(identify_info));
+			identify_application_protocol(a_tcp, &identify_info, internal_label, a_packet);
 			internal_label->proto=identify_info.proto;
 
 			if(identify_info.proto==PROTO_HTTP)
@@ -836,7 +868,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 	{
 		case	OP_STATE_PENDING:
 			memset(&identify_info, 0, sizeof(identify_info));
-			identify_application_protocol(a_udp, &identify_info, a_packet);
+			identify_application_protocol(a_udp, &identify_info, NULL, a_packet);
 
 			internal_label=(struct _session_attribute_label_t *)dictator_malloc(1, sizeof(struct _session_attribute_label_t));
 			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
