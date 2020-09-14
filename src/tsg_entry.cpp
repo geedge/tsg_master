@@ -511,7 +511,7 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 				if(ja3_info!=NULL)
 				{
 					identify_info->proto=PROTO_SSL;
-					if(ja3_info->sni==NULL || ja3_info->sni<=0)
+					if(ja3_info->sni==NULL || ja3_info->sni_len<=0)
 					{
 						identify_info->domain_len = 0;
 					}
