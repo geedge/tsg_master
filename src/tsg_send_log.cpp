@@ -625,7 +625,8 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 										"tsg same log:cfg_id=%d service=%d addr=%s",
 										log_msg->result[i].config_id,
 										log_msg->result[i].service_id,
-										printaddr(&(log_msg->a_stream->addr), thread_id));
+										(log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id))
+									);
 			continue;
 		}
 
@@ -639,7 +640,8 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 										log_msg->result[i].config_id,
 										log_msg->result[i].service_id,
 										_instance->send_log_percent[thread_id],
-										printaddr(&(log_msg->a_stream->addr), thread_id));
+										(log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id))
+									);
 			continue;
 		}
 		
@@ -647,11 +649,12 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		{
 			case	LOG_ABORT:
 				MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO,
-										"TSG_SEND_LOG",
-										"tsg abort log:cfg_id=%d service=%d addr=%s",
-										log_msg->result[i].config_id,
-										log_msg->result[i].service_id,
-										printaddr(&(log_msg->a_stream->addr), thread_id));
+											"TSG_SEND_LOG",
+											"tsg abort log:cfg_id=%d service=%d addr=%s",
+											log_msg->result[i].config_id,
+											log_msg->result[i].service_id,
+											(log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id))
+										);
 				
 				continue;
 				break;
@@ -683,7 +686,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 			{	
 				_instance->send_log_percent[thread_id]/=2;
 				clock_gettime(CLOCK_REALTIME, &_instance->drop_start[thread_id]);
-				FS_operate(g_tsg_para.fs2_handle,_instance ->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
+				FS_operate(g_tsg_para.fs2_handle, _instance->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
 			}
 			
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_FAILED_LOG], 0, FS_OP_ADD, 1);
@@ -707,7 +710,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 										payload
 									);
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUCCESS_LOG], 0, FS_OP_ADD, 1);		
-			FS_operate(g_tsg_para.fs2_handle,_instance ->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
+			FS_operate(g_tsg_para.fs2_handle, _instance->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
 		}
 
 		free(payload);
@@ -728,7 +731,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		{
 			_instance->send_log_percent[thread_id]++;
 			_instance->drop_start[thread_id].tv_sec=cur_time.tv_sec;						
-			FS_operate(g_tsg_para.fs2_handle,_instance ->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
+			FS_operate(g_tsg_para.fs2_handle, _instance->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
 		}
 	}
 

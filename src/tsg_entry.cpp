@@ -48,7 +48,8 @@ char TSG_MASTER_VERSION_20200805=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
-id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_LINKS, "links"}, 
+id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_TCP_LINKS, "tcp_links"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_UDP_LINKS, "udp_links"}, 
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_BYPASS, "bypass"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_ADDR, "hit_addr"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_SHARE, "hit_share"},
@@ -665,7 +666,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	switch(a_tcp->opstate)
 	{
 		case	OP_STATE_PENDING:
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LINKS], 0, FS_OP_ADD, 1);
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1);
 
 			internal_label=(struct _session_attribute_label_t *)dictator_malloc(1, sizeof(struct _session_attribute_label_t));
 			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
@@ -866,7 +867,8 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 
 	switch(a_udp->opstate)
 	{
-		case	OP_STATE_PENDING:
+		case	OP_STATE_PENDING:			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);
 			memset(&identify_info, 0, sizeof(identify_info));
 			identify_application_protocol(a_udp, &identify_info, NULL, a_packet);
 
@@ -1124,7 +1126,7 @@ extern "C" int TSG_MASTER_INIT()
 
 	for(i=0; i<TSG_FS2_MAX; i++)
 	{
-		g_tsg_para.fs2_field_id[g_tsg_fs2_field[i].id]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_CURRENT, g_tsg_fs2_field[i].name);
+		g_tsg_para.fs2_field_id[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, g_tsg_fs2_field[i].name);
 	}
 
 	char buff[32]={0};
