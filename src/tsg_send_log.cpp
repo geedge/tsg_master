@@ -620,13 +620,26 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	{
 		if(is_multi_hit_same_policy(&(log_msg->result[i]), policy_id, &repeat_cnt))
 		{
+			MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
+										"TSG_SEND_LOG",
+										"tsg same log:cfg_id=%d service=%d addr=%s",
+										log_msg->result[i].config_id,
+										log_msg->result[i].service_id,
+										printaddr(&(log_msg->a_stream->addr), thread_id));
 			continue;
 		}
 
-		clock_gettime(CLOCK_MONOTONIC, &cur_time);
+		clock_gettime(CLOCK_REALTIME, &cur_time);
 		if((cur_time.tv_nsec%100)>_instance->send_log_percent[thread_id])
 		{			
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DROP_LOG], 0, FS_OP_ADD, 1);
+			MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO,
+										"TSG_SEND_LOG",
+										"tsg drop log:cfg_id=%d service=%d send_log_percent: %d addr=%s",
+										log_msg->result[i].config_id,
+										log_msg->result[i].service_id,
+										_instance->send_log_percent[thread_id],
+										printaddr(&(log_msg->a_stream->addr), thread_id));
 			continue;
 		}
 		
@@ -693,6 +706,8 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 										_instance->service2topic[log_msg->result[i].service_id].name,
 										payload
 									);
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUCCESS_LOG], 0, FS_OP_ADD, 1);		
+			FS_operate(g_tsg_para.fs2_handle,_instance ->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
 		}
 
 		free(payload);
@@ -702,9 +717,6 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name);
-		
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUCCESS_LOG], 0, FS_OP_ADD, 1);		
-		FS_operate(g_tsg_para.fs2_handle,_instance ->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
 	}
 
 	TLD_cancel(handle);
