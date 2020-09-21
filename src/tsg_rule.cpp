@@ -103,6 +103,7 @@ static int proto_str2id(tsg_protocol_t proto)
 		case	PROTO_TCP: return 100;
 		case	PROTO_UDP: return 101;
 		case	PROTO_HTTP: return 106;
+		case	PROTO_MAIL:	return 110;
 		case	PROTO_IMAP:	return 110;
 		case	PROTO_POP3: return 110;//116
 		case	PROTO_SMTP: return 110;//122

@@ -507,31 +507,6 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 
 			if(g_tsg_para.proto_flag&(1<<PROTO_SSL))  //ssl
 			{
-				struct _ssl_ja3_info_t *ja3_info=NULL;
-				ja3_info=ssl_get_ja3_fingerprint(a_stream, (unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->threadnum);
-				if(ja3_info!=NULL)
-				{
-					identify_info->proto=PROTO_SSL;
-					if(ja3_info->sni==NULL || ja3_info->sni_len<=0)
-					{
-						identify_info->domain_len = 0;
-					}
-					else
-					{
-						identify_info->domain_len = strnlen(ja3_info->sni, sizeof(identify_info->domain) - 1);
-						strncpy(identify_info->domain, ja3_info->sni, identify_info->domain_len);
-					}
-
-					if(attribute_label!=NULL && ja3_info->fp!=NULL && ja3_info->fp_len>0)
-					{
-						attribute_label->ja3_fingerprint=(char *)dictator_malloc(a_stream->threadnum, ja3_info->fp_len+1);
-						memcpy(attribute_label->ja3_fingerprint, ja3_info->fp, ja3_info->fp_len);
-						attribute_label->ja3_fingerprint[ja3_info->fp_len]='\0';
-					}
-
-					return 1;
-				}
-			#if 0
 				enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
 				struct ssl_chello *chello = NULL;
 
@@ -550,11 +525,35 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 					}
 					
 					ssl_chello_free(chello);
+
+					struct _ssl_ja3_info_t *ja3_info=NULL;
+					ja3_info=ssl_get_ja3_fingerprint(a_stream, (unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->threadnum);
+					if(ja3_info!=NULL)
+					{
+						if(ja3_info->sni==NULL || ja3_info->sni_len<=0)
+						{
+							identify_info->domain_len = 0;
+						}
+						else
+						{
+							identify_info->domain_len = strnlen(ja3_info->sni, sizeof(identify_info->domain) - 1);
+							strncpy(identify_info->domain, ja3_info->sni, identify_info->domain_len);
+						}
+
+						if(attribute_label!=NULL && ja3_info->fp!=NULL && ja3_info->fp_len>0)
+						{
+							attribute_label->ja3_fingerprint=(char *)dictator_malloc(a_stream->threadnum, ja3_info->fp_len+1);
+							memcpy(attribute_label->ja3_fingerprint, ja3_info->fp, ja3_info->fp_len);
+							attribute_label->ja3_fingerprint[ja3_info->fp_len]='\0';
+						}
+
+						return 1;
+					}
+					
 					return 1;
 				}
 				
 			    ssl_chello_free(chello);
-			#endif
 			}
 	
 			if(g_tsg_para.proto_flag&(1<<PROTO_FTP))  //ftp
@@ -712,37 +711,40 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				//q_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, NULL, thread_seq);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
-			
-			ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, all_result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
-			if(ret>0)
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_FQDN",
-											"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
-											(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
-											identify_info.domain,
-											all_result[hit_num].config_id,
-											all_result[hit_num].service_id,
-											(unsigned char)all_result[hit_num].action,
-											printaddr(&a_tcp->addr, thread_seq)
-										);
 
-				hit_num+=ret;
-			}
-			else
+			if(identify_info.proto==PROTO_HTTP || identify_info.proto==PROTO_SSL)
 			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_FQDN",
-											"Not hit %s: %s ret: %d stream_dir: %d addr: %s",
-											(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
-											(ret==-1) ? "NULL" : identify_info.domain,
-											ret,
-											a_tcp->dir,
-											printaddr(&a_tcp->addr, thread_seq)
-										);
+				ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, all_result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
+				if(ret>0)
+				{
+					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
+					MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN",
+												"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
+												(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
+												identify_info.domain,
+												all_result[hit_num].config_id,
+												all_result[hit_num].service_id,
+												(unsigned char)all_result[hit_num].action,
+												printaddr(&a_tcp->addr, thread_seq)
+											);
+
+					hit_num+=ret;
+				}
+				else
+				{
+					MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN",
+												"Not hit %s: %s ret: %d stream_dir: %d addr: %s",
+												(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
+												(ret==-1) ? "NULL" : identify_info.domain,
+												ret,
+												a_tcp->dir,
+												printaddr(&a_tcp->addr, thread_seq)
+											);
+				}
 			}
 
 			if(mid!=NULL)
