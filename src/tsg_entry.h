@@ -97,6 +97,7 @@ typedef	struct _tsg_para
 	int proto_flag; //tsg_protocol_t
 	int fs2_field_id[TSG_FS2_MAX];
 	char device_sn[MAX_DOAMIN_LEN/8];
+	char data_center[_MAX_TABLE_NAME_LEN];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;
 	screen_stat_handle_t fs2_handle;

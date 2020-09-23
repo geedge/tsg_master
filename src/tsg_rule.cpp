@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
-
+#include "MESA/cJSON.h"
 #include "MESA/MESA_handle_logger.h"
 #include "Maat_rule.h"
 #include "Maat_command.h"
@@ -119,6 +119,39 @@ static int proto_str2id(tsg_protocol_t proto)
 		case	PROTO_BGP:
 		default:
 			break;
+	}
+
+	return 0;
+}
+
+static int get_data_center(char *accept_tag, char *data_center, int data_center_len)
+{
+	int i=0,len;
+	cJSON *object=cJSON_Parse(accept_tag);
+	if(object!=NULL)
+	{
+		cJSON *array=cJSON_GetObjectItem(object, "tags");
+		if(array!=NULL)
+		{
+			for(i=0; i<cJSON_GetArraySize(array); i++)
+			{
+				cJSON *item=cJSON_GetArrayItem(array, i);
+				if(item!=NULL)
+				{
+					cJSON *tag_item=cJSON_GetObjectItem(item, "tag");
+					if(tag_item!=NULL && tag_item->valuestring!=NULL && (memcmp("device_id", tag_item->valuestring, strlen("device_id")))==0)
+					{
+						cJSON *v_item=cJSON_GetObjectItem(item, "value");
+						if(v_item!=NULL && v_item->valuestring!=NULL)
+						{
+							len=strlen(v_item->valuestring);
+							memcpy(data_center, v_item->valuestring, (len>data_center_len-1 ? data_center_len-1 : len));
+						}
+						return 1;
+					}
+				}
+			}
+		}
 	}
 
 	return 0;
@@ -419,8 +452,22 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 
 	memset(effective_flag, 0, sizeof(effective_flag));	
 	MESA_load_profile_string_def(conffile, module, "EFFECTIVE_RANGE_FILE", effective_range_filename, sizeof(effective_range_filename),"./tsgconf/maat.conf");
-	MESA_load_profile_string_def(conffile, "MAAT", "ACCEPT_TAGS", effective_flag, sizeof(effective_flag),"");
 
+	if(strlen(effective_range_filename)>0)
+	{
+		MESA_load_profile_string_def(effective_range_filename, "MAAT", "ACCEPT_TAGS", effective_flag, sizeof(effective_flag),"");
+	}
+
+	if(strlen(effective_flag)==0)
+	{
+		MESA_load_profile_string_def(conffile, "MAAT", "ACCEPT_TAGS", effective_flag, sizeof(effective_flag),"");
+	}
+
+	if(strlen(g_tsg_para.data_center)==0 && strlen(effective_flag)>0)
+	{
+		get_data_center(effective_flag, g_tsg_para.data_center, sizeof(g_tsg_para.data_center));
+	}
+	
 	MESA_load_profile_int_def(conffile, module,"MAAT_MODE", &(maat_mode),0);
 	MESA_load_profile_int_def(conffile, module,"STAT_SWITCH", &(maat_stat_on),1);
 	MESA_load_profile_int_def(conffile, module,"PERF_SWITCH", &(maat_perf_on),1);
@@ -515,7 +562,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	
 	MESA_load_profile_int_def(conffile, "MAAT","APP_ID_TABLE_TYPE", &g_tsg_para.app_id_table_type, 1);
 
-	MESA_load_profile_string_def(conffile, "MAAT", "PROFILE", maat_conffile, sizeof(maat_conffile), "./tsgconf/maat_profile.conf");	
+	MESA_load_profile_string_def(conffile, "MAAT", "PROFILE", maat_conffile, sizeof(maat_conffile), "./tsgconf/maat.conf");	
 	MESA_load_profile_string_def(conffile, "MAAT", "IP_ADDR_TABLE", g_tsg_para.table_name[TABLE_IP_ADDR], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_ADDR");
 	MESA_load_profile_string_def(conffile, "MAAT", "SUBSCRIBER_ID_TABLE", g_tsg_para.table_name[TABLE_SUBSCRIBER_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_SUBSCRIBER_ID");
 	MESA_load_profile_string_def(conffile, "MAAT", "APP_ID_TABLE", g_tsg_para.table_name[TABLE_APP_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_APP_ID");

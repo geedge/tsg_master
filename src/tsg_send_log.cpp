@@ -614,8 +614,16 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	
 	TLD_append_streaminfo(instance, handle, log_msg->a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
+	if(strlen(g_tsg_para.device_sn)>0)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
+	}
 
+	if(strlen(g_tsg_para.data_center)>0)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_DATA_CENTER].name, (void *)(g_tsg_para.data_center), TLD_TYPE_STRING);
+	}
+	
 	for(i=0;i<log_msg->result_num; i++)
 	{
 		if(is_multi_hit_same_policy(&(log_msg->result[i]), policy_id, &repeat_cnt))
