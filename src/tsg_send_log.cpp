@@ -255,10 +255,9 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	if(_instance==NULL || _handle==NULL || a_stream==NULL)
 	{		
 		MESA_handle_runtime_log(_instance->logger,
-								((a_stream==NULL) ? RLOG_LV_DEBUG: RLOG_LV_FATAL),
+								RLOG_LV_DEBUG,
 								"TLD_APPEND_STREAM",
-								"instance==NULL || TLD_handle==NULL || addr: %s", 
-								((a_stream==NULL) ? "NULL": (printaddr(&a_stream->addr, a_stream->threadnum)))
+								"instance==NULL || TLD_handle==NULL || addr==NULL"
 								);
 		return -1;
 	}
@@ -456,11 +455,10 @@ int load_log_common_field(const char *filename, id2field_t *id2field, id2field_t
 
 struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 {
-	int i=0,ret=0,level=30;
+	int i=0,ret=0;
 	char nic_name[32]={0};
 	char kafka_errstr[1024]={0};
 	unsigned int local_ip_nr=0;
-	char log_path[MAX_STRING_LEN*4]={0};
 	rd_kafka_t *kafka_handle = NULL;
 	rd_kafka_conf_t *rdkafka_conf = NULL;
 	rd_kafka_topic_conf_t *topic_conf;
@@ -478,13 +476,13 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 		_instance->send_log_percent[i]=100;
 	}
 
-	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(level), 30);	
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", log_path, sizeof(log_path), "./tsglog/tsglog");
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(_instance->level), 30);	
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", _instance->log_path, sizeof(_instance->log_path), "./tsglog/tsglog");
 
-	_instance->logger=MESA_create_runtime_log_handle(log_path, level);
+	_instance->logger=MESA_create_runtime_log_handle(_instance->log_path, _instance->level);
 	if(_instance->logger==NULL)
 	{
-		printf("MESA_create_runtime_log_handle failed ..., path: %s level: %d", log_path, level);
+		printf("MESA_create_runtime_log_handle failed ..., path: %s level: %d", _instance->log_path, _instance->level);
 		return NULL;
 	}
 	
@@ -633,7 +631,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 										"tsg same log:cfg_id=%d service=%d addr=%s",
 										log_msg->result[i].config_id,
 										log_msg->result[i].service_id,
-										(log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id))
+										(_instance->level<RLOG_LV_FATAL ? (log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id)) : "")
 									);
 			continue;
 		}
@@ -648,7 +646,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 										log_msg->result[i].config_id,
 										log_msg->result[i].service_id,
 										_instance->send_log_percent[thread_id],
-										(log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id))
+										(_instance->level<RLOG_LV_FATAL ? (log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id)) : "")
 									);
 			continue;
 		}
@@ -661,7 +659,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 											"tsg abort log:cfg_id=%d service=%d addr=%s",
 											log_msg->result[i].config_id,
 											log_msg->result[i].service_id,
-											(log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id))
+											(_instance->level<RLOG_LV_FATAL ? (log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id)) : "")
 										);
 				
 				continue;

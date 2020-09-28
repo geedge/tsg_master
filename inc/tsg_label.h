@@ -1,6 +1,7 @@
 #ifndef	__TSG_LABEL_H__
 #define	__TSG_LABEL_H__
 
+#define	MAX_CATEGORY_ID_NUM	8
 #define	MAX_STR_FIELD_LEN	64
 
 typedef enum _tsg_protocol
@@ -69,6 +70,7 @@ struct _subscribe_id_info_t
 
 struct _session_attribute_label_t
 {
+	int fqdn_category_id_num;
 	tsg_protocol_t proto;
 	long establish_latency_ms;
 	struct _asn_info_t *client_asn;
@@ -78,6 +80,7 @@ struct _session_attribute_label_t
 	struct _subscribe_id_info_t *client_subscribe_id;
 	struct _subscribe_id_info_t *server_subscribe_id;
 	char *ja3_fingerprint;
+	unsigned int fqdn_category_id[MAX_CATEGORY_ID_NUM];
 };
 
 #endif

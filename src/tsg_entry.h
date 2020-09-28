@@ -40,6 +40,9 @@ enum MASTER_TABLE{
 	TABLE_LOCATION_USER_DEFINED,
 	TABLE_LOCATION_BUILT_IN,
 	TABLE_QUIC_SNI,
+	TABLE_FQDN_CAT_ID,
+	TABLE_FQDN_CAT_USER_DEFINED,
+	TABLE_FQDN_CAT_BUILT_IN,
 	TABLE_MAX
 };
 
@@ -62,6 +65,14 @@ struct _str2index
 	int index;
 	int len;
 	char *type;
+};
+
+struct _fqdn_category_t
+{
+	int ref_cnt;	
+	unsigned int category_id;
+	int match_method;
+	char fqdn[MAX_DOAMIN_LEN/8];
 };
 
 
@@ -87,6 +98,7 @@ struct _master_context
 #define	_MAX_TABLE_NAME_LEN	64
 typedef	struct _tsg_para
 {
+	int level;
 	unsigned short timeout;
 	int app_id_table_type;
 	int device_id;	
@@ -97,6 +109,7 @@ typedef	struct _tsg_para
 	int proto_flag; //tsg_protocol_t
 	int fs2_field_id[TSG_FS2_MAX];
 	char device_sn[MAX_DOAMIN_LEN/8];
+	char log_path[MAX_DOAMIN_LEN/8];
 	char data_center[_MAX_TABLE_NAME_LEN];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;

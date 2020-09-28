@@ -169,21 +169,24 @@ void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *fr
 {
 	void *logger=argp;
 	struct _asn_info_t *asn=(struct _asn_info_t *)(*from);
-	
-	atomic_inc(&asn->ref_cnt);
-	*to=*from;
 
-	MESA_handle_runtime_log(logger, 
-								RLOG_LV_DEBUG,
-								"IP_ASN",
-								"Dup(table_id: %d) ip ASN: start_ip: %s end_ip: %s asn: %s organization: %s ref_cnt: %d",
-								table_id,
-								asn->start_ip,
-								asn->end_ip, 
-								asn->asn, 
-								asn->organization,
-								asn->ref_cnt
-							);
+	if(asn!=NULL)
+	{
+		atomic_inc(&asn->ref_cnt);
+		*to=*from;
+
+		MESA_handle_runtime_log(logger, 
+									RLOG_LV_DEBUG,
+									"IP_ASN",
+									"Dup(table_id: %d) ip ASN: start_ip: %s end_ip: %s asn: %s organization: %s ref_cnt: %d",
+									table_id,
+									asn->start_ip,
+									asn->end_ip, 
+									asn->asn, 
+									asn->organization,
+									asn->ref_cnt
+								);
+	}
 
 	return;
 }
@@ -230,25 +233,29 @@ void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 	void *logger=argp;
 	struct _asn_info_t *asn=(struct _asn_info_t *)(*ad);
 
-	MESA_handle_runtime_log(logger, 
-								RLOG_LV_DEBUG,
-								"IP_ASN",
-								"Delate(table_id: %d) ip ASN: start_ip: %s end_ip: %s asn: %s organization: %s ref_cnt: %d",
-								table_id,
-								asn->start_ip,
-								asn->end_ip, 
-								asn->asn, 
-								asn->organization,
-								asn->ref_cnt
-							);
-	
-	atomic_dec(&asn->ref_cnt);
-	if(asn->ref_cnt<=0)
+	if(asn!=NULL)
 	{
-		free(*ad);
-		*ad=NULL;
+		atomic_dec(&asn->ref_cnt);
+		
+		MESA_handle_runtime_log(logger, 
+									RLOG_LV_DEBUG,
+									"IP_ASN",
+									"Delate(table_id: %d) ip ASN: start_ip: %s end_ip: %s asn: %s organization: %s ref_cnt: %d",
+									table_id,
+									asn->start_ip,
+									asn->end_ip, 
+									asn->asn, 
+									asn->organization,
+									asn->ref_cnt
+								);
+		
+		
+		if(asn->ref_cnt<=0)
+		{
+			free(*ad);
+			*ad=NULL;
+		}
 	}
-
 	return;
 }
 
@@ -257,23 +264,27 @@ void location_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DAT
 	void *logger=argp;
 	struct _location_info_t *location=(struct _location_info_t *)(*from);
 
-	atomic_inc(&location->ref_cnt);
-	*to=*from;
+	if(location!=NULL)
+	{
+		atomic_inc(&location->ref_cnt);
+		*to=*from;
+		
+		MESA_handle_runtime_log(logger,
+								RLOG_LV_DEBUG,
+								"IP_LOCATION", 
+								"Dup(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s province: %s city: %s ref_cnt: %d",
+								table_id,
+								location->geoname_id,
+								location->start_ip,
+								location->end_ip,
+								location->continent_full,
+								location->country_full,
+								location->province_full,
+								location->city_full,
+								location->ref_cnt
+								);
+	}
 	
-	MESA_handle_runtime_log(logger,
-							RLOG_LV_DEBUG,
-							"IP_LOCATION", 
-							"Dup(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s province: %s city: %s ref_cnt: %d",
-							table_id,
-							location->geoname_id,
-							location->start_ip,
-							location->end_ip,
-							location->continent_full,
-							location->country_full,
-							location->province_full,
-							location->city_full,
-							location->ref_cnt
-							);
 	return;
 }
 
@@ -347,28 +358,124 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 	void *logger=argp;
 	struct _location_info_t *location=(struct _location_info_t *)(*ad);
 
-	MESA_handle_runtime_log(logger,
-								RLOG_LV_DEBUG,
-								"IP_LOCATION", 
-								"Delete(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s province: %s city: %s ref_cnt: %d",
-								table_id,
-								location->geoname_id,
-								location->start_ip,
-								location->end_ip,
-								location->continent_full,
-								location->country_full,
-								location->province_full,
-								location->city_full,
-								location->ref_cnt
-							);
-
-	atomic_dec(&location->ref_cnt);
-	if(location->ref_cnt<=0)
+	if(location!=NULL)
 	{
-		free(*ad);
-		*ad=NULL;
+		atomic_dec(&location->ref_cnt);
+
+		MESA_handle_runtime_log(logger,
+									RLOG_LV_DEBUG,
+									"IP_LOCATION", 
+									"Delete(table_id: %d) location: geoname_id: %d start_ip: %s end_ip: %s continent: %s country: %s province: %s city: %s ref_cnt: %d",
+									table_id,
+									location->geoname_id,
+									location->start_ip,
+									location->end_ip,
+									location->continent_full,
+									location->country_full,
+									location->province_full,
+									location->city_full,
+									location->ref_cnt
+								);
+
+		if(location->ref_cnt<=0)
+		{
+			free(*ad);
+			*ad=NULL;
+		}
 	}
 	
+	return;
+}
+
+void fqdn_cat_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+{
+	void *logger=argp;
+	struct _fqdn_category_t *fqdn_cat=(struct _fqdn_category_t *)(*from);
+
+	if(fqdn_cat!=NULL)
+	{
+		atomic_inc(&fqdn_cat->ref_cnt);
+		*to=*from;
+		
+		MESA_handle_runtime_log(logger,
+									RLOG_LV_DEBUG,
+									"IP_LOCATION", 
+									"Dup(table_id: %d) fqdn category: category_id: %d fqdn: %s match_method: %d ref_cnt: %d",
+									table_id,
+									fqdn_cat->category_id,
+									fqdn_cat->fqdn,
+									fqdn_cat->match_method,
+									fqdn_cat->ref_cnt
+								);
+	}
+	return;
+}
+
+void fqdn_cat_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	void *logger=argp;
+	int ret=0,id=0,is_valid=0;
+	struct _fqdn_category_t *fqdn_cat=NULL;
+
+	fqdn_cat=(struct _fqdn_category_t *)calloc(1, sizeof(struct _fqdn_category_t));
+	
+	ret=sscanf(table_line,
+				"%d\t%u\t%s\t\t%d\t%d",
+				&id,
+				&fqdn_cat->category_id,
+				fqdn_cat->fqdn,
+				&fqdn_cat->match_method,
+				&is_valid
+				);
+	if(ret!=5)
+	{
+		free(fqdn_cat);
+		fqdn_cat=NULL;
+		
+		MESA_handle_runtime_log(logger, 
+									RLOG_LV_FATAL,
+									"IP_LOCATION",
+									"Parse fqdn category failed, ret: %d table_id: %d table_line: %s",
+									ret,
+									table_id,
+									table_line
+								);
+		return;
+	}
+	
+	atomic_inc(&fqdn_cat->ref_cnt);
+	*ad=(MAAT_PLUGIN_EX_DATA)fqdn_cat;
+	
+	return;
+}
+
+void fqdn_cat_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	void *logger=argp;
+	struct _fqdn_category_t *fqdn_cat=(struct _fqdn_category_t *)(*ad);
+
+	if(fqdn_cat!=NULL)
+	{
+		atomic_dec(&fqdn_cat->ref_cnt);
+
+		MESA_handle_runtime_log(logger,
+									RLOG_LV_DEBUG,
+									"IP_LOCATION", 
+									"Delete(table_id: %d) fqdn category: category_id: %d fqdn: %s match_method: %d ref_cnt: %d",
+									table_id,
+									fqdn_cat->category_id,
+									fqdn_cat->fqdn,
+									fqdn_cat->match_method,
+									fqdn_cat->ref_cnt
+								);
+
+		
+		if(fqdn_cat->ref_cnt<=0)
+		{
+			free(*ad);
+			*ad=NULL;
+		}
+	}
 	return;
 }
 
@@ -378,10 +485,13 @@ void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX
 	void *logger=argp;
 	struct _subscribe_id_info_t *subscribe_id=(struct _subscribe_id_info_t *)(*from);
 
-	atomic_inc(&subscribe_id->ref_cnt);
-	*to=*from;
-	
-	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Dup(table_id: %d ) subscribe_id: %s ref_cnt: %d", table_id, subscribe_id->subscribe_id, subscribe_id->ref_cnt);
+	if(subscribe_id!=NULL)
+	{
+		atomic_inc(&subscribe_id->ref_cnt);
+		*to=*from;
+		
+		MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Dup(table_id: %d ) subscribe_id: %s ref_cnt: %d", table_id, subscribe_id->subscribe_id, subscribe_id->ref_cnt);
+	}
 	
 	return;
 }
@@ -426,13 +536,17 @@ void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, vo
 	void *logger=argp;
 	struct _subscribe_id_info_t *subscribe_id=(struct _subscribe_id_info_t *)(*ad);
 
-	MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Delete(table_id: %d ) subscribe_id: %s ref_cnt: %d", table_id, subscribe_id->subscribe_id, subscribe_id->ref_cnt);
-
-	atomic_dec(&subscribe_id->ref_cnt);
-	if(subscribe_id->ref_cnt<=0)
+	if(subscribe_id!=NULL)
 	{
-		free(*ad);
-		*ad=NULL;
+		atomic_dec(&subscribe_id->ref_cnt);
+	
+		MESA_handle_runtime_log(logger, RLOG_LV_DEBUG, "SUBSCRIBE_ID", "Delete(table_id: %d ) subscribe_id: %s ref_cnt: %d", table_id, subscribe_id->subscribe_id, subscribe_id->ref_cnt);
+		
+		if(subscribe_id->ref_cnt<=0)
+		{
+			free(*ad);
+			*ad=NULL;
+		}
 	}
 	
 	return;
@@ -582,6 +696,10 @@ int tsg_rule_init(const char* conffile, void *logger)
 
 	MESA_load_profile_string_def(conffile, "MAAT", "QUIC_SNI_TABLE", g_tsg_para.table_name[TABLE_QUIC_SNI], _MAX_TABLE_NAME_LEN, "TSG_FIELD_QUIC_SNI");
 
+	MESA_load_profile_string_def(conffile, "MAAT", "FQDN_CAT_ID_TABLE", g_tsg_para.table_name[TABLE_FQDN_CAT_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_FQDN_CAT");
+	MESA_load_profile_string_def(conffile, "MAAT", "FQDN_CAT_BUILT_IN_TABLE", g_tsg_para.table_name[TABLE_FQDN_CAT_BUILT_IN], _MAX_TABLE_NAME_LEN, "TSG_FQDN_CATEGORY_BUILT_IN");
+	MESA_load_profile_string_def(conffile, "MAAT", "FQDN_CAT_USER_DEFINED_TABLE", g_tsg_para.table_name[TABLE_FQDN_CAT_USER_DEFINED], _MAX_TABLE_NAME_LEN, "TSG_FQDN_CATEGORY_USER_DEFINED");
+
 	//init static maat feather
 	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", logger);
 	if(g_tsg_maat_feather==NULL)
@@ -635,6 +753,28 @@ int tsg_rule_init(const char* conffile, void *logger)
 									location_dup_data,
 									0,
 									logger);
+		if(ret<0)
+		{
+			MESA_handle_runtime_log(logger, RLOG_LV_FATAL,
+										"RULE_INIT",
+										"Maat_ip_plugin_EX_register failed, table_name: %s table_id: %d",
+										g_tsg_para.table_name[i],
+										g_tsg_para.table_id[i]
+									); 
+			return -1;		
+		}
+	}
+
+	for(i=TABLE_FQDN_CAT_USER_DEFINED; i<=TABLE_FQDN_CAT_BUILT_IN; i++)
+	{
+		ret=Maat_fqdn_plugin_EX_register(g_tsg_maat_feather,
+										g_tsg_para.table_id[i],
+										fqdn_cat_new_data,
+										fqdn_cat_free_data,
+										fqdn_cat_dup_data,
+										0,
+										logger
+									);
 		if(ret<0)
 		{
 			MESA_handle_runtime_log(logger, RLOG_LV_FATAL,
@@ -707,23 +847,29 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 		}
 		else
 		{
-			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PULL_RESULT", 
-														"pull policy failed, hit: %s %s: %s policy_id: %d service: %d action: %d addr: %s",
-														(label->result_type==PULL_KNI_RESULT) ? "KNI" : "FW",
-														label->proto==PROTO_HTTP ? "host" : "sni",
-														label->domain,
-														label->result->config_id,
-														label->result->service_id,
-														label->result->action,
-														printaddr(&a_stream->addr, a_stream->threadnum));
+			MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"PULL_RESULT", 
+										"pull policy failed, hit: %s %s: %s policy_id: %d service: %d action: %d addr: %s",
+										(label->result_type==PULL_KNI_RESULT) ? "KNI" : "FW",
+										label->proto==PROTO_HTTP ? "host" : "sni",
+										label->domain,
+										label->result->config_id,
+										label->result->service_id,
+										label->result->action,
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+									);
 		}
 	}
 	else
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PULL_RESULT",
-														"pull policy failed, Not hit, label is %s addr: %s",
-														(label==NULL) ? "NULL" : label->domain,
-														printaddr(&a_stream->addr, a_stream->threadnum));
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"PULL_RESULT",
+									"pull policy failed, Not hit, label is %s addr: %s",
+									(label==NULL) ? "NULL" : label->domain,
+									(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+								);
 	}
 	
 	return 0;
@@ -860,28 +1006,28 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 		if(ret > 0)
 		{
 			MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_DEBUG,
-									"SCAN_IP_ASN",
-									"Hit IP_ASN: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
-									asn->asn,
-									ret,
-									g_tsg_para.table_name[idx],
-									result[0].config_id,
-									result[0].service_id,
-									(unsigned char)result[0].action,
-									printaddr(&a_stream->addr, a_stream->threadnum)
+										RLOG_LV_DEBUG,
+										"SCAN_IP_ASN",
+										"Hit IP_ASN: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
+										asn->asn,
+										ret,
+										g_tsg_para.table_name[idx],
+										result[0].config_id,
+										result[0].service_id,
+										(unsigned char)result[0].action,
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 									);
 		}
 		else
 		{
 			MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_DEBUG,
-									"SCAN_IP_ASN",
-									"No hit IP_ASN: %s scan ret: %d table_name: %s addr: %s",
-									asn->asn,
-									ret,
-									g_tsg_para.table_name[idx],
-									printaddr(&a_stream->addr, a_stream->threadnum)
+										RLOG_LV_DEBUG,
+										"SCAN_IP_ASN",
+										"No hit IP_ASN: %s scan ret: %d table_name: %s addr: %s",
+										asn->asn,
+										ret,
+										g_tsg_para.table_name[idx],
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 									);
 		}
 	}	
@@ -893,8 +1039,8 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 									"IP_ASN is NULL scan ret: %d table_name: %s addr: %s",
 									ret,
 									g_tsg_para.table_name[idx],
-									printaddr(&a_stream->addr, a_stream->threadnum)
-									);
+									(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+								);
 	}
 
 	return (ret>0 ? ret : 0);
@@ -922,28 +1068,28 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 		if(ret > 0)
 		{
 			MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_DEBUG,
-									"SCAN_IP_LOCATION",
-									"Hit IP_LOCATION: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
-									buff,
-									ret,
-									g_tsg_para.table_name[idx],
-									result[0].config_id,
-									result[0].service_id,
-									(unsigned char)result[0].action,
-									printaddr(&a_stream->addr, a_stream->threadnum)
+										RLOG_LV_DEBUG,
+										"SCAN_IP_LOCATION",
+										"Hit IP_LOCATION: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
+										buff,
+										ret,
+										g_tsg_para.table_name[idx],
+										result[0].config_id,
+										result[0].service_id,
+										(unsigned char)result[0].action,
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 									);
 		}
 		else
 		{
 			MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_DEBUG,
-									"SCAN_IP_LOCATION",
-									"No hit IP_LOCATION: %s scan ret: %d table_name: %s addr: %s",
-									buff,
-									ret,
-									g_tsg_para.table_name[idx],
-									printaddr(&a_stream->addr, a_stream->threadnum)
+										RLOG_LV_DEBUG,
+										"SCAN_IP_LOCATION",
+										"No hit IP_LOCATION: %s scan ret: %d table_name: %s addr: %s",
+										buff,
+										ret,
+										g_tsg_para.table_name[idx],
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 									);
 		}
 	}	
@@ -955,8 +1101,8 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 									"IP_LOCATION is NULL scan ret: %d table_name: %s addr: %s",
 									ret,
 									g_tsg_para.table_name[idx],
-									printaddr(&a_stream->addr, a_stream->threadnum)
-									);
+									(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+								);
 	}
 
 	return (ret>0 ? ret : 0);
@@ -975,10 +1121,10 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger,
-								RLOG_LV_FATAL,
+								RLOG_LV_DEBUG,
 								"SCAN_NESTING_ADDR",
-								"result==NULL || result_num<=0 || maat_feather==NULL || a_stream==%s",
-								(a_stream!=NULL) ? printaddr(&a_stream->addr, a_stream->threadnum) : "NULL");
+								"result==NULL || result_num<=0 || maat_feather==NULL || a_stream==NULL"
+								);
 		return -1;
 	}
 	
@@ -1036,7 +1182,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_IP",
 											"Hit addr: %s scan ret: %d policy_id: %d service: %d action: %d",
-											printaddr(&cur_stream->addr, cur_stream->threadnum),
+											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&cur_stream->addr, cur_stream->threadnum) : ""),
 											maat_ret,
 											result[hit_num].config_id,
 											result[hit_num].service_id,
@@ -1051,7 +1197,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_IP",
 											"No hit addr: %s scan ret: %d",
-											printaddr(&cur_stream->addr, cur_stream->threadnum),
+											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&cur_stream->addr, cur_stream->threadnum) : ""),
 											maat_ret
 										);	
 			}
@@ -1095,15 +1241,15 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		if(maat_ret > 0)
 		{
 			MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_DEBUG,
-									"SCAN_PROTO",
-									"Hit PROTO: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
-									g_tsg_proto_string[proto].type,
-									maat_ret,
-									result[hit_num].config_id,
-									result[hit_num].service_id,
-									(unsigned char)result[hit_num].action,
-									printaddr(&a_stream->addr, a_stream->threadnum)
+										RLOG_LV_DEBUG,
+										"SCAN_PROTO",
+										"Hit PROTO: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+										g_tsg_proto_string[proto].type,
+										maat_ret,
+										result[hit_num].config_id,
+										result[hit_num].service_id,
+										(unsigned char)result[hit_num].action,
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 									);
 
 			hit_num+=maat_ret;
@@ -1111,13 +1257,13 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		else
 		{
 			MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_DEBUG,
-									"SCAN_PROTO",
-									"No hit PROTO: %s(%d) scan ret: %d addr: %s",
-									g_tsg_proto_string[proto].type,
-									proto_str2id(proto),
-									maat_ret,
-									printaddr(&a_stream->addr, a_stream->threadnum)
+										RLOG_LV_DEBUG,
+										"SCAN_PROTO",
+										"No hit PROTO: %s(%d) scan ret: %d addr: %s",
+										g_tsg_proto_string[proto].type,
+										proto_str2id(proto),
+										maat_ret,
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 									);
 		}
 	}
@@ -1175,7 +1321,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											result[hit_num].config_id,
 											result[hit_num].service_id,
 											(unsigned char)result[hit_num].action,
-											printaddr(&a_stream->addr, a_stream->threadnum)
+											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 										);
 
 				hit_num+=maat_ret;
@@ -1188,7 +1334,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											"No hit source subscribe id: %s scan ret: %d addr: %s",
 											internal_label->client_subscribe_id->subscribe_id,
 											maat_ret,
-											printaddr(&a_stream->addr, a_stream->threadnum)
+											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 										);
 			}
 		}
@@ -1216,7 +1362,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											result[hit_num].config_id,
 											result[hit_num].service_id,
 											(unsigned char)result[hit_num].action,
-											printaddr(&a_stream->addr, a_stream->threadnum)
+											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 										);
 
 				hit_num+=maat_ret;
@@ -1229,7 +1375,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											"No hit dest subscribe id: %s scan ret: %d addr: %s",
 											internal_label->server_subscribe_id->subscribe_id,
 											maat_ret,
-											printaddr(&a_stream->addr, a_stream->threadnum)
+											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 										);
 			}
 		}
@@ -1243,7 +1389,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											"ADD_INTERNAL_LABEL",
 											"Add internal label failed, ret: %d addr: %s",
 											ret,
-											printaddr(&a_stream->addr, a_stream->threadnum)
+											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 										);
 	}
 
@@ -1335,5 +1481,48 @@ int tsg_get_method_id(char *method)
 	}
 
 	return -1;
+}
+
+int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, int *category_id, int category_id_num, void *logger, int thread_seq)
+{
+	int i=0,ret=0;
+	struct _fqdn_category_t *ex_data_array[8]={0};
+
+	if(category_id!=NULL && category_id_num>0)
+	{
+		ret=Maat_fqdn_plugin_get_EX_data(maat_feather, g_tsg_para.table_id[TABLE_FQDN_CAT_USER_DEFINED], fqdn, (MAAT_PLUGIN_EX_DATA *)ex_data_array, 8);
+		if(ret>0)
+		{
+			for(i=0; i<ret; i++)
+			{
+				if(i<category_id_num)
+				{
+					category_id[i]=ex_data_array[i]->category_id;
+				}
+				
+				fqdn_cat_free_data(g_tsg_para.table_id[TABLE_FQDN_CAT_USER_DEFINED], (MAAT_PLUGIN_EX_DATA *)&(ex_data_array[i]), 0, logger);
+			}
+
+			return i<category_id_num ? i : category_id_num;
+		}
+		
+		ret=Maat_fqdn_plugin_get_EX_data(maat_feather, g_tsg_para.table_id[TABLE_FQDN_CAT_BUILT_IN], fqdn, (MAAT_PLUGIN_EX_DATA *)ex_data_array, 8);
+		if(ret>0)
+		{
+			for(i=0; i<ret && i<category_id_num; i++)
+			{
+				if(i<category_id_num)
+				{
+					category_id[i]=ex_data_array[i]->category_id;
+				}
+
+				fqdn_cat_free_data(g_tsg_para.table_id[TABLE_FQDN_CAT_BUILT_IN], (MAAT_PLUGIN_EX_DATA *)&(ex_data_array[i]), 0, logger);
+			}
+
+			return i<category_id_num ? i : category_id_num;
+		}
+	}
+	
+	return 0;
 }
 

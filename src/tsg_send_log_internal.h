@@ -89,6 +89,7 @@ struct TLD_handle_t
 struct tsg_log_instance_t
 {
 	int mode;
+	int level;
 	int max_service;	
 	int recovery_interval;
 	int internal_project_id;
@@ -97,6 +98,7 @@ struct tsg_log_instance_t
 	int *send_log_percent;
 	int *fs_status_ids;
 	struct timespec *drop_start;
+	char log_path[MAX_STRING_LEN*2];
 	char tcp_label[MAX_STRING_LEN];
 	char udp_label[MAX_STRING_LEN];
 	char common_field_file[MAX_STRING_LEN*4];

@@ -454,7 +454,7 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 										p_result->config_id,
 										p_result->service_id,
 										(unsigned char)p_result->action,
-										printaddr(&a_stream->addr, thread_seq)
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, thread_seq) : "")
 									);
 			
 			p_result=q_result;
@@ -468,7 +468,7 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 										"Not hit %s stream_dir: %d addr: %s  scan ret: %d",
 										identify_info->domain,
 										a_stream->dir,
-										printaddr(&a_stream->addr, thread_seq),
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, thread_seq) : ""),
 										ret
 									);
 		}
@@ -651,7 +651,7 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 
 extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
-	int ret=0,hit_num=0;
+	int i=0,ret=0,hit_num=0;
 	struct timespec tv;
 	int state=APP_STATE_GIVEME;
 	scan_status_t mid=NULL;
@@ -689,7 +689,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 										"Add internal_label failed, establish latency ms: %llu proto: %d addr: %s",
 										internal_label->establish_latency_ms,
 										internal_label->proto,
-										printaddr(&a_tcp->addr, thread_seq)
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 										);
 			}
 			else
@@ -700,7 +700,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 										"Add internal_label successfully, establish latency ms: %llu proto: %d addr: %s",
 										internal_label->establish_latency_ms,
 										internal_label->proto,
-										printaddr(&a_tcp->addr, thread_seq)
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 										);	
 			}
 			
@@ -708,7 +708,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			if(ret>0)
 			{
 				hit_num+=ret;
-				//q_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, NULL, thread_seq);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 
@@ -727,7 +726,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												all_result[hit_num].config_id,
 												all_result[hit_num].service_id,
 												(unsigned char)all_result[hit_num].action,
-												printaddr(&a_tcp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 											);
 
 					hit_num+=ret;
@@ -742,8 +741,62 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												(ret==-1) ? "NULL" : identify_info.domain,
 												ret,
 												a_tcp->dir,
-												printaddr(&a_tcp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 											);
+				}
+
+				if(strlen(identify_info.domain)>0 && identify_info.domain_len>0)
+				{
+					internal_label->fqdn_category_id_num=tsg_get_fqdn_category_id(g_tsg_maat_feather, 
+																					identify_info.domain,
+																					internal_label->fqdn_category_id,
+																					MAX_CATEGORY_ID_NUM,
+																					g_tsg_para.logger,
+																					thread_seq
+																				);
+				}
+
+				for(i=0; i<internal_label->fqdn_category_id_num; i++)
+				{
+					int idx=identify_info.proto==PROTO_HTTP ? TABLE_HTTP_HOST : TABLE_SSL_SNI;
+					ret=Maat_scan_intval(g_tsg_maat_feather,
+											g_tsg_para.table_id[idx],
+											(unsigned int)internal_label->fqdn_category_id[i],
+											all_result+hit_num,
+											MAX_RESULT_NUM-hit_num,
+											&mid,
+											thread_seq
+										);
+					if(ret>0)
+					{
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN_CAT",
+												"Hit %s: %s category_id: %d policy_id: %d service: %d action: %d addr: %s",
+												(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
+												identify_info.domain,
+												internal_label->fqdn_category_id[i],
+												all_result[hit_num].config_id,
+												all_result[hit_num].service_id,
+												(unsigned char)all_result[hit_num].action,
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
+											);
+						hit_num+=ret;
+					}
+					else
+					{
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN_CAT",
+												"Not hit %s: %s category_id: %d ret: %d stream_dir: %d addr: %s",
+												(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
+												(ret==-1) ? "NULL" : identify_info.domain,
+												internal_label->fqdn_category_id[i],
+												ret,
+												a_tcp->dir,
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
+											);
+					}
 				}
 			}
 
@@ -780,7 +833,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												p_result[0].config_id,
 												p_result[0].service_id,
 												(unsigned char)p_result[0].action,
-												printaddr(&a_tcp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 												);
 						
 						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
@@ -808,7 +861,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 													"Add policy_priority_label failed, intercept policy, policy_id: %d action: %d addr: %s",
 													priority_label->result[0].config_id,
 													(unsigned char)priority_label->result[0].action,
-													printaddr(&a_tcp->addr, thread_seq)
+													(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 													);
 						}
 						
@@ -818,7 +871,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												"Hit intercept policy, policy_id: %d action: %d addr: %s",
 												priority_label->result[0].config_id,
 												(unsigned char)priority_label->result[0].action,
-												printaddr(&a_tcp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 												);
 						return APP_STATE_DROPME|APP_STATE_KILL_OTHER;
 						break;
@@ -857,7 +910,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 
 extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int thread_seq,void *a_packet)
 {
-	int ret=0;
+	int i=0,ret=0;
 	int hit_num=0;
 	scan_status_t mid=NULL;
 	int state=APP_STATE_GIVEME;
@@ -886,7 +939,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 										"PROJECT_ADD",
 										"Add internal_label failed, proto: %d addr: %s",
 										internal_label->proto,
-										printaddr(&a_udp->addr, thread_seq)
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
 										);
 			}
 			else
@@ -896,7 +949,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 										"PROJECT_ADD",
 										"Add internal_label successfully, proto: %d addr: %s",
 										internal_label->proto,
-										printaddr(&a_udp->addr, thread_seq)
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
 										);	
 			}
 
@@ -922,7 +975,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 												result[hit_num].config_id,
 												result[hit_num].service_id,
 												(unsigned char)result[hit_num].action,
-												printaddr(&a_udp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
 											);
 
 					hit_num+=ret;
@@ -936,8 +989,61 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 												"QUIC SNI",
 												identify_info.domain,
 												a_udp->dir,
-												printaddr(&a_udp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
 											);
+				}
+
+				if(strlen(identify_info.domain)>0 && identify_info.domain_len>0)
+				{
+					internal_label->fqdn_category_id_num=tsg_get_fqdn_category_id(g_tsg_maat_feather, 
+																					identify_info.domain,
+																					internal_label->fqdn_category_id,
+																					MAX_CATEGORY_ID_NUM,
+																					g_tsg_para.logger,
+																					thread_seq
+																				);
+				}
+
+				for(i=0; i<internal_label->fqdn_category_id_num; i++)
+				{
+					ret=Maat_scan_intval(g_tsg_maat_feather,
+											g_tsg_para.table_id[TABLE_QUIC_SNI],
+											(unsigned int)internal_label->fqdn_category_id[i],
+											result+hit_num,
+											MAX_RESULT_NUM-hit_num,
+											&mid,
+											thread_seq
+										);
+					if(ret>0)
+					{
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN_CAT",
+												"Hit %s: %s category_id: %d policy_id: %d service: %d action: %d addr: %s",
+												"QUIC SNI",
+												identify_info.domain,
+												internal_label->fqdn_category_id[i],
+												result[hit_num].config_id,
+												result[hit_num].service_id,
+												(unsigned char)result[hit_num].action,
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
+											);
+						hit_num+=ret;
+					}
+					else
+					{
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN_CAT",
+												"Not hit %s: %s category_id: %d ret: %d stream_dir: %d addr: %s",
+												(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
+												(ret==-1) ? "NULL" : identify_info.domain,
+												internal_label->fqdn_category_id[i],
+												ret,
+												a_udp->dir,
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
+											);
+					}
 				}
 			}
 			
@@ -972,7 +1078,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 												p_result[0].config_id,
 												p_result[0].service_id,
 												(unsigned char)p_result[0].action,
-												printaddr(&a_udp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
 												);
 						
 						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
@@ -1016,11 +1122,10 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 
 extern "C" int TSG_MASTER_INIT()
 {
-	int i=0,ret=0,cycle=0;
-	int value=0,level=30;
+	int i=0,ret=0;
+	int value=0,cycle=0;
 	unsigned short fs_server_port=0;
 	char app_name[MAX_STRING_LEN]={0};
-	char log_path[MAX_STRING_LEN*4]={0};
 	char label_buff[MAX_STRING_LEN*4]={0};
 	char fs_server_ip[MAX_IPV4_LEN]={0};
 	char fs_output_path[MAX_STRING_LEN*4]={0};
@@ -1029,10 +1134,10 @@ extern "C" int TSG_MASTER_INIT()
 	
 	memset(&g_tsg_para, 0, sizeof(g_tsg_para));
 	
-	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","LOG_LEVEL", &level, 30);
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM","LOG_PATH", log_path, sizeof(log_path), "tsglog/tsg_master");
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","LOG_LEVEL", &g_tsg_para.level, RLOG_LV_FATAL);
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM","LOG_PATH", g_tsg_para.log_path, sizeof(g_tsg_para.log_path), "tsglog/tsg_master");
 
-	g_tsg_para.logger=MESA_create_runtime_log_handle(log_path, level);
+	g_tsg_para.logger=MESA_create_runtime_log_handle(g_tsg_para.log_path, g_tsg_para.level);
 	if(g_tsg_para.logger==NULL)
 	{
 		printf("MESA_create_runtime_log_handle failed ...\n");
