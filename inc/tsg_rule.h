@@ -55,6 +55,6 @@ struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);
 
 int tsg_get_method_id(char *method);
 
-int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, int *category_id, int category_id_num, void *logger, int thread_seq);
+int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq);
 
 #endif
