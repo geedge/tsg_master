@@ -233,6 +233,7 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
+	int i_or_e=0,direction=0;
 	int ret=0,addr_type=0;
 	unsigned short tunnel_type=0;
 	char nest_addr_buf[1024];
@@ -360,6 +361,35 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_ADDRESS_LIST].name, (void *)nest_addr_buf, TLD_TYPE_STRING);
 
 	set_common_field_from_label(_instance, _handle, a_stream);
+
+	i_or_e=MESA_dir_link_to_human(a_stream->routedir);
+	switch(a_stream->curdir)
+	{
+		case	DIR_C2S:
+			if(i_or_e=='E' || i_or_e=='e')
+			{
+				direction='E';
+			}
+			else
+			{
+				direction='I';
+			}
+			break;
+		case	DIR_S2C:
+			if(i_or_e=='E' || i_or_e=='e')
+			{
+				direction='I';
+			}
+			else
+			{
+				direction='E';
+			}
+			break;
+		default:
+			break;
+	}
+	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);
 	
 	return 0;
 }
