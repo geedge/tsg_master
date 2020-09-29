@@ -399,7 +399,7 @@ void fqdn_cat_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DAT
 		
 		MESA_handle_runtime_log(logger,
 									RLOG_LV_DEBUG,
-									"IP_LOCATION", 
+									"FQDN_CAT", 
 									"Dup(table_id: %d) fqdn category: category_id: %d fqdn: %s match_method: %d ref_cnt: %d",
 									table_id,
 									fqdn_cat->category_id,
@@ -434,7 +434,7 @@ void fqdn_cat_new_data(int table_id, const char* key, const char* table_line, MA
 		
 		MESA_handle_runtime_log(logger, 
 									RLOG_LV_FATAL,
-									"IP_LOCATION",
+									"FQDN_CAT",
 									"Parse fqdn category failed, ret: %d table_id: %d table_line: %s",
 									ret,
 									table_id,
@@ -460,7 +460,7 @@ void fqdn_cat_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 
 		MESA_handle_runtime_log(logger,
 									RLOG_LV_DEBUG,
-									"IP_LOCATION", 
+									"FQDN_CAT", 
 									"Delete(table_id: %d) fqdn category: category_id: %d fqdn: %s match_method: %d ref_cnt: %d",
 									table_id,
 									fqdn_cat->category_id,
