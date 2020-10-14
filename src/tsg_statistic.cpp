@@ -245,14 +245,44 @@ static void *tsg_statistic_thread(void *arg)
 
 		value=0;
 		total_value=0;
-		sapp_get_platform_opt(SPO_TCP_STREAM_NEW, (void *)&value, &value_len);
+		sapp_get_platform_opt(SPO_TCP_STREAM_NEW, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_TCP_NEW_CON_NUM], FS_OP_SET, value);
+		
 		total_value+=value;
+		
 		value=0;
-		sapp_get_platform_opt(SPO_UDP_STREAM_NEW, (void *)&value, &value_len);
+		sapp_get_platform_opt(SPO_TOTAL_RCV_INBOUND_TCP_PKT, (void *)&value, &value_len);
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_TCP_IN_PACKETS], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_INBOUND_TCP_BYTE, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_TCP_IN_BYTES], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_OUTBOUND_TCP_PKT, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_TCP_OUT_PACKETS], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_OUTBOUND_TCP_BYTE, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_TCP_OUT_BYTES], FS_OP_SET, value);
+
+		value=0;
+		sapp_get_platform_opt(SPO_UDP_STREAM_NEW, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_UDP_NEW_CON_NUM], FS_OP_SET, value);
+
 		total_value+=value;
 		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_NEW_CON_NUM], FS_OP_SET, total_value);
-
 		total_traffic_info.con_num+=total_value;
+
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_INBOUND_UDP_PKT, (void *)&value, &value_len);
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_UDP_IN_PACKETS], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_INBOUND_UDP_BYTE, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_UDP_IN_BYTES], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_OUTBOUND_UDP_PKT, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_UDP_OUT_PACKETS], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_OUTBOUND_UDP_BYTE, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_UDP_OUT_BYTES], FS_OP_SET, value);
 
 		value_len=sizeof(total_traffic_info.in_bytes);
 		sapp_get_platform_opt(SPO_TOTAL_INBOUND_BYTE, (void *)&total_traffic_info.in_bytes, &value_len);
@@ -274,6 +304,32 @@ static void *tsg_statistic_thread(void *arg)
 		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_PINNING_NUM], FS_OP_SET, g_tsg_statis_para.statistic_opt[OPT_TYPE_PINNING_YES]);
 		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_MAYBE_PINNING_NUM], FS_OP_SET, g_tsg_statis_para.statistic_opt[OPT_TYPE_PINNING_MAYBE]);
 		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_NOT_PINNING_NUM], FS_OP_SET, g_tsg_statis_para.statistic_opt[OPT_TYPE_PINNING_NOT]);
+
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_INBOUND_IPV4_PKT, (void *)&value, &value_len);
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_IPV4_IN_PACKETS], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_INBOUND_IPV4_BYTE, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_IPV4_IN_BYTES], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_OUTBOUND_IPV4_PKT, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_IPV4_OUT_PACKETS], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_OUTBOUND_IPV4_BYTE, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_IPV4_OUT_BYTES], FS_OP_SET, value);
+
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_INBOUND_IPV6_PKT, (void *)&value, &value_len);
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_IPV6_IN_PACKETS], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_INBOUND_IPV6_BYTE, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_IPV6_IN_BYTES], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_OUTBOUND_IPV6_PKT, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_IPV6_OUT_PACKETS], FS_OP_SET, value);
+		value=0;
+		sapp_get_platform_opt(SPO_TOTAL_RCV_OUTBOUND_IPV6_BYTE, (void *)&value, &value_len);		
+		FS_operate(g_tsg_statis_para.fs2_handle, g_tsg_statis_para.fs_line_id, g_tsg_statis_para.fs_field_id[STATIS_IPV6_OUT_BYTES], FS_OP_SET, value);
 
 		FS_passive_output(g_tsg_statis_para.fs2_handle);
 		
@@ -369,6 +425,28 @@ int tsg_statistic_init(const char *conffile, void *logger)
 	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"intercept_out_bytes");
 	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"intercept_in_packets");
 	g_tsg_statis_para.fs_field_id[STATIS_INTERCEPT_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"intercept_out_packets");
+
+	g_tsg_statis_para.fs_field_id[STATIS_IPV4_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"ipv4_in_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_IPV4_IN_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"ipv4_in_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_IPV4_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"ipv4_out_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_IPV4_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"ipv4_out_bytes");
+
+	g_tsg_statis_para.fs_field_id[STATIS_IPV6_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"ipv6_in_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_IPV6_IN_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"ipv6_in_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_IPV6_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"ipv6_out_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_IPV6_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"ipv6_out_bytes");
+
+	g_tsg_statis_para.fs_field_id[STATIS_TCP_NEW_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"tcp_conn_num");
+	g_tsg_statis_para.fs_field_id[STATIS_TCP_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"tcp_in_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_TCP_IN_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"tcp_in_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_TCP_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"tcp_out_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_TCP_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"tcp_out_bytes");
+
+	g_tsg_statis_para.fs_field_id[STATIS_UDP_NEW_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"udp_conn_num");
+	g_tsg_statis_para.fs_field_id[STATIS_UDP_IN_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"udp_in_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_UDP_IN_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"udp_in_bytes");
+	g_tsg_statis_para.fs_field_id[STATIS_UDP_OUT_PACKETS]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"udp_out_packets");
+	g_tsg_statis_para.fs_field_id[STATIS_UDP_OUT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"udp_out_bytes");
 
 	g_tsg_statis_para.fs_field_id[STATIS_ALERT_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"alert_bytes");
 	g_tsg_statis_para.fs_field_id[STATIS_BLOCK_BYTES]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"block_bytes");

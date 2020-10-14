@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
@@ -34,6 +35,7 @@ extern "C" int MESA_get_dev_ipv4(const char *device, int *ip_add);
 
 int is_multi_hit_same_policy(struct Maat_rule_t *result, int *policy_id, int *policy_id_num)
 {
+	return 0;
 	int j=0;
 	
 	for(j=0;j<*policy_id_num;j++)
@@ -186,10 +188,10 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	char buff[512]={0};
-	struct _location_info *location=NULL;
-	struct _internal_label *internal_label=NULL;
+	struct _location_info_t *location=NULL;
+	struct _session_attribute_label_t *internal_label=NULL;
 
-	internal_label=(struct _internal_label *)project_req_get_struct(a_stream, _instance->internal_project_id);
+	internal_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, _instance->internal_project_id);
 	if(internal_label!=NULL)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)internal_label->establish_latency_ms, TLD_TYPE_LONG);
@@ -209,21 +211,20 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 		if(internal_label->client_location!=NULL)
 		{
 			location=internal_label->client_location;
-			snprintf(buff, sizeof(buff), "%s,%s,%s", (!(memcmp(location->city_full, "null", 4)) ? "" : location->city_full),
-													  (!(memcmp(location->province_full, "null", 4)) ? "" : location->province_full),
-													  (!(memcmp(location->country_full, "null", 4)) ? "" : location->country_full)
-													  );
+			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 
 		if(internal_label->server_location!=NULL)
 		{
 			location=internal_label->server_location;
-			snprintf(buff, sizeof(buff), "%s,%s,%s", (!(memcmp(location->city_full, "null", 4)) ? "" : location->city_full),
-													  (!(memcmp(location->province_full, "null", 4)) ? "" : location->province_full),
-													  (!(memcmp(location->country_full, "null", 4)) ? "" : location->country_full)
-													  );
+			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
+		}
+
+		if(internal_label->ja3_fingerprint!=NULL)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_SSL_JA3_FINGERPRINT].name, (void *)internal_label->ja3_fingerprint, TLD_TYPE_STRING);
 		}
 	}
 
@@ -232,6 +233,7 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
+	int i_or_e=0,direction=0;
 	int ret=0,addr_type=0;
 	unsigned short tunnel_type=0;
 	char nest_addr_buf[1024];
@@ -254,10 +256,9 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	if(_instance==NULL || _handle==NULL || a_stream==NULL)
 	{		
 		MESA_handle_runtime_log(_instance->logger,
-								((a_stream==NULL) ? RLOG_LV_DEBUG: RLOG_LV_FATAL),
+								RLOG_LV_DEBUG,
 								"TLD_APPEND_STREAM",
-								"instance==NULL || TLD_handle==NULL || addr: %s", 
-								((a_stream==NULL) ? "NULL": (printaddr(&a_stream->addr, a_stream->threadnum)))
+								"instance==NULL || TLD_handle==NULL || addr==NULL"
 								);
 		return -1;
 	}
@@ -360,6 +361,35 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_ADDRESS_LIST].name, (void *)nest_addr_buf, TLD_TYPE_STRING);
 
 	set_common_field_from_label(_instance, _handle, a_stream);
+
+	i_or_e=MESA_dir_link_to_human(a_stream->routedir);
+	switch(a_stream->curdir)
+	{
+		case	DIR_C2S:
+			if(i_or_e=='E' || i_or_e=='e')
+			{
+				direction='E';
+			}
+			else
+			{
+				direction='I';
+			}
+			break;
+		case	DIR_S2C:
+			if(i_or_e=='E' || i_or_e=='e')
+			{
+				direction='I';
+			}
+			else
+			{
+				direction='E';
+			}
+			break;
+		default:
+			break;
+	}
+	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);
 	
 	return 0;
 }
@@ -455,25 +485,34 @@ int load_log_common_field(const char *filename, id2field_t *id2field, id2field_t
 
 struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 {
-	int i=0,ret=0,level=30;
+	int i=0,ret=0;
 	char nic_name[32]={0};
 	char kafka_errstr[1024]={0};
 	unsigned int local_ip_nr=0;
-	char log_path[MAX_STRING_LEN*4]={0};
 	rd_kafka_t *kafka_handle = NULL;
 	rd_kafka_conf_t *rdkafka_conf = NULL;
 	rd_kafka_topic_conf_t *topic_conf;
 	struct tsg_log_instance_t *_instance=NULL;
 	
 	_instance=(struct tsg_log_instance_t *)calloc(1, sizeof(struct tsg_log_instance_t));
+	
+	int thread_num=get_thread_count();
+	_instance->drop_start=(struct timespec *)calloc(1, sizeof(struct timespec)*thread_num);
+	_instance->fs_status_ids=(int *)calloc(1, sizeof(int)*thread_num);
+	_instance->send_log_percent=(int *)calloc(1, sizeof(int)*thread_num);
 
-	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(level), 30);	
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", log_path, sizeof(log_path), "./tsglog/tsglog");
+	for(i=0;i<thread_num; i++)
+	{
+		_instance->send_log_percent[i]=100;
+	}
 
-	_instance->logger=MESA_create_runtime_log_handle(log_path, level);
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(_instance->level), 30);	
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", _instance->log_path, sizeof(_instance->log_path), "./tsglog/tsglog");
+
+	_instance->logger=MESA_create_runtime_log_handle(_instance->log_path, _instance->level);
 	if(_instance->logger==NULL)
 	{
-		printf("MESA_create_runtime_log_handle failed ..., path: %s level: %d", log_path, level);
+		printf("MESA_create_runtime_log_handle failed ..., path: %s level: %d", _instance->log_path, _instance->level);
 		return NULL;
 	}
 	
@@ -483,8 +522,15 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "TSG_LOG", "Disable tsg_send_log");
 		return _instance;
 	}
+	
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "RECOVERY_INTERVEL_S", &(_instance->recovery_interval), 30);	
+
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "COMMON_FIELD_FILE", _instance->common_field_file, sizeof(_instance->common_field_file), NULL);
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "BROKER_LIST", _instance->broker_list, sizeof(_instance->broker_list), NULL);
+
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "SEND_QUEUE_MAX_MESSAGE", _instance->send_queue_max_msg, sizeof(_instance->send_queue_max_msg), "1000000");
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "REFRESH_INTERVAL_MS", _instance->refresh_interval_ms, sizeof(_instance->refresh_interval_ms), "600000");
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "REQUIRE_ACK", _instance->require_ack, sizeof(_instance->require_ack), "1");
 
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "TCP_LABEL", _instance->tcp_label, sizeof(_instance->tcp_label), "tcp_flow_stat");
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "UDP_LABEL", _instance->udp_label, sizeof(_instance->udp_label), "udp_flow_stat");
@@ -518,10 +564,10 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	inet_ntop(AF_INET,&(local_ip_nr),_instance->local_ip_str,sizeof(_instance->local_ip_str));
 
 
-	rdkafka_conf = rd_kafka_conf_new();
-	rd_kafka_conf_set(rdkafka_conf, "queue.buffering.max.messages", "1000000", kafka_errstr, sizeof(kafka_errstr));
-	rd_kafka_conf_set(rdkafka_conf, "topic.metadata.refresh.interval.ms", "600000",kafka_errstr, sizeof(kafka_errstr));
-	rd_kafka_conf_set(rdkafka_conf, "request.required.acks", "1", kafka_errstr, sizeof(kafka_errstr));
+	rdkafka_conf = rd_kafka_conf_new();	
+	rd_kafka_conf_set(rdkafka_conf, "queue.buffering.max.messages", _instance->send_queue_max_msg, kafka_errstr, sizeof(kafka_errstr));
+	rd_kafka_conf_set(rdkafka_conf, "topic.metadata.refresh.interval.ms", _instance->refresh_interval_ms, kafka_errstr, sizeof(kafka_errstr));
+	rd_kafka_conf_set(rdkafka_conf, "request.required.acks", _instance->require_ack, kafka_errstr, sizeof(kafka_errstr));
 	
 	if(!(kafka_handle=rd_kafka_new(RD_KAFKA_PRODUCER, rdkafka_conf, kafka_errstr, sizeof(kafka_errstr))))
 	{
@@ -574,6 +620,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	int i=0,status=0;
 	char *payload=NULL;
 	int repeat_cnt=0;
+	struct timespec cur_time;
 	int policy_id[MAX_RESULT_NUM]={0};
 	struct TLD_handle_t *_handle=handle;
 	struct tsg_log_instance_t *_instance=instance;
@@ -587,19 +634,50 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 
 	if(_instance->mode==CLOSE)
 	{
-		TLD_cancel(handle);
+		TLD_cancel(handle);		
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DROP_LOG], 0, FS_OP_ADD, 1);
 		MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO, "TSG_SEND_LOG", "Disable tsg_send_log.");
 		return 0;
 	}
 	
 	TLD_append_streaminfo(instance, handle, log_msg->a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
+	if(strlen(g_tsg_para.device_sn)>0)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
+	}
 
+	if(strlen(g_tsg_para.data_center)>0)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_DATA_CENTER].name, (void *)(g_tsg_para.data_center), TLD_TYPE_STRING);
+	}
+	
 	for(i=0;i<log_msg->result_num; i++)
 	{
 		if(is_multi_hit_same_policy(&(log_msg->result[i]), policy_id, &repeat_cnt))
 		{
+			MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
+										"TSG_SEND_LOG",
+										"tsg same log:cfg_id=%d service=%d addr=%s",
+										log_msg->result[i].config_id,
+										log_msg->result[i].service_id,
+										(_instance->level<RLOG_LV_FATAL ? (log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id)) : "")
+									);
+			continue;
+		}
+
+		clock_gettime(CLOCK_REALTIME, &cur_time);
+		if((cur_time.tv_nsec%100)>_instance->send_log_percent[thread_id])
+		{			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DROP_LOG], 0, FS_OP_ADD, 1);
+			MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO,
+										"TSG_SEND_LOG",
+										"tsg drop log:cfg_id=%d service=%d send_log_percent: %d addr=%s",
+										log_msg->result[i].config_id,
+										log_msg->result[i].service_id,
+										_instance->send_log_percent[thread_id],
+										(_instance->level<RLOG_LV_FATAL ? (log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id)) : "")
+									);
 			continue;
 		}
 		
@@ -607,11 +685,12 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		{
 			case	LOG_ABORT:
 				MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO,
-										"TSG_SEND_LOG",
-										"tsg abort log:cfg_id=%d service=%d addr=%s",
-										log_msg->result[i].config_id,
-										log_msg->result[i].service_id,
-										printaddr(&(log_msg->a_stream->addr), thread_id));
+											"TSG_SEND_LOG",
+											"tsg abort log:cfg_id=%d service=%d addr=%s",
+											log_msg->result[i].config_id,
+											log_msg->result[i].service_id,
+											(_instance->level<RLOG_LV_FATAL ? (log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id)) : "")
+										);
 				
 				continue;
 				break;
@@ -638,14 +717,36 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 
 		if(status < 0)
 		{
-			MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO, "TSG_SEND_LOG",
+			clock_gettime(CLOCK_REALTIME, &cur_time);
+			if(cur_time.tv_sec - _instance->drop_start[thread_id].tv_sec>=1)
+			{	
+				_instance->send_log_percent[thread_id]/=2;
+				clock_gettime(CLOCK_REALTIME, &_instance->drop_start[thread_id]);
+				FS_operate(g_tsg_para.fs2_handle, _instance->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
+			}
+			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_FAILED_LOG], 0, FS_OP_ADD, 1);
+			
+			MESA_handle_runtime_log(_instance->logger, 
+										RLOG_LV_INFO, 
+										"TSG_SEND_LOG",
 										"tsg_send_log to kafka is error, status: %d, topic: %s payload: %s",
-										status, _instance->service2topic[log_msg->result[i].service_id].name, payload);
+										status,
+										_instance->service2topic[log_msg->result[i].service_id].name,
+										payload
+									);
 		}
 		else
 		{
-			MESA_handle_runtime_log(_instance->logger,RLOG_LV_INFO, "TSG_SEND_LOG", 
-										"log send successfully %s: %s", _instance->service2topic[log_msg->result[i].service_id].name, payload);
+			MESA_handle_runtime_log(_instance->logger,
+										RLOG_LV_DEBUG,
+										"TSG_SEND_LOG", 
+										"log send successfully %s: %s",
+										_instance->service2topic[log_msg->result[i].service_id].name,
+										payload
+									);
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUCCESS_LOG], 0, FS_OP_ADD, 1);		
+			FS_operate(g_tsg_para.fs2_handle, _instance->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
 		}
 
 		free(payload);
@@ -655,11 +756,20 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name);
-
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LOG], 0, FS_OP_ADD, 1);
 	}
 
 	TLD_cancel(handle);
+
+	if(_instance->send_log_percent[thread_id]<100)
+	{
+		clock_gettime(CLOCK_REALTIME, &cur_time);
+		if(cur_time.tv_sec - _instance->drop_start[thread_id].tv_sec>=_instance->recovery_interval)
+		{
+			_instance->send_log_percent[thread_id]++;
+			_instance->drop_start[thread_id].tv_sec=cur_time.tv_sec;						
+			FS_operate(g_tsg_para.fs2_handle, _instance->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
+		}
+	}
 
 	return 0;
 }
