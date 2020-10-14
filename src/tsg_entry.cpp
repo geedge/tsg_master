@@ -7,6 +7,7 @@
 
 #include <MESA/http.h>
 #include <MESA/ftp.h>
+#include <MESA/ssl.h>
 #include <MESA/mail.h>
 #include "MESA/gquic.h"
 #include <MESA/stream.h>
@@ -19,6 +20,7 @@
 #include "tsg_statistic.h"
 #include "tsg_send_log_internal.h"
 #include "tsg_ssl_utils.h"
+#include "tsg_ssh_utils.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -46,14 +48,33 @@ char TSG_MASTER_VERSION_20200805=0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
-id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_LINKS, "links"}, 
+id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_TCP_LINKS, "tcp_links"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_UDP_LINKS, "udp_links"}, 
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_BYPASS, "bypass"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_ADDR, "hit_addr"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_SHARE, "hit_share"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_INTERCEPT, "intercept"},
-										 {TLD_TYPE_UNKNOWN, TSG_FS2_LOG, "log"},
-										 {TLD_TYPE_UNKNOWN, TSG_FS2_DENY, "deny"}
-	};
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_SUCCESS_LOG, "success_log"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_FAILED_LOG, "failed_log"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_DROP_LOG, "drop_log"}
+										};
+
+id2field_t g_tsg_proto_name2id[PROTO_MAX]={{TLD_TYPE_UNKNOWN, PROTO_UNKONWN, "unknown"}, 
+										 {TLD_TYPE_UNKNOWN, PROTO_IPv4, "IPV4"},
+										 {TLD_TYPE_UNKNOWN, PROTO_IPv6, "IPV6"},
+										 {TLD_TYPE_UNKNOWN, PROTO_TCP, "TCP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_UDP, "UDP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_HTTP, "HTTP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_MAIL, "MAIL"},
+										 {TLD_TYPE_UNKNOWN, PROTO_DNS, "DNS"},
+										 {TLD_TYPE_UNKNOWN, PROTO_FTP, "FTP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_SSL, "SSL"},
+										 {TLD_TYPE_UNKNOWN, PROTO_SIP, "SIP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_BGP, "BGP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_STREAMING_MEDIA, "STREAMING_MEDIA"},
+										 {TLD_TYPE_UNKNOWN, PROTO_QUIC, "QUIC"},
+										 {TLD_TYPE_UNKNOWN, PROTO_SSH, "SSH"}
+										};
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
 
@@ -90,78 +111,39 @@ static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
 	return flags;
 }
 
-int tsg_set_device_id_to_telegraf(char *device_sn)
+static int tsg_proto_name2flag(char *proto_list, int *flag)
 {
-	char buff[128]={0};
-	FILE *fp=NULL;
+	int i=0;
+	char *s=NULL,*e=NULL;
 
-	if(device_sn)
+	s=proto_list;
+	while(s)
 	{
-		fp=fopen("/etc/default/telegraf", "wb");
-		if(fp)
+		e=index(s, ';');
+		if(!e)
 		{
-			snprintf(buff, sizeof(buff), "device_id=\"%s\"\n", device_sn);
-			fwrite(buff, strlen(buff), 1, fp);
-			fclose(fp);
-			fp=NULL;
-			return 0;
+			break;
 		}
+
+		for(i=0; i< PROTO_MAX; i++)
+		{
+			if((memcmp(s, g_tsg_proto_name2id[i].name, e-s))==0)
+			{
+				*flag|=(1<<g_tsg_proto_name2id[i].id);
+				break;
+			}
+		}
+		
+		s=e+1;	
 	}
 
-	return -1;
+	return 0;
 }
 
 static void free_policy_label(int thread_seq, void *project_req_value)
 {
 	dictator_free(thread_seq, project_req_value);
 	project_req_value=NULL;
-}
-
-static void free_internal_label(int thread_seq, void *project_req_value)
-{
-	struct _internal_label *label=(struct _internal_label *)project_req_value;
-
-	if(label!=NULL)
-	{
-		if(label->client_asn!=NULL)
-		{
-			ASN_free_data(label->client_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_asn), 0, g_tsg_para.logger);
-			label->client_asn=NULL;
-		}
-
-		if(label->server_asn!=NULL)
-		{
-			ASN_free_data(label->server_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_asn), 0, g_tsg_para.logger);
-			label->server_asn=NULL;
-		}
-
-		if(label->client_location!=NULL)
-		{
-			location_free_data(label->client_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_location), 0, g_tsg_para.logger);
-			label->client_location=NULL;
-		}
-
-		if(label->server_location!=NULL)
-		{
-			location_free_data(label->server_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_location), 0, g_tsg_para.logger);
-			label->server_location=NULL;
-		}
-
-		if(label->client_subscribe_id!=NULL)
-		{
-			subscribe_id_free_data(label->client_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->client_subscribe_id, 0, g_tsg_para.logger);
-			label->client_subscribe_id=NULL;
-		}
-
-		if(label->server_subscribe_id!=NULL)
-		{
-			subscribe_id_free_data(label->server_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->server_subscribe_id, 0, g_tsg_para.logger);
-			label->server_subscribe_id=NULL;
-		}
-		
-		dictator_free(thread_seq, project_req_value);
-		project_req_value=NULL;
-	}
 }
 
 static void free_context(void **pme, int thread_seq)
@@ -229,6 +211,9 @@ static char *schema_index2string(tsg_protocol_t proto)
 		case	PROTO_QUIC:
 			schema_field_value=(char *)"QUIC";
 			break;
+		case	PROTO_SSH:
+			schema_field_value=(char *)"SSH";
+			break;
 		default:
 			break;
 	}
@@ -285,6 +270,80 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	}
 	
 	return 1;
+}
+
+int tsg_set_device_id_to_telegraf(char *device_sn)
+{
+	char buff[128]={0};
+	FILE *fp=NULL;
+
+	if(device_sn)
+	{
+		fp=fopen("/etc/default/telegraf", "wb");
+		if(fp)
+		{
+			snprintf(buff, sizeof(buff), "device_id=\"%s\"\n", device_sn);
+			fwrite(buff, strlen(buff), 1, fp);
+			fclose(fp);
+			fp=NULL;
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+static void free_session_attribute_label(int thread_seq, void *project_req_value)
+{
+	struct _session_attribute_label_t *label=(struct _session_attribute_label_t *)project_req_value;
+
+	if(label!=NULL)
+	{
+		if(label->client_asn!=NULL)
+		{
+			ASN_free_data(label->client_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_asn), 0, g_tsg_para.logger);
+			label->client_asn=NULL;
+		}
+
+		if(label->server_asn!=NULL)
+		{
+			ASN_free_data(label->server_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_asn), 0, g_tsg_para.logger);
+			label->server_asn=NULL;
+		}
+
+		if(label->client_location!=NULL)
+		{
+			location_free_data(label->client_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_location), 0, g_tsg_para.logger);
+			label->client_location=NULL;
+		}
+
+		if(label->server_location!=NULL)
+		{
+			location_free_data(label->server_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_location), 0, g_tsg_para.logger);
+			label->server_location=NULL;
+		}
+
+		if(label->client_subscribe_id!=NULL)
+		{
+			subscribe_id_free_data(label->client_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->client_subscribe_id, 0, g_tsg_para.logger);
+			label->client_subscribe_id=NULL;
+		}
+
+		if(label->server_subscribe_id!=NULL)
+		{
+			subscribe_id_free_data(label->server_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->server_subscribe_id, 0, g_tsg_para.logger);
+			label->server_subscribe_id=NULL;
+		}
+
+		if(label->ja3_fingerprint!=NULL)
+		{
+			dictator_free(thread_seq, (void *)label->ja3_fingerprint);
+			label->ja3_fingerprint=NULL;
+		}
+		
+		dictator_free(thread_seq, project_req_value);
+		project_req_value=NULL;
+	}
 }
 
 static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, int thread_seq)
@@ -395,7 +454,7 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 										p_result->config_id,
 										p_result->service_id,
 										(unsigned char)p_result->action,
-										printaddr(&a_stream->addr, thread_seq)
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, thread_seq) : "")
 									);
 			
 			p_result=q_result;
@@ -409,7 +468,7 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 										"Not hit %s stream_dir: %d addr: %s  scan ret: %d",
 										identify_info->domain,
 										a_stream->dir,
-										printaddr(&a_stream->addr, thread_seq),
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, thread_seq) : ""),
 										ret
 									);
 		}
@@ -418,102 +477,173 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 	return p_result;
 }
 
-static int identify_application_protocol(struct streaminfo *a_stream, struct _identify_info *identify_info, void *a_packet)
+static int identify_application_protocol(struct streaminfo *a_stream, struct _identify_info *identify_info, struct _session_attribute_label_t *attribute_label, void *a_packet)
 {
-	int ret=0;
-
+	int ret=0;                            
 	identify_info->proto = PROTO_UNKONWN;
-	//http
-	char *host=NULL;
-	ret=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->curdir, &host);
-	if(ret>=0)
-	{
-		identify_info->proto=PROTO_HTTP;
-		if(ret>0 && host!=NULL)
-		{
-			identify_info->domain_len=MIN(ret, (int)sizeof(identify_info->domain) - 1);
-			strncpy(identify_info->domain, host, identify_info->domain_len);
-		}
-		else
-		{
-			identify_info->domain_len=0;
-		}
-		return 1;
-	}
-	
-	//ssl
-	enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
-	struct ssl_chello *chello = NULL;
 
-	chello=ssl_chello_parse((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, &chello_status);
-	if(chello_status==CHELLO_PARSE_SUCCESS)
+	switch(a_stream->type)
 	{
-		identify_info->proto=PROTO_SSL;
-		if(chello->sni==NULL)
-		{
-			identify_info->domain_len = 0;
-		}
-		else
-		{
-			identify_info->domain_len = strnlen(chello->sni, sizeof(identify_info->domain) - 1);
-			strncpy(identify_info->domain, chello->sni, identify_info->domain_len);
-		}
-		
-		ssl_chello_free(chello);
-		return 1;
-	}
-	
-    ssl_chello_free(chello);
-
-	//dns
-	struct stream_tuple4_v4 *tpl4 = NULL;
-	struct stream_tuple4_v6 *tpl6 = NULL;
-
-	switch(a_stream->addr.addrtype)
-	{
-		case ADDR_TYPE_IPV4:
-			tpl4=a_stream->addr.tuple4_v4;
-			if((ntohs(tpl4->source)==53) || (ntohs(tpl4->dest)==53))
+		case	STREAM_TYPE_TCP:
+			if(g_tsg_para.proto_flag&(1<<PROTO_HTTP))  //http
 			{
-				identify_info->proto=PROTO_DNS;
-				return 1;
+				char *host=NULL;
+				ret=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->curdir, &host);
+				if(ret>=0)
+				{
+					identify_info->proto=PROTO_HTTP;
+					if(ret>0 && host!=NULL)
+					{
+						identify_info->domain_len=MIN(ret, (int)sizeof(identify_info->domain) - 1);
+						strncpy(identify_info->domain, host, identify_info->domain_len);
+					}
+					else
+					{
+						identify_info->domain_len=0;
+					}
+					return 1;
+				}
 			}
-			break;
-		case ADDR_TYPE_IPV6:
-			tpl6=a_stream->addr.tuple4_v6;
-			if((ntohs(tpl6->source)==53) || (ntohs(tpl6->dest)==53))
+
+			if(g_tsg_para.proto_flag&(1<<PROTO_SSL))  //ssl
 			{
-				identify_info->proto=PROTO_DNS;
-				return 1;
+				enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
+				struct ssl_chello *chello = NULL;
+
+				chello=ssl_chello_parse((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, &chello_status);
+				if(chello_status==CHELLO_PARSE_SUCCESS)
+				{
+					identify_info->proto=PROTO_SSL;
+					if(chello->sni==NULL)
+					{
+						identify_info->domain_len = 0;
+					}
+					else
+					{
+						identify_info->domain_len = strnlen(chello->sni, sizeof(identify_info->domain) - 1);
+						strncpy(identify_info->domain, chello->sni, identify_info->domain_len);
+					}
+					
+					ssl_chello_free(chello);
+
+					struct _ssl_ja3_info_t *ja3_info=NULL;
+					ja3_info=ssl_get_ja3_fingerprint(a_stream, (unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->threadnum);
+					if(ja3_info!=NULL)
+					{
+						if(ja3_info->sni==NULL || ja3_info->sni_len<=0)
+						{
+							identify_info->domain_len = 0;
+						}
+						else
+						{
+							identify_info->domain_len = strnlen(ja3_info->sni, sizeof(identify_info->domain) - 1);
+							strncpy(identify_info->domain, ja3_info->sni, identify_info->domain_len);
+						}
+
+						if(attribute_label!=NULL && ja3_info->fp!=NULL && ja3_info->fp_len>0)
+						{
+							attribute_label->ja3_fingerprint=(char *)dictator_malloc(a_stream->threadnum, ja3_info->fp_len+1);
+							memcpy(attribute_label->ja3_fingerprint, ja3_info->fp, ja3_info->fp_len);
+							attribute_label->ja3_fingerprint[ja3_info->fp_len]='\0';
+						}
+
+						return 1;
+					}
+					
+					return 1;
+				}
+				
+			    ssl_chello_free(chello);
+			}
+	
+			if(g_tsg_para.proto_flag&(1<<PROTO_FTP))  //ftp
+			{
+				ret=ftp_control_identify(a_stream);
+				if(ret>0)
+				{
+					identify_info->proto=PROTO_FTP;
+					return 1;
+				}
+			}
+			
+			if(g_tsg_para.proto_flag&(1<<PROTO_MAIL))  //mail
+			{
+				ret=mail_protocol_identify_by_first_payload(a_stream,(char *)a_stream->ptcpdetail->pdata, a_stream->ptcpdetail->datalen, a_stream->threadnum);
+				if(ret>0)
+				{
+					switch(ret)
+					{
+						case	SMTP_PROTOCOL:
+							identify_info->proto=PROTO_SMTP;
+							return 1;
+							break;
+						case	POP3_PROTOCOL:
+							identify_info->proto=PROTO_POP3;
+							return 1;
+							break;
+						case	IMAP_PROTOCOL:
+							identify_info->proto=PROTO_IMAP;
+							return 1;
+							break;
+						default:
+							break;
+					}
+				}
+			}
+
+			break;
+		case	STREAM_TYPE_UDP:
+			if(g_tsg_para.proto_flag&(1<<PROTO_DNS))  //dns
+			{
+				struct stream_tuple4_v4 *tpl4 = NULL;
+				struct stream_tuple4_v6 *tpl6 = NULL;
+
+				switch(a_stream->addr.addrtype)
+				{
+					case ADDR_TYPE_IPV4:
+						tpl4=a_stream->addr.tuple4_v4;
+						if((ntohs(tpl4->source)==53) || (ntohs(tpl4->dest)==53))
+						{
+							identify_info->proto=PROTO_DNS;
+							return 1;
+						}
+						break;
+					case ADDR_TYPE_IPV6:
+						tpl6=a_stream->addr.tuple4_v6;
+						if((ntohs(tpl6->source)==53) || (ntohs(tpl6->dest)==53))
+						{
+							identify_info->proto=PROTO_DNS;
+							return 1;
+						}
+						break;
+					default:
+						break;
+				}
+			}
+				
+			if(g_tsg_para.proto_flag&(1<<PROTO_SSH))  //ssh
+			{
+				ret = ssh_protocol_identify((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen,g_tsg_para.logger);
+				if(ret > 0)
+				{
+					identify_info->proto=PROTO_SSH;
+					return 1;
+				}
+			}
+			
+			if(g_tsg_para.proto_flag&(1<<PROTO_QUIC))  //quic
+			{
+				ret=quic_protocol_identify(a_stream, a_packet, identify_info->domain, sizeof(identify_info->domain));
+				if(ret>0)
+				{
+					identify_info->proto=PROTO_QUIC;
+					identify_info->domain_len=ret;
+					return 1;
+				}
 			}
 			break;
 		default:
 			break;
-	}
-
-	//ftp
-	ret=ftp_control_identify(a_stream);
-	if(ret>0)
-	{
-		identify_info->proto=PROTO_FTP;
-		return 1;
-	}
-
-	//mail
-	ret=mail_protocol_identify_by_first_payload(a_stream,(char *)a_stream->ptcpdetail->pdata, a_stream->ptcpdetail->datalen, a_stream->threadnum);
-	if(ret>=SMTP_PROTOCOL&& ret<=IMAP_PROTOCOL)
-	{
-		identify_info->proto=PROTO_MAIL;
-		return 1;
-	}
-
-	//quic
-	ret=quic_protocol_identify(a_stream, a_packet, identify_info->domain, sizeof(identify_info->domain));
-	if(ret>0)
-	{
-		identify_info->proto=PROTO_QUIC;
-		identify_info->domain_len=ret;
-		return 1;
 	}
 	
 	return ret;
@@ -521,7 +651,7 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 
 extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
-	int ret=0,hit_num=0;
+	int i=0,ret=0,hit_num=0;
 	struct timespec tv;
 	int state=APP_STATE_GIVEME;
 	scan_status_t mid=NULL;
@@ -531,17 +661,17 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	Maat_rule_t all_result[MAX_RESULT_NUM];
 	policy_priority_label_t *priority_label=NULL;	
 	struct _master_context *_context=(struct _master_context *)*pme;
-	struct _internal_label *internal_label=NULL;
+	struct _session_attribute_label_t *internal_label=NULL;
 	switch(a_tcp->opstate)
 	{
 		case	OP_STATE_PENDING:
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LINKS], 0, FS_OP_ADD, 1);
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1);
+
+			internal_label=(struct _session_attribute_label_t *)dictator_malloc(1, sizeof(struct _session_attribute_label_t));
+			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
 			
 			memset(&identify_info, 0, sizeof(identify_info));
-			identify_application_protocol(a_tcp, &identify_info, a_packet);
-
-			internal_label=(struct _internal_label *)dictator_malloc(1, sizeof(struct _internal_label));
-			memset(internal_label, 0, sizeof(struct _internal_label));
+			identify_application_protocol(a_tcp, &identify_info, internal_label, a_packet);
 			internal_label->proto=identify_info.proto;
 
 			if(identify_info.proto==PROTO_HTTP)
@@ -559,7 +689,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 										"Add internal_label failed, establish latency ms: %llu proto: %d addr: %s",
 										internal_label->establish_latency_ms,
 										internal_label->proto,
-										printaddr(&a_tcp->addr, thread_seq)
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 										);
 			}
 			else
@@ -570,7 +700,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 										"Add internal_label successfully, establish latency ms: %llu proto: %d addr: %s",
 										internal_label->establish_latency_ms,
 										internal_label->proto,
-										printaddr(&a_tcp->addr, thread_seq)
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 										);	
 			}
 			
@@ -578,39 +708,96 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			if(ret>0)
 			{
 				hit_num+=ret;
-				//q_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, NULL, thread_seq);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
-			
-			ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, all_result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
-			if(ret>0)
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_FQDN",
-											"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
-											(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
-											identify_info.domain,
-											all_result[hit_num].config_id,
-											all_result[hit_num].service_id,
-											(unsigned char)all_result[hit_num].action,
-											printaddr(&a_tcp->addr, thread_seq)
-										);
 
-				hit_num+=ret;
-			}
-			else
+			if(identify_info.proto==PROTO_HTTP || identify_info.proto==PROTO_SSL)
 			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_FQDN",
-											"Not hit %s: %s stream_dir: %d addr: %s",
-											(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
-											(ret==-1) ? "NULL" : identify_info.domain,
-											a_tcp->dir,
-											printaddr(&a_tcp->addr, thread_seq)
+				ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, all_result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
+				if(ret>0)
+				{
+					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
+					MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN",
+												"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
+												(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
+												identify_info.domain,
+												all_result[hit_num].config_id,
+												all_result[hit_num].service_id,
+												(unsigned char)all_result[hit_num].action,
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
+											);
+
+					hit_num+=ret;
+				}
+				else
+				{
+					MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN",
+												"Not hit %s: %s ret: %d stream_dir: %d addr: %s",
+												(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
+												(ret==-1) ? "NULL" : identify_info.domain,
+												ret,
+												a_tcp->dir,
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
+											);
+				}
+
+				if(strlen(identify_info.domain)>0 && identify_info.domain_len>0)
+				{
+					internal_label->fqdn_category_id_num=tsg_get_fqdn_category_id(g_tsg_maat_feather, 
+																					identify_info.domain,
+																					internal_label->fqdn_category_id,
+																					MAX_CATEGORY_ID_NUM,
+																					g_tsg_para.logger,
+																					thread_seq
+																				);
+				}
+
+				for(i=0; i<internal_label->fqdn_category_id_num; i++)
+				{
+					int idx=identify_info.proto==PROTO_HTTP ? TABLE_HTTP_HOST : TABLE_SSL_SNI;
+					ret=Maat_scan_intval(g_tsg_maat_feather,
+											g_tsg_para.table_id[idx],
+											(unsigned int)internal_label->fqdn_category_id[i],
+											all_result+hit_num,
+											MAX_RESULT_NUM-hit_num,
+											&mid,
+											thread_seq
 										);
+					if(ret>0)
+					{
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN_CAT",
+												"Hit %s: %s category_id: %d policy_id: %d service: %d action: %d addr: %s",
+												(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
+												identify_info.domain,
+												internal_label->fqdn_category_id[i],
+												all_result[hit_num].config_id,
+												all_result[hit_num].service_id,
+												(unsigned char)all_result[hit_num].action,
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
+											);
+						hit_num+=ret;
+					}
+					else
+					{
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN_CAT",
+												"Not hit %s: %s category_id: %d ret: %d stream_dir: %d addr: %s",
+												(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
+												(ret==-1) ? "NULL" : identify_info.domain,
+												internal_label->fqdn_category_id[i],
+												ret,
+												a_tcp->dir,
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
+											);
+					}
+				}
 			}
 
 			if(mid!=NULL)
@@ -646,7 +833,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												p_result[0].config_id,
 												p_result[0].service_id,
 												(unsigned char)p_result[0].action,
-												printaddr(&a_tcp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 												);
 						
 						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
@@ -674,7 +861,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 													"Add policy_priority_label failed, intercept policy, policy_id: %d action: %d addr: %s",
 													priority_label->result[0].config_id,
 													(unsigned char)priority_label->result[0].action,
-													printaddr(&a_tcp->addr, thread_seq)
+													(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 													);
 						}
 						
@@ -684,7 +871,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 												"Hit intercept policy, policy_id: %d action: %d addr: %s",
 												priority_label->result[0].config_id,
 												(unsigned char)priority_label->result[0].action,
-												printaddr(&a_tcp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
 												);
 						return APP_STATE_DROPME|APP_STATE_KILL_OTHER;
 						break;
@@ -723,7 +910,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 
 extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int thread_seq,void *a_packet)
 {
-	int ret=0;
+	int i=0,ret=0;
 	int hit_num=0;
 	scan_status_t mid=NULL;
 	int state=APP_STATE_GIVEME;
@@ -731,16 +918,17 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 	Maat_rule_t result[MAX_RESULT_NUM]={0};
 	struct _identify_info identify_info;
 	struct _master_context *_context=(struct _master_context *)*pme;
-	struct _internal_label *internal_label=NULL;
+	struct _session_attribute_label_t *internal_label=NULL;
 
 	switch(a_udp->opstate)
 	{
-		case	OP_STATE_PENDING:
+		case	OP_STATE_PENDING:			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);
 			memset(&identify_info, 0, sizeof(identify_info));
-			identify_application_protocol(a_udp, &identify_info, a_packet);
+			identify_application_protocol(a_udp, &identify_info, NULL, a_packet);
 
-			internal_label=(struct _internal_label *)dictator_malloc(1, sizeof(struct _internal_label));
-			memset(internal_label, 0, sizeof(struct _internal_label));
+			internal_label=(struct _session_attribute_label_t *)dictator_malloc(1, sizeof(struct _session_attribute_label_t));
+			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
 			internal_label->proto=identify_info.proto;
 			
 			ret=project_req_add_struct(a_udp, g_tsg_para.internal_project_id, (const void *)internal_label);
@@ -751,7 +939,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 										"PROJECT_ADD",
 										"Add internal_label failed, proto: %d addr: %s",
 										internal_label->proto,
-										printaddr(&a_udp->addr, thread_seq)
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
 										);
 			}
 			else
@@ -761,7 +949,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 										"PROJECT_ADD",
 										"Add internal_label successfully, proto: %d addr: %s",
 										internal_label->proto,
-										printaddr(&a_udp->addr, thread_seq)
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
 										);	
 			}
 
@@ -787,7 +975,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 												result[hit_num].config_id,
 												result[hit_num].service_id,
 												(unsigned char)result[hit_num].action,
-												printaddr(&a_udp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
 											);
 
 					hit_num+=ret;
@@ -801,8 +989,61 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 												"QUIC SNI",
 												identify_info.domain,
 												a_udp->dir,
-												printaddr(&a_udp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
 											);
+				}
+
+				if(strlen(identify_info.domain)>0 && identify_info.domain_len>0)
+				{
+					internal_label->fqdn_category_id_num=tsg_get_fqdn_category_id(g_tsg_maat_feather, 
+																					identify_info.domain,
+																					internal_label->fqdn_category_id,
+																					MAX_CATEGORY_ID_NUM,
+																					g_tsg_para.logger,
+																					thread_seq
+																				);
+				}
+
+				for(i=0; i<internal_label->fqdn_category_id_num; i++)
+				{
+					ret=Maat_scan_intval(g_tsg_maat_feather,
+											g_tsg_para.table_id[TABLE_QUIC_SNI],
+											(unsigned int)internal_label->fqdn_category_id[i],
+											result+hit_num,
+											MAX_RESULT_NUM-hit_num,
+											&mid,
+											thread_seq
+										);
+					if(ret>0)
+					{
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN_CAT",
+												"Hit %s: %s category_id: %d policy_id: %d service: %d action: %d addr: %s",
+												"QUIC SNI",
+												identify_info.domain,
+												internal_label->fqdn_category_id[i],
+												result[hit_num].config_id,
+												result[hit_num].service_id,
+												(unsigned char)result[hit_num].action,
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
+											);
+						hit_num+=ret;
+					}
+					else
+					{
+						MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_FQDN_CAT",
+												"Not hit %s: %s category_id: %d ret: %d stream_dir: %d addr: %s",
+												(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
+												(ret==-1) ? "NULL" : identify_info.domain,
+												internal_label->fqdn_category_id[i],
+												ret,
+												a_udp->dir,
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
+											);
+					}
 				}
 			}
 			
@@ -837,7 +1078,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 												p_result[0].config_id,
 												p_result[0].service_id,
 												(unsigned char)p_result[0].action,
-												printaddr(&a_udp->addr, thread_seq)
+												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
 												);
 						
 						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
@@ -881,27 +1122,30 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 
 extern "C" int TSG_MASTER_INIT()
 {
-	int i=0,ret=0,cycle=0;
-	int value=0,level=30;
+	int i=0,ret=0;
+	int value=0,cycle=0;
 	unsigned short fs_server_port=0;
 	char app_name[MAX_STRING_LEN]={0};
-	char log_path[MAX_STRING_LEN*4]={0};
 	char label_buff[MAX_STRING_LEN*4]={0};
 	char fs_server_ip[MAX_IPV4_LEN]={0};
 	char fs_output_path[MAX_STRING_LEN*4]={0};
 	char device_sn_filename[MAX_STRING_LEN]={0};
+	char identify_proto_name[MAX_STRING_LEN*4]={0};
 	
 	memset(&g_tsg_para, 0, sizeof(g_tsg_para));
 	
-	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","LOG_LEVEL", &level, 30);
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM","LOG_PATH", log_path, sizeof(log_path), "tsglog/tsg_master");
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","LOG_LEVEL", &g_tsg_para.level, RLOG_LV_FATAL);
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM","LOG_PATH", g_tsg_para.log_path, sizeof(g_tsg_para.log_path), "tsglog/tsg_master");
 
-	g_tsg_para.logger=MESA_create_runtime_log_handle(log_path, level);
+	g_tsg_para.logger=MESA_create_runtime_log_handle(g_tsg_para.log_path, g_tsg_para.level);
 	if(g_tsg_para.logger==NULL)
 	{
 		printf("MESA_create_runtime_log_handle failed ...\n");
 		return -1;
 	}
+	
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;SIP;MAIL;STREAMING_MEDIA;QUIC;");
+	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_ID", &g_tsg_para.device_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
@@ -934,7 +1178,7 @@ extern "C" int TSG_MASTER_INIT()
 	}
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_INTERNAL_LABEL", label_buff, sizeof(label_buff), "TSG_MASTER_INTERNAL_LABEL");
-	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_internal_label);
+	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_label);
 	if(g_tsg_para.internal_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, 
@@ -989,12 +1233,24 @@ extern "C" int TSG_MASTER_INIT()
 
 	for(i=0; i<TSG_FS2_MAX; i++)
 	{
-		g_tsg_para.fs2_field_id[g_tsg_fs2_field[i].id]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_CURRENT, g_tsg_fs2_field[i].name);
+		g_tsg_para.fs2_field_id[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, g_tsg_fs2_field[i].name);
 	}
 
+	char buff[32]={0};
+	int thread_num=get_thread_count();
+	for(i=0; i<thread_num && g_tsg_log_instance!=NULL; i++)
+	{
+		snprintf(buff, sizeof(buff), "send_log_percent_%02d", i);
+		g_tsg_log_instance->fs_status_ids[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_STATUS, FS_CALC_CURRENT, buff);
+	}
 	
 	FS_start(g_tsg_para.fs2_handle);
 
+	for(i=0; i<thread_num; i++)
+	{
+		FS_operate(g_tsg_para.fs2_handle,g_tsg_log_instance ->fs_status_ids[i], 0, FS_OP_SET, g_tsg_log_instance->send_log_percent[i]);
+	}
+	
 	ret=tsg_statistic_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
 	{

@@ -4,6 +4,7 @@
 #include <MESA/Maat_rule.h>
 #include <MESA/field_stat2.h>
 #include "tsg_rule.h"
+#include "tsg_label.h"
 #include "tsg_statistic.h"
 
 #if(__GNUC__ * 100 + __GNUC_MINOR__ * 10 + __GNUC_PATCHLEVEL__ >= 411)
@@ -39,18 +40,23 @@ enum MASTER_TABLE{
 	TABLE_LOCATION_USER_DEFINED,
 	TABLE_LOCATION_BUILT_IN,
 	TABLE_QUIC_SNI,
+	TABLE_FQDN_CAT_ID,
+	TABLE_FQDN_CAT_USER_DEFINED,
+	TABLE_FQDN_CAT_BUILT_IN,
 	TABLE_MAX
 };
 
 
 enum TSG_FS2_TYPE{
-	TSG_FS2_LINKS=0,
+	TSG_FS2_TCP_LINKS=0,
+	TSG_FS2_UDP_LINKS,
 	TSG_FS2_BYPASS,
 	TSG_FS2_HIT_ADDR,
 	TSG_FS2_HIT_SHARE,
 	TSG_FS2_INTERCEPT,
-	TSG_FS2_LOG,
-	TSG_FS2_DENY,
+	TSG_FS2_SUCCESS_LOG,
+	TSG_FS2_FAILED_LOG,
+	TSG_FS2_DROP_LOG,
 	TSG_FS2_MAX
 };
 
@@ -61,45 +67,14 @@ struct _str2index
 	char *type;
 };
 
-struct _asn_info
+struct _fqdn_category_t
 {
-	int ref_cnt;
-	int addr_type;
-	char start_ip[40];
-	char end_ip[40];
-	char asn[40];
-	char organization[256];
-	int table_id;
+	int ref_cnt;	
+	unsigned int category_id;
+	int match_method;
+	char fqdn[MAX_DOAMIN_LEN/8];
 };
 
-struct _location_info
-{
-	int ref_cnt;
-	int addr_type;
-	char start_ip[40];
-	char end_ip[40];
-	double latitude;
-	double longitude;
-	double coords;
-	char language[40];
-	char continent_abbr[256];
-	char continent_full[256];
-	char country_abbr[256];
-	char country_full[256];
-	char province_abbr[256];
-	char province_full[256];
-	char city_full[256];
-	char time_zone[128];
-	int geoname_id;
-	int table_id;
-};
-
-struct _subscribe_id_info
-{
-	int ref_cnt;
-	int table_id;
-	char subscribe_id[256];
-};
 
 typedef	struct _policy_priority_label
 {
@@ -123,22 +98,25 @@ struct _master_context
 #define	_MAX_TABLE_NAME_LEN	64
 typedef	struct _tsg_para
 {
+	int level;
 	unsigned short timeout;
+	int app_id_table_type;
 	int device_id;	
 	int table_id[TABLE_MAX];
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
 	int internal_project_id;
+	int proto_flag; //tsg_protocol_t
 	int fs2_field_id[TSG_FS2_MAX];
 	char device_sn[MAX_DOAMIN_LEN/8];
+	char log_path[MAX_DOAMIN_LEN/8];
+	char data_center[_MAX_TABLE_NAME_LEN];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;
 	screen_stat_handle_t fs2_handle;
 }g_tsg_para_t;
 
 extern g_tsg_para_t g_tsg_para;
-
-
 
 typedef enum _tsg_statis_field_id
 {
@@ -177,6 +155,24 @@ typedef enum _tsg_statis_field_id
 	STATIS_INTERCEPT_OUT_BYTES,
 	STATIS_INTERCEPT_IN_PACKETS,
 	STATIS_INTERCEPT_OUT_PACKETS,
+	STATIS_IPV4_IN_BYTES,
+	STATIS_IPV4_OUT_BYTES,
+	STATIS_IPV4_IN_PACKETS,
+	STATIS_IPV4_OUT_PACKETS,
+	STATIS_IPV6_IN_BYTES,
+	STATIS_IPV6_OUT_BYTES,
+	STATIS_IPV6_IN_PACKETS,
+	STATIS_IPV6_OUT_PACKETS,
+	STATIS_TCP_NEW_CON_NUM,
+	STATIS_TCP_IN_BYTES,
+	STATIS_TCP_OUT_BYTES,
+	STATIS_TCP_IN_PACKETS,
+	STATIS_TCP_OUT_PACKETS,
+	STATIS_UDP_NEW_CON_NUM,
+	STATIS_UDP_IN_BYTES,
+	STATIS_UDP_OUT_BYTES,
+	STATIS_UDP_IN_PACKETS,
+	STATIS_UDP_OUT_PACKETS,
 	STATIS_ALERT_BYTES,
 	STATIS_BLOCK_BYTES,
 	STATIS_PINNING_NUM,
