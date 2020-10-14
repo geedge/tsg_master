@@ -167,7 +167,6 @@ static void eliminate_default_value(char *value)
 
 void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
-	void *logger=argp;
 	struct _asn_info_t *asn=(struct _asn_info_t *)(*from);
 
 	if(asn!=NULL)
@@ -181,7 +180,6 @@ void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *fr
 
 void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	void *logger=argp;
 	int ret=0,id=0,is_valid=0;
 
 	struct _asn_info_t *asn=NULL;
@@ -207,7 +205,6 @@ void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PL
 
 void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	void *logger=argp;
 	struct _asn_info_t *asn=(struct _asn_info_t *)(*ad);
 
 	if(asn!=NULL)
@@ -225,7 +222,6 @@ void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 
 void location_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
-	void *logger=argp;
 	struct _location_info_t *location=(struct _location_info_t *)(*from);
 
 	if(location!=NULL)
@@ -304,7 +300,6 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 
 void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	void *logger=argp;
 	struct _location_info_t *location=(struct _location_info_t *)(*ad);
 
 	if(location!=NULL)
@@ -323,7 +318,6 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 
 void fqdn_cat_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
-	void *logger=argp;
 	struct _fqdn_category_t *fqdn_cat=(struct _fqdn_category_t *)(*from);
 
 	if(fqdn_cat!=NULL)
@@ -374,7 +368,6 @@ void fqdn_cat_new_data(int table_id, const char* key, const char* table_line, MA
 
 void fqdn_cat_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	void *logger=argp;
 	struct _fqdn_category_t *fqdn_cat=(struct _fqdn_category_t *)(*ad);
 
 	if(fqdn_cat!=NULL)
@@ -393,7 +386,6 @@ void fqdn_cat_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 
 void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
-	void *logger=argp;
 	struct _subscribe_id_info_t *subscribe_id=(struct _subscribe_id_info_t *)(*from);
 
 	if(subscribe_id!=NULL)
@@ -442,7 +434,6 @@ void subscribe_id_new_data(int table_id, const char* key, const char* table_line
 
 void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	void *logger=argp;
 	struct _subscribe_id_info_t *subscribe_id=(struct _subscribe_id_info_t *)(*ad);
 
 	if(subscribe_id!=NULL)
