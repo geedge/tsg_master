@@ -441,6 +441,12 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 									&mid,
 									thread_seq);
 
+		if(mid!=NULL)
+		{
+			Maat_clean_status(&mid);
+			mid=NULL;
+		}
+
 		if(ret>0)
 		{	
 			MESA_handle_runtime_log(g_tsg_para.logger,
@@ -667,7 +673,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 		case	OP_STATE_PENDING:
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1);
 
-			internal_label=(struct _session_attribute_label_t *)dictator_malloc(1, sizeof(struct _session_attribute_label_t));
+			internal_label=(struct _session_attribute_label_t *)dictator_malloc(thread_seq, sizeof(struct _session_attribute_label_t));
 			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
 			
 			memset(&identify_info, 0, sizeof(identify_info));
@@ -927,7 +933,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 			memset(&identify_info, 0, sizeof(identify_info));
 			identify_application_protocol(a_udp, &identify_info, NULL, a_packet);
 
-			internal_label=(struct _session_attribute_label_t *)dictator_malloc(1, sizeof(struct _session_attribute_label_t));
+			internal_label=(struct _session_attribute_label_t *)dictator_malloc(thread_seq, sizeof(struct _session_attribute_label_t));
 			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
 			internal_label->proto=identify_info.proto;
 			

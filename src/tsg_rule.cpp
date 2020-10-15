@@ -147,11 +147,17 @@ static int get_data_center(char *accept_tag, char *data_center, int data_center_
 							len=strlen(v_item->valuestring);
 							memcpy(data_center, v_item->valuestring, (len>data_center_len-1 ? data_center_len-1 : len));
 						}
+
+						cJSON_Delete(object);
+						object=NULL;
 						return 1;
 					}
 				}
 			}
 		}
+
+		cJSON_Delete(object);
+		object=NULL;
 	}
 
 	return 0;
