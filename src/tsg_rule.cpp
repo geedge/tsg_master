@@ -124,7 +124,7 @@ static int proto_str2id(tsg_protocol_t proto)
 	return 0;
 }
 
-static int get_data_center(char *accept_tag, char *data_center, int data_center_len)
+static int get_data_center(char *accept_tag, char *effective_tag_key, char *data_center, int data_center_len)
 {
 	int i=0,len;
 	cJSON *object=cJSON_Parse(accept_tag);
@@ -139,7 +139,7 @@ static int get_data_center(char *accept_tag, char *data_center, int data_center_
 				if(item!=NULL)
 				{
 					cJSON *tag_item=cJSON_GetObjectItem(item, "tag");
-					if(tag_item!=NULL && tag_item->valuestring!=NULL && (memcmp("device_id", tag_item->valuestring, strlen("device_id")))==0)
+					if(tag_item!=NULL && tag_item->valuestring!=NULL && (memcmp(effective_tag_key, tag_item->valuestring, strlen(effective_tag_key)))==0)
 					{
 						cJSON *v_item=cJSON_GetObjectItem(item, "value");
 						if(v_item!=NULL && v_item->valuestring!=NULL)
@@ -462,6 +462,7 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 	int ret=0,scan_detail=0,effect_interval=60;
 	Maat_feather_t _maat_feather=NULL;
 	int factor=0, redis_port_num=0,redis_index=0;
+	char effective_tag_key[128]={0};
 	char effective_range_filename[1024]={0};
 	char redis_ip[16]={0}, effective_flag[1024]={0};
 	int maat_mode=0,maat_stat_on=0,maat_perf_on=0,thread_max=0;
@@ -483,7 +484,8 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 
 	if(strlen(g_tsg_para.data_center)==0 && strlen(effective_flag)>0)
 	{
-		get_data_center(effective_flag, g_tsg_para.data_center, sizeof(g_tsg_para.data_center));
+		MESA_load_profile_string_def(conffile, module, "EFFECTIVE_TAG_KEY", effective_tag_key, sizeof(effective_tag_key),"data_center");
+		get_data_center(effective_flag, effective_tag_key, g_tsg_para.data_center, sizeof(g_tsg_para.data_center));
 	}
 	
 	MESA_load_profile_int_def(conffile, module,"MAAT_MODE", &(maat_mode),0);
