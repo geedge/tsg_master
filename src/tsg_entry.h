@@ -101,7 +101,8 @@ typedef	struct _tsg_para
 	int level;
 	unsigned short timeout;
 	int app_id_table_type;
-	int device_id;	
+	int device_id;
+	int entrance_id;
 	int table_id[TABLE_MAX];
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
@@ -110,6 +111,7 @@ typedef	struct _tsg_para
 	int fs2_field_id[TSG_FS2_MAX];
 	char device_sn[MAX_DOAMIN_LEN/8];
 	char log_path[MAX_DOAMIN_LEN/8];
+	char device_id_command[MAX_DOAMIN_LEN/8];
 	char data_center[_MAX_TABLE_NAME_LEN];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;

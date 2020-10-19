@@ -111,6 +111,21 @@ static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
 	return flags;
 }
 
+static int get_device_id(char *command, int entrance_id)
+{
+	FILE *fp=NULL; 
+	char buffer[128]={0};
+
+	fp=popen(command, "r"); 
+	if(fp)
+	{
+		fgets(buffer,sizeof(buffer),fp); 
+    	pclose(fp);
+	}
+	
+	return (entrance_id<<7)+(atoi(buffer)%128);
+}
+
 static int tsg_proto_name2flag(char *proto_list, int *flag)
 {
 	int i=0;
@@ -1153,9 +1168,12 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;SIP;MAIL;STREAMING_MEDIA;QUIC;");
 	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);
 
-	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_ID", &g_tsg_para.device_id, 0);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "ENTRANCE_ID", &g_tsg_para.entrance_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
-	
+
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "DEVICE_ID_COMMAND", g_tsg_para.device_id_command, sizeof(g_tsg_para.device_id_command), NULL);
+	g_tsg_para.device_id=get_device_id(g_tsg_para.device_id_command, g_tsg_para.entrance_id);
+		
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "DEVICE_SN_FILENAME", device_sn_filename, sizeof(device_sn_filename), "/opt/tsg/etc/tsg_sn.json");
 	ret=tsg_get_sn(device_sn_filename, g_tsg_para.device_sn, sizeof(g_tsg_para.device_sn));
 	if(ret==0)
