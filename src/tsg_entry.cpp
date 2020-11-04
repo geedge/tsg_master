@@ -229,6 +229,15 @@ static char *schema_index2string(tsg_protocol_t proto)
 		case	PROTO_SSH:
 			schema_field_value=(char *)"SSH";
 			break;
+		case	PROTO_IMAP:
+			schema_field_value=(char *)"MAIL";
+			break;
+		case	PROTO_POP3:
+			schema_field_value=(char *)"MAIL";
+			break;
+		case	PROTO_SMTP:
+			schema_field_value=(char *)"MAIL";
+			break;
 		default:
 			break;
 	}
@@ -655,7 +664,7 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 			if(g_tsg_para.proto_flag&(1<<PROTO_QUIC))  //quic
 			{
 				ret=quic_protocol_identify(a_stream, a_packet, identify_info->domain, sizeof(identify_info->domain));
-				if(ret>0)
+				if(ret>=0)
 				{
 					identify_info->proto=PROTO_QUIC;
 					identify_info->domain_len=ret;
@@ -981,7 +990,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 
-			if(PROTO_QUIC==identify_info.proto)
+			if(PROTO_QUIC==identify_info.proto && identify_info.domain_len>0)
 			{
 				ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
 				if(ret>0)
