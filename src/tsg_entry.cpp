@@ -193,7 +193,7 @@ static int init_context(void **pme, tsg_protocol_t proto, struct Maat_rule_t *p_
 	return 0;
 }
 
-static char *schema_index2string(tsg_protocol_t proto)
+char *tsg_schema_index2string(tsg_protocol_t proto)
 {
 	char *schema_field_value=NULL;
 
@@ -258,7 +258,7 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	{
 		schema_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_SCHAME_TYPE);
 
-		schema_field_value=schema_index2string(identify_info->proto);
+		schema_field_value=tsg_schema_index2string(identify_info->proto);
 		if(schema_field_value!=NULL)
 		{
 			TLD_append(TLD_handle, schema_field_name, (void *)schema_field_value, TLD_TYPE_STRING);

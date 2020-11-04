@@ -70,6 +70,7 @@ typedef enum _tsg_log_field_id
 	LOG_QUIC_SNI,
 	LOG_SSL_JA3_FINGERPRINT,
 	LOG_COMMON_DATA_CENTER,
+	LOG_COMMON_L7_PROTOCOL,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 

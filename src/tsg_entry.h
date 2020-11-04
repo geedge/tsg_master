@@ -210,6 +210,7 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct _identify_info *i
 void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+char *tsg_schema_index2string(tsg_protocol_t proto);
 
 
 #endif
