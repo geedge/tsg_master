@@ -187,7 +187,7 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 
 int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
-	char buff[512]={0};
+	char buff[1024]={0};
 	char *l7_protocol=NULL;
 	struct _location_info_t *location=NULL;
 	struct _session_attribute_label_t *internal_label=NULL;
@@ -348,7 +348,9 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	}
 
 	stream_id=tsg_get_stream_id(a_stream);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_STREAM_TRACE_ID].name, (void *)(long)stream_id, TLD_TYPE_LONG);
+	char stream_id_buff[128]="";
+	snprintf(stream_id_buff, sizeof(stream_id_buff), "%llu", stream_id);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_STREAM_TRACE_ID].name, (void *)stream_id_buff, TLD_TYPE_STRING);
 	
 	addr_proto=(char *)layer_addr_prefix_ntop(a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_L4_PROTOCOL].name, (void *)addr_proto, TLD_TYPE_STRING);
