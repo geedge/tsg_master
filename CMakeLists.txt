@@ -41,10 +41,6 @@ SET(CPACK_RPM_LIBRARIES_PRE_UNINSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/cmake/P
 
 set(CPACK_RPM_LIBRARIES_USER_FILELIST "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/main.conf"
                            		 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/maat.conf"
-			 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/tsg_static_tableinfo.conf"
-			 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/tsg_dynamic_tableinfo.conf"
-			 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/tsg_log_field.conf"
-			 "%config(noreplace) ${CMAKE_INSTALL_PREFIX}/tsgconf/tsg_maat.json"
 )
 
 install(FILES bin/main.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
@@ -52,10 +48,13 @@ install(FILES bin/maat.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONEN
 install(FILES bin/tsg_static_tableinfo.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
 install(FILES bin/tsg_dynamic_tableinfo.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
 install(FILES bin/tsg_log_field.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
+install(FILES bin/app_l7_proto_id.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
 install(FILES bin/tsg_maat.json DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
+
 install(FILES inc/tsg_send_log.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
 install(FILES inc/tsg_rule.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
 install(FILES inc/tsg_statistic.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
 install(FILES inc/tsg_label.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
+install(FILES inc/app_label.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
 
 include(Package)

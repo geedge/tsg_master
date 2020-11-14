@@ -186,6 +186,9 @@ static int init_context(void **pme, tsg_protocol_t proto, struct Maat_rule_t *p_
 	*pme=dictator_malloc(thread_seq, sizeof(struct _master_context));
 	_context=(struct _master_context *)*pme;
 	_context->proto=proto;
+	_context->domain_len=0;
+	memset(_context->domain, 0, sizeof(_context->domain));
+	
 	_context->hit_cnt=1;
 	_context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
 	memcpy(_context->result, p_result, sizeof(struct Maat_rule_t));

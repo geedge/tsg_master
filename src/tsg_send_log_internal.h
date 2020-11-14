@@ -5,7 +5,8 @@
 #include <MESA/cJSON.h>
 #include <time.h>
 
-
+#define	MIN_L7_PROTO_ID	100
+#define	MAX_L7_PROTO_ID	150
 
 #define	MAX_IPV4_LEN	16
 #define	MAX_STRING_LEN	32
@@ -93,6 +94,7 @@ struct tsg_log_instance_t
 	int level;
 	int max_service;	
 	int recovery_interval;
+	int l7_proto_project_id;
 	int internal_project_id;
 	int tcp_flow_project_id;
 	int udp_flow_project_id;
@@ -102,15 +104,18 @@ struct tsg_log_instance_t
 	char log_path[MAX_STRING_LEN*2];
 	char tcp_label[MAX_STRING_LEN];
 	char udp_label[MAX_STRING_LEN];
+	char l7_proto_label[MAX_STRING_LEN];
 	char common_field_file[MAX_STRING_LEN*4];
 	char broker_list[MAX_STRING_LEN*4];
 	char send_queue_max_msg[MAX_STRING_LEN];
 	char require_ack[MAX_STRING_LEN];
 	char refresh_interval_ms[MAX_STRING_LEN];
 	char local_ip_str[MAX_IPV4_LEN];
+	char l7_proto_id_file[MAX_STRING_LEN*4];
 	id2field_t id2field[LOG_COMMON_MAX];
 	rd_kafka_topic_t **topic_rkt;
 	id2field_t *service2topic;	
+	id2field_t l7_proto_id2field[MAX_L7_PROTO_ID+1];
 	void *logger;
 };
 
