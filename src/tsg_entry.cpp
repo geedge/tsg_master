@@ -1157,6 +1157,7 @@ extern "C" int TSG_MASTER_INIT()
 {
 	int i=0,ret=0;
 	int value=0,cycle=0;
+	int output_prometheus=0;
 	unsigned short fs_server_port=0;
 	char app_name[MAX_STRING_LEN]={0};
 	char label_buff[MAX_STRING_LEN*4]={0};
@@ -1246,6 +1247,7 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_string_nodef(tsg_conffile,"FIELD_STAT","TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
 	MESA_load_profile_string_def(tsg_conffile,"FIELD_STAT","OUTPUT_PATH",fs_output_path, sizeof(fs_output_path), "tsg_stat.log");
 	MESA_load_profile_string_def(tsg_conffile,"FIELD_STAT","APP_NAME", app_name, sizeof(app_name), "tsg_master");
+	MESA_load_profile_int_def(tsg_conffile, "FIELD_STAT", "PROMETHEUS", &output_prometheus, 1);
 
 	g_tsg_para.fs2_handle=FS_create_handle();
 
@@ -1257,6 +1259,9 @@ extern "C" int TSG_MASTER_INIT()
     FS_set_para(g_tsg_para.fs2_handle, STAT_CYCLE, &cycle, sizeof(cycle));
     FS_set_para(g_tsg_para.fs2_handle, APP_NAME, app_name, strlen(app_name)+1);
 	FS_set_para(g_tsg_para.fs2_handle, OUTPUT_DEVICE, fs_output_path, strlen(fs_output_path)+1);
+
+	value=1;
+	FS_set_para(g_tsg_para.fs2_handle, OUTPUT_PROMETHEUS, &output_prometheus, sizeof(output_prometheus));
 
     if(fs_server_port > 0 && strlen(fs_server_ip) > 0)
     {

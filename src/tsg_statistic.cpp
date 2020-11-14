@@ -342,6 +342,7 @@ static void *tsg_statistic_thread(void *arg)
 
 int tsg_statistic_init(const char *conffile, void *logger)
 {
+	int output_prometheus=0;
 	int i=0,value=0,thread_num=0;
 	unsigned short fs_server_port=0;
 	char app_name[MAX_STRING_LEN]={0};
@@ -367,7 +368,8 @@ int tsg_statistic_init(const char *conffile, void *logger)
 	MESA_load_profile_string_nodef(conffile,"STATISTIC", "TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
 	MESA_load_profile_string_def(conffile,"STATISTIC", "OUTPUT_PATH",fs_output_path, sizeof(fs_output_path), "statistic.log");
 	MESA_load_profile_string_def(conffile,"STATISTIC", "APP_NAME", app_name, sizeof(app_name), "statistic");
-	
+	MESA_load_profile_int_def(conffile, "STATISTIC", "PROMETHEUS", &output_prometheus, 1);
+
 	g_tsg_statis_para.fs2_handle=FS_create_handle();
 
 	value=1;//Rewrite
@@ -378,6 +380,9 @@ int tsg_statistic_init(const char *conffile, void *logger)
 	FS_set_para(g_tsg_statis_para.fs2_handle, STAT_CYCLE, &g_tsg_statis_para.cycle, sizeof(g_tsg_statis_para.cycle));
     FS_set_para(g_tsg_statis_para.fs2_handle, APP_NAME, app_name, strlen(app_name)+1);
 	FS_set_para(g_tsg_statis_para.fs2_handle, OUTPUT_DEVICE, fs_output_path, strlen(fs_output_path)+1);
+
+	value=1;
+	FS_set_para(g_tsg_statis_para.fs2_handle, OUTPUT_PROMETHEUS, &output_prometheus, sizeof(output_prometheus));
 
     if(fs_server_port > 0 && strlen(fs_server_ip) > 0)
     {
