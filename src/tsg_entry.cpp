@@ -233,13 +233,13 @@ char *tsg_schema_index2string(tsg_protocol_t proto)
 			schema_field_value=(char *)"SSH";
 			break;
 		case	PROTO_IMAP:
-			schema_field_value=(char *)"MAIL";
+			schema_field_value=(char *)"IMAP";
 			break;
 		case	PROTO_POP3:
-			schema_field_value=(char *)"MAIL";
+			schema_field_value=(char *)"POP3";
 			break;
 		case	PROTO_SMTP:
-			schema_field_value=(char *)"MAIL";
+			schema_field_value=(char *)"SMTP";
 			break;
 		default:
 			break;
@@ -261,7 +261,15 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	{
 		schema_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_SCHAME_TYPE);
 
-		schema_field_value=tsg_schema_index2string(identify_info->proto);
+		if(identify_info->proto==PROTO_IMAP || identify_info->proto==PROTO_SMTP || identify_info->proto==PROTO_POP3)
+		{
+			schema_field_value=tsg_schema_index2string(PROTO_MAIL);
+		}
+		else
+		{
+			schema_field_value=tsg_schema_index2string(identify_info->proto);
+		}
+		
 		if(schema_field_value!=NULL)
 		{
 			TLD_append(TLD_handle, schema_field_name, (void *)schema_field_value, TLD_TYPE_STRING);

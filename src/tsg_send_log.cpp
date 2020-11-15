@@ -139,6 +139,24 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	return _handle;
 }
 
+static int set_l7_protocol(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{	
+	char *l7_protocol=NULL;
+	struct _basic_proto_label *l7_proto_label=NULL;
+	
+	l7_proto_label=(struct _basic_proto_label *)project_req_get_struct(a_stream, _instance->l7_proto_project_id);
+	if(l7_proto_label!=NULL && l7_proto_label->proto_id!=_instance->mail_proto_id)
+	{
+		l7_protocol=tsg_l7_protocol_id2name(_instance, l7_proto_label->proto_id);
+		if(l7_protocol!=NULL)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)l7_protocol, TLD_TYPE_STRING);
+			return 1;
+		}
+	}
+
+	return 0;
+}
 
 char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t id)
 {
@@ -201,24 +219,17 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	char buff[1024]={0};
+	int l7_protocol_flag=0;
 	char *l7_protocol=NULL;
-	struct _basic_proto_label *l7_proto_label=NULL;
 	struct _location_info_t *location=NULL;
 	struct _session_attribute_label_t *internal_label=NULL;
 
+	l7_protocol_flag=set_l7_protocol(_instance, _handle, a_stream);
+
 	internal_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, _instance->internal_project_id);
 	if(internal_label!=NULL)
-	{		
-		l7_proto_label=(struct _basic_proto_label *)project_req_get_struct(a_stream, _instance->l7_proto_project_id);
-		if(l7_proto_label!=NULL)
-		{
-			l7_protocol=tsg_l7_protocol_id2name(_instance, l7_proto_label->proto_id);
-			if(l7_protocol!=NULL)
-			{
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)l7_protocol, TLD_TYPE_STRING);
-			}
-		}
-		else
+	{	
+		if(l7_protocol_flag==0)
 		{
 			l7_protocol=tsg_schema_index2string(internal_label->proto);
 			if(l7_protocol!=NULL)
@@ -266,7 +277,10 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 	}
 	else
 	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)"UNCATEGORIZED", TLD_TYPE_STRING);
+		if(l7_protocol_flag==0)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)"UNCATEGORIZED", TLD_TYPE_STRING);
+		}
 	}
 
 	return 0;
@@ -555,6 +569,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(_instance->level), 30);	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", _instance->log_path, sizeof(_instance->log_path), "./tsglog/tsglog");
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "MAIL_PROTOCOL_ID",&(_instance->mail_proto_id), 110);	
 
 	_instance->logger=MESA_create_runtime_log_handle(_instance->log_path, _instance->level);
 	if(_instance->logger==NULL)
