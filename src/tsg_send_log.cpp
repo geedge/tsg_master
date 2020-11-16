@@ -34,6 +34,30 @@ const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"
 
 extern "C" int MESA_get_dev_ipv4(const char *device, int *ip_add);
 
+static int action2fs_id(int action)
+{
+	switch(action)
+	{
+		case	TSG_ACTION_DENY:
+			return TSG_FS2_ABORT_DENY; 
+			break;
+		case	TSG_ACTION_BYPASS:
+			return TSG_FS2_ABORT_ALLOW;
+			break;
+		case	TSG_ACTION_MONITOR:
+			return TSG_FS2_ABORT_MONITOR;
+			break;
+		case	TSG_ACTION_INTERCEPT:
+			return TSG_FS2_ABORT_INTERCEPT;
+			break;
+		default:
+			return TSG_FS2_ABORT_UNKNOWN;
+			break;
+	}
+
+	return TSG_FS2_ABORT_UNKNOWN;
+}
+
 int is_multi_hit_same_policy(struct Maat_rule_t *result, int *policy_id, int *policy_id_num)
 {
 	return 0;
@@ -692,6 +716,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 
 int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, tsg_log_t *log_msg, int thread_id)
 {
+	int fs_id=0;
 	int i=0,status=0;
 	char *payload=NULL;
 	int repeat_cnt=0;
@@ -766,7 +791,9 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 											log_msg->result[i].service_id,
 											(_instance->level<RLOG_LV_FATAL ? (log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id)) : "")
 										);
-				
+
+				fs_id=action2fs_id((int)log_msg->result[i].action);
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[fs_id], 0, FS_OP_ADD, 1);
 				continue;
 				break;
 			case	LOG_ALL:

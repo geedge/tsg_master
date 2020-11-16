@@ -90,6 +90,8 @@ int tsg_set_policy_flow(struct streaminfo *a_stream, Maat_rule_t *p_result, int 
 
 static int _get_traffic_info(struct _traffic_info *total, struct _traffic_info *policy, struct _traffic_info *out)
 {
+	struct _traffic_info *acc=NULL;
+	
 	if(total!=NULL && policy!=NULL && out!=NULL)
 	{
 		out->con_num=total->con_num-policy->con_num;
@@ -98,18 +100,13 @@ static int _get_traffic_info(struct _traffic_info *total, struct _traffic_info *
 		out->out_bytes=total->out_bytes-policy->out_bytes;
 		out->out_packets=total->out_packets-policy->out_packets;
 
-		if(out->con_num-g_tsg_statis_para.default_total_info.con_num<0 
-			|| out->in_bytes-g_tsg_statis_para.default_total_info.in_bytes<0
-			|| out->in_packets-g_tsg_statis_para.default_total_info.in_packets<0
-			|| out->out_bytes-g_tsg_statis_para.default_total_info.out_bytes<0
-			|| out->out_packets-g_tsg_statis_para.default_total_info.out_packets<0)
-		{
-			memcpy(out, &g_tsg_statis_para.default_total_info, sizeof(struct _traffic_info));
-		}
-		else
-		{
-			memcpy(&g_tsg_statis_para.default_total_info, out, sizeof(struct _traffic_info));
-		}	
+		acc=&g_tsg_statis_para.default_total_info;
+
+		acc->con_num=(out->con_num-acc->con_num)>0 ? out->con_num : acc->con_num;
+		acc->in_bytes=(out->in_bytes-acc->in_bytes)>0 ? out->in_bytes: acc->in_bytes;
+		acc->in_packets=(out->in_packets-acc->in_packets)>0 ? out->in_packets: acc->in_packets;
+		acc->out_bytes=(out->out_bytes-acc->out_bytes)>0 ? out->out_bytes: acc->out_bytes;
+		acc->out_packets=(out->out_packets-acc->out_packets)>0 ? out->out_packets: acc->out_packets;
 	}
 	
 	return 0;

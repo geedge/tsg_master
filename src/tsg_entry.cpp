@@ -56,7 +56,12 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_TCP_LINKS, "
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_INTERCEPT, "intercept"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_SUCCESS_LOG, "success_log"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_FAILED_LOG, "failed_log"},
-										 {TLD_TYPE_UNKNOWN, TSG_FS2_DROP_LOG, "drop_log"}
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_DROP_LOG, "drop_log"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_ABORT_ALLOW, "abort_allow"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_ABORT_DENY, "abort_deny"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_ABORT_MONITOR, "abort_monitor"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_ABORT_INTERCEPT, "abort_intercept"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_ABORT_UNKNOWN, "abort_unknown"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{TLD_TYPE_UNKNOWN, PROTO_UNKONWN, "unknown"}, 
