@@ -70,7 +70,7 @@ int tsg_set_policy_flow(struct streaminfo *a_stream, Maat_rule_t *p_result, int 
 	traffic_info->con_num++;
 
 	value=0;
-	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_BYTE, (void *)&value, &value_len);
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_BYTE_RAW, (void *)&value, &value_len);
 	traffic_info->in_bytes+=value;
 
 	value=0;
@@ -78,7 +78,7 @@ int tsg_set_policy_flow(struct streaminfo *a_stream, Maat_rule_t *p_result, int 
 	traffic_info->in_packets+=value;
 
 	value=0;
-	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_BYTE, (void *)&value, &value_len);	
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_BYTE_RAW, (void *)&value, &value_len);	
 	traffic_info->out_bytes+=value;
 	
 	value=0;
@@ -102,11 +102,13 @@ static int _get_traffic_info(struct _traffic_info *total, struct _traffic_info *
 
 		acc=&g_tsg_statis_para.default_total_info;
 
-		acc->con_num=(out->con_num-acc->con_num)>0 ? out->con_num : acc->con_num;
-		acc->in_bytes=(out->in_bytes-acc->in_bytes)>0 ? out->in_bytes: acc->in_bytes;
-		acc->in_packets=(out->in_packets-acc->in_packets)>0 ? out->in_packets: acc->in_packets;
-		acc->out_bytes=(out->out_bytes-acc->out_bytes)>0 ? out->out_bytes: acc->out_bytes;
-		acc->out_packets=(out->out_packets-acc->out_packets)>0 ? out->out_packets: acc->out_packets;
+		out->con_num=(out->con_num-acc->con_num)>0 ? out->con_num : acc->con_num;
+		out->in_bytes=(out->in_bytes-acc->in_bytes)>0 ? out->in_bytes: acc->in_bytes;
+		out->in_packets=(out->in_packets-acc->in_packets)>0 ? out->in_packets: acc->in_packets;
+		out->out_bytes=(out->out_bytes-acc->out_bytes)>0 ? out->out_bytes: acc->out_bytes;
+		out->out_packets=(out->out_packets-acc->out_packets)>0 ? out->out_packets: acc->out_packets;
+
+		memcpy(acc, out, sizeof(struct _traffic_info));
 	}
 	
 	return 0;
