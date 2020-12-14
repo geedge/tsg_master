@@ -708,6 +708,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	policy_priority_label_t *priority_label=NULL;	
 	struct _master_context *_context=(struct _master_context *)*pme;
 	struct _session_attribute_label_t *internal_label=NULL;
+	unsigned long long create_time=0;
+	int size=sizeof(create_time);
 	switch(a_tcp->opstate)
 	{
 		case	OP_STATE_PENDING:
@@ -720,12 +722,13 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			identify_application_protocol(a_tcp, &identify_info, internal_label, a_packet);
 			internal_label->proto=identify_info.proto;
 
-			if(identify_info.proto==PROTO_HTTP)
+			ret=MESA_get_stream_opt(a_tcp, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time, &size);
+			if(ret>=0)
 			{
 				clock_gettime(CLOCK_REALTIME, &tv);
-				internal_label->establish_latency_ms=(tv.tv_sec-a_tcp->ptcpdetail->createtime)*1000+tv.tv_nsec/1000/1000;
+				internal_label->establish_latency_ms=tv.tv_sec*1000+tv.tv_nsec/1000/1000 - create_time;
 			}
-			
+
 			ret=project_req_add_struct(a_tcp, g_tsg_para.internal_project_id, (const void *)internal_label);
 			if(ret<0)
 			{

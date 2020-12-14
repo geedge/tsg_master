@@ -317,8 +317,10 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	unsigned short tunnel_type=0;
 	char nest_addr_buf[1024];
 	char *addr_proto=NULL;
-	time_t cur_time;
+	struct timespec tv;
+	int size=sizeof(unsigned long long);
 	long common_con_duration_ms=0;
+	unsigned long long create_time=0;
 	unsigned long long stream_id=0;
 	unsigned short c_port=0, s_port=0;
 	int tunnel_type_size=sizeof(tunnel_type);
@@ -407,13 +409,22 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);
+
+		ret=MESA_get_stream_opt(a_stream, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time, &size);
+		if(ret>=0)
+		{
+			clock_gettime(CLOCK_REALTIME, &tv);
+			common_con_duration_ms=tv.tv_sec*1000+tv.tv_nsec/1000/1000 - create_time;
+		}
 		
-		common_con_duration_ms=(a_stream->ptcpdetail->lastmtime-a_stream->ptcpdetail->createtime)*1000;
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+		if(common_con_duration_ms>0)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+		}
 	}
 	else
 	{
-		cur_time=time(NULL);
+		time_t cur_time=time(NULL);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);		
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);

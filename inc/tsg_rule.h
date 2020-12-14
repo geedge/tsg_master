@@ -24,9 +24,6 @@ enum TSG_ETHOD_TYPE
 	TSG_METHOD_TYPE_MAX
 };
 
-#define	MAX_RESULT_NUM	8
-#define	MAX_DOAMIN_LEN	2048
-
 struct _identify_info
 {
 	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)

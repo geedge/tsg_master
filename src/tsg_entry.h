@@ -80,17 +80,6 @@ struct _fqdn_category_t
 	char fqdn[MAX_DOAMIN_LEN/8];
 };
 
-
-typedef	struct _policy_priority_label
-{
-	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
-	int domain_len;
-	int result_type;	//enum _PULL_RESULT_TYPE (tsg_rule.h)
-	int result_num;
-	char domain[MAX_DOAMIN_LEN];
-	Maat_rule_t result[MAX_RESULT_NUM];
-}policy_priority_label_t;
-
 struct _master_context
 {
 	tsg_protocol_t proto;
