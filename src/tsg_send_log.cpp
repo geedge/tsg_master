@@ -605,6 +605,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(_instance->level), 30);	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", _instance->log_path, sizeof(_instance->log_path), "./tsglog/tsglog");
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "MAIL_PROTOCOL_ID",&(_instance->mail_proto_id), 110);	
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_USER_AGENT",&(_instance->send_user_agent), 0);	
 
 	_instance->logger=MESA_create_runtime_log_handle(_instance->log_path, _instance->level);
 	if(_instance->logger==NULL)
@@ -727,9 +728,10 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 
 int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, tsg_log_t *log_msg, int thread_id)
 {
-	int fs_id=0;
+	int ret=0,fs_id=0;
 	int i=0,status=0;
 	char *payload=NULL;
+	char *user_agent=NULL;
 	int repeat_cnt=0;
 	struct timespec cur_time;
 	int policy_id[MAX_RESULT_NUM]={0};
@@ -818,6 +820,20 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(log_msg->result[i].config_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
+
+		if(_instance->send_user_agent==1 && log_msg->result[i].action!=TSG_ACTION_NONE && log_msg->result[i].serv_def_len>0)
+		{
+			user_agent=(char *)dictator_malloc(thread_id, log_msg->result[i].serv_def_len+1);
+			ret=Maat_read_rule(g_tsg_maat_feather, &(log_msg->result[i]), MAAT_RULE_SERV_DEFINE, user_agent, log_msg->result[i].serv_def_len+1);
+			if(ret==log_msg->result[i].serv_def_len)
+			{
+				user_agent[log_msg->result[i].serv_def_len]='\0';
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)user_agent, TLD_TYPE_STRING);
+			}
+
+			dictator_free(thread_id, user_agent);
+			user_agent=NULL;
+		}
 		
 		if(log_msg->result[i].action==TSG_ACTION_DENY)
 		{
@@ -868,6 +884,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name);
 	}
 

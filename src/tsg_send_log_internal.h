@@ -93,7 +93,8 @@ struct tsg_log_instance_t
 	int mode;
 	int level;
 	int mail_proto_id;
-	int max_service;	
+	int max_service;
+	int send_user_agent;
 	int recovery_interval;
 	int l7_proto_project_id;
 	int internal_project_id;
