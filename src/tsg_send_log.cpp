@@ -318,6 +318,7 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	char nest_addr_buf[1024];
 	char *addr_proto=NULL;
 	struct timespec tv;
+	unsigned int client_isn=0,server_isn=0;
 	int size=sizeof(unsigned long long);
 	long common_con_duration_ms=0;
 	unsigned long long create_time=0;
@@ -482,7 +483,21 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	}
 	
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);
-	
+
+	size=sizeof(unsigned int);
+	ret=MESA_get_stream_opt(a_stream, MSO_TCP_ISN_C2S, &client_isn, &size);
+	if(ret==0)
+	{		
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_TCP_CLIENT_ISN].name, (void *)(long)client_isn, TLD_TYPE_LONG);
+	}
+
+	size=sizeof(unsigned int);
+	ret=MESA_get_stream_opt(a_stream, MSO_TCP_ISN_S2C, &server_isn, &size);
+	if(ret==0)
+	{		
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_TCP_SERVER_ISN].name, (void *)(long)server_isn, TLD_TYPE_LONG);
+	}
+
 	return 0;
 }
 
