@@ -78,7 +78,11 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{TLD_TYPE_UNKNOWN, PROTO_UNKONWN, "un
 										 {TLD_TYPE_UNKNOWN, PROTO_BGP, "BGP"},
 										 {TLD_TYPE_UNKNOWN, PROTO_STREAMING_MEDIA, "STREAMING_MEDIA"},
 										 {TLD_TYPE_UNKNOWN, PROTO_QUIC, "QUIC"},
-										 {TLD_TYPE_UNKNOWN, PROTO_SSH, "SSH"}
+										 {TLD_TYPE_UNKNOWN, PROTO_SSH, "SSH"},
+										 {TLD_TYPE_UNKNOWN, PROTO_SMTP, "SMTP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_IMAP, "IMAP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_POP3, "POP3"},
+										 {TLD_TYPE_UNKNOWN, PROTO_RTP, "RTP"}
 										};
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
@@ -245,6 +249,9 @@ char *tsg_schema_index2string(tsg_protocol_t proto)
 			break;
 		case	PROTO_SMTP:
 			schema_field_value=(char *)"SMTP";
+			break;
+		case	PROTO_RTP:
+			schema_field_value=(char *)"RTP";
 			break;
 		default:
 			break;

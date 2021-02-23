@@ -56,6 +56,7 @@ const struct _str2index g_tsg_proto_string[PROTO_MAX+1]={{PROTO_UNKONWN, 0, (cha
 										 {PROTO_SMTP, 5, (char *)"MAIL."},
 										 {PROTO_IMAP, 5, (char *)"MAIL."},
 										 {PROTO_POP3, 5, (char *)"MAIL."},
+										 {PROTO_RTP, 4, (char *)"RTP."},
 										 {PROTO_MAX, 0, (char *)""}
 };
 
@@ -113,6 +114,7 @@ static int proto_str2id(tsg_protocol_t proto)
 		case	PROTO_SIP: return 120;
 		case	PROTO_QUIC: return 119;
 		case	PROTO_SSH: return 125;
+		case	PROTO_RTP: return 142;
 		case	PROTO_IPv6:
 		case	PROTO_IPv4:	
 		case	PROTO_STREAMING_MEDIA:
