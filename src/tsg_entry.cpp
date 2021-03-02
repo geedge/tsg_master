@@ -1213,6 +1213,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	if((a_tcp->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
 		close_stream_free_context(a_tcp, context, thread_seq);
+		*pme=NULL;
 	}
 
 	return state;
@@ -1316,6 +1317,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 	if((a_udp->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
 		close_stream_free_context(a_udp, context, thread_seq);
+		*pme=NULL;
 	}
 	return state;
 }
