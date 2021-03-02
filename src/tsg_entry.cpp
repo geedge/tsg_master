@@ -14,6 +14,7 @@
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "app_label.h"
 #include "tsg_rule.h"
 #include "tsg_entry.h"
 #include "tsg_send_log.h"
@@ -82,10 +83,28 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{TLD_TYPE_UNKNOWN, PROTO_UNKONWN, "un
 										 {TLD_TYPE_UNKNOWN, PROTO_SMTP, "SMTP"},
 										 {TLD_TYPE_UNKNOWN, PROTO_IMAP, "IMAP"},
 										 {TLD_TYPE_UNKNOWN, PROTO_POP3, "POP3"},
-										 {TLD_TYPE_UNKNOWN, PROTO_RTP, "RTP"}
+										 {TLD_TYPE_UNKNOWN, PROTO_RTP, "RTP"},
+										 {TLD_TYPE_UNKNOWN, PROTO_APP, "APP"}
 										};
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
+
+
+static int init_context(void **pme, int thread_seq)
+{	
+	struct master_context *context=(struct master_context *)*pme;
+
+	*pme=dictator_malloc(thread_seq, sizeof(struct master_context));
+	memset(*pme, 0, sizeof(struct master_context));
+	context=(struct master_context *)*pme;
+	context->domain_len=0;
+	memset(context->domain, 0, sizeof(context->domain));
+	
+	context->continue_scan_app_id=APP_SCAN_FLAG_CONTINUE;
+	context->continue_scan_proto_id=APP_SCAN_FLAG_CONTINUE;
+
+	return 0;
+}
 
 static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
 {
@@ -135,132 +154,88 @@ static int get_device_id(char *command, int entrance_id)
 	return (entrance_id<<7)+(atoi(buffer)%128);
 }
 
-static int tsg_proto_name2flag(char *proto_list, int *flag)
+static int is_repetitive_app_id(unsigned short proto_id)
 {
-	int i=0;
-	char *s=NULL,*e=NULL;
-
-	s=proto_list;
-	while(s)
+	switch(proto_id)
 	{
-		e=index(s, ';');
-		if(!e)
-		{
-			break;
-		}
-
-		for(i=0; i< PROTO_MAX; i++)
-		{
-			if((memcmp(s, g_tsg_proto_name2id[i].name, e-s))==0)
-			{
-				*flag|=(1<<g_tsg_proto_name2id[i].id);
-				break;
-			}
-		}
-		
-		s=e+1;	
-	}
-
-	return 0;
-}
-
-static void free_policy_label(int thread_seq, void *project_req_value)
-{
-	dictator_free(thread_seq, project_req_value);
-	project_req_value=NULL;
-}
-
-static void free_context(void **pme, int thread_seq)
-{
-	struct _master_context *_context=(struct _master_context *)*pme;
-
-	if(_context!=NULL)
-	{
-		if(_context->result!=NULL)
-		{
-			dictator_free(thread_seq, (void *)_context->result);
-			_context->result=NULL;
-		}
-
-		dictator_free(thread_seq, (void *)_context);
-		_context=NULL;
-		*pme=NULL;
-	}
-}
-
-static int init_context(void **pme, tsg_protocol_t proto, struct Maat_rule_t *p_result, int thread_seq)
-{	
-	struct _master_context *_context=(struct _master_context *)*pme;
-
-	*pme=dictator_malloc(thread_seq, sizeof(struct _master_context));
-	_context=(struct _master_context *)*pme;
-	_context->proto=proto;
-	_context->domain_len=0;
-	memset(_context->domain, 0, sizeof(_context->domain));
-	
-	_context->hit_cnt=1;
-	_context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
-	memcpy(_context->result, p_result, sizeof(struct Maat_rule_t));
-
-	return 0;
-}
-
-char *tsg_schema_index2string(tsg_protocol_t proto)
-{
-	char *schema_field_value=NULL;
-
-	switch(proto)
-	{
-		case	PROTO_HTTP:
-			schema_field_value=(char *)"HTTP";
-			break;
-		case	PROTO_SSL:
-			schema_field_value=(char *)"SSL";
-			break;
-		case	PROTO_DNS:
-			schema_field_value=(char *)"DNS";
-			break;
-		case	PROTO_FTP:
-			schema_field_value=(char *)"FTP";
-			break;
-		case	PROTO_BGP:
-			schema_field_value=(char *)"BGP";
-			break;
-		case	PROTO_SIP:
-			schema_field_value=(char *)"SIP";
-			break;
-		case	PROTO_MAIL:
-			schema_field_value=(char *)"MAIL";
-			break;
-		case	PROTO_STREAMING_MEDIA:
-			schema_field_value=(char *)"STREAMING_MEDIA";
-			break;
-		case	PROTO_QUIC:
-			schema_field_value=(char *)"QUIC";
-			break;
-		case	PROTO_SSH:
-			schema_field_value=(char *)"SSH";
-			break;
-		case	PROTO_IMAP:
-			schema_field_value=(char *)"IMAP";
-			break;
-		case	PROTO_POP3:
-			schema_field_value=(char *)"POP3";
-			break;
-		case	PROTO_SMTP:
-			schema_field_value=(char *)"SMTP";
-			break;
-		case	PROTO_RTP:
-			schema_field_value=(char *)"RTP";
-			break;
+		case	DNS_PROTO_ID:
+		case	FTP_PROTO_ID:
+		case	HTTP_PROTO_ID:
+		case	MAIL_PROTO_ID:
+		case	QUIC_PROTO_ID:
+		case	SIP_PROTO_ID:
+		case	SSL_PROTO_ID:
+		case	RTP_PROTO_ID:
+			return 1;
 		default:
 			break;
 	}
 
-	return schema_field_value;
+	return 0;
 }
 
-static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_result, int result_num, struct _identify_info *identify_info, int thread_seq)
+static struct app_id_label *get_app_id_label(struct streaminfo *a_stream, struct master_context *context, int thread_seq)
+{
+	struct app_id_label *app_id_label=NULL;
+	
+	if(context->continue_scan_app_id==APP_SCAN_FLAG_CONTINUE && g_tsg_para.app_id_project_id>=0)
+	{	
+		app_id_label=(struct app_id_label *)project_req_get_struct(a_stream, g_tsg_para.app_id_project_id);
+		if(app_id_label==NULL)
+		{
+			return NULL;
+		}
+
+		if(context->app_id!=app_id_label->app_id)
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger, 
+									RLOG_LV_DEBUG,
+									"READ_APP_ID_FLAG",
+									"Get %s app id label, app_id: %d addr: %s",
+									context->uuid_str,
+									app_id_label->app_id,
+									printaddr(&a_stream->addr, thread_seq)
+								);
+			context->app_id=app_id_label->app_id;
+			return app_id_label;
+		}
+
+		
+	}
+	
+	return NULL;
+}
+
+static int get_basic_proto_id(struct streaminfo *a_stream, struct master_context *context, int thread_seq)
+{
+	struct basic_proto_label *proto_label=NULL;
+
+	if(context->continue_scan_proto_id==APP_SCAN_FLAG_CONTINUE && g_tsg_para.l7_proto_project_id>=0)
+	{
+		proto_label=(struct basic_proto_label *)project_req_get_struct(a_stream, g_tsg_para.l7_proto_project_id);
+		if(proto_label!=NULL && proto_label->proto_id!=context->basic_proto_id)
+		{
+			if(proto_label->continue_scan_flag==APP_SCAN_FLAG_STOP)
+			{
+				context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
+			}
+
+			if(is_repetitive_app_id(proto_label->proto_id))
+			{
+				context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
+			}
+			else
+			{
+				context->basic_proto_id=proto_label->proto_id;
+				return context->basic_proto_id;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_result, int result_num, struct identify_info *identify_info, int thread_seq)
 {
 	tsg_log_t log_msg;	
 	char *domain_field_name=NULL;
@@ -319,6 +294,382 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	return 1;
 }
 
+
+static int tsg_proto_name2flag(char *proto_list, int *flag)
+{
+	int i=0;
+	char *s=NULL,*e=NULL;
+
+	s=proto_list;
+	while(s)
+	{
+		e=index(s, ';');
+		if(!e)
+		{
+			break;
+		}
+
+		for(i=0; i< PROTO_MAX; i++)
+		{
+			if((memcmp(s, g_tsg_proto_name2id[i].name, e-s))==0)
+			{
+				*flag|=(1<<g_tsg_proto_name2id[i].id);
+				break;
+			}
+		}
+		
+		s=e+1;	
+	}
+
+	return 0;
+}
+
+int get_depolyment_mode(void)
+{
+	int ret=0, len=0;
+	char buff[32]={0};
+
+	len=sizeof(buff);
+	ret=sapp_get_platform_opt(SPO_DEPLOYMENT_MODE_STR, buff, &len);
+	if(ret>=0)
+	{
+		if((memcmp(buff, "mirror", strlen(buff)))==0)
+		{
+			g_tsg_para.depolyment_mode=0;
+		}
+		else
+		{
+			g_tsg_para.depolyment_mode=1;
+		}
+	}
+
+	return 0;
+}
+
+void free_app_id_label(int thread_seq, void *project_req_value)
+{
+	if(project_req_value!=NULL)
+	{
+		dictator_free(thread_seq, project_req_value);
+	}
+}
+
+static void free_policy_label(int thread_seq, void *project_req_value)
+{
+	dictator_free(thread_seq, project_req_value);
+	project_req_value=NULL;
+}
+
+static void copy_identify_info(struct master_context *context, struct identify_info *identify_info, int thread_seq)
+{
+	if(identify_info->proto>PROTO_UNKONWN && identify_info->proto<PROTO_MAX && identify_info->domain_len>0 && strlen(identify_info->domain)>0)
+	{
+		memcpy(context->domain, identify_info->domain, identify_info->domain_len);
+		context->domain_len=identify_info->domain_len;
+	}
+}
+
+static void copy_monitor_result(struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int result_num, int thread_seq)
+{
+	int i=0;
+	
+	if(context->result==NULL)
+	{
+		context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t)*MAX_RESULT_NUM);
+
+		for(i=0; i<result_num && p_result[i].action!=TSG_ACTION_INTERCEPT && context->hit_cnt<MAX_RESULT_NUM; i++) // SSL Decryption Exclusion
+		{
+			memcpy(context->result+context->hit_cnt, &p_result[i], sizeof(struct Maat_rule_t));
+			context->hit_cnt+=1;
+		}
+	}
+	else
+	{
+		if(context->result[0].action==TSG_ACTION_MONITOR)
+		{
+			for(i=0; i<result_num && p_result[i].action!=TSG_ACTION_INTERCEPT && context->hit_cnt<MAX_RESULT_NUM; i++) // SSL Decryption Exclusion
+			{
+				memcpy(context->result+context->hit_cnt, &p_result[i], sizeof(struct Maat_rule_t));
+				context->hit_cnt+=1;
+			}
+		}
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger,
+								RLOG_LV_DEBUG,
+								"MONITOR",
+								"Hit monitor policy, policy_id: %d service: %d action: %d addr: %s",
+								p_result[0].config_id,
+								p_result[0].service_id,
+								(unsigned char)p_result[0].action,
+								printaddr(&a_stream->addr, thread_seq)
+							);
+
+}
+
+static void copy_intercept_result(struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, struct identify_info *identify_info, int thread_seq)
+{
+	int ret=0;
+	policy_priority_label_t *priority_label=NULL;	
+
+	priority_label=(policy_priority_label_t *)dictator_malloc(thread_seq, sizeof(policy_priority_label_t));
+	
+	priority_label->result_num=1;
+	priority_label->result_type=PULL_KNI_RESULT;
+	priority_label->proto=identify_info->proto;
+	priority_label->domain_len=identify_info->domain_len;
+	memcpy(priority_label->domain, identify_info->domain, identify_info->domain_len);
+	memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
+	
+	ret=project_req_add_struct(a_stream, g_tsg_para.priority_project_id, (void *)priority_label);
+	if(ret<0)
+	{
+		free_policy_label(thread_seq, (void *)priority_label);
+		MESA_handle_runtime_log(g_tsg_para.logger,
+								RLOG_LV_FATAL,
+								"PROJECT_ADD",
+								"Add policy_priority_label failed, intercept policy, policy_id: %d action: %d addr: %s",
+								priority_label->result[0].config_id,
+								(unsigned char)priority_label->result[0].action,
+								printaddr(&a_stream->addr, thread_seq)
+							);
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger, 
+							RLOG_LV_DEBUG,
+							"INTERCEPT",
+							"Hit intercept policy, policy_id: %d action: %d addr: %s",
+							priority_label->result[0].config_id,
+							(unsigned char)priority_label->result[0].action,
+							printaddr(&a_stream->addr, thread_seq)
+						);
+
+	return ;
+}
+
+static void copy_deny_result(struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int thread_seq)
+{
+	if(context->result==NULL)
+	{
+		context->hit_cnt=1;
+		context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
+			
+		memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
+	}
+	else
+	{
+		context->hit_cnt=1;
+		memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger,
+								RLOG_LV_DEBUG,
+								"DENY",
+								"Hit deny policy, policy_id: %d service: %d action: %d addr: %s",
+								p_result[0].config_id,
+								p_result[0].service_id,
+								(unsigned char)p_result[0].action,
+								printaddr(&a_stream->addr, thread_seq)
+							);
+
+	return ;
+}
+
+
+static void copy_bypass_result(struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int thread_seq)
+{
+	if(context->result==NULL)
+	{
+		context->hit_cnt=1;
+		context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
+			
+		memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
+	}
+	else
+	{
+		if(context->result[0].action==TSG_ACTION_BYPASS)
+		{
+			if(p_result->config_id>context->result[0].config_id)
+			{
+				context->hit_cnt=1;
+				memcpy(&(context->result[0]), p_result, sizeof(struct Maat_rule_t));
+			}
+		}
+		else   // hit monitor
+		{
+			context->hit_cnt=1;
+			memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
+		}
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger,
+								RLOG_LV_DEBUG,
+								"ALLOW",
+								"Hit allow policy, policy_id: %d service: %d action: %d addr: %s",
+								p_result[0].config_id,
+								p_result[0].service_id,
+								(unsigned char)p_result[0].action,
+								printaddr(&a_stream->addr, thread_seq)
+							);
+
+	return ;
+}
+
+void close_stream_free_context(struct streaminfo *a_stream, struct master_context *context, int thread_seq)
+{
+	struct identify_info identify_info;
+
+	if(context!=NULL)
+	{
+		if(context->hit_cnt>0 && context->result!=NULL)
+		{
+			memset(&identify_info, 0, sizeof(identify_info));
+			identify_info.proto=context->proto;
+			if(context->domain_len>0)
+			{
+				memcpy(identify_info.domain, context->domain, context->domain_len);
+				identify_info.domain_len=context->domain_len;
+			}
+			master_send_log(a_stream, context->result, context->hit_cnt, &identify_info, thread_seq);
+		}
+
+		if(context->result!=NULL)
+		{
+			dictator_free(thread_seq, (void *)context->result);
+			context->result=NULL;
+		}
+
+		if(context->mid!=NULL)
+		{
+			Maat_clean_status(&context->mid);
+			context->mid=NULL;
+		}
+
+		dictator_free(thread_seq, (void *)context);
+		context=NULL;
+	}
+
+	return ;
+}
+
+void set_session_attribute_label(struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int thread_seq)
+{
+	struct timespec tv;
+	unsigned long long create_time=0;	
+	int ret=0,size=sizeof(create_time);
+	struct _ssl_ja3_info_t *ja3_info=NULL;
+	struct _session_attribute_label_t *attribute_label=NULL;
+
+	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
+	if(attribute_label==NULL)
+	{
+		attribute_label=(struct _session_attribute_label_t *)calloc(1, sizeof(struct _session_attribute_label_t));
+		memset(attribute_label, 0, sizeof(struct _session_attribute_label_t));
+
+		ret=project_req_add_struct(a_stream, g_tsg_para.internal_project_id, (const void *)attribute_label);
+		if(ret<0)
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_FATAL,
+									"PROJECT_ADD",
+									"Add internal_label failed, establish latency ms: %llu proto: %d addr: %s",
+									attribute_label->establish_latency_ms,
+									attribute_label->proto,
+									printaddr(&a_stream->addr, thread_seq)
+									);
+		}
+	}
+
+	switch(type)
+	{
+		case	TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY:
+			ret=MESA_get_stream_opt(a_stream, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time, &size);
+			if(ret>=0)
+			{
+				clock_gettime(CLOCK_REALTIME, &tv);
+				attribute_label->establish_latency_ms=tv.tv_sec*1000+tv.tv_nsec/1000/1000 - create_time;
+			}
+			break;
+		case	TSG_ATTRIBUTE_TYPE_PROTOCOL:
+			attribute_label->proto=(tsg_protocol_t)(*(int *)value);
+			break;
+		case	TSG_ATTRIBUTE_TYPE_JA3_HASH:
+			ja3_info=ssl_get_ja3_fingerprint(a_stream, (unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->threadnum);
+			if(ja3_info!=NULL)
+			{
+				if(attribute_label!=NULL && ja3_info->fp!=NULL && ja3_info->fp_len>0)
+				{
+					attribute_label->ja3_fingerprint=(char *)dictator_malloc(a_stream->threadnum, ja3_info->fp_len+1);
+					memcpy(attribute_label->ja3_fingerprint, ja3_info->fp, ja3_info->fp_len);
+					attribute_label->ja3_fingerprint[ja3_info->fp_len]='\0';
+				}			
+			}
+			break;
+		default:
+			break;
+	}
+
+	return ;
+}
+
+char *tsg_schema_index2string(tsg_protocol_t proto)
+{
+	char *schema_field_value=NULL;
+
+	switch(proto)
+	{
+		case	PROTO_HTTP:
+			schema_field_value=(char *)"HTTP";
+			break;
+		case	PROTO_SSL:
+			schema_field_value=(char *)"SSL";
+			break;
+		case	PROTO_DNS:
+			schema_field_value=(char *)"DNS";
+			break;
+		case	PROTO_FTP:
+			schema_field_value=(char *)"FTP";
+			break;
+		case	PROTO_BGP:
+			schema_field_value=(char *)"BGP";
+			break;
+		case	PROTO_SIP:
+			schema_field_value=(char *)"SIP";
+			break;
+		case	PROTO_MAIL:
+			schema_field_value=(char *)"MAIL";
+			break;
+		case	PROTO_STREAMING_MEDIA:
+			schema_field_value=(char *)"STREAMING_MEDIA";
+			break;
+		case	PROTO_QUIC:
+			schema_field_value=(char *)"QUIC";
+			break;
+		case	PROTO_SSH:
+			schema_field_value=(char *)"SSH";
+			break;
+		case	PROTO_IMAP:
+			schema_field_value=(char *)"IMAP";
+			break;
+		case	PROTO_POP3:
+			schema_field_value=(char *)"POP3";
+			break;
+		case	PROTO_SMTP:
+			schema_field_value=(char *)"SMTP";
+			break;
+		case	PROTO_RTP:
+			schema_field_value=(char *)"RTP";
+			break;
+		case	PROTO_APP:
+			schema_field_value=(char *)"APP";
+			break;
+		default:
+			break;
+	}
+
+	return schema_field_value;
+}
+
 int tsg_set_device_id_to_telegraf(char *device_sn)
 {
 	char buff[128]={0};
@@ -340,7 +691,7 @@ int tsg_set_device_id_to_telegraf(char *device_sn)
 	return -1;
 }
 
-static void free_session_attribute_label(int thread_seq, void *project_req_value)
+static void free_session_attribute_labell(int thread_seq, void *project_req_value)
 {
 	struct _session_attribute_label_t *label=(struct _session_attribute_label_t *)project_req_value;
 
@@ -393,7 +744,7 @@ static void free_session_attribute_label(int thread_seq, void *project_req_value
 	}
 }
 
-static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, int thread_seq)
+struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct identify_info *identify_info, int thread_seq)
 {
 	int i=0,ret=0;
 	Maat_rule_t tmp_result;
@@ -530,7 +881,7 @@ static struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_str
 	return p_result;
 }
 
-static int identify_application_protocol(struct streaminfo *a_stream, struct _identify_info *identify_info, struct _session_attribute_label_t *attribute_label, void *a_packet)
+static int identify_application_protocol(struct streaminfo *a_stream, struct identify_info *identify_info, void *a_packet)
 {
 	int ret=0;                            
 	identify_info->proto = PROTO_UNKONWN;
@@ -578,31 +929,6 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 					}
 					
 					ssl_chello_free(chello);
-
-					struct _ssl_ja3_info_t *ja3_info=NULL;
-					ja3_info=ssl_get_ja3_fingerprint(a_stream, (unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->threadnum);
-					if(ja3_info!=NULL)
-					{
-						if(ja3_info->sni==NULL || ja3_info->sni_len<=0)
-						{
-							identify_info->domain_len = 0;
-						}
-						else
-						{
-							identify_info->domain_len = strnlen(ja3_info->sni, sizeof(identify_info->domain) - 1);
-							strncpy(identify_info->domain, ja3_info->sni, identify_info->domain_len);
-						}
-
-						if(attribute_label!=NULL && ja3_info->fp!=NULL && ja3_info->fp_len>0)
-						{
-							attribute_label->ja3_fingerprint=(char *)dictator_malloc(a_stream->threadnum, ja3_info->fp_len+1);
-							memcpy(attribute_label->ja3_fingerprint, ja3_info->fp, ja3_info->fp_len);
-							attribute_label->ja3_fingerprint[ja3_info->fp_len]='\0';
-						}
-
-						return 1;
-					}
-					
 					return 1;
 				}
 				
@@ -702,263 +1028,191 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct _id
 	return ret;
 }
 
-extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
+int scan_application_protocol(struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq)
 {
-	int i=0,ret=0,hit_num=0;
-	struct timespec tv;
+	int proto_id=0;
+	char *l7_protocol=NULL;
+
+	proto_id=get_basic_proto_id(a_stream, context, thread_seq);
+	if(proto_id>0)
+	{
+		l7_protocol=tsg_l7_protocol_id2name(g_tsg_log_instance, proto_id);
+		if(l7_protocol==NULL && proto_id==g_tsg_para.mail_proto_id)
+		{
+			l7_protocol=(char *)"MAIL";
+		}
+		
+		return tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result, result_num, mid, l7_protocol, proto_id, thread_seq);
+	}
+
+	return 0;
+}
+
+int scan_application_id_and_properties(struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq)
+{
+	int hit_num=0;
+	char app_id_buff[32]={0};
+	struct app_id_label *app_id_label=NULL;
+	struct app_id_dict_table *dict=NULL;
+
+	app_id_label=get_app_id_label(a_stream, context, thread_seq);
+	if(app_id_label!=NULL)
+	{
+		snprintf(app_id_buff, sizeof(app_id_buff), "%d", app_id_label->app_id);
+		dict=(struct app_id_dict_table *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
+		if(dict!=NULL)
+		{
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->risk, (char *)"risk", thread_seq);
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->category, (char *)"category", thread_seq);	
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->technology, (char *)"technology", thread_seq);	
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->subcategroy, (char *)"subcategroy", thread_seq);	
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->characteristics, (char *)"characteristics", thread_seq);
+		
+			if(dict->continue_scanning==APP_SCAN_FLAG_STOP)
+			{
+				context->continue_scan_app_id=APP_SCAN_FLAG_STOP;
+			}
+
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->app_name, app_id_label->app_id, thread_seq);
+		}
+		else
+		{			
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, (char *)"", app_id_label->app_id, thread_seq);
+		}
+	}
+
+	return hit_num;
+}
+
+extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
+{	
+	int opt_value=0;	
+	int ret=0,hit_num=0;
 	int state=APP_STATE_GIVEME;
-	scan_status_t mid=NULL;
 	Maat_rule_t *p_result=NULL;
-	//Maat_rule_t *q_result=NULL;
-	struct _identify_info identify_info;
-	Maat_rule_t all_result[MAX_RESULT_NUM];
-	policy_priority_label_t *priority_label=NULL;	
-	struct _master_context *_context=(struct _master_context *)*pme;
-	struct _session_attribute_label_t *internal_label=NULL;
-	unsigned long long create_time=0;
-	int size=sizeof(create_time);
+	struct identify_info identify_info;
+	Maat_rule_t result[MAX_RESULT_NUM];
+	struct rst_tcp_para rst_paras;
+	struct compile_user_region *user_region=NULL;
+	int method_type=TSG_METHOD_TYPE_UNKNOWN;
+	struct master_context *context=(struct master_context *)*pme;
+
+	if(*pme==NULL)
+	{		
+		init_context(pme, thread_seq);
+		context=(struct master_context *)*pme;
+	}
+	
 	switch(a_tcp->opstate)
 	{
 		case	OP_STATE_PENDING:
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1);
-
-			internal_label=(struct _session_attribute_label_t *)dictator_malloc(thread_seq, sizeof(struct _session_attribute_label_t));
-			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1);			
+			set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY, NULL, thread_seq);
 			
-			memset(&identify_info, 0, sizeof(identify_info));
-			identify_application_protocol(a_tcp, &identify_info, internal_label, a_packet);
-			internal_label->proto=identify_info.proto;
-
-			ret=MESA_get_stream_opt(a_tcp, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time, &size);
-			if(ret>=0)
-			{
-				clock_gettime(CLOCK_REALTIME, &tv);
-				internal_label->establish_latency_ms=tv.tv_sec*1000+tv.tv_nsec/1000/1000 - create_time;
-			}
-
-			ret=project_req_add_struct(a_tcp, g_tsg_para.internal_project_id, (const void *)internal_label);
-			if(ret<0)
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_FATAL,
-										"PROJECT_ADD",
-										"Add internal_label failed, establish latency ms: %llu proto: %d addr: %s",
-										internal_label->establish_latency_ms,
-										internal_label->proto,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
-										);
-			}
-			else
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"PROJECT_ADD",
-										"Add internal_label successfully, establish latency ms: %llu proto: %d addr: %s",
-										internal_label->establish_latency_ms,
-										internal_label->proto,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
-										);	
-			}
-			
-			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, identify_info.proto, &mid, all_result+hit_num, MAX_RESULT_NUM-hit_num);
+			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, identify_info.proto, &context->mid, result+hit_num, MAX_RESULT_NUM-hit_num);
 			if(ret>0)
 			{
 				hit_num+=ret;
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
-
-			if(identify_info.proto==PROTO_HTTP || identify_info.proto==PROTO_SSL)
-			{
-				ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, all_result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
-				if(ret>0)
-				{
-					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
-					MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"SCAN_FQDN",
-												"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
-												(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
-												identify_info.domain,
-												all_result[hit_num].config_id,
-												all_result[hit_num].service_id,
-												(unsigned char)all_result[hit_num].action,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
-											);
-
-					hit_num+=ret;
-				}
-				else
-				{
-					MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"SCAN_FQDN",
-												"Not hit %s: %s ret: %d stream_dir: %d addr: %s",
-												(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
-												(ret==-1) ? "NULL" : identify_info.domain,
-												ret,
-												a_tcp->dir,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
-											);
-				}
-
-				if(strlen(identify_info.domain)>0 && identify_info.domain_len>0)
-				{
-					internal_label->fqdn_category_id_num=tsg_get_fqdn_category_id(g_tsg_maat_feather, 
-																					identify_info.domain,
-																					internal_label->fqdn_category_id,
-																					MAX_CATEGORY_ID_NUM,
-																					g_tsg_para.logger,
-																					thread_seq
-																				);
-				}
-
-				for(i=0; i<internal_label->fqdn_category_id_num; i++)
-				{
-					int idx=identify_info.proto==PROTO_HTTP ? TABLE_HTTP_HOST : TABLE_SSL_SNI;
-					ret=Maat_scan_intval(g_tsg_maat_feather,
-											g_tsg_para.table_id[idx],
-											(unsigned int)internal_label->fqdn_category_id[i],
-											all_result+hit_num,
-											MAX_RESULT_NUM-hit_num,
-											&mid,
-											thread_seq
-										);
-					if(ret>0)
-					{
-						MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"SCAN_FQDN_CAT",
-												"Hit %s: %s category_id: %d policy_id: %d service: %d action: %d addr: %s",
-												(identify_info.proto==PROTO_HTTP) ? "host" : "sni",
-												identify_info.domain,
-												internal_label->fqdn_category_id[i],
-												all_result[hit_num].config_id,
-												all_result[hit_num].service_id,
-												(unsigned char)all_result[hit_num].action,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
-											);
-						hit_num+=ret;
-					}
-					else
-					{
-						MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"SCAN_FQDN_CAT",
-												"Not hit %s: %s category_id: %d ret: %d stream_dir: %d addr: %s",
-												(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
-												(ret==-1) ? "NULL" : identify_info.domain,
-												internal_label->fqdn_category_id[i],
-												ret,
-												a_tcp->dir,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
-											);
-					}
-				}
-			}
-
-			if(mid!=NULL)
-			{
-				Maat_clean_status(&mid);
-				mid=NULL;
-			}
 			
-			p_result=tsg_policy_decision_criteria(a_tcp, all_result, hit_num, &identify_info, thread_seq);
-			
-			if(p_result!=NULL)
+			memset(&identify_info, 0, sizeof(identify_info));
+			ret=identify_application_protocol(a_tcp, &identify_info, a_packet);
+			if(ret==1)
 			{
-				switch((unsigned char)p_result->action)
-				{
-					case	TSG_ACTION_DENY:
-						/* support block/alert(deny), Do action in fw_http_plug */
-						break;
-					case	TSG_ACTION_MONITOR:
-						break;
-					case	TSG_ACTION_BYPASS:
-						init_context(pme, identify_info.proto, p_result, thread_seq);
-						if(identify_info.proto>PROTO_UNKONWN && identify_info.proto<PROTO_MAX)
-						{
-							_context=(struct _master_context *)*pme;
-							memcpy(_context->domain, identify_info.domain, identify_info.domain_len);
-							_context->domain_len=identify_info.domain_len;
-						}
-						
-						MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"ALLOW",
-												"Hit allow policy, policy_id: %d service: %d action: %d addr: %s",
-												p_result[0].config_id,
-												p_result[0].service_id,
-												(unsigned char)p_result[0].action,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
-												);
-						
-						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
-						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
-						break;
-					case	TSG_ACTION_INTERCEPT:
-						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
-						
-						priority_label=(policy_priority_label_t *)dictator_malloc(thread_seq, sizeof(policy_priority_label_t));
-						
-						priority_label->result_num=1;
-						priority_label->result_type=PULL_KNI_RESULT;
-						priority_label->proto=identify_info.proto;
-						priority_label->domain_len=identify_info.domain_len;
-						memcpy(priority_label->domain, identify_info.domain, identify_info.domain_len);
-						memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
-						
-						ret=project_req_add_struct(a_tcp, g_tsg_para.priority_project_id, (void *)priority_label);
-						if(ret<0)
-						{
-							free_policy_label(thread_seq, (void *)priority_label);
-							MESA_handle_runtime_log(g_tsg_para.logger,
-													RLOG_LV_FATAL,
-													"PROJECT_ADD",
-													"Add policy_priority_label failed, intercept policy, policy_id: %d action: %d addr: %s",
-													priority_label->result[0].config_id,
-													(unsigned char)priority_label->result[0].action,
-													(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
-													);
-						}
-						
-						MESA_handle_runtime_log(g_tsg_para.logger, 
-												RLOG_LV_DEBUG,
-												"INTERCEPT",
-												"Hit intercept policy, policy_id: %d action: %d addr: %s",
-												priority_label->result[0].config_id,
-												(unsigned char)priority_label->result[0].action,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_tcp->addr, thread_seq) : "")
-												);
-						return APP_STATE_DROPME|APP_STATE_KILL_OTHER;
-						break;
-					case	TSG_ACTION_NONE:
-					default:
-						return APP_STATE_DROPME;
-						break;
-				}
-			}
+				copy_identify_info(context, &identify_info, thread_seq);				
+				set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)(&identify_info.proto), thread_seq);
 
-			break;
-		case	OP_STATE_DATA:
-			break;
-		case	OP_STATE_CLOSE:
-			if(_context!=NULL)
-			{
-				if(_context->hit_cnt>0 && _context->result!=NULL)
+				if(identify_info.proto==PROTO_SSL)
 				{
-					memset(&identify_info, 0, sizeof(identify_info));
-					identify_info.proto=_context->proto;
-					if(_context->domain_len>0)
-					{
-						memcpy(identify_info.domain, _context->domain, _context->domain_len);
-						identify_info.domain_len=_context->domain_len;
-					}
-					master_send_log(a_tcp, _context->result, _context->hit_cnt, &identify_info, thread_seq);
-					free_context(pme, thread_seq);
+					set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_JA3_HASH, NULL, thread_seq);				
 				}
+				
+				hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_tcp, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
 			}
+			break;
 		default:
 			break;
+	}
+
+	if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP) /* support block/alert(deny), Do action in fw_http_plug */
+	{
+		context->proto=PROTO_APP;		
+		hit_num+=scan_application_protocol(a_tcp, context, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
+	}
+	
+	hit_num+=scan_application_id_and_properties(a_tcp, context, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
+	p_result=tsg_policy_decision_criteria(a_tcp, result, hit_num, &identify_info, thread_seq);
+	if(p_result!=NULL)
+	{		
+		switch((unsigned char)p_result->action)
+		{
+			case	TSG_ACTION_DENY:
+				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || (context->proto!=PROTO_APP))
+				{
+					break;
+				}
+				
+				user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
+				if(user_region!=NULL)
+				{
+					atomic_dec(&user_region->ref_cnt);
+					method_type=tsg_get_method_id(user_region->method);
+
+					switch(method_type)
+					{
+						case	TSG_METHOD_TYPE_DROP:
+							opt_value=1;
+							MESA_set_stream_opt(a_tcp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
+							MESA_set_stream_opt(a_tcp, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
+							state=APP_STATE_DROPPKT|APP_STATE_DROPME;
+							break;
+						case	TSG_METHOD_TYPE_RESET:
+							rst_paras.rst_pkt_num=1;
+							rst_paras.signature_seed1=65535;
+							rst_paras.signature_seed2=13;
+							rst_paras.th_flags=4;
+							rst_paras.__pad_no_use=0;
+							MESA_rst_tcp(a_tcp, &rst_paras, sizeof(rst_paras));			
+
+							opt_value=1;
+							MESA_set_stream_opt(a_tcp, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
+
+							if(g_tsg_para.depolyment_mode>0)
+							{
+								opt_value=1;
+								MESA_set_stream_opt(a_tcp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
+								MESA_set_stream_opt(a_tcp, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
+							}
+							state=APP_STATE_DROPPKT|APP_STATE_DROPME;
+							break;
+						default:
+							break;
+					}
+				}
+				copy_deny_result(a_tcp, context, p_result, thread_seq);
+				break;
+			case	TSG_ACTION_MONITOR:
+				copy_monitor_result(a_tcp, context, result, hit_num, thread_seq);
+				break;
+			case	TSG_ACTION_BYPASS:
+				copy_bypass_result(a_tcp, context, p_result, thread_seq);
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
+				state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
+				break;
+			case	TSG_ACTION_INTERCEPT:
+				copy_intercept_result(a_tcp, context, p_result, &identify_info, thread_seq);
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
+				state=APP_STATE_DROPME|APP_STATE_KILL_OTHER;
+				break;
+			default:
+				break;
+		}
+	}
+
+	if((a_tcp->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
+	{
+		close_stream_free_context(a_tcp, context, thread_seq);
 	}
 
 	return state;
@@ -966,213 +1220,103 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 
 extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int thread_seq,void *a_packet)
 {
-	int i=0,ret=0;
-	int hit_num=0;
-	scan_status_t mid=NULL;
+	int ret=0;
+	int hit_num=0;	
+	int opt_value=0;	
 	int state=APP_STATE_GIVEME;
 	Maat_rule_t *p_result=NULL;
 	Maat_rule_t result[MAX_RESULT_NUM]={0};
-	struct _identify_info identify_info;
-	struct _master_context *_context=(struct _master_context *)*pme;
-	struct _session_attribute_label_t *internal_label=NULL;
+	struct identify_info identify_info;
+	struct compile_user_region *user_region=NULL;
+	int method_type=TSG_METHOD_TYPE_UNKNOWN;
+	struct master_context *context=(struct master_context *)*pme;
 
+	if(*pme==NULL)
+	{
+		init_context(pme, thread_seq);
+		context=(struct master_context *)*pme;
+	}
 	switch(a_udp->opstate)
 	{
 		case	OP_STATE_PENDING:			
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);
-			memset(&identify_info, 0, sizeof(identify_info));
-			identify_application_protocol(a_udp, &identify_info, NULL, a_packet);
-
-			internal_label=(struct _session_attribute_label_t *)dictator_malloc(thread_seq, sizeof(struct _session_attribute_label_t));
-			memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
-			internal_label->proto=identify_info.proto;
-			
-			ret=project_req_add_struct(a_udp, g_tsg_para.internal_project_id, (const void *)internal_label);
-			if(ret<0)
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_FATAL,
-										"PROJECT_ADD",
-										"Add internal_label failed, proto: %d addr: %s",
-										internal_label->proto,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
-										);
-			}
-			else
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"PROJECT_ADD",
-										"Add internal_label successfully, proto: %d addr: %s",
-										internal_label->proto,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
-										);	
-			}
-
-			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_udp, identify_info.proto, &mid, result, MAX_RESULT_NUM);
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);			
+			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_udp, identify_info.proto, &context->mid, result, MAX_RESULT_NUM);
 			if(ret>0)
 			{
 				hit_num+=ret;
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 
-			if(PROTO_QUIC==identify_info.proto && identify_info.domain_len>0)
+			memset(&identify_info, 0, sizeof(identify_info));
+			ret=identify_application_protocol(a_udp, &identify_info, a_packet);
+			if(ret==1)
 			{
-				ret=tsg_scan_shared_policy(g_tsg_maat_feather, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &mid, thread_seq);
-				if(ret>0)
-				{
-					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
-					MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"SCAN_QUIC_SNI",
-												"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
-												"QUIC SNI",
-												identify_info.domain,
-												result[hit_num].config_id,
-												result[hit_num].service_id,
-												(unsigned char)result[hit_num].action,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
-											);
-
-					hit_num+=ret;
-				}
-				else
-				{
-					MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"SCAN_QUIC_SNI",
-												"Not hit %s: %s stream_dir: %d addr: %s",
-												"QUIC SNI",
-												identify_info.domain,
-												a_udp->dir,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
-											);
-				}
-
-				if(strlen(identify_info.domain)>0 && identify_info.domain_len>0)
-				{
-					internal_label->fqdn_category_id_num=tsg_get_fqdn_category_id(g_tsg_maat_feather, 
-																					identify_info.domain,
-																					internal_label->fqdn_category_id,
-																					MAX_CATEGORY_ID_NUM,
-																					g_tsg_para.logger,
-																					thread_seq
-																				);
-				}
-
-				for(i=0; i<internal_label->fqdn_category_id_num; i++)
-				{
-					ret=Maat_scan_intval(g_tsg_maat_feather,
-											g_tsg_para.table_id[TABLE_QUIC_SNI],
-											(unsigned int)internal_label->fqdn_category_id[i],
-											result+hit_num,
-											MAX_RESULT_NUM-hit_num,
-											&mid,
-											thread_seq
-										);
-					if(ret>0)
-					{
-						MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"SCAN_FQDN_CAT",
-												"Hit %s: %s category_id: %d policy_id: %d service: %d action: %d addr: %s",
-												"QUIC SNI",
-												identify_info.domain,
-												internal_label->fqdn_category_id[i],
-												result[hit_num].config_id,
-												result[hit_num].service_id,
-												(unsigned char)result[hit_num].action,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
-											);
-						hit_num+=ret;
-					}
-					else
-					{
-						MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"SCAN_FQDN_CAT",
-												"Not hit %s: %s category_id: %d ret: %d stream_dir: %d addr: %s",
-												(ret==-1) ?  "NULL" : ((identify_info.proto==PROTO_HTTP) ? "host" : "sni"),
-												(ret==-1) ? "NULL" : identify_info.domain,
-												internal_label->fqdn_category_id[i],
-												ret,
-												a_udp->dir,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
-											);
-					}
-				}
-			}
-			
-			if(mid!=NULL)
-			{
-				Maat_clean_status(&mid);
-				mid=NULL;
-			}
-			
-			p_result=tsg_policy_decision_criteria(a_udp, result, hit_num, NULL, thread_seq);
-			if(p_result!=NULL)
-			{
-				switch((unsigned char)p_result->action)
-				{
-					case	TSG_ACTION_DENY:
-						break;
-					case	TSG_ACTION_BYPASS:
-						init_context(pme, identify_info.proto, p_result, thread_seq);
-						if(identify_info.proto>PROTO_UNKONWN && identify_info.proto<PROTO_MAX)
-						{
-							_context=(struct _master_context *)*pme;
-							memcpy(_context->domain, identify_info.domain, identify_info.domain_len);
-							_context->domain_len=identify_info.domain_len;
-						}
-						
-						FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
-
-						MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"ALLOW",
-												"Hit allow policy, policy_id: %d service: %d action: %d addr: %s",
-												p_result[0].config_id,
-												p_result[0].service_id,
-												(unsigned char)p_result[0].action,
-												(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_udp->addr, thread_seq) : "")
-												);
-						
-						state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
-						break;
-					case	TSG_ACTION_MONITOR:
-						break;
-					case	TSG_ACTION_INTERCEPT:
-					case	TSG_ACTION_MANIPULATE:
-					default:
-						return APP_STATE_DROPME;
-						break;
-				}
-			}
-			break;
-		case	OP_STATE_DATA:
-			break;
-		case	OP_STATE_CLOSE:
-			if(_context!=NULL)
-			{
-				if(_context->hit_cnt>0 && _context->result!=NULL)
-				{
-					memset(&identify_info, 0, sizeof(identify_info));
-					identify_info.proto=_context->proto;
-					if(_context->domain_len>0)
-					{
-						memcpy(identify_info.domain, _context->domain, _context->domain_len);
-						identify_info.domain_len=_context->domain_len;
-					}
-					
-					master_send_log(a_udp, _context->result, _context->hit_cnt, &identify_info, thread_seq);
-					free_context(pme, thread_seq);
-				}
+				copy_identify_info(context, &identify_info, thread_seq);
+				set_session_attribute_label(a_udp, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(identify_info.proto), thread_seq);
+				
+				hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_udp, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
 			}
 			break;
 		default:
 			break;
 	}
+
+	if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP) /* support block/alert(deny), Do action in fw_http_plug */
+	{
+		context->proto=PROTO_APP;		
+		hit_num+=scan_application_protocol(a_udp, context, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
+	}
 	
+	hit_num+=scan_application_id_and_properties(a_udp, context, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
+	p_result=tsg_policy_decision_criteria(a_udp, result, hit_num, &identify_info, thread_seq);
+	if(p_result!=NULL)
+	{
+		switch((unsigned char)p_result->action)
+		{
+			case	TSG_ACTION_DENY:
+				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || (context->proto!=PROTO_APP)) /* support redirect, Do action in fw_dns_plug */
+				{
+					break;
+				}
+				user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
+				if(user_region!=NULL)
+				{
+					atomic_dec(&user_region->ref_cnt);
+					method_type=tsg_get_method_id(user_region->method);
+
+					switch(method_type)
+					{
+						case	TSG_METHOD_TYPE_DROP:
+							opt_value=1;
+							MESA_set_stream_opt(a_udp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
+							MESA_set_stream_opt(a_udp, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
+							state=APP_STATE_DROPPKT|APP_STATE_DROPME;
+							break;
+						default:
+							break;
+					}
+				}
+				copy_deny_result(a_udp, context, p_result, thread_seq);
+				break;
+			case	TSG_ACTION_MONITOR:				
+				copy_monitor_result(a_udp, context, result, hit_num, thread_seq);
+				break;
+			case	TSG_ACTION_BYPASS:
+				copy_bypass_result(a_udp, context, p_result, thread_seq);
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
+				state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
+				break;
+			case	TSG_ACTION_INTERCEPT:
+				break;
+			default:
+				break;
+		}
+	}
+
+	if((a_udp->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
+	{
+		close_stream_free_context(a_udp, context, thread_seq);
+	}
 	return state;
 }
 
@@ -1190,6 +1334,8 @@ extern "C" int TSG_MASTER_INIT()
 	char identify_proto_name[MAX_STRING_LEN*4]={0};
 	
 	memset(&g_tsg_para, 0, sizeof(g_tsg_para));
+
+	get_depolyment_mode();
 	
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","LOG_LEVEL", &g_tsg_para.level, RLOG_LV_FATAL);
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM","LOG_PATH", g_tsg_para.log_path, sizeof(g_tsg_para.log_path), "tsglog/tsg_master");
@@ -1206,6 +1352,7 @@ extern "C" int TSG_MASTER_INIT()
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "ENTRANCE_ID", &g_tsg_para.entrance_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "MAIL_PROTOCOL_ID",&(g_tsg_para.mail_proto_id), 110);	
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "DEVICE_ID_COMMAND", g_tsg_para.device_id_command, sizeof(g_tsg_para.device_id_command), NULL);
 	g_tsg_para.device_id=get_device_id(g_tsg_para.device_id_command, g_tsg_para.entrance_id);
@@ -1238,7 +1385,7 @@ extern "C" int TSG_MASTER_INIT()
 	}
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_INTERNAL_LABEL", label_buff, sizeof(label_buff), "TSG_MASTER_INTERNAL_LABEL");
-	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_label);
+	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_labell);
 	if(g_tsg_para.internal_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, 
@@ -1248,6 +1395,30 @@ extern "C" int TSG_MASTER_INIT()
 									label_buff,
 									"etc/project_list.conf"
 								);
+	}
+
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "APP_ID_LABEL", label_buff, sizeof(label_buff), "APP_ID_LABEL");	
+	g_tsg_para.app_id_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_app_id_label);
+	if(g_tsg_para.app_id_project_id<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_FATAL,
+									"APP_ID_LABEL",
+									"project_customer_register is error, app_id_label: %s, please check etc/project.conf",
+									label_buff
+								);	
+	}
+
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "L7_PROTO_LABEL", label_buff, sizeof(label_buff), "BASIC_PROTO_LABEL");
+	g_tsg_para.l7_proto_project_id=project_customer_register(label_buff, "struct");
+	if(g_tsg_para.l7_proto_project_id<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_FATAL,
+									"L7_PROTO_LABEL",
+									"project_customer_register is error, l7_proto_label: %s, please check etc/project.conf",
+									label_buff
+								);	
 	}
 
 	ret=tsg_rule_init(tsg_conffile, g_tsg_para.logger);

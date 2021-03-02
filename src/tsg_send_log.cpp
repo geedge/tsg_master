@@ -166,10 +166,10 @@ struct TLD_handle_t *TLD_create(int thread_id)
 static int set_l7_protocol(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {	
 	char *l7_protocol=NULL;
-	struct _basic_proto_label *l7_proto_label=NULL;
+	struct basic_proto_label *l7_proto_label=NULL;
 	
-	l7_proto_label=(struct _basic_proto_label *)project_req_get_struct(a_stream, _instance->l7_proto_project_id);
-	if(l7_proto_label!=NULL && l7_proto_label->proto_id!=_instance->mail_proto_id)
+	l7_proto_label=(struct basic_proto_label *)project_req_get_struct(a_stream, g_tsg_para.l7_proto_project_id);
+	if(l7_proto_label!=NULL && l7_proto_label->proto_id!=g_tsg_para.mail_proto_id)
 	{
 		l7_protocol=tsg_l7_protocol_id2name(_instance, l7_proto_label->proto_id);
 		if(l7_protocol!=NULL)
@@ -245,17 +245,18 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 	char buff[1024]={0};
 	int l7_protocol_flag=0;
 	char *l7_protocol=NULL;
+	struct app_id_label *app_label=NULL;
 	struct _location_info_t *location=NULL;
-	struct _session_attribute_label_t *internal_label=NULL;
+	struct _session_attribute_label_t *attribute_label=NULL;
 
 	l7_protocol_flag=set_l7_protocol(_instance, _handle, a_stream);
 
-	internal_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, _instance->internal_project_id);
-	if(internal_label!=NULL)
+	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, _instance->internal_project_id);
+	if(attribute_label!=NULL)
 	{	
 		if(l7_protocol_flag==0)
 		{
-			l7_protocol=tsg_schema_index2string(internal_label->proto);
+			l7_protocol=tsg_schema_index2string(attribute_label->proto);
 			if(l7_protocol!=NULL)
 			{			
 				TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)l7_protocol, TLD_TYPE_STRING);
@@ -266,37 +267,37 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 			}
 		}
 		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)internal_label->establish_latency_ms, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)attribute_label->establish_latency_ms, TLD_TYPE_LONG);
 
-		if(internal_label->client_asn!=NULL)
+		if(attribute_label->client_asn!=NULL)
 		{
-			snprintf(buff, sizeof(buff), "%s(%s)", internal_label->client_asn->asn, internal_label->client_asn->organization);
+			snprintf(buff, sizeof(buff), "%s(%s)", attribute_label->client_asn->asn, attribute_label->client_asn->organization);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_ASN].name, (void *)buff, TLD_TYPE_STRING);
 		}
 		
-		if(internal_label->server_asn!=NULL)
+		if(attribute_label->server_asn!=NULL)
 		{
-			snprintf(buff, sizeof(buff), "%s(%s)", internal_label->server_asn->asn, internal_label->server_asn->organization);
+			snprintf(buff, sizeof(buff), "%s(%s)", attribute_label->server_asn->asn, attribute_label->server_asn->organization);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_ASN].name, (void *)buff, TLD_TYPE_STRING);
 		}
 
-		if(internal_label->client_location!=NULL)
+		if(attribute_label->client_location!=NULL)
 		{
-			location=internal_label->client_location;
+			location=attribute_label->client_location;
 			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 
-		if(internal_label->server_location!=NULL)
+		if(attribute_label->server_location!=NULL)
 		{
-			location=internal_label->server_location;
+			location=attribute_label->server_location;
 			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
 		}
 
-		if(internal_label->ja3_fingerprint!=NULL)
+		if(attribute_label->ja3_fingerprint!=NULL)
 		{
-			TLD_append(_handle, _instance->id2field[LOG_SSL_JA3_FINGERPRINT].name, (void *)internal_label->ja3_fingerprint, TLD_TYPE_STRING);
+			TLD_append(_handle, _instance->id2field[LOG_SSL_JA3_FINGERPRINT].name, (void *)attribute_label->ja3_fingerprint, TLD_TYPE_STRING);
 		}
 	}
 	else
@@ -307,6 +308,13 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 		}
 	}
 
+	app_label=(struct app_id_label *)project_req_get_struct(a_stream, g_tsg_para.app_id_project_id);
+	if(app_label!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)(long)app_label->app_id, TLD_TYPE_LONG);		
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_SURROGATE_ID].name, (void *)(long)app_label->surrogate_id, TLD_TYPE_LONG);
+	}
+	
 	return 0;
 }
 
@@ -619,7 +627,6 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(_instance->level), 30);	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", _instance->log_path, sizeof(_instance->log_path), "./tsglog/tsglog");
-	MESA_load_profile_int_def(conffile, "TSG_LOG", "MAIL_PROTOCOL_ID",&(_instance->mail_proto_id), 110);	
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_USER_REGION",&(_instance->send_user_region), 0);	
 
 	_instance->logger=MESA_create_runtime_log_handle(_instance->log_path, _instance->level);
@@ -647,7 +654,6 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "TCP_LABEL", _instance->tcp_label, sizeof(_instance->tcp_label), "tcp_flow_stat");
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "UDP_LABEL", _instance->udp_label, sizeof(_instance->udp_label), "udp_flow_stat");
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_PROTO_LABEL", _instance->l7_proto_label, sizeof(_instance->l7_proto_label), "BASIC_PROTO_LABEL");
 
 	_instance->tcp_flow_project_id=project_customer_register(_instance->tcp_label, "struct");
 	_instance->udp_flow_project_id=project_customer_register(_instance->udp_label, "struct");
@@ -660,17 +666,6 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 									_instance->tcp_label,
 									_instance->udp_label
 								);
-	}
-	
-	_instance->l7_proto_project_id=project_customer_register(_instance->l7_proto_label, "struct");
-	if(_instance->l7_proto_project_id<0)
-	{
-		MESA_handle_runtime_log(_instance->logger,
-									RLOG_LV_FATAL,
-									"L7_PROTO_LABEL",
-									"project_customer_register is error, l7_proto_label: %s, please check etc/project.conf",
-									_instance->l7_proto_label
-								);	
 	}
 	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "NIC_NAME", nic_name, sizeof(nic_name), "eth0");	

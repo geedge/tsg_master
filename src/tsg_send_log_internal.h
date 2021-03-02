@@ -74,6 +74,7 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_L7_PROTOCOL,
 	LOG_COMMON_TCP_CLIENT_ISN,
 	LOG_COMMON_TCP_SERVER_ISN,
+	LOG_COMMON_APP_SURROGATE_ID,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
@@ -94,11 +95,9 @@ struct tsg_log_instance_t
 {
 	int mode;
 	int level;
-	int mail_proto_id;
 	int max_service;
 	int send_user_region;
 	int recovery_interval;
-	int l7_proto_project_id;
 	int internal_project_id;
 	int tcp_flow_project_id;
 	int udp_flow_project_id;
@@ -108,7 +107,6 @@ struct tsg_log_instance_t
 	char log_path[MAX_STRING_LEN*2];
 	char tcp_label[MAX_STRING_LEN];
 	char udp_label[MAX_STRING_LEN];
-	char l7_proto_label[MAX_STRING_LEN];
 	char common_field_file[MAX_STRING_LEN*4];
 	char broker_list[MAX_STRING_LEN*4];
 	char send_queue_max_msg[MAX_STRING_LEN];

@@ -24,8 +24,21 @@ typedef int atomic_t;
 #define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
 #endif
 
+#define	DNS_PROTO_ID	103
+#define	FTP_PROTO_ID	104
+#define	HTTP_PROTO_ID	106
+#define	MAIL_PROTO_ID	110
+#define	QUIC_PROTO_ID	119
+#define	SIP_PROTO_ID	120
+#define	SSL_PROTO_ID	126
+#define	RTP_PROTO_ID	142
+
+#define	APP_SCAN_FLAG_STOP	0
+#define	APP_SCAN_FLAG_CONTINUE	1
+
 enum MASTER_TABLE{
-	TABLE_IP_ADDR=0,
+	TABLE_SECURITY_COMPILE=0,
+	TABLE_IP_ADDR,
 	TABLE_SUBSCRIBER_ID,
 	TABLE_APP_ID,
 	TABLE_HTTP_HOST,
@@ -43,6 +56,9 @@ enum MASTER_TABLE{
 	TABLE_FQDN_CAT_ID,
 	TABLE_FQDN_CAT_USER_DEFINED,
 	TABLE_FQDN_CAT_BUILT_IN,
+	TABLE_APP_ID_DICT,
+	TABLE_SELECTOR_ID,
+	TABLE_SELECTOR_PROPERTIES,
 	TABLE_MAX
 };
 
@@ -65,6 +81,14 @@ enum TSG_FS2_TYPE{
 	TSG_FS2_MAX
 };
 
+enum TSG_ATTRIBUTE_TYPE
+{
+	TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY=0,
+	TSG_ATTRIBUTE_TYPE_PROTOCOL,
+	TSG_ATTRIBUTE_TYPE_JA3_HASH,
+	_MAX_TSG_ATTRIBUTE_TYPE
+};
+
 struct _str2index
 {
 	int index;
@@ -80,20 +104,29 @@ struct _fqdn_category_t
 	char fqdn[MAX_DOAMIN_LEN/8];
 };
 
-struct _master_context
+struct master_context
 {
 	tsg_protocol_t proto;
 	int hit_cnt;
 	int domain_len;
 	char domain[MAX_DOAMIN_LEN];
 	struct Maat_rule_t *result;
+
+	int app_id;
+	char continue_scan_app_id;
+	char continue_scan_proto_id;
+	unsigned short basic_proto_id;
+	char uuid_str[32];
+	scan_status_t mid;
 };
 
 #define	_MAX_TABLE_NAME_LEN	64
 typedef	struct _tsg_para
 {
-	int level;
+	int level;	
+	int mail_proto_id;
 	unsigned short timeout;
+	unsigned short depolyment_mode;
 	int app_id_table_type;
 	int device_id;
 	int entrance_id;
@@ -101,6 +134,8 @@ typedef	struct _tsg_para
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
 	int internal_project_id;
+	int l7_proto_project_id;
+	int app_id_project_id;
 	int proto_flag; //tsg_protocol_t
 	int fs2_field_id[TSG_FS2_MAX];
 	char device_sn[MAX_DOAMIN_LEN/8];
@@ -199,12 +234,13 @@ typedef	struct _tsg_statistic
 
 int tsg_statistic_init(const char *conffile, void *logger);
 
-int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct _identify_info *identify_info, Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq);
-
 void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 char *tsg_schema_index2string(tsg_protocol_t proto);
-
+struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, int thread_seq);
+int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct identify_info *identify_info, Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq);
+int tsg_scan_app_id_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq);
+int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq);
 
 #endif
