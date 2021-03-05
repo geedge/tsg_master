@@ -163,9 +163,9 @@ static int is_repetitive_app_id(unsigned short proto_id)
 		case	HTTP_PROTO_ID:
 		case	MAIL_PROTO_ID:
 		case	QUIC_PROTO_ID:
-		case	SIP_PROTO_ID:
+		//case	SIP_PROTO_ID:
 		case	SSL_PROTO_ID:
-		case	RTP_PROTO_ID:
+		//case	RTP_PROTO_ID:
 			return 1;
 		default:
 			break;
@@ -691,7 +691,7 @@ int tsg_set_device_id_to_telegraf(char *device_sn)
 	return -1;
 }
 
-static void free_session_attribute_labell(int thread_seq, void *project_req_value)
+static void free_session_attribute_label(int thread_seq, void *project_req_value)
 {
 	struct _session_attribute_label_t *label=(struct _session_attribute_label_t *)project_req_value;
 
@@ -1028,26 +1028,6 @@ static int identify_application_protocol(struct streaminfo *a_stream, struct ide
 	return ret;
 }
 
-int scan_application_protocol(struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq)
-{
-	int proto_id=0;
-	char *l7_protocol=NULL;
-
-	proto_id=get_basic_proto_id(a_stream, context, thread_seq);
-	if(proto_id>0)
-	{
-		l7_protocol=tsg_l7_protocol_id2name(g_tsg_log_instance, proto_id);
-		if(l7_protocol==NULL && proto_id==g_tsg_para.mail_proto_id)
-		{
-			l7_protocol=(char *)"MAIL";
-		}
-		
-		return tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result, result_num, mid, l7_protocol, proto_id, thread_seq);
-	}
-
-	return 0;
-}
-
 int scan_application_id_and_properties(struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq)
 {
 	int hit_num=0;
@@ -1086,7 +1066,9 @@ int scan_application_id_and_properties(struct streaminfo *a_stream, struct maste
 
 extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {	
-	int opt_value=0;	
+	int opt_value=0;
+	int proto_id=0;
+	char *l7_protocol=NULL;
 	int ret=0,hit_num=0;
 	int state=APP_STATE_GIVEME;
 	Maat_rule_t *p_result=NULL;
@@ -1137,8 +1119,18 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 
 	if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP) /* support block/alert(deny), Do action in fw_http_plug */
 	{
-		context->proto=PROTO_APP;		
-		hit_num+=scan_application_protocol(a_tcp, context, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
+		proto_id=get_basic_proto_id(a_tcp, context, thread_seq);
+		if(proto_id>0)
+		{
+			context->proto=PROTO_APP;
+			l7_protocol=tsg_l7_protocol_id2name(g_tsg_log_instance, proto_id);
+			if(l7_protocol==NULL && proto_id==g_tsg_para.mail_proto_id)
+			{
+				l7_protocol=(char *)"MAIL";
+			}
+			
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_tcp, result, MAX_RESULT_NUM-hit_num, &context->mid, l7_protocol, proto_id, thread_seq);
+		}
 	}
 	
 	hit_num+=scan_application_id_and_properties(a_tcp, context, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
@@ -1221,9 +1213,9 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 
 extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int thread_seq,void *a_packet)
 {
-	int ret=0;
-	int hit_num=0;	
-	int opt_value=0;	
+	int ret=0,hit_num=0;	
+	int opt_value=0,proto_id=0;
+	char *l7_protocol=NULL;
 	int state=APP_STATE_GIVEME;
 	Maat_rule_t *p_result=NULL;
 	Maat_rule_t result[MAX_RESULT_NUM]={0};
@@ -1262,10 +1254,25 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 			break;
 	}
 
-	if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP) /* support block/alert(deny), Do action in fw_http_plug */
+	if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP)
 	{
-		context->proto=PROTO_APP;		
-		hit_num+=scan_application_protocol(a_udp, context, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
+		proto_id=get_basic_proto_id(a_udp, context, thread_seq);
+		if(proto_id>0)
+		{
+			switch(proto_id)
+			{
+				case	SIP_PROTO_ID:					
+					context->proto=PROTO_SIP;
+					break;
+				case	RTP_PROTO_ID:					
+					context->proto=PROTO_RTP;
+					break;
+				default:					
+					context->proto=PROTO_APP;
+					break;
+			}
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_udp, result, MAX_RESULT_NUM-hit_num, &context->mid, l7_protocol, proto_id, thread_seq);
+		}
 	}
 	
 	hit_num+=scan_application_id_and_properties(a_udp, context, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
@@ -1387,7 +1394,7 @@ extern "C" int TSG_MASTER_INIT()
 	}
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_INTERNAL_LABEL", label_buff, sizeof(label_buff), "TSG_MASTER_INTERNAL_LABEL");
-	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_labell);
+	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_label);
 	if(g_tsg_para.internal_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, 
