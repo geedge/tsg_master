@@ -1165,7 +1165,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 							rst_paras.signature_seed2=13;
 							rst_paras.th_flags=4;
 							rst_paras.__pad_no_use=0;
-							MESA_rst_tcp(a_tcp, &rst_paras, sizeof(rst_paras));			
+							rst_paras.dir=DIR_DOUBLE;
+							ret=MESA_rst_tcp(a_tcp, &rst_paras, sizeof(rst_paras));			
 
 							opt_value=1;
 							MESA_set_stream_opt(a_tcp, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));

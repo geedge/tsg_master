@@ -1585,8 +1585,8 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_str
 									);
 		}
 
-		ret=project_req_add_struct(a_stream, g_tsg_para.internal_project_id, (const void *)attribute_label);
-		if(ret>0)
+		attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
+		if(attribute_label!=NULL)
 		{
 			attribute_label->fqdn_category_id_num=tsg_get_fqdn_category_id(g_tsg_maat_feather, 
 																				identify_info->domain,
