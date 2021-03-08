@@ -1091,13 +1091,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1);			
 			set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY, NULL, thread_seq);
 			
-			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, identify_info.proto, &context->mid, result+hit_num, MAX_RESULT_NUM-hit_num);
-			if(ret>0)
-			{
-				hit_num+=ret;
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
-			}
-			
 			memset(&identify_info, 0, sizeof(identify_info));
 			ret=identify_application_protocol(a_tcp, &identify_info, a_packet);
 			if(ret==1)
@@ -1111,6 +1104,13 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				}
 				
 				hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_tcp, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
+			}
+
+			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, identify_info.proto, &context->mid, result+hit_num, MAX_RESULT_NUM-hit_num);
+			if(ret>0)
+			{
+				hit_num+=ret;
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 			break;
 		default:
@@ -1234,12 +1234,6 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 	{
 		case	OP_STATE_PENDING:			
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);			
-			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_udp, identify_info.proto, &context->mid, result, MAX_RESULT_NUM);
-			if(ret>0)
-			{
-				hit_num+=ret;
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
-			}
 
 			memset(&identify_info, 0, sizeof(identify_info));
 			ret=identify_application_protocol(a_udp, &identify_info, a_packet);
@@ -1249,6 +1243,13 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				set_session_attribute_label(a_udp, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(identify_info.proto), thread_seq);
 				
 				hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_udp, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
+			}
+
+			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_udp, identify_info.proto, &context->mid, result, MAX_RESULT_NUM);
+			if(ret>0)
+			{
+				hit_num+=ret;
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
 			break;
 		default:
