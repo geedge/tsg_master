@@ -57,6 +57,7 @@ const struct _str2index g_tsg_proto_string[PROTO_MAX+1]={{PROTO_UNKONWN, 0, (cha
 										 {PROTO_IMAP, 5, (char *)"MAIL."},
 										 {PROTO_POP3, 5, (char *)"MAIL."},
 										 {PROTO_RTP, 4, (char *)"RTP."},
+										 {PROTO_APP, 4, (char *)"APP."},
 										 {PROTO_MAX, 0, (char *)""}
 };
 
@@ -458,6 +459,174 @@ void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, vo
 	return;
 }
 
+static void app_id_dict_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+{
+	struct app_id_dict_table *app_id_dict=(struct app_id_dict_table *)(*from);
+
+	if(*from!=NULL)
+	{
+		atomic_inc(&app_id_dict->ref_cnt);
+		*to=*from;
+	}
+	return;
+}
+
+static void app_id_dict_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	void *logger=argp;
+	int ret=0;
+
+	struct app_id_dict_table *app_id_dict=NULL;
+	app_id_dict=(struct app_id_dict_table *)calloc(1, sizeof(struct app_id_dict_table));
+	
+	ret=sscanf(table_line,
+				"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d",
+				&app_id_dict->app_id, 
+				app_id_dict->app_name,
+				app_id_dict->category, 
+				app_id_dict->subcategroy, 
+				app_id_dict->technology,
+				app_id_dict->risk, 
+				app_id_dict->characteristics, 
+				app_id_dict->depends_on_app_ids, 
+				app_id_dict->implicitly_uses_app_ids, 
+				&app_id_dict->deny_action, 
+				&app_id_dict->continue_scanning, 
+				&app_id_dict->tcp_timeout, 
+				&app_id_dict->udp_timeout, 
+				&app_id_dict->tcp_half_close,
+				&app_id_dict->tcp_time_wait, 
+				&app_id_dict->is_valid);
+	if(ret!=16)
+	{
+		free(app_id_dict);
+		app_id_dict=NULL;
+		
+		MESA_handle_runtime_log(logger, 
+									RLOG_LV_FATAL,
+									"APP_ID_DICT",
+									"Parse app_id_dict failed, ret: %d table_id: %d table_line: %s",
+									ret,
+									table_id,
+									table_line
+								);
+		return;
+	}
+
+	atomic_inc(&app_id_dict->ref_cnt);
+	eliminate_default_value(app_id_dict->app_name);
+	eliminate_default_value(app_id_dict->category);
+	eliminate_default_value(app_id_dict->subcategroy);
+	eliminate_default_value(app_id_dict->technology);
+	eliminate_default_value(app_id_dict->risk);
+	eliminate_default_value(app_id_dict->characteristics);
+	eliminate_default_value(app_id_dict->depends_on_app_ids);
+	eliminate_default_value(app_id_dict->implicitly_uses_app_ids);
+	
+	*ad=(MAAT_PLUGIN_EX_DATA)app_id_dict;
+	
+	return;
+}
+
+void app_id_dict_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	struct app_id_dict_table *app_id_dict=(struct app_id_dict_table *)(*ad);
+
+	if(app_id_dict!=NULL)
+	{
+		atomic_dec(&app_id_dict->ref_cnt);
+		if(app_id_dict->ref_cnt<=0)
+		{
+			free(*ad);
+			*ad=NULL;
+		}
+	}
+	return;
+}
+
+void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp)
+{	
+	int len=0;
+	cJSON *object=NULL, *item=NULL;
+	struct compile_user_region *user_region=NULL;
+	
+	if(rule!=NULL && srv_def_large!=NULL && strlen(srv_def_large)>2)
+	{
+		object=cJSON_Parse(srv_def_large);
+		if(object!=NULL)
+		{
+			user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
+			
+			item=cJSON_GetObjectItem(object, "method");
+			if(item!=NULL)
+			{
+				len=MIN(strlen(item->valuestring), sizeof(user_region->method)-1);
+				memcpy(user_region->method, item->valuestring, len);
+			}
+
+			item=cJSON_GetObjectItem(object, "protocol");
+			if(item!=NULL)
+			{
+				len=MIN(strlen(item->valuestring), sizeof(user_region->protocol)-1);
+				memcpy(user_region->protocol, item->valuestring, len);
+			}
+
+			item=cJSON_GetObjectItem(object, "message");
+			if(item!=NULL)
+			{
+				len=strlen(item->valuestring)+1;
+				user_region->message=(char *)calloc(1, len);
+				memcpy(user_region->message, item->valuestring, len-1);
+			}
+
+			item=cJSON_GetObjectItem(object, "code");
+			if(item!=NULL)
+			{
+				user_region->code=item->valueint;
+			}
+
+			item=cJSON_GetObjectItem(object, "html_profile");
+			if(item!=NULL)
+			{
+				user_region->html_profile=item->valueint;
+			}
+
+			atomic_inc(&user_region->ref_cnt);
+
+			*ad=(MAAT_RULE_EX_DATA)user_region;
+		}
+	}
+
+	return ;
+}
+
+void security_compile_dup(int idx, MAAT_RULE_EX_DATA *to, MAAT_RULE_EX_DATA *from, long argl, void *argp)
+{
+	struct compile_user_region *user_region=(struct compile_user_region *)(*from);
+	if(user_region!=NULL)
+	{
+		atomic_inc(&user_region->ref_cnt);
+		*to=*from;
+	}
+}
+
+void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp)
+{
+	struct compile_user_region *user_region=(struct compile_user_region *)(*ad);
+	if(user_region!=NULL)
+	{
+		atomic_dec(&user_region->ref_cnt);
+		if((user_region->ref_cnt-1)<=0)
+		{
+			free(user_region->message);
+			user_region->message=NULL;
+		
+			free(*ad);
+			*ad=NULL;
+		}
+	}
+}
+
 static Maat_feather_t init_maat_feather(const char* conffile, char* instance_name, char *module, void *logger)
 {
 	unsigned short redis_port = 0;
@@ -584,7 +753,8 @@ int tsg_rule_init(const char* conffile, void *logger)
 	
 	MESA_load_profile_int_def(conffile, "MAAT","APP_ID_TABLE_TYPE", &g_tsg_para.app_id_table_type, 1);
 
-	MESA_load_profile_string_def(conffile, "MAAT", "PROFILE", maat_conffile, sizeof(maat_conffile), "./tsgconf/maat.conf");	
+	MESA_load_profile_string_def(conffile, "MAAT", "PROFILE", maat_conffile, sizeof(maat_conffile), "./tsgconf/maat.conf");		
+	MESA_load_profile_string_def(conffile, "MAAT", "SECURITY_COMPILE", g_tsg_para.table_name[TABLE_SECURITY_COMPILE], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_COMPILE");
 	MESA_load_profile_string_def(conffile, "MAAT", "IP_ADDR_TABLE", g_tsg_para.table_name[TABLE_IP_ADDR], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_ADDR");
 	MESA_load_profile_string_def(conffile, "MAAT", "SUBSCRIBER_ID_TABLE", g_tsg_para.table_name[TABLE_SUBSCRIBER_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_SUBSCRIBER_ID");
 	MESA_load_profile_string_def(conffile, "MAAT", "APP_ID_TABLE", g_tsg_para.table_name[TABLE_APP_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_APP_ID");
@@ -608,6 +778,11 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "FQDN_CAT_BUILT_IN_TABLE", g_tsg_para.table_name[TABLE_FQDN_CAT_BUILT_IN], _MAX_TABLE_NAME_LEN, "TSG_FQDN_CATEGORY_BUILT_IN");
 	MESA_load_profile_string_def(conffile, "MAAT", "FQDN_CAT_USER_DEFINED_TABLE", g_tsg_para.table_name[TABLE_FQDN_CAT_USER_DEFINED], _MAX_TABLE_NAME_LEN, "TSG_FQDN_CATEGORY_USER_DEFINED");
 
+	MESA_load_profile_string_def(conffile, "MAAT", "APP_ID_DICT_TABLE", g_tsg_para.table_name[TABLE_APP_ID_DICT], _MAX_TABLE_NAME_LEN, "APP_ID_DICT");
+	MESA_load_profile_string_def(conffile, "MAAT", "APP_ID_TABLE", g_tsg_para.table_name[TABLE_APP_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_APP_ID");
+	MESA_load_profile_string_def(conffile, "MAAT", "SELECTOR_ID_TABLE", g_tsg_para.table_name[TABLE_SELECTOR_ID], _MAX_TABLE_NAME_LEN, "APP_SELECTOR_ID");
+	MESA_load_profile_string_def(conffile, "MAAT", "SELECTOR_PROPERTIES_TABLE", g_tsg_para.table_name[TABLE_SELECTOR_PROPERTIES], _MAX_TABLE_NAME_LEN, "APP_SELECTOR_PROPERTIES");
+
 	//init static maat feather
 	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", logger);
 	if(g_tsg_maat_feather==NULL)
@@ -616,7 +791,23 @@ int tsg_rule_init(const char* conffile, void *logger)
 		return -1;
 	}
 
-	for(i=0; i<TABLE_MAX; i++)
+	g_tsg_para.table_id[TABLE_SECURITY_COMPILE]=Maat_rule_get_ex_new_index(g_tsg_maat_feather,
+																g_tsg_para.table_name[TABLE_SECURITY_COMPILE],
+																security_compile_new,
+																security_compile_free,
+																security_compile_dup,
+																0,
+																logger
+															);
+	
+	if(g_tsg_para.table_id[TABLE_SECURITY_COMPILE]<0)
+	{
+		
+		MESA_handle_runtime_log(logger,	RLOG_LV_FATAL, "REGISTER_TABLE", "Register table: %s failed ...", g_tsg_para.table_name[TABLE_SECURITY_COMPILE]);		
+		return -1;
+	}
+
+	for(i=TABLE_IP_ADDR; i<TABLE_MAX; i++)
 	{
 		g_tsg_para.table_id[i]=Maat_table_register(g_tsg_maat_feather, g_tsg_para.table_name[i]);
 		if(g_tsg_para.table_id[i]<0)
@@ -628,7 +819,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 									); 
 			return -1;
 		}
-	}	
+	}
 
 	for(i=TABLE_ASN_USER_DEFINED; i<=TABLE_ASN_BUILT_IN; i++)
 	{
@@ -695,6 +886,25 @@ int tsg_rule_init(const char* conffile, void *logger)
 		}
 	}
 
+	ret=Maat_plugin_EX_register(g_tsg_maat_feather,
+									g_tsg_para.table_id[TABLE_APP_ID_DICT],
+									app_id_dict_new_data,
+									app_id_dict_free_data,
+									app_id_dict_dup_data,
+									NULL,
+									0,
+									logger);
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(logger, RLOG_LV_FATAL,
+									"RULE_INIT",
+									"Maat_ip_plugin_EX_register failed, table_name: %s table_id: %d",
+									g_tsg_para.table_name[TABLE_APP_ID_DICT],
+									g_tsg_para.table_id[TABLE_APP_ID_DICT]
+								); 
+		return -1;		
+	}
+
 	//init dynamic maat feather
 	g_tsg_dynamic_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_DYNAMIC", (char *)"DYNAMIC", logger);
 	if(g_tsg_maat_feather==NULL)
@@ -733,7 +943,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	return 0;
 }
 
-int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t*result, int result_num, struct _identify_info *identify_info)
+int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t*result, int result_num, struct identify_info *identify_info)
 {
 	int num=0;
 	policy_priority_label_t *label=NULL;
@@ -1024,7 +1234,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 	int hit_num=0,tans_proto=0;
 	int is_scan_addr=1, maat_ret=0,found_pos=0;
 	const struct streaminfo *cur_stream = a_stream;
-	struct _session_attribute_label_t *internal_label=NULL;
+	struct _session_attribute_label_t *attribute_label=NULL;
 
 	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
 	{
@@ -1083,7 +1293,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
  											result+hit_num,
  											result_num-hit_num,
  											mid,
- 											cur_stream->threadnum);
+ 											(int)cur_stream->threadnum);
 			if(maat_ret>0)
 			{
 				MESA_handle_runtime_log(g_tsg_para.logger,
@@ -1176,43 +1386,43 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		}
 	}
 
-	internal_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
-	if(internal_label==NULL)
+	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
+	if(attribute_label==NULL)
 	{
-		internal_label=(struct _session_attribute_label_t *)calloc(1, sizeof(struct _session_attribute_label_t));
-		memset(internal_label, 0, sizeof(struct _session_attribute_label_t));
+		attribute_label=(struct _session_attribute_label_t *)calloc(1, sizeof(struct _session_attribute_label_t));
+		memset(attribute_label, 0, sizeof(struct _session_attribute_label_t));
 	}
 
 	if(hit_num<result_num)
 	{
-		tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_USER_DEFINED], (void **)&(internal_label->client_location), (void **)&(internal_label->server_location));
-		tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_BUILT_IN], (void **)&(internal_label->client_location), (void **)&(internal_label->server_location));
+		tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_USER_DEFINED], (void **)&(attribute_label->client_location), (void **)&(attribute_label->server_location));
+		tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_BUILT_IN], (void **)&(attribute_label->client_location), (void **)&(attribute_label->server_location));
 		
-		hit_num+=tsg_scan_ip_location(maat_feather, a_stream, internal_label->client_location, TABLE_SRC_LOCATION, mid, result+hit_num, result_num-hit_num);
-		hit_num+=tsg_scan_ip_location(maat_feather, a_stream, internal_label->server_location, TABLE_DST_LOCATION, mid, result+hit_num, result_num-hit_num);
+		hit_num+=tsg_scan_ip_location(maat_feather, a_stream, attribute_label->client_location, TABLE_SRC_LOCATION, mid, result+hit_num, result_num-hit_num);
+		hit_num+=tsg_scan_ip_location(maat_feather, a_stream, attribute_label->server_location, TABLE_DST_LOCATION, mid, result+hit_num, result_num-hit_num);
 	}
 
 	if(hit_num<result_num)
 	{
-		tsg_get_ip_asn(a_stream, g_tsg_para.table_id[TABLE_ASN_USER_DEFINED], (void **)&(internal_label->client_asn), (void **)&(internal_label->server_asn));
-		tsg_get_ip_asn(a_stream, g_tsg_para.table_id[TABLE_ASN_BUILT_IN], (void **)&(internal_label->client_asn), (void **)&(internal_label->server_asn));
+		tsg_get_ip_asn(a_stream, g_tsg_para.table_id[TABLE_ASN_USER_DEFINED], (void **)&(attribute_label->client_asn), (void **)&(attribute_label->server_asn));
+		tsg_get_ip_asn(a_stream, g_tsg_para.table_id[TABLE_ASN_BUILT_IN], (void **)&(attribute_label->client_asn), (void **)&(attribute_label->server_asn));
 		
-		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, internal_label->client_asn, TABLE_SRC_ASN, mid, result+hit_num, result_num-hit_num);
-		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, internal_label->server_asn, TABLE_DST_ASN, mid, result+hit_num, result_num-hit_num);
+		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, attribute_label->client_asn, TABLE_SRC_ASN, mid, result+hit_num, result_num-hit_num);
+		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, attribute_label->server_asn, TABLE_DST_ASN, mid, result+hit_num, result_num-hit_num);
 	}
 
 
 	if(hit_num<result_num)
 	{
-		tsg_get_subscribe_id(a_stream, &internal_label->client_subscribe_id, &internal_label->server_subscribe_id);
+		tsg_get_subscribe_id(a_stream, &attribute_label->client_subscribe_id, &attribute_label->server_subscribe_id);
 		
-		if(internal_label->client_subscribe_id!=NULL)
+		if(attribute_label->client_subscribe_id!=NULL)
 		{
 			maat_ret=Maat_full_scan_string(maat_feather,
 										g_tsg_para.table_id[TABLE_SUBSCRIBER_ID],
 										CHARSET_GBK,
-										internal_label->client_subscribe_id->subscribe_id,
-										strlen(internal_label->client_subscribe_id->subscribe_id),
+										attribute_label->client_subscribe_id->subscribe_id,
+										strlen(attribute_label->client_subscribe_id->subscribe_id),
 										result+hit_num,
 										&found_pos,
 										result_num-hit_num,
@@ -1224,7 +1434,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_SUBSCRIBER",
 											"Hit source subscribe id: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
-											internal_label->client_subscribe_id->subscribe_id,
+											attribute_label->client_subscribe_id->subscribe_id,
 											maat_ret,
 											result[hit_num].config_id,
 											result[hit_num].service_id,
@@ -1240,20 +1450,20 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_SUBSCRIBER",
 											"No hit source subscribe id: %s scan ret: %d addr: %s",
-											internal_label->client_subscribe_id->subscribe_id,
+											attribute_label->client_subscribe_id->subscribe_id,
 											maat_ret,
 											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 										);
 			}
 		}
 		
-		if(internal_label->server_subscribe_id!=NULL)
+		if(attribute_label->server_subscribe_id!=NULL)
 		{
 			maat_ret=Maat_full_scan_string(maat_feather,
 										g_tsg_para.table_id[TABLE_SUBSCRIBER_ID],
 										CHARSET_GBK,
-										internal_label->server_subscribe_id->subscribe_id,
-										strlen(internal_label->server_subscribe_id->subscribe_id),
+										attribute_label->server_subscribe_id->subscribe_id,
+										strlen(attribute_label->server_subscribe_id->subscribe_id),
 										result+hit_num,
 										&found_pos,
 										result_num-hit_num,
@@ -1265,7 +1475,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_SUBSCRIBER",
 											"Hit dest subscribe id: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
-											internal_label->server_subscribe_id->subscribe_id,
+											attribute_label->server_subscribe_id->subscribe_id,
 											maat_ret,
 											result[hit_num].config_id,
 											result[hit_num].service_id,
@@ -1281,7 +1491,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_SUBSCRIBER",
 											"No hit dest subscribe id: %s scan ret: %d addr: %s",
-											internal_label->server_subscribe_id->subscribe_id,
+											attribute_label->server_subscribe_id->subscribe_id,
 											maat_ret,
 											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
 										);
@@ -1289,7 +1499,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		}
 	}
 
-	ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.internal_project_id, (void *)internal_label);
+	ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.internal_project_id, (void *)attribute_label);
 	if(ret<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger,
@@ -1306,22 +1516,27 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 
 
 //return value: -1: failed, 0: not hit, >0: hit count 
-int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct _identify_info *identify_info, Maat_rule_t *result, int result_num,  scan_status_t *mid, int thread_seq)
+int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct identify_info *identify_info, Maat_rule_t *result, int result_num,  scan_status_t *mid, int thread_seq)
 {
-	int ret=0,idx=0;
-	
-	if(identify_info->proto!=PROTO_UNKONWN && identify_info->domain_len>0)
+	char *field_name=NULL;
+	int i=0,ret=0,idx=0,hit_num=0;	
+	struct _session_attribute_label_t *attribute_label=NULL;
+
+	if(identify_info->proto!=PROTO_UNKONWN && strlen(identify_info->domain)>0 && identify_info->domain_len>0)
 	{
 		switch(identify_info->proto)
 		{
 			case	PROTO_HTTP:
 				idx=TABLE_HTTP_HOST;
+				field_name=(char *)"http_host";
 				break;
 			case	PROTO_SSL:
 				idx=TABLE_SSL_SNI;
+				field_name=(char *)"ssl_sni";
 				break;
 			case	PROTO_QUIC:
 				idx=TABLE_QUIC_SNI;
+				field_name=(char *)"quic_sni";
 				break;
 			default:
 				return 0;
@@ -1339,9 +1554,95 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct _identify_info *i
 									mid,
 									thread_seq
 								);
+		if(ret>0)
+		{
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
+			MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"SCAN_FQDN",
+										"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
+										field_name,
+										identify_info->domain,
+										result[hit_num].config_id,
+										result[hit_num].service_id,
+										(unsigned char)result[hit_num].action,
+										printaddr(&a_stream->addr, thread_seq)
+									);
+
+			hit_num+=ret;
+		}
+		else
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"SCAN_FQDN",
+										"Not hit %s: %s ret: %d stream_dir: %d addr: %s",
+										(ret==-1) ?  "NULL" : ((identify_info->proto==PROTO_HTTP) ? "host" : "sni"),
+										(ret==-1) ? "NULL" : identify_info->domain,
+										ret,
+										a_stream->dir,
+										printaddr(&a_stream->addr, thread_seq)
+									);
+		}
+
+		attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
+		if(attribute_label!=NULL)
+		{
+			attribute_label->fqdn_category_id_num=tsg_get_fqdn_category_id(g_tsg_maat_feather, 
+																				identify_info->domain,
+																				attribute_label->fqdn_category_id,
+																				MAX_CATEGORY_ID_NUM,
+																				g_tsg_para.logger,
+																				thread_seq
+																			);
+		
+
+			for(i=0; i<attribute_label->fqdn_category_id_num; i++)
+			{
+				int idx=identify_info->proto==PROTO_HTTP ? TABLE_HTTP_HOST : TABLE_SSL_SNI;
+				ret=Maat_scan_intval(g_tsg_maat_feather,
+										g_tsg_para.table_id[idx],
+										(unsigned int)attribute_label->fqdn_category_id[i],
+										result+hit_num,
+										result_num-hit_num,
+										mid,
+										thread_seq
+									);
+				if(ret>0)
+				{
+					MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_FQDN_CAT",
+											"Hit %s: %s category_id: %d policy_id: %d service: %d action: %d addr: %s",
+											(identify_info->proto==PROTO_HTTP) ? "host" : "sni",
+											identify_info->domain,
+											attribute_label->fqdn_category_id[i],
+											result[hit_num].config_id,
+											result[hit_num].service_id,
+											(unsigned char)result[hit_num].action,
+											printaddr(&a_stream->addr, thread_seq)
+										);
+					hit_num+=ret;
+				}
+				else
+				{
+					MESA_handle_runtime_log(g_tsg_para.logger,
+											RLOG_LV_DEBUG,
+											"SCAN_FQDN_CAT",
+											"Not hit %s: %s category_id: %d ret: %d stream_dir: %d addr: %s",
+											(ret==-1) ?  "NULL" : ((identify_info->proto==PROTO_HTTP) ? "host" : "sni"),
+											(ret==-1) ? "NULL" : identify_info->domain,
+											attribute_label->fqdn_category_id[i],
+											ret,
+											a_stream->dir,
+											printaddr(&a_stream->addr, thread_seq)
+										);
+				}
+			}
+		}
 	}
 
-	return ret;
+	return hit_num;
 }
 
 
@@ -1433,4 +1734,87 @@ int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned i
 	
 	return 0;
 }
+
+
+int tsg_scan_app_id_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq)
+{
+	int ret=0;
+
+	ret=Maat_scan_intval(maat_feather, g_tsg_para.table_id[TABLE_APP_ID], id, result, result_num, mid, thread_seq);
+	if(ret>0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, 
+									RLOG_LV_DEBUG,
+									"SCAN_ID",
+									"Hit %s %s_id: %d ret: %d policy_id: %d service: %d action: %d addr: %s",
+									name,
+									(id>1000) ? "app" : "proto",
+									id,
+									ret,
+									result[0].config_id,
+									result[0].service_id,
+									result[0].action,
+									printaddr(&a_stream->addr, thread_seq)
+								);
+
+		return ret;
+	}
+
+	MESA_handle_runtime_log(g_tsg_para.logger,
+								RLOG_LV_DEBUG,
+								"SCAN_ID",
+								"scan %s %s_id: %d ret: %d addr: %s",
+								name,
+								(id>1000) ? "app" : "proto",
+								id,
+								ret,
+								printaddr(&a_stream->addr, thread_seq)
+							);
+	return 0;
+}
+
+int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq)
+{
+	int i=0,ret=0;
+	int ret2=0, hit_num=0;
+	int district_len=strlen(district);
+	int property_len=strlen(property); 
+	struct Maat_rule_t property_result[MAX_RESULT_NUM]={0};
+	
+	if(property!=NULL && property_len>0 && district_len>0)
+	{
+		Maat_set_scan_status(g_tsg_maat_feather, mid, MAAT_SET_SCAN_DISTRICT, (void *)district, district_len);
+		ret=Maat_full_scan_string(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_SELECTOR_PROPERTIES], CHARSET_UTF8, property, property_len, property_result, NULL, MAX_RESULT_NUM,mid,thread_seq);
+		for(i=0; i<ret; i++)
+		{
+			ret2=Maat_scan_intval(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_SELECTOR_ID], property_result[i].config_id, result, result_num, mid, thread_seq);
+			if(ret2>0)
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger, 
+										RLOG_LV_DEBUG,
+										"SCAN_ID",
+										"Hit selector_id: %d ret: %d policy_id: %d service: %d action: %d addr: %s",
+										property_result[i].config_id,
+										ret2,
+										result[0].config_id,
+										result[0].service_id,
+										result[0].action,
+										printaddr(&a_stream->addr, thread_seq)
+									);
+				
+				hit_num+=ret2;
+			}
+			else
+			{
+				MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_ID","Hit %s selector_id: %d ret: %d addr: %s", 
+												property, property_result[i].config_id, ret2, printaddr(&a_stream->addr, thread_seq));
+			}
+		}
+
+		MESA_handle_runtime_log(g_tsg_para.logger, 	RLOG_LV_DEBUG, "SCAN_PROPERTY", "scan %s: %s ret: %d addr: %s", district, property, ret, printaddr(&a_stream->addr, thread_seq));
+	}
+
+	return hit_num;
+}
+
 
