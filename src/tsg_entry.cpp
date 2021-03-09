@@ -55,6 +55,7 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{TLD_TYPE_UNKNOWN, TSG_FS2_TCP_LINKS, "
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_ADDR, "hit_addr"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_HIT_SHARE, "hit_share"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_INTERCEPT, "intercept"},
+										 {TLD_TYPE_UNKNOWN, TSG_FS2_EXCLUSION, "exclusion"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_SUCCESS_LOG, "success_log"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_FAILED_LOG, "failed_log"},
 										 {TLD_TYPE_UNKNOWN, TSG_FS2_DROP_LOG, "drop_log"},
@@ -163,9 +164,9 @@ static int is_repetitive_app_id(unsigned short proto_id)
 		case	HTTP_PROTO_ID:
 		case	MAIL_PROTO_ID:
 		case	QUIC_PROTO_ID:
-		//case	SIP_PROTO_ID:
+		case	SIP_PROTO_ID:
 		case	SSL_PROTO_ID:
-		//case	RTP_PROTO_ID:
+		case	RTP_PROTO_ID:
 			return 1;
 		default:
 			break;
@@ -223,6 +224,17 @@ static int get_basic_proto_id(struct streaminfo *a_stream, struct master_context
 			if(is_repetitive_app_id(proto_label->proto_id))
 			{
 				context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
+				switch(proto_label->proto_id)
+				{
+					case	SIP_PROTO_ID:					
+						context->proto=PROTO_SIP;
+						break;
+					case	RTP_PROTO_ID:					
+						context->proto=PROTO_RTP;
+						break;
+					default:
+						break;
+				}
 			}
 			else
 			{
@@ -475,7 +487,6 @@ static void copy_deny_result(struct streaminfo *a_stream, struct master_context 
 	return ;
 }
 
-
 static void copy_bypass_result(struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int thread_seq)
 {
 	if(context->result==NULL)
@@ -513,6 +524,66 @@ static void copy_bypass_result(struct streaminfo *a_stream, struct master_contex
 							);
 
 	return ;
+}
+
+int is_intercept_exclusion(struct streaminfo *a_stream, Maat_rule_t *p_result, struct identify_info *identify_info, int thread_seq)
+{
+	int ret=0;	
+	scan_status_t mid=NULL;
+	Maat_rule_t tmp_result;
+
+	if(identify_info!=NULL && identify_info->domain_len>0)
+	{
+		ret=Maat_full_scan_string(g_tsg_maat_feather,
+									g_tsg_para.table_id[TABLE_EXCLUSION_SSL_SNI],
+									CHARSET_UTF8,
+									identify_info->domain,
+									identify_info->domain_len,
+									&tmp_result,
+									NULL,
+									1,
+									&mid,
+									thread_seq);
+
+		if(mid!=NULL)
+		{
+			Maat_clean_status(&mid);
+			mid=NULL;
+		}
+
+		if(ret>0)
+		{	
+			MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"EXCLUSION_SSL_SNI",
+										"Hit %s policy_id: %d service: %d action: %d Decryption Exclusion: [ policy_id: %d service: %d action: %d ] addr: %s",
+										identify_info->domain,
+										tmp_result.config_id,
+										tmp_result.service_id,
+										(unsigned char)tmp_result.action,
+										p_result->config_id,
+										p_result->service_id,
+										(unsigned char)p_result->action,
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, thread_seq) : "")
+									);
+						
+			return 1;
+		}
+		else
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_DEBUG,
+										"EXCLUSION_SSL_SNI",
+										"Not hit %s stream_dir: %d addr: %s  scan ret: %d",
+										identify_info->domain,
+										a_stream->dir,
+										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, thread_seq) : ""),
+										ret
+									);
+		}
+	}
+
+	return 0;
 }
 
 void close_stream_free_context(struct streaminfo *a_stream, struct master_context *context, int thread_seq)
@@ -746,53 +817,8 @@ static void free_session_attribute_label(int thread_seq, void *project_req_value
 
 struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct identify_info *identify_info, int thread_seq)
 {
-	int i=0,ret=0;
-	Maat_rule_t tmp_result;
+	int i=0;
 	Maat_rule_t *p_result=NULL;
-	Maat_rule_t *q_result=NULL;
-	scan_status_t mid=NULL;
-	
-	if(result==NULL || result_num<=0)
-	{
-		return NULL;
-	}
-#if 0
-	ret=Maat_rule_sort_by_evaluation_order(g_tsg_maat_feather, result, result_num);
-	if(ret!=result_num)
-	{
-		return NULL;
-	}
-
-	p_result=&result[0];
-	
-	if(p_result->action==TSG_ACTION_INTERCEPT && domain!=NULL && domain_len>0)
-	{
-		ret=Maat_full_scan_string(g_tsg_maat_feather,
-									g_tsg_para.table_id[TABLE_EXCLUSION_SSL_SNI],
-									CHARSET_UTF8,
-									domain,
-									domain_len,
-									&tmp_result,
-									NULL,
-									1,
-									&mid,
-									thread_seq);
-		if(ret>0)
-		{
-			p_result=NULL;
-			for(i=1; i<result_num; i++)
-			{
-				if(p_result->action==TSG_ACTION_INTERCEPT)
-				{
-					continue;
-				}
-				p_result=&result[i];
-			}
-		}
-	}
-	
-	return 	p_result;
-#endif
 
 	for(i=0; i<result_num; i++)
 	{
@@ -804,17 +830,8 @@ struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Ma
 		
 		if((unsigned char)result[i].action>(unsigned char)p_result->action)
 		{
-			if(p_result->action!=TSG_ACTION_INTERCEPT)
-			{
-				q_result=p_result;
-			}
 			p_result=&result[i];
 			continue;
-		}
-
-		if((unsigned char)result[i].action<(unsigned char)p_result->action && (unsigned char)result[i].action!=TSG_ACTION_INTERCEPT)
-		{		
-			q_result=&result[i];
 		}
 		
 		if(result[i].action==p_result->action)
@@ -824,58 +841,6 @@ struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Ma
 				p_result=&result[i];
 			}
 		}	
-	}
-
-	if(p_result->action==TSG_ACTION_INTERCEPT && identify_info!=NULL && identify_info->domain_len>0)
-	{
-		ret=Maat_full_scan_string(g_tsg_maat_feather,
-									g_tsg_para.table_id[TABLE_EXCLUSION_SSL_SNI],
-									CHARSET_UTF8,
-									identify_info->domain,
-									identify_info->domain_len,
-									&tmp_result,
-									NULL,
-									1,
-									&mid,
-									thread_seq);
-
-		if(mid!=NULL)
-		{
-			Maat_clean_status(&mid);
-			mid=NULL;
-		}
-
-		if(ret>0)
-		{	
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"EXCLUSION_SSL_SNI",
-										"Hit %s policy_id: %d service: %d action: %d Decryption Exclusion: [ policy_id: %d service: %d action: %d ] addr: %s",
-										identify_info->domain,
-										tmp_result.config_id,
-										tmp_result.service_id,
-										(unsigned char)tmp_result.action,
-										p_result->config_id,
-										p_result->service_id,
-										(unsigned char)p_result->action,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, thread_seq) : "")
-									);
-			
-			p_result=q_result;
-			master_send_log(a_stream, &tmp_result, 1, identify_info, thread_seq);
-		}
-		else
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"EXCLUSION_SSL_SNI",
-										"Not hit %s stream_dir: %d addr: %s  scan ret: %d",
-										identify_info->domain,
-										a_stream->dir,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, thread_seq) : ""),
-										ret
-									);
-		}
 	}
 
 	return p_result;
@@ -1140,11 +1105,12 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
-				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || (context->proto!=PROTO_APP))
+				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || (is_repetitive_app_id(context->proto)))
 				{
 					break;
 				}
-				
+
+				context->proto=PROTO_APP;
 				user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 				if(user_region!=NULL)
 				{
@@ -1194,6 +1160,12 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 				break;
 			case	TSG_ACTION_INTERCEPT:
+				if(is_intercept_exclusion(a_tcp, p_result, &identify_info, thread_seq))
+				{					
+					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_EXCLUSION], 0, FS_OP_ADD, 1);
+					break;
+				}
+				
 				copy_intercept_result(a_tcp, context, p_result, &identify_info, thread_seq);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
 				state=APP_STATE_DROPME|APP_STATE_KILL_OTHER;
@@ -1261,18 +1233,6 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 		proto_id=get_basic_proto_id(a_udp, context, thread_seq);
 		if(proto_id>0)
 		{
-			switch(proto_id)
-			{
-				case	SIP_PROTO_ID:					
-					context->proto=PROTO_SIP;
-					break;
-				case	RTP_PROTO_ID:					
-					context->proto=PROTO_RTP;
-					break;
-				default:					
-					context->proto=PROTO_APP;
-					break;
-			}
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_udp, result, MAX_RESULT_NUM-hit_num, &context->mid, l7_protocol, proto_id, thread_seq);
 		}
 	}
@@ -1284,10 +1244,12 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
-				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || (context->proto!=PROTO_APP)) /* support redirect, Do action in fw_dns_plug */
+				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || (is_repetitive_app_id(context->proto)))
 				{
 					break;
 				}
+				
+				context->proto=PROTO_APP;
 				user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 				if(user_region!=NULL)
 				{
