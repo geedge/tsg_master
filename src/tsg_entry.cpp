@@ -1093,8 +1093,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				hit_num+=ret;
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
-			context->proto=identify_info.proto;
-			context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
 			break;
 		default:
 			break;
@@ -1253,9 +1251,6 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				hit_num+=ret;
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
-			
-			context->proto=identify_info.proto;			
-			context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
 			break;
 		default:
 			break;
