@@ -155,7 +155,7 @@ static int get_device_id(char *command, int entrance_id)
 	return (entrance_id<<7)+(atoi(buffer)%128);
 }
 
-static int is_repetitive_app_id(unsigned short proto_id)
+static int is_repetitive_protocol_id(unsigned short proto_id)
 {
 	switch(proto_id)
 	{
@@ -170,6 +170,31 @@ static int is_repetitive_app_id(unsigned short proto_id)
 			return 1;
 		default:
 			break;
+	}
+
+	return 0;
+}
+
+static int get_default_policy(int compile_id, struct Maat_rule_t *result)
+{
+	struct Maat_rule_t p_result={0};
+	struct compile_user_region *user_region=NULL;
+
+	p_result.config_id=compile_id;
+	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, &p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
+	if(user_region!=NULL)
+	{
+		if(user_region->result!=NULL)
+		{
+			memcpy(result, user_region->result, sizeof(struct Maat_rule_t));
+			if(result->action==TSG_ACTION_BYPASS)
+			{
+				result->action=TSG_ACTION_NONE;
+			}
+		}
+		
+		security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], &p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+		return 1;
 	}
 
 	return 0;
@@ -192,8 +217,7 @@ static struct app_id_label *get_app_id_label(struct streaminfo *a_stream, struct
 			MESA_handle_runtime_log(g_tsg_para.logger, 
 									RLOG_LV_DEBUG,
 									"READ_APP_ID_FLAG",
-									"Get %s app id label, app_id: %d addr: %s",
-									context->uuid_str,
+									"Get app id label, app_id: %d addr: %s",
 									app_id_label->app_id,
 									printaddr(&a_stream->addr, thread_seq)
 								);
@@ -214,33 +238,14 @@ static int get_basic_proto_id(struct streaminfo *a_stream, struct master_context
 	if(context->continue_scan_proto_id==APP_SCAN_FLAG_CONTINUE && g_tsg_para.l7_proto_project_id>=0)
 	{
 		proto_label=(struct basic_proto_label *)project_req_get_struct(a_stream, g_tsg_para.l7_proto_project_id);
-		if(proto_label!=NULL && proto_label->proto_id!=context->basic_proto_id)
+		if(proto_label!=NULL)
 		{
 			if(proto_label->continue_scan_flag==APP_SCAN_FLAG_STOP)
 			{
 				context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
 			}
 
-			if(is_repetitive_app_id(proto_label->proto_id))
-			{
-				context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
-				switch(proto_label->proto_id)
-				{
-					case	SIP_PROTO_ID:					
-						context->proto=PROTO_SIP;
-						break;
-					case	RTP_PROTO_ID:					
-						context->proto=PROTO_RTP;
-						break;
-					default:
-						break;
-				}
-			}
-			else
-			{
-				context->basic_proto_id=proto_label->proto_id;
-				return context->basic_proto_id;
-			}
+			return proto_label->proto_id;
 		}
 	}
 
@@ -595,7 +600,15 @@ void close_stream_free_context(struct streaminfo *a_stream, struct master_contex
 		if(context->hit_cnt>0 && context->result!=NULL)
 		{
 			memset(&identify_info, 0, sizeof(identify_info));
-			identify_info.proto=context->proto;
+			if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP)
+			{
+				identify_info.proto=PROTO_APP;
+			}
+			else
+			{
+				identify_info.proto=context->proto;
+			}
+
 			if(context->domain_len>0)
 			{
 				memcpy(identify_info.domain, context->domain, context->domain_len);
@@ -1034,7 +1047,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	int opt_value=0;
 	int proto_id=0;
 	char *l7_protocol=NULL;
-	int ret=0,hit_num=0;
+	int ret=0,hit_num=0;	
 	int state=APP_STATE_GIVEME;
 	Maat_rule_t *p_result=NULL;
 	struct identify_info identify_info;
@@ -1077,17 +1090,20 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				hit_num+=ret;
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
+			context->proto=identify_info.proto;
+			context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
 			break;
 		default:
 			break;
 	}
 
-	if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP) /* support block/alert(deny), Do action in fw_http_plug */
+	if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP || context->continue_scan_proto_id==APP_SCAN_FLAG_CONTINUE) /* support block/alert(deny), Do action in fw_http_plug */
 	{
 		proto_id=get_basic_proto_id(a_tcp, context, thread_seq);
-		if(proto_id>0)
+		if(proto_id>0 && proto_id!=context->basic_proto_id)
 		{
 			context->proto=PROTO_APP;
+			context->basic_proto_id=proto_id;
 			l7_protocol=tsg_l7_protocol_id2name(g_tsg_log_instance, proto_id);
 			if(l7_protocol==NULL && proto_id==g_tsg_para.mail_proto_id)
 			{
@@ -1100,23 +1116,29 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 	
 	hit_num+=scan_application_id_and_properties(a_tcp, context, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
 	p_result=tsg_policy_decision_criteria(a_tcp, result, hit_num, &identify_info, thread_seq);
+	if(g_tsg_para.default_compile_switch==1 && p_result==NULL)
+	{
+		if(get_default_policy(g_tsg_para.default_compile_id, &result[0]))
+		{
+			p_result=&result[0];			
+			context->is_default_policy=1;
+		}
+	}
+
 	if(p_result!=NULL)
 	{		
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
-				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || (is_repetitive_app_id(context->proto)))
+				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || ((is_repetitive_protocol_id(context->proto)) && context->is_default_policy==0))
 				{
 					break;
 				}
 
-				context->proto=PROTO_APP;
 				user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 				if(user_region!=NULL)
 				{
-					atomic_dec(&user_region->ref_cnt);
 					method_type=tsg_get_method_id(user_region->method);
-
 					switch(method_type)
 					{
 						case	TSG_METHOD_TYPE_DROP:
@@ -1148,6 +1170,8 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 						default:
 							break;
 					}
+					
+					security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
 				}
 				copy_deny_result(a_tcp, context, p_result, thread_seq);
 				break;
@@ -1223,39 +1247,70 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				hit_num+=ret;
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
+			
+			context->proto=identify_info.proto;			
+			context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
 			break;
 		default:
 			break;
 	}
 
-	if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP)
+	if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP || context->continue_scan_proto_id==APP_SCAN_FLAG_CONTINUE)
 	{
 		proto_id=get_basic_proto_id(a_udp, context, thread_seq);
-		if(proto_id>0)
+		if(proto_id>0 && context->basic_proto_id!=proto_id)
 		{
-			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_udp, result, MAX_RESULT_NUM-hit_num, &context->mid, l7_protocol, proto_id, thread_seq);
+			if(is_repetitive_protocol_id(proto_id))
+			{
+				context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
+				switch(proto_id)
+				{
+					case	SIP_PROTO_ID:					
+						context->proto=PROTO_SIP;
+						set_session_attribute_label(a_udp, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(context->proto), thread_seq);
+						break;
+					case	RTP_PROTO_ID:					
+						context->proto=PROTO_RTP;
+						set_session_attribute_label(a_udp, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(context->proto), thread_seq);
+						break;
+					default:
+						break;
+				}
+			}
+			else
+			{
+				context->proto=PROTO_APP;
+				context->basic_proto_id=proto_id;
+				hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_udp, result, MAX_RESULT_NUM-hit_num, &context->mid, l7_protocol, proto_id, thread_seq);
+			}
 		}
 	}
 	
 	hit_num+=scan_application_id_and_properties(a_udp, context, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
 	p_result=tsg_policy_decision_criteria(a_udp, result, hit_num, &identify_info, thread_seq);
+	if(g_tsg_para.default_compile_switch==1 && p_result==NULL)
+	{
+		if(get_default_policy(g_tsg_para.default_compile_id, &result[0]))
+		{
+			p_result=&result[0];
+			context->is_default_policy=1;
+		}
+	}
+
 	if(p_result!=NULL)
 	{
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
-				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || (is_repetitive_app_id(context->proto)))
+				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || ((is_repetitive_protocol_id(context->proto)) && context->is_default_policy==0))
 				{
 					break;
 				}
 				
-				context->proto=PROTO_APP;
 				user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 				if(user_region!=NULL)
 				{
-					atomic_dec(&user_region->ref_cnt);
 					method_type=tsg_get_method_id(user_region->method);
-
 					switch(method_type)
 					{
 						case	TSG_METHOD_TYPE_DROP:
@@ -1267,6 +1322,8 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 						default:
 							break;
 					}
+					
+					security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
 				}
 				copy_deny_result(a_udp, context, p_result, thread_seq);
 				break;
@@ -1319,7 +1376,11 @@ extern "C" int TSG_MASTER_INIT()
 		printf("MESA_create_runtime_log_handle failed ...\n");
 		return -1;
 	}
+
 	
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","DEFAULT_POLICY_ID", &g_tsg_para.default_compile_id, 0);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","DEFAULT_POLICY_SWITCH", &g_tsg_para.default_compile_switch, 0);
+
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;SIP;MAIL;STREAMING_MEDIA;QUIC;");
 	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);
 

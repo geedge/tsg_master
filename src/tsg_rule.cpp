@@ -550,51 +550,65 @@ void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* s
 	cJSON *object=NULL, *item=NULL;
 	struct compile_user_region *user_region=NULL;
 	
-	if(rule!=NULL && srv_def_large!=NULL && strlen(srv_def_large)>2)
+	if(rule!=NULL)
 	{
-		object=cJSON_Parse(srv_def_large);
-		if(object!=NULL)
+		if(srv_def_large!=NULL && strlen(srv_def_large)>2)
 		{
-			user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
-			
-			item=cJSON_GetObjectItem(object, "method");
-			if(item!=NULL)
-			{
-				len=MIN(strlen(item->valuestring), sizeof(user_region->method)-1);
-				memcpy(user_region->method, item->valuestring, len);
+			object=cJSON_Parse(srv_def_large);
+			if(object!=NULL)
+			{				
+				user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
+				atomic_inc(&user_region->ref_cnt);
+
+				item=cJSON_GetObjectItem(object, "method");
+				if(item!=NULL)
+				{
+					len=MIN(strlen(item->valuestring), sizeof(user_region->method)-1);
+					memcpy(user_region->method, item->valuestring, len);
+				}
+
+				item=cJSON_GetObjectItem(object, "protocol");
+				if(item!=NULL)
+				{
+					len=MIN(strlen(item->valuestring), sizeof(user_region->protocol)-1);
+					memcpy(user_region->protocol, item->valuestring, len);
+				}
+
+				item=cJSON_GetObjectItem(object, "message");
+				if(item!=NULL)
+				{
+					len=strlen(item->valuestring)+1;
+					user_region->message=(char *)calloc(1, len);
+					memcpy(user_region->message, item->valuestring, len-1);
+				}
+
+				item=cJSON_GetObjectItem(object, "code");
+				if(item!=NULL)
+				{
+					user_region->code=item->valueint;
+				}
+
+				item=cJSON_GetObjectItem(object, "html_profile");
+				if(item!=NULL)
+				{
+					user_region->html_profile=item->valueint;
+				}
 			}
-
-			item=cJSON_GetObjectItem(object, "protocol");
-			if(item!=NULL)
-			{
-				len=MIN(strlen(item->valuestring), sizeof(user_region->protocol)-1);
-				memcpy(user_region->protocol, item->valuestring, len);
-			}
-
-			item=cJSON_GetObjectItem(object, "message");
-			if(item!=NULL)
-			{
-				len=strlen(item->valuestring)+1;
-				user_region->message=(char *)calloc(1, len);
-				memcpy(user_region->message, item->valuestring, len-1);
-			}
-
-			item=cJSON_GetObjectItem(object, "code");
-			if(item!=NULL)
-			{
-				user_region->code=item->valueint;
-			}
-
-			item=cJSON_GetObjectItem(object, "html_profile");
-			if(item!=NULL)
-			{
-				user_region->html_profile=item->valueint;
-			}
-
-			atomic_inc(&user_region->ref_cnt);
-
-			*ad=(MAAT_RULE_EX_DATA)user_region;
 		}
+
+		if(g_tsg_para.default_compile_switch==1 && g_tsg_para.default_compile_id==rule->config_id)
+		{
+			if(user_region==NULL)
+			{
+				user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));				
+				atomic_inc(&user_region->ref_cnt);
+			}
+			
+			user_region->result=(struct Maat_rule_t *)calloc(1, sizeof(struct Maat_rule_t));
+			memcpy(user_region->result, rule, sizeof(struct Maat_rule_t));
+		}
+
+		*ad=(MAAT_RULE_EX_DATA)user_region;
 	}
 
 	return ;
@@ -616,11 +630,20 @@ void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* 
 	if(user_region!=NULL)
 	{
 		atomic_dec(&user_region->ref_cnt);
-		if((user_region->ref_cnt-1)<=0)
+		if(user_region->ref_cnt<=0)
 		{
-			free(user_region->message);
-			user_region->message=NULL;
-		
+			if(user_region->message!=NULL)
+			{
+				free(user_region->message);
+				user_region->message=NULL;
+			}
+
+			if(user_region->result!=NULL)
+			{
+				free(user_region->result);
+				user_region->result=NULL;
+			}
+			
 			free(*ad);
 			*ad=NULL;
 		}

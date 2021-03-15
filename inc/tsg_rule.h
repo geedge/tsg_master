@@ -42,6 +42,7 @@ struct compile_user_region
 	char protocol[32];
 	char method[32];
 	char *message;
+	Maat_rule_t *result;
 };
 
 typedef	enum _PULL_RESULT_TYPE

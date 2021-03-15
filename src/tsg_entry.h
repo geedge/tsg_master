@@ -109,15 +109,14 @@ struct master_context
 {
 	tsg_protocol_t proto;
 	int hit_cnt;
-	int domain_len;
-	char domain[MAX_DOAMIN_LEN];
-	struct Maat_rule_t *result;
-
 	int app_id;
+	int is_default_policy;
 	char continue_scan_app_id;
 	char continue_scan_proto_id;
 	unsigned short basic_proto_id;
-	char uuid_str[32];
+	int domain_len;
+	char domain[MAX_DOAMIN_LEN];
+	struct Maat_rule_t *result;
 	scan_status_t mid;
 };
 
@@ -131,6 +130,8 @@ typedef	struct _tsg_para
 	int app_id_table_type;
 	int device_id;
 	int entrance_id;
+	int default_compile_switch;
+	int default_compile_id;
 	int table_id[TABLE_MAX];
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
@@ -238,6 +239,7 @@ int tsg_statistic_init(const char *conffile, void *logger);
 void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp);
 char *tsg_schema_index2string(tsg_protocol_t proto);
 struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, int thread_seq);
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct identify_info *identify_info, Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq);
