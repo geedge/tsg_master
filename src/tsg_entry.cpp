@@ -1075,6 +1075,9 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 			{
 				copy_identify_info(context, &identify_info, thread_seq);				
 				set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)(&identify_info.proto), thread_seq);
+				
+				context->proto=identify_info.proto;
+				context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
 
 				if(identify_info.proto==PROTO_SSL)
 				{
@@ -1237,6 +1240,9 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 			{
 				copy_identify_info(context, &identify_info, thread_seq);
 				set_session_attribute_label(a_udp, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(identify_info.proto), thread_seq);
+
+				context->proto=identify_info.proto;			
+				context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
 				
 				hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_udp, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
 			}
