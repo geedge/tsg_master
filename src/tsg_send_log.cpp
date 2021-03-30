@@ -60,7 +60,6 @@ static int action2fs_id(int action)
 
 int is_multi_hit_same_policy(struct Maat_rule_t *result, int *policy_id, int *policy_id_num)
 {
-	return 0;
 	int j=0;
 	
 	for(j=0;j<*policy_id_num;j++)
