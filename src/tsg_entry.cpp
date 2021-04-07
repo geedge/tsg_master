@@ -647,7 +647,7 @@ void set_session_attribute_label(struct streaminfo *a_stream, enum TSG_ATTRIBUTE
 	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
 	if(attribute_label==NULL)
 	{
-		attribute_label=(struct _session_attribute_label_t *)calloc(1, sizeof(struct _session_attribute_label_t));
+		attribute_label=(struct _session_attribute_label_t *)dictator_malloc(thread_seq, sizeof(struct _session_attribute_label_t));
 		memset(attribute_label, 0, sizeof(struct _session_attribute_label_t));
 
 		ret=project_req_add_struct(a_stream, g_tsg_para.internal_project_id, (const void *)attribute_label);

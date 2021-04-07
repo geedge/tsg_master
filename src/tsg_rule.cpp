@@ -1412,7 +1412,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
 	if(attribute_label==NULL)
 	{
-		attribute_label=(struct _session_attribute_label_t *)calloc(1, sizeof(struct _session_attribute_label_t));
+		attribute_label=(struct _session_attribute_label_t *)dictator_malloc(a_stream->threadnum, sizeof(struct _session_attribute_label_t));
 		memset(attribute_label, 0, sizeof(struct _session_attribute_label_t));
 	}
 
