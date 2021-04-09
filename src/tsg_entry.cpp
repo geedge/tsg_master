@@ -1282,6 +1282,7 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 			{
 				context->proto=PROTO_APP;
 				context->basic_proto_id=proto_id;
+				l7_protocol=tsg_l7_protocol_id2name(g_tsg_log_instance, proto_id);
 				hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_udp, result, MAX_RESULT_NUM-hit_num, &context->mid, l7_protocol, proto_id, thread_seq);
 			}
 		}
