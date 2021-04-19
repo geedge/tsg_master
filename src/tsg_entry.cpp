@@ -175,6 +175,21 @@ static int is_repetitive_protocol_id(unsigned short proto_id)
 	return 0;
 }
 
+static int is_only_monitor(struct Maat_rule_t *result, int hit_cnt)
+{
+	int i=0;
+
+	for(i=0; i<hit_cnt; i++)
+	{
+		if(result[i].action==TSG_ACTION_BYPASS || result[i].action==TSG_ACTION_INTERCEPT || result[i].action==TSG_ACTION_DENY)
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 static int get_default_policy(int compile_id, struct Maat_rule_t *result)
 {
 	struct Maat_rule_t p_result={0};
@@ -219,7 +234,7 @@ static struct app_id_label *get_app_id_label(struct streaminfo *a_stream, struct
 									"READ_APP_ID_FLAG",
 									"Get app id label, app_id: %d addr: %s",
 									app_id_label->app_id,
-									printaddr(&a_stream->addr, thread_seq)
+									PRINTADDR(a_stream, g_tsg_para.level)
 								);
 			context->app_id=app_id_label->app_id;
 			return app_id_label;
@@ -419,7 +434,7 @@ static void copy_monitor_result(struct streaminfo *a_stream, struct master_conte
 								p_result[0].config_id,
 								p_result[0].service_id,
 								(unsigned char)p_result[0].action,
-								printaddr(&a_stream->addr, thread_seq)
+								PRINTADDR(a_stream, g_tsg_para.level)
 							);
 
 }
@@ -448,7 +463,7 @@ static void copy_intercept_result(struct streaminfo *a_stream, struct master_con
 								"Add policy_priority_label failed, intercept policy, policy_id: %d action: %d addr: %s",
 								priority_label->result[0].config_id,
 								(unsigned char)priority_label->result[0].action,
-								printaddr(&a_stream->addr, thread_seq)
+								PRINTADDR(a_stream, g_tsg_para.level)
 							);
 	}
 	
@@ -458,7 +473,7 @@ static void copy_intercept_result(struct streaminfo *a_stream, struct master_con
 							"Hit intercept policy, policy_id: %d action: %d addr: %s",
 							priority_label->result[0].config_id,
 							(unsigned char)priority_label->result[0].action,
-							printaddr(&a_stream->addr, thread_seq)
+							PRINTADDR(a_stream, g_tsg_para.level)
 						);
 
 	return ;
@@ -486,7 +501,7 @@ static void copy_deny_result(struct streaminfo *a_stream, struct master_context 
 								p_result[0].config_id,
 								p_result[0].service_id,
 								(unsigned char)p_result[0].action,
-								printaddr(&a_stream->addr, thread_seq)
+								PRINTADDR(a_stream, g_tsg_para.level)
 							);
 
 	return ;
@@ -525,7 +540,7 @@ static void copy_bypass_result(struct streaminfo *a_stream, struct master_contex
 								p_result[0].config_id,
 								p_result[0].service_id,
 								(unsigned char)p_result[0].action,
-								printaddr(&a_stream->addr, thread_seq)
+								PRINTADDR(a_stream, g_tsg_para.level)
 							);
 
 	return ;
@@ -569,7 +584,7 @@ int is_intercept_exclusion(struct streaminfo *a_stream, Maat_rule_t *p_result, s
 										p_result->config_id,
 										p_result->service_id,
 										(unsigned char)p_result->action,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, thread_seq) : "")
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 						
 			return 1;
@@ -582,7 +597,7 @@ int is_intercept_exclusion(struct streaminfo *a_stream, Maat_rule_t *p_result, s
 										"Not hit %s stream_dir: %d addr: %s  scan ret: %d",
 										identify_info->domain,
 										a_stream->dir,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, thread_seq) : ""),
+										PRINTADDR(a_stream, g_tsg_para.level),
 										ret
 									);
 		}
@@ -659,7 +674,7 @@ void set_session_attribute_label(struct streaminfo *a_stream, enum TSG_ATTRIBUTE
 									"Add internal_label failed, establish latency ms: %llu proto: %d addr: %s",
 									attribute_label->establish_latency_ms,
 									attribute_label->proto,
-									printaddr(&a_stream->addr, thread_seq)
+									PRINTADDR(a_stream, g_tsg_para.level)
 									);
 		}
 	}
@@ -1077,11 +1092,14 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)(&identify_info.proto), thread_seq);
 				
 				context->proto=identify_info.proto;
-				context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
 
 				if(identify_info.proto==PROTO_SSL)
 				{
 					set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_JA3_HASH, NULL, thread_seq);				
+				}
+				else
+				{
+					context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
 				}
 				
 				hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_tcp, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
@@ -1093,17 +1111,21 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				hit_num+=ret;
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
+			if((is_only_monitor(result, hit_num)) && identify_info.proto!=PROTO_UNKONWN)	// business deal action of monitor 
+			{
+				hit_num=0;
+			}
 			break;
 		default:
 			break;
 	}
 
-	if(context->proto==PROTO_UNKONWN || context->proto>PROTO_APP || context->continue_scan_proto_id==APP_SCAN_FLAG_CONTINUE) /* support block/alert(deny), Do action in fw_http_plug */
+	if(context->proto==PROTO_UNKONWN || context->proto==PROTO_SSL || context->proto>PROTO_APP || context->continue_scan_proto_id==APP_SCAN_FLAG_CONTINUE) /* support block/alert(deny), Do action in fw_http_plug */
 	{
 		proto_id=get_basic_proto_id(a_tcp, context, thread_seq);
 		if(proto_id>0 && proto_id!=context->basic_proto_id)
 		{
-			context->proto=PROTO_APP;
+			context->proto=((context->proto==PROTO_SSL) ? PROTO_SSL : PROTO_APP);
 			context->basic_proto_id=proto_id;
 			l7_protocol=tsg_l7_protocol_id2name(g_tsg_log_instance, proto_id);
 			if(l7_protocol==NULL && proto_id==g_tsg_para.mail_proto_id)
@@ -1111,7 +1133,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 				l7_protocol=(char *)"MAIL";
 			}
 			
-			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_tcp, result, MAX_RESULT_NUM-hit_num, &context->mid, l7_protocol, proto_id, thread_seq);
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_tcp, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, l7_protocol, proto_id, thread_seq);
 		}
 	}
 	
@@ -1131,11 +1153,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
-				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || ((is_repetitive_protocol_id(context->proto)) && context->is_default_policy==0))
-				{
-					break;
-				}
-
 				user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 				if(user_region!=NULL)
 				{
@@ -1146,6 +1163,7 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 							opt_value=1;
 							MESA_set_stream_opt(a_tcp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
 							MESA_set_stream_opt(a_tcp, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
+							copy_deny_result(a_tcp, context, p_result, thread_seq);
 							state=APP_STATE_DROPPKT|APP_STATE_DROPME;
 							break;
 						case	TSG_METHOD_TYPE_RESET:
@@ -1166,7 +1184,12 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 								MESA_set_stream_opt(a_tcp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
 								MESA_set_stream_opt(a_tcp, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
 							}
+							copy_deny_result(a_tcp, context, p_result, thread_seq);
 							state=APP_STATE_DROPPKT|APP_STATE_DROPME;
+							break;
+						case	TSG_METHOD_TYPE_BLOCK:
+						case	TSG_METHOD_TYPE_ALERT:
+						case	TSG_METHOD_TYPE_REDIRECTION:
 							break;
 						default:
 							break;
@@ -1174,7 +1197,6 @@ extern "C" char TSG_MASTER_TCP_ENTRY(struct streaminfo *a_tcp, void **pme, int t
 					
 					security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
 				}
-				copy_deny_result(a_tcp, context, p_result, thread_seq);
 				break;
 			case	TSG_ACTION_MONITOR:
 				copy_monitor_result(a_tcp, context, result, hit_num, thread_seq);
@@ -1239,9 +1261,8 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				copy_identify_info(context, &identify_info, thread_seq);
 				set_session_attribute_label(a_udp, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(identify_info.proto), thread_seq);
 
-				context->proto=identify_info.proto;			
+				context->proto=identify_info.proto;
 				context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
-				
 				hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_udp, &identify_info, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, thread_seq);
 			}
 
@@ -1251,6 +1272,12 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 				hit_num+=ret;
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 			}
+
+			if((is_only_monitor(result, hit_num)) && identify_info.proto!=PROTO_UNKONWN)	// business deal action of deny and monitor 
+			{
+				hit_num=0;
+			}
+
 			break;
 		default:
 			break;
@@ -1281,10 +1308,11 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 			else
 			{
 				context->proto=PROTO_APP;
-				context->basic_proto_id=proto_id;
-				l7_protocol=tsg_l7_protocol_id2name(g_tsg_log_instance, proto_id);
-				hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_udp, result, MAX_RESULT_NUM-hit_num, &context->mid, l7_protocol, proto_id, thread_seq);
 			}
+			
+			context->basic_proto_id=proto_id;
+			l7_protocol=tsg_l7_protocol_id2name(g_tsg_log_instance, proto_id);
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_udp, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, l7_protocol, proto_id, thread_seq);
 		}
 	}
 	
@@ -1304,30 +1332,25 @@ extern "C" char TSG_MASTER_UDP_ENTRY(struct streaminfo *a_udp, void **pme, int t
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
-				if((context->result!=NULL && context->result[0].action==TSG_ACTION_BYPASS) || ((is_repetitive_protocol_id(context->proto)) && context->is_default_policy==0))
-				{
-					break;
-				}
-				
 				user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 				if(user_region!=NULL)
 				{
 					method_type=tsg_get_method_id(user_region->method);
 					switch(method_type)
 					{
+						case	TSG_METHOD_TYPE_RESET:
 						case	TSG_METHOD_TYPE_DROP:
 							opt_value=1;
 							MESA_set_stream_opt(a_udp, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
-							MESA_set_stream_opt(a_udp, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
-							state=APP_STATE_DROPPKT|APP_STATE_DROPME;
+							MESA_set_stream_opt(a_udp, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));		
 							break;
 						default:
 							break;
 					}
-					
 					security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
 				}
 				copy_deny_result(a_udp, context, p_result, thread_seq);
+				state=APP_STATE_DROPPKT|APP_STATE_DROPME;
 				break;
 			case	TSG_ACTION_MONITOR:				
 				copy_monitor_result(a_udp, context, result, hit_num, thread_seq);

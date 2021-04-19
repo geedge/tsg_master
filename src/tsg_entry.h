@@ -24,6 +24,10 @@ typedef int atomic_t;
 #define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
 #endif
 
+#ifndef	PRINTADDR
+#define	PRINTADDR(a, b)	((b)<RLOG_LV_FATAL ? printaddr(&(a->addr), a->threadnum) : "")
+#endif
+
 #define	DNS_PROTO_ID	103
 #define	FTP_PROTO_ID	104
 #define	HTTP_PROTO_ID	106

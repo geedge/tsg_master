@@ -274,7 +274,7 @@ static int get_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_h
 		{
 			case	ADDR_TYPE_MAC:
 				tunnel_object=cJSON_CreateObject();
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "MAC");
+				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "ETHERNET");
 
 				switch(a_stream->dir)
 				{
@@ -629,6 +629,20 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)tflow_project->C2S_all_pkt, TLD_TYPE_LONG);
 				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)tflow_project->C2S_all_byte_raw, TLD_TYPE_LONG);
 			}
+
+			size=sizeof(unsigned int);
+			ret=MESA_get_stream_opt(a_stream, MSO_TCP_ISN_C2S, &client_isn, &size);
+			if(ret==0)
+			{		
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_TCP_CLIENT_ISN].name, (void *)(long)client_isn, TLD_TYPE_LONG);
+			}
+
+			size=sizeof(unsigned int);
+			ret=MESA_get_stream_opt(a_stream, MSO_TCP_ISN_S2C, &server_isn, &size);
+			if(ret==0)
+			{		
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_TCP_SERVER_ISN].name, (void *)(long)server_isn, TLD_TYPE_LONG);
+			}
 			break;
 		case	STREAM_TYPE_UDP:
 			uflow_project=(struct udp_flow_stat *)project_req_get_struct(a_stream, _instance->udp_flow_project_id);
@@ -726,20 +740,6 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	}
 	
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);
-
-	size=sizeof(unsigned int);
-	ret=MESA_get_stream_opt(a_stream, MSO_TCP_ISN_C2S, &client_isn, &size);
-	if(ret==0)
-	{		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_TCP_CLIENT_ISN].name, (void *)(long)client_isn, TLD_TYPE_LONG);
-	}
-
-	size=sizeof(unsigned int);
-	ret=MESA_get_stream_opt(a_stream, MSO_TCP_ISN_S2C, &server_isn, &size);
-	if(ret==0)
-	{		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_TCP_SERVER_ISN].name, (void *)(long)server_isn, TLD_TYPE_LONG);
-	}
 
 	return 0;
 }
@@ -1019,7 +1019,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 										"tsg same log:cfg_id=%d service=%d addr=%s",
 										log_msg->result[i].config_id,
 										log_msg->result[i].service_id,
-										(_instance->level<RLOG_LV_FATAL ? (log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id)) : "")
+										(log_msg->a_stream==NULL ? "" : PRINTADDR(log_msg->a_stream,_instance->level))
 									);
 			continue;
 		}
@@ -1034,7 +1034,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 										log_msg->result[i].config_id,
 										log_msg->result[i].service_id,
 										_instance->send_log_percent[thread_id],
-										(_instance->level<RLOG_LV_FATAL ? (log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id)) : "")
+										(log_msg->a_stream==NULL ? "" : PRINTADDR(log_msg->a_stream,_instance->level))
 									);
 			continue;
 		}
@@ -1047,7 +1047,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 											"tsg abort log:cfg_id=%d service=%d addr=%s",
 											log_msg->result[i].config_id,
 											log_msg->result[i].service_id,
-											(_instance->level<RLOG_LV_FATAL ? (log_msg->a_stream==NULL ? "" : printaddr(&(log_msg->a_stream->addr), thread_id)) : "")
+											(log_msg->a_stream==NULL ? "" : PRINTADDR(log_msg->a_stream,_instance->level))
 										);
 
 				fs_id=action2fs_id((int)log_msg->result[i].action);

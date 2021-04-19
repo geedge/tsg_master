@@ -998,7 +998,7 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 										label->result->config_id,
 										label->result->service_id,
 										label->result->action,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 		}
 	}
@@ -1009,7 +1009,7 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 									"PULL_RESULT",
 									"pull policy failed, Not hit, label is %s addr: %s",
 									(label==NULL) ? "NULL" : label->domain,
-									(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+									PRINTADDR(a_stream, g_tsg_para.level)
 								);
 	}
 	
@@ -1156,7 +1156,7 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 										result[0].config_id,
 										result[0].service_id,
 										(unsigned char)result[0].action,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 		}
 		else
@@ -1168,7 +1168,7 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 										asn->asn,
 										ret,
 										g_tsg_para.table_name[idx],
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 		}
 	}	
@@ -1180,7 +1180,7 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 									"IP_ASN is NULL scan ret: %d table_name: %s addr: %s",
 									ret,
 									g_tsg_para.table_name[idx],
-									(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+									PRINTADDR(a_stream, g_tsg_para.level)
 								);
 	}
 
@@ -1218,7 +1218,7 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 										result[0].config_id,
 										result[0].service_id,
 										(unsigned char)result[0].action,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 		}
 		else
@@ -1230,7 +1230,7 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 										buff,
 										ret,
 										g_tsg_para.table_name[idx],
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 		}
 	}	
@@ -1242,7 +1242,7 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 									"IP_LOCATION is NULL scan ret: %d table_name: %s addr: %s",
 									ret,
 									g_tsg_para.table_name[idx],
-									(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+									PRINTADDR(a_stream, g_tsg_para.level)
 								);
 	}
 
@@ -1323,7 +1323,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_IP",
 											"Hit addr: %s scan ret: %d policy_id: %d service: %d action: %d",
-											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&cur_stream->addr, cur_stream->threadnum) : ""),
+											PRINTADDR(a_stream, g_tsg_para.level),
 											maat_ret,
 											result[hit_num].config_id,
 											result[hit_num].service_id,
@@ -1338,7 +1338,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											RLOG_LV_DEBUG,
 											"SCAN_IP",
 											"No hit addr: %s scan ret: %d",
-											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&cur_stream->addr, cur_stream->threadnum) : ""),
+											PRINTADDR(a_stream, g_tsg_para.level),
 											maat_ret
 										);	
 			}
@@ -1390,7 +1390,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 										result[hit_num].config_id,
 										result[hit_num].service_id,
 										(unsigned char)result[hit_num].action,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 
 			hit_num+=maat_ret;
@@ -1404,7 +1404,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 										g_tsg_proto_string[proto].type,
 										proto_str2id(proto),
 										maat_ret,
-										(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 		}
 	}
@@ -1462,7 +1462,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											result[hit_num].config_id,
 											result[hit_num].service_id,
 											(unsigned char)result[hit_num].action,
-											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+											PRINTADDR(a_stream, g_tsg_para.level)
 										);
 
 				hit_num+=maat_ret;
@@ -1475,7 +1475,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											"No hit source subscribe id: %s scan ret: %d addr: %s",
 											attribute_label->client_subscribe_id->subscribe_id,
 											maat_ret,
-											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+											PRINTADDR(a_stream, g_tsg_para.level)
 										);
 			}
 		}
@@ -1503,7 +1503,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											result[hit_num].config_id,
 											result[hit_num].service_id,
 											(unsigned char)result[hit_num].action,
-											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+											PRINTADDR(a_stream, g_tsg_para.level)
 										);
 
 				hit_num+=maat_ret;
@@ -1516,7 +1516,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											"No hit dest subscribe id: %s scan ret: %d addr: %s",
 											attribute_label->server_subscribe_id->subscribe_id,
 											maat_ret,
-											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+											PRINTADDR(a_stream, g_tsg_para.level)
 										);
 			}
 		}
@@ -1530,7 +1530,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 											"ADD_INTERNAL_LABEL",
 											"Add internal label failed, ret: %d addr: %s",
 											ret,
-											(g_tsg_para.level<RLOG_LV_FATAL ? printaddr(&a_stream->addr, a_stream->threadnum) : "")
+											PRINTADDR(a_stream, g_tsg_para.level)
 										);
 	}
 
@@ -1589,7 +1589,7 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_str
 										result[hit_num].config_id,
 										result[hit_num].service_id,
 										(unsigned char)result[hit_num].action,
-										printaddr(&a_stream->addr, thread_seq)
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 
 			hit_num+=ret;
@@ -1604,7 +1604,7 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_str
 										(ret==-1) ? "NULL" : identify_info->domain,
 										ret,
 										a_stream->dir,
-										printaddr(&a_stream->addr, thread_seq)
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 		}
 
@@ -1643,7 +1643,7 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_str
 											result[hit_num].config_id,
 											result[hit_num].service_id,
 											(unsigned char)result[hit_num].action,
-											printaddr(&a_stream->addr, thread_seq)
+											PRINTADDR(a_stream, g_tsg_para.level)
 										);
 					hit_num+=ret;
 				}
@@ -1658,7 +1658,7 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_str
 											attribute_label->fqdn_category_id[i],
 											ret,
 											a_stream->dir,
-											printaddr(&a_stream->addr, thread_seq)
+											PRINTADDR(a_stream, g_tsg_para.level)
 										);
 				}
 			}
@@ -1777,7 +1777,7 @@ int tsg_scan_app_id_policy(Maat_feather_t maat_feather, struct streaminfo *a_str
 									result[0].config_id,
 									result[0].service_id,
 									result[0].action,
-									printaddr(&a_stream->addr, thread_seq)
+									PRINTADDR(a_stream, g_tsg_para.level)
 								);
 
 		return ret;
@@ -1791,7 +1791,7 @@ int tsg_scan_app_id_policy(Maat_feather_t maat_feather, struct streaminfo *a_str
 								(id>1000) ? "app" : "proto",
 								id,
 								ret,
-								printaddr(&a_stream->addr, thread_seq)
+								PRINTADDR(a_stream, g_tsg_para.level)
 							);
 	return 0;
 }
@@ -1822,7 +1822,7 @@ int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, struct streaminf
 										result[0].config_id,
 										result[0].service_id,
 										result[0].action,
-										printaddr(&a_stream->addr, thread_seq)
+										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 				
 				hit_num+=ret2;
@@ -1830,11 +1830,11 @@ int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, struct streaminf
 			else
 			{
 				MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_ID","Hit %s selector_id: %d ret: %d addr: %s", 
-												property, property_result[i].config_id, ret2, printaddr(&a_stream->addr, thread_seq));
+												property, property_result[i].config_id, ret2,PRINTADDR(a_stream, g_tsg_para.level));
 			}
 		}
 
-		MESA_handle_runtime_log(g_tsg_para.logger, 	RLOG_LV_DEBUG, "SCAN_PROPERTY", "scan %s: %s ret: %d addr: %s", district, property, ret, printaddr(&a_stream->addr, thread_seq));
+		MESA_handle_runtime_log(g_tsg_para.logger, 	RLOG_LV_DEBUG, "SCAN_PROPERTY", "scan %s: %s ret: %d addr: %s", district, property, ret, PRINTADDR(a_stream, g_tsg_para.level));
 	}
 
 	return hit_num;
