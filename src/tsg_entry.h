@@ -247,7 +247,8 @@ void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* 
 char *tsg_schema_index2string(tsg_protocol_t proto);
 struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, int thread_seq);
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct identify_info *identify_info, Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq);
-int tsg_scan_app_id_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq);
-int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq);
+int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq);
+int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq);
+int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, struct _subscribe_id_info_t *user_info, int thread_seq);
 
 #endif

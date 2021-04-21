@@ -13,6 +13,8 @@
 #include "MESA/http.h"
 #include "tsg_rule.h"
 #include "tsg_entry.h"
+#include "tsg_send_log.h"
+#include "tsg_send_log_internal.h"
 
 Maat_feather_t g_tsg_maat_feather;
 Maat_feather_t g_tsg_dynamic_maat_feather;
@@ -28,8 +30,7 @@ enum kni_scan_table{
 
 const char *g_kni_scan_table_name[SCAN_TABLE_MAX];
 int g_kni_scan_tableid[SCAN_TABLE_MAX] = {0};
-
-
+extern id2field_t g_tsg_proto_name2id[PROTO_MAX];
 const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNKNOWN, 7, (char *)"unknown"},
 													{TSG_METHOD_TYPE_DROP, 4, (char *)"drop"},
 													{TSG_METHOD_TYPE_REDIRECTION, 8, (char *)"redirect"},
@@ -37,29 +38,6 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
 													{TSG_METHOD_TYPE_RESET, 3, (char *)"rst"},
 													{TSG_METHOD_TYPE_ALERT, 5, (char *)"alert"}
 	};
-
-const struct _str2index g_tsg_proto_string[PROTO_MAX+1]={{PROTO_UNKONWN, 0, (char *)""}, 
-										 {PROTO_IPv4, 5, (char *)"IPv4."},
-										 {PROTO_IPv6, 5, (char *)"IPv6."},
-										 {PROTO_TCP, 4, (char *)"TCP."},
-										 {PROTO_UDP, 4, (char *)"UDP."},
-										 {PROTO_HTTP, 5, (char *)"HTTP."},
-										 {PROTO_MAIL, 5, (char *)"MAIL."},
-										 {PROTO_DNS, 4, (char *)"DNS."},
-										 {PROTO_FTP, 4, (char *)"FTP."},
-										 {PROTO_SSL, 4, (char *)"SSL."},
-										 {PROTO_SIP, 4, (char *)"SIP."},
-										 {PROTO_BGP, 4, (char *)"BGP."},
-										 {PROTO_STREAMING_MEDIA, 16, (char *)"STREAMING_MEDIA."},
-										 {PROTO_QUIC, 5, (char *)"QUIC."},
-										 {PROTO_SSH, 4, (char *)"SSH."},
-										 {PROTO_SMTP, 5, (char *)"MAIL."},
-										 {PROTO_IMAP, 5, (char *)"MAIL."},
-										 {PROTO_POP3, 5, (char *)"MAIL."},
-										 {PROTO_RTP, 4, (char *)"RTP."},
-										 {PROTO_APP, 4, (char *)"APP."},
-										 {PROTO_MAX, 0, (char *)""}
-};
 
 static char* str_unescape(char* s)
 {
@@ -106,9 +84,9 @@ static int proto_str2id(tsg_protocol_t proto)
 		case	PROTO_UDP: return 101;
 		case	PROTO_HTTP: return 106;
 		case	PROTO_MAIL:	return 110;
-		case	PROTO_IMAP:	return 110;
-		case	PROTO_POP3: return 110;//116
-		case	PROTO_SMTP: return 110;//122
+		case	PROTO_IMAP:	return 111;
+		case	PROTO_POP3: return 116;//116
+		case	PROTO_SMTP: return 122;//122
 		case	PROTO_DNS: return 103;
 		case	PROTO_FTP: return 104;
 		case	PROTO_SSL: return 126;
@@ -1132,59 +1110,40 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 {
 	int ret=0;
 
-	if(asn!=NULL)
+	if(asn==NULL || result==NULL || result_num==0)
 	{
-		ret=Maat_full_scan_string(maat_feather,
-								g_tsg_para.table_id[idx],
-								CHARSET_GBK,
-								asn->asn,
-								strlen(asn->asn),
-								result,
-								NULL,
-								result_num,
-								mid,
-								a_stream->threadnum);
-		if(ret > 0)
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"SCAN_IP_ASN",
-										"Hit IP_ASN: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
-										asn->asn,
-										ret,
-										g_tsg_para.table_name[idx],
-										result[0].config_id,
-										result[0].service_id,
-										(unsigned char)result[0].action,
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
-		}
-		else
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"SCAN_IP_ASN",
-										"No hit IP_ASN: %s scan ret: %d table_name: %s addr: %s",
-										asn->asn,
-										ret,
-										g_tsg_para.table_name[idx],
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
-		}
-	}	
-	else
+		return 0;
+	}
+
+	ret=Maat_full_scan_string(maat_feather, g_tsg_para.table_id[idx], CHARSET_GBK, asn->asn, strlen(asn->asn), result, NULL, result_num, mid, a_stream->threadnum);
+	if(ret > 0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_ASN",
-									"IP_ASN is NULL scan ret: %d table_name: %s addr: %s",
+									"Hit IP_ASN: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
+									asn->asn,
 									ret,
 									g_tsg_para.table_name[idx],
+									result[0].config_id,
+									result[0].service_id,
+									(unsigned char)result[0].action,
 									PRINTADDR(a_stream, g_tsg_para.level)
 								);
+
+		return ret;
 	}
 
-	return (ret>0 ? ret : 0);
+	MESA_handle_runtime_log(g_tsg_para.logger,
+								RLOG_LV_DEBUG,
+								"SCAN_IP_ASN",
+								"No hit IP_ASN: %s scan ret: %d table_name: %s addr: %s",
+								asn->asn,
+								ret,
+								g_tsg_para.table_name[idx],
+								PRINTADDR(a_stream, g_tsg_para.level)
+							);
+	return 0;
 }
 
 
@@ -1193,79 +1152,57 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 	int ret=0;
 	char buff[1024]={0};
 	
-	if(location!=NULL)
+	if(location==NULL || result==NULL || result_num==0)
 	{
-		snprintf(buff, sizeof(buff), "%s.%s.", location->country_full, location->city_full);
-		ret=Maat_full_scan_string(maat_feather,
-								g_tsg_para.table_id[idx],
-								CHARSET_GBK,
-								buff,
-								strlen(buff),
-								result,
-								NULL,
-								result_num,
-								mid,
-								a_stream->threadnum);
-		if(ret > 0)
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"SCAN_IP_LOCATION",
-										"Hit IP_LOCATION: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
-										buff,
-										ret,
-										g_tsg_para.table_name[idx],
-										result[0].config_id,
-										result[0].service_id,
-										(unsigned char)result[0].action,
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
-		}
-		else
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"SCAN_IP_LOCATION",
-										"No hit IP_LOCATION: %s scan ret: %d table_name: %s addr: %s",
-										buff,
-										ret,
-										g_tsg_para.table_name[idx],
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
-		}
-	}	
-	else
+		return 0;
+	}
+	
+	snprintf(buff, sizeof(buff), "%s.%s.", location->country_full, location->city_full);
+	ret=Maat_full_scan_string(maat_feather, g_tsg_para.table_id[idx], CHARSET_GBK, buff, strlen(buff), result, NULL, result_num, mid, a_stream->threadnum);
+	if(ret > 0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_LOCATION",
-									"IP_LOCATION is NULL scan ret: %d table_name: %s addr: %s",
+									"Hit IP_LOCATION: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
+									buff,
 									ret,
 									g_tsg_para.table_name[idx],
+									result[0].config_id,
+									result[0].service_id,
+									(unsigned char)result[0].action,
 									PRINTADDR(a_stream, g_tsg_para.level)
 								);
+		return ret;
 	}
-
-	return (ret>0 ? ret : 0);
+	
+	MESA_handle_runtime_log(g_tsg_para.logger,
+								RLOG_LV_DEBUG,
+								"SCAN_IP_LOCATION",
+								"No hit IP_LOCATION: %s scan ret: %d table_name: %s addr: %s",
+								buff,
+								ret,
+								g_tsg_para.table_name[idx],
+								PRINTADDR(a_stream, g_tsg_para.level)
+							);
+	
+	return 0;
 }
 
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
 	struct ipaddr t_addr;
+	unsigned int proto_id=0;
 	struct ipaddr* p_addr=NULL;
 	int hit_num=0,tans_proto=0;
-	int is_scan_addr=1, maat_ret=0,found_pos=0;
+	int is_scan_addr=1, maat_ret=0;
 	const struct streaminfo *cur_stream = a_stream;
 	struct _session_attribute_label_t *attribute_label=NULL;
 
 	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_NESTING_ADDR",
-								"result==NULL || result_num<=0 || maat_feather==NULL || a_stream==NULL"
-								);
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_NESTING_ADDR", "result==NULL || result_num<=0 || maat_feather==NULL || a_stream==NULL");
 		return -1;
 	}
 	
@@ -1309,14 +1246,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 					break;
 			}
 			
- 			maat_ret=Maat_scan_proto_addr(maat_feather,
- 											g_tsg_para.table_id[TABLE_IP_ADDR],
- 											p_addr,
- 											tans_proto,
- 											result+hit_num,
- 											result_num-hit_num,
- 											mid,
- 											(int)cur_stream->threadnum);
+ 			maat_ret=Maat_scan_proto_addr(maat_feather, g_tsg_para.table_id[TABLE_IP_ADDR], p_addr, tans_proto, result+hit_num, result_num-hit_num, mid, (int)cur_stream->threadnum);
 			if(maat_ret>0)
 			{
 				MESA_handle_runtime_log(g_tsg_para.logger,
@@ -1334,13 +1264,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 			}
 			else
 			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_IP",
-											"No hit addr: %s scan ret: %d",
-											PRINTADDR(a_stream, g_tsg_para.level),
-											maat_ret
-										);	
+				MESA_handle_runtime_log(g_tsg_para.logger,RLOG_LV_DEBUG, "SCAN_IP", "No hit addr: %s scan ret: %d", PRINTADDR(a_stream, g_tsg_para.level), maat_ret);	
 			}
 		}
 		
@@ -1350,62 +1274,12 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 
 	if(hit_num<result_num && proto>PROTO_UNKONWN && proto<PROTO_MAX)
 	{
-		if(g_tsg_para.app_id_table_type==0)
+		proto_id=proto_str2id(proto);
+		hit_num+=tsg_scan_app_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, g_tsg_proto_name2id[proto].name, proto_id, (int)a_stream->threadnum);
+		if(proto==PROTO_SMTP || proto==PROTO_IMAP || proto==PROTO_POP3)
 		{
-			maat_ret=Maat_full_scan_string(maat_feather,
-											g_tsg_para.table_id[TABLE_APP_ID],
-											CHARSET_GBK,
-											g_tsg_proto_string[proto].type,
-											strlen(g_tsg_proto_string[proto].type),
-											result+hit_num,
-											&found_pos,
-											result_num-hit_num,
-											mid,
-											a_stream->threadnum
-										);
-		}
-		else
-		{
-			unsigned int proto_id=proto_str2id(proto);
-			if(proto_id>0)
-			{
-				maat_ret=Maat_scan_intval(maat_feather,
-											g_tsg_para.table_id[TABLE_APP_ID],
-											proto_id,
-											result+hit_num,
-											result_num-hit_num,
-											mid,
-											a_stream->threadnum
-										);
-			}
-		}
-		if(maat_ret > 0)
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"SCAN_PROTO",
-										"Hit PROTO: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
-										g_tsg_proto_string[proto].type,
-										maat_ret,
-										result[hit_num].config_id,
-										result[hit_num].service_id,
-										(unsigned char)result[hit_num].action,
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
-
-			hit_num+=maat_ret;
-		}
-		else
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"SCAN_PROTO",
-										"No hit PROTO: %s(%d) scan ret: %d addr: %s",
-										g_tsg_proto_string[proto].type,
-										proto_str2id(proto),
-										maat_ret,
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
+			proto_id=proto_str2id(PROTO_MAIL);
+			hit_num+=tsg_scan_app_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, g_tsg_proto_name2id[PROTO_MAIL].name, proto_id, (int)a_stream->threadnum);
 		}
 	}
 
@@ -1434,92 +1308,11 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		hit_num+=tsg_scan_ip_asn(maat_feather, a_stream, attribute_label->server_asn, TABLE_DST_ASN, mid, result+hit_num, result_num-hit_num);
 	}
 
-
 	if(hit_num<result_num)
 	{
 		tsg_get_subscribe_id(a_stream, &attribute_label->client_subscribe_id, &attribute_label->server_subscribe_id);
-		
-		if(attribute_label->client_subscribe_id!=NULL)
-		{
-			maat_ret=Maat_full_scan_string(maat_feather,
-										g_tsg_para.table_id[TABLE_SUBSCRIBER_ID],
-										CHARSET_GBK,
-										attribute_label->client_subscribe_id->subscribe_id,
-										strlen(attribute_label->client_subscribe_id->subscribe_id),
-										result+hit_num,
-										&found_pos,
-										result_num-hit_num,
-										mid,
-										a_stream->threadnum);
-			if(maat_ret > 0)
-			{				
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_SUBSCRIBER",
-											"Hit source subscribe id: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
-											attribute_label->client_subscribe_id->subscribe_id,
-											maat_ret,
-											result[hit_num].config_id,
-											result[hit_num].service_id,
-											(unsigned char)result[hit_num].action,
-											PRINTADDR(a_stream, g_tsg_para.level)
-										);
-
-				hit_num+=maat_ret;
-			}
-			else
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_SUBSCRIBER",
-											"No hit source subscribe id: %s scan ret: %d addr: %s",
-											attribute_label->client_subscribe_id->subscribe_id,
-											maat_ret,
-											PRINTADDR(a_stream, g_tsg_para.level)
-										);
-			}
-		}
-		
-		if(attribute_label->server_subscribe_id!=NULL)
-		{
-			maat_ret=Maat_full_scan_string(maat_feather,
-										g_tsg_para.table_id[TABLE_SUBSCRIBER_ID],
-										CHARSET_GBK,
-										attribute_label->server_subscribe_id->subscribe_id,
-										strlen(attribute_label->server_subscribe_id->subscribe_id),
-										result+hit_num,
-										&found_pos,
-										result_num-hit_num,
-										mid,
-										a_stream->threadnum);
-			if(maat_ret > 0)
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_SUBSCRIBER",
-											"Hit dest subscribe id: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
-											attribute_label->server_subscribe_id->subscribe_id,
-											maat_ret,
-											result[hit_num].config_id,
-											result[hit_num].service_id,
-											(unsigned char)result[hit_num].action,
-											PRINTADDR(a_stream, g_tsg_para.level)
-										);
-
-				hit_num+=maat_ret;
-			}
-			else
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_SUBSCRIBER",
-											"No hit dest subscribe id: %s scan ret: %d addr: %s",
-											attribute_label->server_subscribe_id->subscribe_id,
-											maat_ret,
-											PRINTADDR(a_stream, g_tsg_para.level)
-										);
-			}
-		}
+		hit_num+=tsg_scan_subscribe_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid,attribute_label->client_subscribe_id, (int)a_stream->threadnum);		
+		hit_num+=tsg_scan_subscribe_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid,attribute_label->server_subscribe_id, (int)a_stream->threadnum);
 	}
 
 	ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.internal_project_id, (void *)attribute_label);
@@ -1759,7 +1552,7 @@ int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned i
 }
 
 
-int tsg_scan_app_id_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq)
+int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq)
 {
 	int ret=0;
 
@@ -1769,9 +1562,8 @@ int tsg_scan_app_id_policy(Maat_feather_t maat_feather, struct streaminfo *a_str
 		MESA_handle_runtime_log(g_tsg_para.logger, 
 									RLOG_LV_DEBUG,
 									"SCAN_ID",
-									"Hit %s %s_id: %d ret: %d policy_id: %d service: %d action: %d addr: %s",
+									"Hit %s id: %d ret: %d policy_id: %d service: %d action: %d addr: %s",
 									name,
-									(id>1000) ? "app" : "proto",
 									id,
 									ret,
 									result[0].config_id,
@@ -1783,16 +1575,8 @@ int tsg_scan_app_id_policy(Maat_feather_t maat_feather, struct streaminfo *a_str
 		return ret;
 	}
 
-	MESA_handle_runtime_log(g_tsg_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_ID",
-								"scan %s %s_id: %d ret: %d addr: %s",
-								name,
-								(id>1000) ? "app" : "proto",
-								id,
-								ret,
-								PRINTADDR(a_stream, g_tsg_para.level)
-							);
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_ID", "scan %s id: %d ret: %d addr: %s", name, id, ret, PRINTADDR(a_stream, g_tsg_para.level));
+	
 	return 0;
 }
 
@@ -1840,4 +1624,50 @@ int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, struct streaminf
 	return hit_num;
 }
 
+int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, struct _subscribe_id_info_t *user_info, int thread_seq)
+{
+	int maat_ret=0;
 
+	if(user_info==NULL || result==NULL || result_num==0)
+	{
+		return 0;
+	}
+	
+	maat_ret=Maat_full_scan_string(maat_feather,
+								g_tsg_para.table_id[TABLE_SUBSCRIBER_ID],
+								CHARSET_GBK,
+								user_info->subscribe_id,
+								strlen(user_info->subscribe_id),
+								result,
+								NULL,
+								result_num,
+								mid,
+								thread_seq);
+	if(maat_ret > 0)
+	{				
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_SUBSCRIBER",
+									"Hit source subscribe id: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+									user_info->subscribe_id,
+									maat_ret,
+									result[0].config_id,
+									result[0].service_id,
+									(unsigned char)result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
+
+		return maat_ret;
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger,
+								RLOG_LV_DEBUG,
+								"SCAN_SUBSCRIBER",
+								"No hit source subscribe id: %s scan ret: %d addr: %s",
+								user_info->subscribe_id,
+								maat_ret,
+								PRINTADDR(a_stream, g_tsg_para.level)
+							);
+
+	return 0;
+}

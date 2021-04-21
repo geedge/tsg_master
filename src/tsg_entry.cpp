@@ -272,7 +272,6 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 	tsg_log_t log_msg;	
 	char *domain_field_name=NULL;
 	char *schema_field_name=NULL;
-	char *schema_field_value=NULL;
 	struct TLD_handle_t *TLD_handle=NULL;
 
 	TLD_handle=TLD_create(thread_seq);
@@ -282,16 +281,12 @@ static int master_send_log(struct streaminfo *a_stream, struct Maat_rule_t *p_re
 
 		if(identify_info->proto==PROTO_IMAP || identify_info->proto==PROTO_SMTP || identify_info->proto==PROTO_POP3)
 		{
-			schema_field_value=tsg_schema_index2string(PROTO_MAIL);
+			TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[PROTO_MAIL].name, TLD_TYPE_STRING);
+			TLD_append(TLD_handle, (char *)"mail_protocol_type", (void *)g_tsg_proto_name2id[identify_info->proto].name, TLD_TYPE_STRING);
 		}
 		else
-		{
-			schema_field_value=tsg_schema_index2string(identify_info->proto);
-		}
-		
-		if(schema_field_value!=NULL)
-		{
-			TLD_append(TLD_handle, schema_field_name, (void *)schema_field_value, TLD_TYPE_STRING);
+		{			
+			TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[identify_info->proto].name, TLD_TYPE_STRING);
 		}
 
 		switch(identify_info->proto)
