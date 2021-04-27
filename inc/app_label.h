@@ -1,17 +1,39 @@
 #ifndef	__APP_LABEL_H__
 #define	__APP_LABEL_H__
 
+#define	MAX_APP_ID_NUM	8
+
 struct app_id_label
 {
-	int surrogate_id;
-	int app_id;
+	int app_id_num;
+	unsigned int app_id[MAX_APP_ID_NUM];
+	unsigned int surrogate_id[MAX_APP_ID_NUM];
 };
 
 struct basic_proto_label
 {
-	unsigned char continue_scan_flag;  //0: stop; 1: continue
-	unsigned char pad;
-	unsigned short proto_id;
+	int continue_scan_flag;  //0: stop; 1: continue
+	int protocol_id_num;
+	unsigned short protocol_id[MAX_APP_ID_NUM];
+};
+
+
+enum APP_IDENTIFY_ORIGIN
+{
+	ORIGIN_BASIC_PROTOCOL,
+	ORIGIN_USER_DEFINE,
+	ORIGIN_DKPT,
+	ORIGIN_QM_ENGINE,
+	ORIGIN_MAX
+};
+
+
+struct app_identify_result
+{
+	enum APP_IDENTIFY_ORIGIN origin;
+	int app_id_num;
+	unsigned int app_id[MAX_APP_ID_NUM];
+	unsigned int surrogate_id[MAX_APP_ID_NUM];
 };
 
 enum _ATTRIBUTE_TYPE

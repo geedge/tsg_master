@@ -3,7 +3,10 @@
 
 #include <MESA/Maat_rule.h>
 #include <MESA/field_stat2.h>
+
+#include "uthash.h"
 #include "tsg_rule.h"
+#include "app_label.h"
 #include "tsg_label.h"
 #include "tsg_statistic.h"
 
@@ -27,15 +30,6 @@ typedef int atomic_t;
 #ifndef	PRINTADDR
 #define	PRINTADDR(a, b)	((b)<RLOG_LV_FATAL ? printaddr(&(a->addr), a->threadnum) : "")
 #endif
-
-#define	DNS_PROTO_ID	103
-#define	FTP_PROTO_ID	104
-#define	HTTP_PROTO_ID	106
-#define	MAIL_PROTO_ID	110
-#define	QUIC_PROTO_ID	119
-#define	SIP_PROTO_ID	120
-#define	SSL_PROTO_ID	126
-#define	RTP_PROTO_ID	142
 
 #define	APP_SCAN_FLAG_STOP	0
 #define	APP_SCAN_FLAG_CONTINUE	1
@@ -101,6 +95,20 @@ struct _str2index
 	char *type;
 };
 
+struct gather_app_result
+{
+	struct app_identify_result result[ORIGIN_MAX];
+};
+
+struct l7_protocol 
+{
+    int id;                    /* first key */
+    char name[32];         		/* second key */
+    UT_hash_handle hh1;        /* handle for first hash table */
+    UT_hash_handle hh2;        /* handle for second hash table */
+};
+
+
 struct _fqdn_category_t
 {
 	int ref_cnt;	
@@ -114,14 +122,13 @@ struct master_context
 	tsg_protocol_t proto;
 	int hit_cnt;
 	int app_id;
-	int is_default_policy;
-	char continue_scan_app_id;
+	int is_esni;
 	char continue_scan_proto_id;
 	unsigned short basic_proto_id;
-	int domain_len;
-	char domain[MAX_DOAMIN_LEN];
+	char *domain;
 	struct Maat_rule_t *result;
-	scan_status_t mid;
+	scan_status_t mid;	
+	struct timespec last_scan_time;
 };
 
 #define	_MAX_TABLE_NAME_LEN	64
@@ -130,18 +137,19 @@ typedef	struct _tsg_para
 	int level;	
 	int mail_proto_id;
 	unsigned short timeout;
-	unsigned short depolyment_mode;
 	int app_id_table_type;
 	int device_id;
 	int entrance_id;
+	int scan_time_interval;
 	int default_compile_switch;
 	int default_compile_id;
 	int table_id[TABLE_MAX];
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
 	int internal_project_id;
-	int l7_proto_project_id;
-	int app_id_project_id;
+	int context_project_id;
+	int gather_app_project_id;
+	int app_bridge_id;
 	int proto_flag; //tsg_protocol_t
 	int fs2_field_id[TSG_FS2_MAX];
 	char device_sn[MAX_DOAMIN_LEN/8];
@@ -151,6 +159,8 @@ typedef	struct _tsg_para
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;
 	screen_stat_handle_t fs2_handle;
+	struct l7_protocol *name_by_id;
+	struct l7_protocol *id_by_name;
 }g_tsg_para_t;
 
 extern g_tsg_para_t g_tsg_para;
@@ -244,11 +254,14 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp);
-char *tsg_schema_index2string(tsg_protocol_t proto);
-struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, struct _identify_info *identify_info, int thread_seq);
-int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct identify_info *identify_info, Maat_rule_t *result, int result_num, scan_status_t *mid, int thread_seq);
+struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, int thread_seq);
+int tsg_scan_shared_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, char *domain, Maat_rule_t *result, int result_num,  scan_status_t *mid, int table_id, int thread_seq);
 int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq);
-int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq);
+int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq);
 int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, struct _subscribe_id_info_t *user_info, int thread_seq);
+int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int table_id, unsigned int *category_id, int category_id_num, int thread_seq);
+unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name);
+char *tsg_l7_protocol_id2name(unsigned int l7_protocol_id);
+
 
 #endif

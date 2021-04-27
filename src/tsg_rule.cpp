@@ -12,6 +12,7 @@
 #include "Maat_command.h"
 #include "MESA/http.h"
 #include "tsg_rule.h"
+#include "tsg_label.h"
 #include "tsg_entry.h"
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
@@ -74,35 +75,6 @@ static char* str_unescape(char* s)
 	}
 	s[j]='\0';
 	return s;
-}
-
-static int proto_str2id(tsg_protocol_t proto)
-{
-	switch(proto)
-	{
-		case	PROTO_TCP: return 100;
-		case	PROTO_UDP: return 101;
-		case	PROTO_HTTP: return 106;
-		case	PROTO_MAIL:	return 110;
-		case	PROTO_IMAP:	return 151;
-		case	PROTO_POP3: return 116;//116
-		case	PROTO_SMTP: return 122;//122
-		case	PROTO_DNS: return 103;
-		case	PROTO_FTP: return 104;
-		case	PROTO_SSL: return 126;
-		case	PROTO_SIP: return 120;
-		case	PROTO_QUIC: return 119;
-		case	PROTO_SSH: return 125;
-		case	PROTO_RTP: return 142;
-		case	PROTO_IPv6:
-		case	PROTO_IPv4:	
-		case	PROTO_STREAMING_MEDIA:
-		case	PROTO_BGP:
-		default:
-			break;
-	}
-
-	return 0;
 }
 
 static int get_data_center(char *accept_tag, char *effective_tag_key, char *data_center, int data_center_len)
@@ -954,43 +926,34 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 	{
 		if(label->result_type==pull_result_type)
 		{
-			num=(label->result_num>result_num) ? result_num : label->result_num;
+			num=MIN(label->result_num, result_num);
 			memcpy(result, label->result, num*sizeof(Maat_rule_t));
-			
-			memcpy(identify_info->domain, label->domain, label->domain_len);
-			identify_info->domain_len=label->domain_len;
 
+			if(label->domain_len>0)
+			{
+				memcpy(identify_info->domain, label->domain, label->domain_len);
+				identify_info->domain_len=label->domain_len;
+			}
+			
 			identify_info->proto = label->proto;
 			
 			return num;
 		}
-		else
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"PULL_RESULT", 
-										"pull policy failed, hit: %s %s: %s policy_id: %d service: %d action: %d addr: %s",
-										(label->result_type==PULL_KNI_RESULT) ? "KNI" : "FW",
-										label->proto==PROTO_HTTP ? "host" : "sni",
-										label->domain,
-										label->result->config_id,
-										label->result->service_id,
-										label->result->action,
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
-		}
-	}
-	else
-	{
+		
 		MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
-									"PULL_RESULT",
-									"pull policy failed, Not hit, label is %s addr: %s",
-									(label==NULL) ? "NULL" : label->domain,
+									"PULL_RESULT", 
+									"pull policy failed, hit: %s %s: %s policy_id: %d service: %d action: %d addr: %s",
+									(label->result_type==PULL_KNI_RESULT) ? "KNI" : "FW",
+									label->proto==PROTO_HTTP ? "host" : "sni",
+									label->domain,
+									label->result->config_id,
+									label->result->service_id,
+									label->result->action,
 									PRINTADDR(a_stream, g_tsg_para.level)
 								);
 	}
-	
+
 	return 0;
 }
 
@@ -1192,11 +1155,11 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
-	struct ipaddr t_addr;
 	unsigned int proto_id=0;
+	struct ipaddr t_addr;
 	struct ipaddr* p_addr=NULL;
 	int hit_num=0,tans_proto=0;
-	int is_scan_addr=1, maat_ret=0;
+	int is_scan_addr=1, maat_ret=0;	
 	const struct streaminfo *cur_stream = a_stream;
 	struct _session_attribute_label_t *attribute_label=NULL;
 
@@ -1274,11 +1237,11 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 
 	if(hit_num<result_num && proto>PROTO_UNKONWN && proto<PROTO_MAX)
 	{
-		proto_id=proto_str2id(proto);
+		proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[proto].name);
 		hit_num+=tsg_scan_app_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, g_tsg_proto_name2id[proto].name, proto_id, (int)a_stream->threadnum);
 		if(proto==PROTO_SMTP || proto==PROTO_IMAP || proto==PROTO_POP3)
 		{
-			proto_id=proto_str2id(PROTO_MAIL);
+			proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_MAIL].name);
 			hit_num+=tsg_scan_app_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, g_tsg_proto_name2id[PROTO_MAIL].name, proto_id, (int)a_stream->threadnum);
 		}
 	}
@@ -1332,133 +1295,36 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 
 
 //return value: -1: failed, 0: not hit, >0: hit count 
-int tsg_scan_shared_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct identify_info *identify_info, Maat_rule_t *result, int result_num,  scan_status_t *mid, int thread_seq)
+int tsg_scan_shared_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, char *domain, Maat_rule_t *result, int result_num,  scan_status_t *mid, int table_id, int thread_seq)
 {
-	char *field_name=NULL;
-	int i=0,ret=0,idx=0,hit_num=0;	
-	struct _session_attribute_label_t *attribute_label=NULL;
+	int ret=0;	
 
-	if(identify_info->proto!=PROTO_UNKONWN && strlen(identify_info->domain)>0 && identify_info->domain_len>0)
+	if(table_id<0 || domain==NULL)
 	{
-		switch(identify_info->proto)
-		{
-			case	PROTO_HTTP:
-				idx=TABLE_HTTP_HOST;
-				field_name=(char *)"http_host";
-				break;
-			case	PROTO_SSL:
-				idx=TABLE_SSL_SNI;
-				field_name=(char *)"ssl_sni";
-				break;
-			case	PROTO_QUIC:
-				idx=TABLE_QUIC_SNI;
-				field_name=(char *)"quic_sni";
-				break;
-			default:
-				return 0;
-				break;
-		}
-		
-		ret=Maat_full_scan_string(g_tsg_maat_feather,
-									g_tsg_para.table_id[idx],
-									CHARSET_UTF8,
-									identify_info->domain,
-									identify_info->domain_len,
-									result,
-									NULL,
-									result_num,
-									mid,
-									thread_seq
-								);
-		if(ret>0)
-		{
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"SCAN_FQDN",
-										"Hit %s: %s policy_id: %d service: %d action: %d addr: %s",
-										field_name,
-										identify_info->domain,
-										result[hit_num].config_id,
-										result[hit_num].service_id,
-										(unsigned char)result[hit_num].action,
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
-
-			hit_num+=ret;
-		}
-		else
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_DEBUG,
-										"SCAN_FQDN",
-										"Not hit %s: %s ret: %d stream_dir: %d addr: %s",
-										(ret==-1) ?  "NULL" : ((identify_info->proto==PROTO_HTTP) ? "host" : "sni"),
-										(ret==-1) ? "NULL" : identify_info->domain,
-										ret,
-										a_stream->dir,
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
-		}
-
-		attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
-		if(attribute_label!=NULL)
-		{
-			attribute_label->fqdn_category_id_num=tsg_get_fqdn_category_id(g_tsg_maat_feather, 
-																				identify_info->domain,
-																				attribute_label->fqdn_category_id,
-																				MAX_CATEGORY_ID_NUM,
-																				g_tsg_para.logger,
-																				thread_seq
-																			);
-		
-
-			for(i=0; i<attribute_label->fqdn_category_id_num; i++)
-			{
-				int idx=identify_info->proto==PROTO_HTTP ? TABLE_HTTP_HOST : TABLE_SSL_SNI;
-				ret=Maat_scan_intval(g_tsg_maat_feather,
-										g_tsg_para.table_id[idx],
-										(unsigned int)attribute_label->fqdn_category_id[i],
-										result+hit_num,
-										result_num-hit_num,
-										mid,
-										thread_seq
-									);
-				if(ret>0)
-				{
-					MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_FQDN_CAT",
-											"Hit %s: %s category_id: %d policy_id: %d service: %d action: %d addr: %s",
-											(identify_info->proto==PROTO_HTTP) ? "host" : "sni",
-											identify_info->domain,
-											attribute_label->fqdn_category_id[i],
-											result[hit_num].config_id,
-											result[hit_num].service_id,
-											(unsigned char)result[hit_num].action,
-											PRINTADDR(a_stream, g_tsg_para.level)
-										);
-					hit_num+=ret;
-				}
-				else
-				{
-					MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_FQDN_CAT",
-											"Not hit %s: %s category_id: %d ret: %d stream_dir: %d addr: %s",
-											(ret==-1) ?  "NULL" : ((identify_info->proto==PROTO_HTTP) ? "host" : "sni"),
-											(ret==-1) ? "NULL" : identify_info->domain,
-											attribute_label->fqdn_category_id[i],
-											ret,
-											a_stream->dir,
-											PRINTADDR(a_stream, g_tsg_para.level)
-										);
-				}
-			}
-		}
+		return 0;
 	}
+	
+	ret=Maat_full_scan_string(g_tsg_maat_feather, table_id, CHARSET_UTF8, domain, strlen(domain), result, NULL, result_num, mid, thread_seq);
+	if(ret>0)
+	{
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_FQDN",
+									"Hit %s policy_id: %d service: %d action: %d addr: %s",
+									domain,
+									result[0].config_id,
+									result[0].service_id,
+									(unsigned char)result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
 
-	return hit_num;
+		return ret;
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_FQDN", "Not hit %s ret: %d stream_dir: %d addr: %s", domain, ret, a_stream->dir, PRINTADDR(a_stream, g_tsg_para.level));
+	
+	return 0;
 }
 
 
@@ -1551,6 +1417,41 @@ int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned i
 	return 0;
 }
 
+int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int table_id, unsigned int *category_id, int category_id_num, int thread_seq)
+{
+	int i=0,ret=0,hit_num=0;
+
+	if(table_id<0 || result_num<=0 || category_id==NULL)
+	{
+		return 0;
+	}
+	
+	for(i=0; i<category_id_num; i++)
+	{
+		ret=Maat_scan_intval(g_tsg_maat_feather, table_id, (unsigned int)category_id[i], result+hit_num, result_num-hit_num, mid, thread_seq);
+		if(ret>0)
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_FQDN_CAT",
+									"Hit category_id: %d policy_id: %d service: %d action: %d addr: %s",
+									category_id[i],
+									result[hit_num].config_id,
+									result[hit_num].service_id,
+									(unsigned char)result[hit_num].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
+			hit_num+=ret;
+		}
+		else
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_FQDN_CAT", "Not hit category_id: %d ret: %d addr: %s", category_id[i], ret, PRINTADDR(a_stream, g_tsg_para.level));
+		}
+	}
+
+	return hit_num;
+}
+
 
 int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq)
 {
@@ -1580,7 +1481,7 @@ int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo 
 	return 0;
 }
 
-int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq)
+int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq)
 {
 	int i=0,ret=0;
 	int ret2=0, hit_num=0;

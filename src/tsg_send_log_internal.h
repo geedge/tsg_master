@@ -100,7 +100,7 @@ typedef enum _tsg_log_field_id
 
 typedef	struct _id2field
 {
-	TLD_TYPE type;
+	int type;
 	int id;
 	char name[MAX_STRING_LEN];
 }id2field_t;
@@ -137,7 +137,6 @@ struct tsg_log_instance_t
 	id2field_t id2field[LOG_COMMON_MAX];
 	rd_kafka_topic_t **topic_rkt;
 	id2field_t *service2topic;	
-	id2field_t l7_proto_id2field[MAX_L7_PROTO_ID+1];
 	void *logger;
 };
 

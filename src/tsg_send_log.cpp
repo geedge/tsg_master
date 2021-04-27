@@ -73,7 +73,346 @@ static int is_tunnels(struct streaminfo *a_stream)
 	return is_tunnel;
 }
 
-static int convert_mac_to_string(unsigned char *mac, char *buff)
+static int set_isn(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, enum MESA_stream_opt type)
+{
+	int ret=0;
+	unsigned int isn=0;
+	int size=sizeof(unsigned long long);
+
+	size=sizeof(unsigned int);
+	ret=MESA_get_stream_opt(a_stream, type, &isn, &size);
+	if(ret==0)
+	{		
+		TLD_append(_handle, field_name, (void *)(long)isn, TLD_TYPE_LONG);
+	}
+
+	return 1;
+}
+
+static int set_tcp_isn(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	if(a_stream->type==STREAM_TYPE_TCP)
+	{
+		switch(a_stream->dir)
+		{
+			case	DIR_C2S:				
+				set_isn(_handle, a_stream, _instance->id2field[LOG_COMMON_TCP_CLIENT_ISN].name, MSO_TCP_ISN_C2S);
+				break;
+			case	DIR_S2C:				
+				set_isn(_handle, a_stream, _instance->id2field[LOG_COMMON_TCP_SERVER_ISN].name, MSO_TCP_ISN_S2C);
+				break;
+			case	DIR_DOUBLE:
+				set_isn(_handle, a_stream, _instance->id2field[LOG_COMMON_TCP_CLIENT_ISN].name, MSO_TCP_ISN_C2S);
+				set_isn(_handle, a_stream, _instance->id2field[LOG_COMMON_TCP_SERVER_ISN].name, MSO_TCP_ISN_S2C);
+				break;
+			default:
+				break;
+		}
+	}
+	
+	return 1;
+}
+static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	int direction=0,i_or_e=0;
+
+	i_or_e=MESA_dir_link_to_human(a_stream->routedir);
+	switch(a_stream->curdir)
+	{
+		case	DIR_C2S:
+			if(i_or_e=='E' || i_or_e=='e')
+			{
+				direction='E';
+			}
+			else
+			{
+				direction='I';
+			}
+			break;
+		case	DIR_S2C:
+			if(i_or_e=='E' || i_or_e=='e')
+			{
+				direction='I';
+			}
+			else
+			{
+				direction='E';
+			}
+			break;
+		default:
+			break;
+	}
+
+	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);
+
+	return 1;
+}
+
+static int set_address_list(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	int ret=0;
+	unsigned short tunnel_type=0;
+	char nest_addr_buf[1024];
+	int tunnel_type_size=sizeof(tunnel_type);
+	
+	ret=MESA_get_stream_opt(a_stream, MSO_STREAM_TUNNEL_TYPE, &tunnel_type, &tunnel_type_size);
+	assert(ret==0);
+	if(tunnel_type==STREAM_TUNNLE_NON)
+	{	
+		layer_addr_ntop_r(a_stream,nest_addr_buf, sizeof(nest_addr_buf));
+	}
+	else
+	{		
+		stream_addr_list_ntop(a_stream,nest_addr_buf, sizeof(nest_addr_buf));
+	}
+	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_ADDRESS_LIST].name, (void *)nest_addr_buf, TLD_TYPE_STRING);
+
+	return 1;
+}
+
+static int set_tuple4(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	int addr_type=0;
+	unsigned short c_port=0, s_port=0;
+	struct layer_addr_ipv4 *ipv4=NULL;
+	struct layer_addr_ipv6 *ipv6=NULL;
+	char server_ip[MAX_IPV4_LEN*8]={0};
+	char client_ip[MAX_IPV4_LEN*8]={0};
+	
+	switch(a_stream->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4:
+		case	__ADDR_TYPE_IP_PAIR_V4:
+			ipv4=a_stream->addr.ipv4;
+			addr_type=4;
+			c_port=ntohs(ipv4->source);
+			s_port=ntohs(ipv4->dest);
+			
+			inet_ntop(AF_INET, (void *)&ipv4->saddr, client_ip, sizeof(client_ip));
+			inet_ntop(AF_INET, (void *)&ipv4->daddr, server_ip, sizeof(server_ip));
+			break;
+		case	ADDR_TYPE_IPV6:
+		case	__ADDR_TYPE_IP_PAIR_V6:
+			ipv6=a_stream->addr.ipv6;
+			addr_type=6;
+			c_port=ntohs(ipv6->source);
+			s_port=ntohs(ipv6->dest);
+			
+			inet_ntop(AF_INET6, (void *)ipv6->saddr, client_ip, sizeof(client_ip));
+			inet_ntop(AF_INET6, (void *)ipv6->daddr, server_ip, sizeof(server_ip));
+			break;
+		default:
+			break;
+	}
+
+	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_IP].name, (void *)server_ip, TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_CLIENT_IP].name, (void *)client_ip, TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_PORT].name, (void *)(long)s_port, TLD_TYPE_LONG);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_CLIENT_PORT].name, (void *)(long)c_port, TLD_TYPE_LONG);
+	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_STREAM_DIR].name, (void *)(long)a_stream->dir, TLD_TYPE_LONG);	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_ADDRESS_TYPE].name, (void *)(long)addr_type, TLD_TYPE_LONG);
+
+	return 1;
+}
+
+
+static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	int ret=0;
+	struct timespec tv;
+	long common_con_duration_ms=0;
+	unsigned long long create_time=0;
+	int size=sizeof(unsigned long long);
+
+	if(a_stream->ptcpdetail!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);
+
+		ret=MESA_get_stream_opt(a_stream, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time, &size);
+		if(ret>=0)
+		{
+			clock_gettime(CLOCK_REALTIME, &tv);
+			common_con_duration_ms=tv.tv_sec*1000+tv.tv_nsec/1000/1000 - create_time;
+		}
+		
+		if(common_con_duration_ms>0)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+		}
+	}
+	else
+	{
+		time_t cur_time=time(NULL);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);		
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+	}
+	
+	return 1;
+}
+
+
+static int set_packet_bytes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	struct tcp_flow_stat *tflow_project=NULL;
+    struct udp_flow_stat *uflow_project=NULL;
+	
+	switch(a_stream->type)
+	{
+		case	STREAM_TYPE_TCP:
+			tflow_project=(struct tcp_flow_stat *)project_req_get_struct(a_stream, _instance->tcp_flow_project_id);
+			if(tflow_project!=NULL)
+			{
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)tflow_project->S2C_all_pkt, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)tflow_project->S2C_all_byte_raw, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)tflow_project->C2S_all_pkt, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)tflow_project->C2S_all_byte_raw, TLD_TYPE_LONG);
+			}
+			break;
+		case	STREAM_TYPE_UDP:
+			uflow_project=(struct udp_flow_stat *)project_req_get_struct(a_stream, _instance->udp_flow_project_id);
+			if(uflow_project!=NULL)
+			{
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)uflow_project->S2C_pkt, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)uflow_project->S2C_all_byte_raw, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)uflow_project->C2S_pkt, TLD_TYPE_LONG);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)uflow_project->C2S_all_byte_raw, TLD_TYPE_LONG);
+			}
+			break;
+		default:
+			break;
+	}
+
+	return 1;
+}
+
+static int get_l7_protocol(struct app_identify_result *result, char *protocol_list, int protocol_list_len,  int *flag)
+{
+	int i=0,offset=0;
+	char *name=NULL;
+
+	if((*flag)==1)
+	{
+		return 0;
+	}
+	
+	for(i=0; i<result->app_id_num; i++)
+	{
+		(*flag)=1;
+		name=tsg_l7_protocol_id2name(result->app_id[i]);
+		if(name!=NULL)
+		{
+			offset+=snprintf(protocol_list+offset, protocol_list_len-offset, "%s", name);
+		}
+	}
+
+	return 1;
+}
+
+static int get_app_id_list(struct app_identify_result *result, char *app_list, int app_list_len, char *surrogate_list, int surrogate_list_len, int *flag)
+{
+	int i=0;
+	int offset1=0,offset2=0;
+
+	if((*flag)==1)
+	{
+		return 0;
+	}
+	
+	for(i=0; i<result->app_id_num; i++)
+	{
+		(*flag)=1;
+		offset1+=snprintf(app_list+offset1, app_list_len-offset1, "%d;", result->app_id[i]);
+		offset2+=snprintf(surrogate_list+offset2, surrogate_list_len-offset2, "%d;", result->surrogate_id[i]);
+	}
+
+	return 1;
+}
+
+static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	int app_id_flag=0;
+	int l7_protocol_flag=0;
+	char app_list[256]={0};
+	char protocol_list[256]={0};
+	char surrogate_list[256]={0};
+	struct gather_app_result *label=NULL;
+	
+	label=(struct gather_app_result *)project_req_get_struct(a_stream, g_tsg_para.gather_app_project_id);
+	if(label!=NULL)
+	{		
+		get_l7_protocol(&(label->result[ORIGIN_BASIC_PROTOCOL]), protocol_list, sizeof(protocol_list), &l7_protocol_flag);
+		get_app_id_list(&(label->result[ORIGIN_USER_DEFINE]), app_list, sizeof(app_list), surrogate_list, sizeof(surrogate_list), &app_id_flag);
+		if(app_id_flag!=1)
+		{
+			get_app_id_list(&(label->result[ORIGIN_DKPT]), app_list, sizeof(app_list), surrogate_list, sizeof(surrogate_list), &app_id_flag);
+		}
+
+		if(app_id_flag!=1)
+		{
+			get_app_id_list(&(label->result[ORIGIN_QM_ENGINE]), app_list, sizeof(app_list), surrogate_list, sizeof(surrogate_list), &app_id_flag);
+		}
+		
+		if(app_id_flag==1)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)app_list, TLD_TYPE_STRING);		
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_SURROGATE_ID].name, (void *)surrogate_list, TLD_TYPE_STRING);	
+		}
+
+		if(l7_protocol_flag==1)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)protocol_list, TLD_TYPE_STRING);
+		}
+	}
+
+	return 1;
+}
+
+static int set_vlan(struct tsg_log_instance_t *_instance, struct single_layer_vlan_addr *vlan_addr, int layer_num, cJSON *tunnel_object, tsg_log_field_id_t id)
+{
+	if(layer_num==0)
+	{
+		return 0;
+	}
+	
+	int i=0;
+	cJSON *vlan_array=cJSON_CreateArray();
+	for(i=0; i<layer_num; i++)
+	{
+		cJSON_AddNumberToObject(vlan_array, _instance->id2field[id].name, ntohs(vlan_addr[i].VID));
+	}
+
+	cJSON_AddItemToObject(tunnel_object, _instance->id2field[id].name, vlan_array);
+
+	return 1;
+}
+
+static int set_mpls(struct tsg_log_instance_t *_instance, struct single_layer_mpls_addr *mpls_addr, int layer_num, cJSON *tunnel_object, tsg_log_field_id_t id)
+{
+	if(layer_num==0)
+	{
+		return 0;
+	}
+
+	int i=0;
+	cJSON *mpls_array=cJSON_CreateArray();
+	for(i=0; i<layer_num; i++)
+	{
+		cJSON_AddNumberToObject(mpls_array, _instance->id2field[id].name, ntohl(mpls_addr[i].label));
+	}
+	
+	cJSON_AddItemToObject(tunnel_object, _instance->id2field[id].name, mpls_array);
+
+	return 1;
+}
+
+
+static int mac_to_string(unsigned char *mac, char *buff)
 {
 	int i=0,len=0;
 	
@@ -85,6 +424,39 @@ static int convert_mac_to_string(unsigned char *mac, char *buff)
 	buff[len-1]='\0';
 
 	return 0;
+}
+
+static int set_link_mac(struct tsg_log_instance_t *_instance, struct layer_addr_mac *mac, cJSON *tunnel_object)
+{
+	char buff[128]={0};
+	cJSON *mac_object=NULL;
+	char default_mac[6]={0,0,0,0,0,0};
+
+	if((memcmp(mac->src_addr.h_source, default_mac, 6)))
+	{
+		mac_object=cJSON_CreateObject();
+		mac_to_string(mac->src_addr.h_source, buff);
+		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, buff);
+		
+		mac_to_string(mac->src_addr.h_dest, buff);
+		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, buff);
+
+		cJSON_AddItemToObject(tunnel_object, "c2s_direction_mac", mac_object);
+	}
+
+	if((memcmp(mac->dst_addr.h_source, default_mac, 6)))
+	{
+		mac_object=cJSON_CreateObject();
+		mac_to_string(mac->dst_addr.h_source, buff);
+		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, buff);
+		
+		mac_to_string(mac->dst_addr.h_dest, buff);
+		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, buff);
+
+		cJSON_AddItemToObject(tunnel_object, "s2c_direction_mac", mac_object);
+	}
+
+	return 1;
 }
 
 static int action2fs_id(int action)
@@ -109,37 +481,6 @@ static int action2fs_id(int action)
 	}
 
 	return TSG_FS2_ABORT_UNKNOWN;
-}
-
-int is_multi_hit_same_policy(struct Maat_rule_t *result, int *policy_id, int *policy_id_num)
-{
-	int j=0;
-	
-	for(j=0;j<*policy_id_num;j++)
-	{
-		if(policy_id[j]==result->config_id)
-		{
-			return 1;
-		}
-	}
-
-	policy_id[(*policy_id_num)++]=result->config_id;
-
-	return 0;
-}
-unsigned long long tsg_get_stream_id(struct streaminfo * a_stream)
-{
-	int ret=0;
-	int device_id_size=sizeof(unsigned long long);
-	unsigned long long device_id=(unsigned long long)g_tsg_para.device_id;
-
-	ret=MESA_get_stream_opt(a_stream, MSO_GLOBAL_STREAM_ID, (void *)&device_id, &device_id_size);
-	if(ret==0)
-	{
-		return device_id;
-	}
-
-	return -1;
 }
 
 int TLD_cancel(struct TLD_handle_t *handle)
@@ -215,99 +556,6 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	return _handle;
 }
 
-
-static int set_l7_protocol(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
-{	
-	char *l7_protocol=NULL;
-	struct basic_proto_label *l7_proto_label=NULL;
-	
-	l7_proto_label=(struct basic_proto_label *)project_req_get_struct(a_stream, g_tsg_para.l7_proto_project_id);
-	if(l7_proto_label!=NULL && l7_proto_label->proto_id!=g_tsg_para.mail_proto_id)
-	{
-		l7_protocol=tsg_l7_protocol_id2name(_instance, l7_proto_label->proto_id);
-		if(l7_protocol!=NULL)
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)l7_protocol, TLD_TYPE_STRING);
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static int set_link_mac(struct tsg_log_instance_t *_instance, struct layer_addr_mac *mac, cJSON *tunnel_object)
-{
-	char buff[128]={0};
-	cJSON *mac_object=NULL;
-	char default_mac[6]={0,0,0,0,0,0};
-
-	if((memcmp(mac->src_addr.h_source, default_mac, 6)))
-	{
-		mac_object=cJSON_CreateObject();
-		convert_mac_to_string(mac->src_addr.h_source, buff);
-		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, buff);
-		
-		convert_mac_to_string(mac->src_addr.h_dest, buff);
-		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, buff);
-
-		cJSON_AddItemToObject(tunnel_object, "c2s_direction_mac", mac_object);
-	}
-
-	if((memcmp(mac->dst_addr.h_source, default_mac, 6)))
-	{
-		mac_object=cJSON_CreateObject();
-		convert_mac_to_string(mac->dst_addr.h_source, buff);
-		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, buff);
-		
-		convert_mac_to_string(mac->dst_addr.h_dest, buff);
-		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, buff);
-
-		cJSON_AddItemToObject(tunnel_object, "s2c_direction_mac", mac_object);
-	}
-
-	return 1;
-}
-
-
-static int set_vlan(struct tsg_log_instance_t *_instance, struct single_layer_vlan_addr *vlan_addr, int layer_num, cJSON *tunnel_object, tsg_log_field_id_t id)
-{
-	if(layer_num==0)
-	{
-		return 0;
-	}
-	
-	int i=0;
-	cJSON *vlan_array=cJSON_CreateArray();
-	for(i=0; i<layer_num; i++)
-	{
-		cJSON_AddNumberToObject(vlan_array, _instance->id2field[id].name, ntohs(vlan_addr[i].VID));
-	}
-
-	cJSON_AddItemToObject(tunnel_object, _instance->id2field[id].name, vlan_array);
-
-	return 1;
-}
-
-static int set_mpls(struct tsg_log_instance_t *_instance, struct single_layer_mpls_addr *mpls_addr, int layer_num, cJSON *tunnel_object, tsg_log_field_id_t id)
-{
-	if(layer_num==0)
-	{
-		return 0;
-	}
-
-	int i=0;
-	cJSON *mpls_array=cJSON_CreateArray();
-	for(i=0; i<layer_num; i++)
-	{
-		cJSON_AddNumberToObject(mpls_array, _instance->id2field[id].name, ntohl(mpls_addr[i].label));
-	}
-	
-	cJSON_AddItemToObject(tunnel_object, _instance->id2field[id].name, mpls_array);
-
-	return 1;
-}
-
-
 static int get_gtp_ipv4v6_port(struct tsg_log_instance_t *_instance, struct streaminfo *a_stream, cJSON *object)
 {
 	char ip_buff[64]={0};
@@ -345,7 +593,7 @@ static int get_gtp_ipv4v6_port(struct tsg_log_instance_t *_instance, struct stre
 	return 0;
 }
 
-static int get_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	int ret=0;	
 	char ip_buff[64]={0};
@@ -458,16 +706,36 @@ char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t 
 	return NULL;
 }
 
-char *tsg_l7_protocol_id2name(struct tsg_log_instance_t *instance, unsigned short id)
+unsigned long long tsg_get_stream_id(struct streaminfo * a_stream)
 {
-	struct tsg_log_instance_t *_instance=instance;
-	
-	if(_instance!=NULL && id>=MIN_L7_PROTO_ID && id<=MAX_L7_PROTO_ID)
+	int ret=0;
+	int device_id_size=sizeof(unsigned long long);
+	unsigned long long device_id=(unsigned long long)g_tsg_para.device_id;
+
+	ret=MESA_get_stream_opt(a_stream, MSO_GLOBAL_STREAM_ID, (void *)&device_id, &device_id_size);
+	if(ret==0)
 	{
-		return _instance->l7_proto_id2field[id].name;
+		return device_id;
 	}
 
-	return NULL;
+	return -1;
+}
+
+int is_multi_hit_same_policy(struct Maat_rule_t *result, int *policy_id, int *policy_id_num)
+{
+	int j=0;
+	
+	for(j=0;j<*policy_id_num;j++)
+	{
+		if(policy_id[j]==result->config_id)
+		{
+			return 1;
+		}
+	}
+
+	policy_id[(*policy_id_num)++]=result->config_id;
+
+	return 0;
 }
 
 static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, struct Maat_rule_t *p_result)
@@ -505,33 +773,15 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 	return 0;
 }
 
-int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	char buff[1024]={0};
-	int l7_protocol_flag=0;
-	char *l7_protocol=NULL;
-	struct app_id_label *app_label=NULL;
 	struct _location_info_t *location=NULL;
 	struct _session_attribute_label_t *attribute_label=NULL;
 
-	l7_protocol_flag=set_l7_protocol(_instance, _handle, a_stream);
-
 	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, _instance->internal_project_id);
 	if(attribute_label!=NULL)
-	{	
-		if(l7_protocol_flag==0)
-		{
-			l7_protocol=tsg_schema_index2string(attribute_label->proto);
-			if(l7_protocol!=NULL)
-			{			
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)l7_protocol, TLD_TYPE_STRING);
-			}
-			else
-			{
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)"UNCATEGORIZED", TLD_TYPE_STRING);
-			}
-		}
-		
+	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)attribute_label->establish_latency_ms, TLD_TYPE_LONG);
 
 		if(attribute_label->client_asn!=NULL)
@@ -565,159 +815,37 @@ int set_common_field_from_label(struct tsg_log_instance_t *_instance, struct TLD
 			TLD_append(_handle, _instance->id2field[LOG_SSL_JA3_FINGERPRINT].name, (void *)attribute_label->ja3_fingerprint, TLD_TYPE_STRING);
 		}
 	}
-	else
-	{
-		if(l7_protocol_flag==0)
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)"UNCATEGORIZED", TLD_TYPE_STRING);
-		}
-	}
-
-	app_label=(struct app_id_label *)project_req_get_struct(a_stream, g_tsg_para.app_id_project_id);
-	if(app_label!=NULL)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)(long)app_label->app_id, TLD_TYPE_LONG);		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_SURROGATE_ID].name, (void *)(long)app_label->surrogate_id, TLD_TYPE_LONG);
-	}
 	
 	return 0;
 }
 
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
-	int i_or_e=0,direction=0;
-	int ret=0,addr_type=0;
-	unsigned short tunnel_type=0;
-	char nest_addr_buf[1024];
 	char *addr_proto=NULL;
-	struct timespec tv;
-	unsigned int client_isn=0,server_isn=0;
-	int size=sizeof(unsigned long long);
-	long common_con_duration_ms=0;
-	unsigned long long create_time=0;
 	unsigned long long stream_id=0;
-	unsigned short c_port=0, s_port=0;
-	int tunnel_type_size=sizeof(tunnel_type);
-	struct layer_addr_ipv4 *ipv4=NULL;
-	struct layer_addr_ipv6 *ipv6=NULL;
-	char server_ip[MAX_IPV4_LEN*8]={0};
-	char client_ip[MAX_IPV4_LEN*8]={0};
-	struct tcp_flow_stat *tflow_project=NULL;
-    struct udp_flow_stat *uflow_project=NULL;
-	
 	struct TLD_handle_t *_handle=handle;
 	struct tsg_log_instance_t *_instance=instance;
 
 	if(_instance==NULL || _handle==NULL || a_stream==NULL)
 	{		
-		MESA_handle_runtime_log(_instance->logger,
-								RLOG_LV_DEBUG,
-								"TLD_APPEND_STREAM",
-								"instance==NULL || TLD_handle==NULL || addr==NULL"
-								);
+		MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG, "TLD_APPEND_STREAM", "instance==NULL || TLD_handle==NULL || addr==NULL");
 		return -1;
 	}
 
-	switch(a_stream->addr.addrtype)
-	{
-		case	ADDR_TYPE_IPV4:
-		case	__ADDR_TYPE_IP_PAIR_V4:
-			ipv4=a_stream->addr.ipv4;
-			addr_type=4;
-			c_port=ntohs(ipv4->source);
-			s_port=ntohs(ipv4->dest);
-			
-			inet_ntop(AF_INET, (void *)&ipv4->saddr, client_ip, sizeof(client_ip));
-			inet_ntop(AF_INET, (void *)&ipv4->daddr, server_ip, sizeof(server_ip));
-			break;
-		case	ADDR_TYPE_IPV6:
-		case	__ADDR_TYPE_IP_PAIR_V6:
-			ipv6=a_stream->addr.ipv6;
-			addr_type=6;
-			c_port=ntohs(ipv6->source);
-			s_port=ntohs(ipv6->dest);
-			
-			inet_ntop(AF_INET6, (void *)ipv6->saddr, client_ip, sizeof(client_ip));
-			inet_ntop(AF_INET6, (void *)ipv6->daddr, server_ip, sizeof(server_ip));
-			break;
-		default:
-			break;
-	}
+	set_app_id(_instance, _handle, a_stream);
+	set_tcp_isn(_instance, _handle, a_stream);
+	set_tuple4(_instance, _handle, a_stream);
+	set_direction(_instance, _handle, a_stream);
+	set_address_list(_instance, _handle, a_stream);
+	set_duraction(_instance, _handle, a_stream);
+	set_packet_bytes(_instance, _handle, a_stream);	
+	set_session_attributes(_instance, _handle, a_stream);
 
+	if(is_tunnels(a_stream))
+	{
+		set_common_tunnels(_instance, _handle, a_stream);
+	}
 	
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_IP].name, (void *)server_ip, TLD_TYPE_STRING);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_CLIENT_IP].name, (void *)client_ip, TLD_TYPE_STRING);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_PORT].name, (void *)(long)s_port, TLD_TYPE_LONG);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_CLIENT_PORT].name, (void *)(long)c_port, TLD_TYPE_LONG);
-	
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_STREAM_DIR].name, (void *)(long)a_stream->dir, TLD_TYPE_LONG);	
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_ADDRESS_TYPE].name, (void *)(long)addr_type, TLD_TYPE_LONG);
-
-	switch(a_stream->type)
-	{
-		case	STREAM_TYPE_TCP:
-			tflow_project=(struct tcp_flow_stat *)project_req_get_struct(a_stream, _instance->tcp_flow_project_id);
-			if(tflow_project!=NULL)
-			{
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)tflow_project->S2C_all_pkt, TLD_TYPE_LONG);
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)tflow_project->S2C_all_byte_raw, TLD_TYPE_LONG);
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)tflow_project->C2S_all_pkt, TLD_TYPE_LONG);
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)tflow_project->C2S_all_byte_raw, TLD_TYPE_LONG);
-			}
-
-			size=sizeof(unsigned int);
-			ret=MESA_get_stream_opt(a_stream, MSO_TCP_ISN_C2S, &client_isn, &size);
-			if(ret==0)
-			{		
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_TCP_CLIENT_ISN].name, (void *)(long)client_isn, TLD_TYPE_LONG);
-			}
-
-			size=sizeof(unsigned int);
-			ret=MESA_get_stream_opt(a_stream, MSO_TCP_ISN_S2C, &server_isn, &size);
-			if(ret==0)
-			{		
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_TCP_SERVER_ISN].name, (void *)(long)server_isn, TLD_TYPE_LONG);
-			}
-			break;
-		case	STREAM_TYPE_UDP:
-			uflow_project=(struct udp_flow_stat *)project_req_get_struct(a_stream, _instance->udp_flow_project_id);
-			if(uflow_project!=NULL)
-			{
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_PKT_NUM].name, (void *)(long)uflow_project->S2C_pkt, TLD_TYPE_LONG);
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_S2C_BYTE_NUM].name, (void *)(long)uflow_project->S2C_all_byte_raw, TLD_TYPE_LONG);
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_PKT_NUM].name, (void *)(long)uflow_project->C2S_pkt, TLD_TYPE_LONG);
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_C2S_BYTE_NUM].name, (void *)(long)uflow_project->C2S_all_byte_raw, TLD_TYPE_LONG);
-			}
-			break;
-		default:
-			break;
-	}
-
-	if(a_stream!=NULL && a_stream->ptcpdetail!=NULL)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);
-
-		ret=MESA_get_stream_opt(a_stream, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time, &size);
-		if(ret>=0)
-		{
-			clock_gettime(CLOCK_REALTIME, &tv);
-			common_con_duration_ms=tv.tv_sec*1000+tv.tv_nsec/1000/1000 - create_time;
-		}
-		
-		if(common_con_duration_ms>0)
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
-		}
-	}
-	else
-	{
-		time_t cur_time=time(NULL);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
-	}
-
 	stream_id=tsg_get_stream_id(a_stream);
 	char stream_id_buff[128]="";
 	snprintf(stream_id_buff, sizeof(stream_id_buff), "%llu", stream_id);
@@ -725,56 +853,6 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	
 	addr_proto=(char *)layer_addr_prefix_ntop(a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_L4_PROTOCOL].name, (void *)addr_proto, TLD_TYPE_STRING);
-	
-
-	ret=MESA_get_stream_opt(a_stream, MSO_STREAM_TUNNEL_TYPE, &tunnel_type, &tunnel_type_size);
-	assert(ret==0);
-	if(tunnel_type==STREAM_TUNNLE_NON)
-	{	
-		layer_addr_ntop_r(a_stream,nest_addr_buf, sizeof(nest_addr_buf));
-	}
-	else
-	{		
-		stream_addr_list_ntop(a_stream,nest_addr_buf, sizeof(nest_addr_buf));
-	}
-
-	if(is_tunnels(a_stream))
-	{
-		get_common_tunnels(_instance, _handle, a_stream);
-	}
-	
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_ADDRESS_LIST].name, (void *)nest_addr_buf, TLD_TYPE_STRING);
-
-	set_common_field_from_label(_instance, _handle, a_stream);
-
-	i_or_e=MESA_dir_link_to_human(a_stream->routedir);
-	switch(a_stream->curdir)
-	{
-		case	DIR_C2S:
-			if(i_or_e=='E' || i_or_e=='e')
-			{
-				direction='E';
-			}
-			else
-			{
-				direction='I';
-			}
-			break;
-		case	DIR_S2C:
-			if(i_or_e=='E' || i_or_e=='e')
-			{
-				direction='I';
-			}
-			else
-			{
-				direction='E';
-			}
-			break;
-		default:
-			break;
-	}
-	
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);
 
 	return 0;
 }
@@ -874,7 +952,6 @@ int load_log_common_field(const char *filename, id2field_t *id2field, id2field_t
 struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 {
 	int i=0,ret=0;
-	int tmp_value=0;
 	char nic_name[32]={0};
 	char kafka_errstr[1024]={0};
 	unsigned int local_ip_nr=0;
@@ -952,9 +1029,6 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	}
 	inet_ntop(AF_INET,&(local_ip_nr),_instance->local_ip_str,sizeof(_instance->local_ip_str));
 	
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_PROTO_ID_FILE", _instance->l7_proto_id_file, sizeof(_instance->l7_proto_id_file), "./tsgconf/app_l7_proto_id.conf");
-	load_log_common_field(_instance->l7_proto_id_file, _instance->l7_proto_id2field, NULL, &tmp_value);
-
 	rdkafka_conf = rd_kafka_conf_new();	
 	rd_kafka_conf_set(rdkafka_conf, "queue.buffering.max.messages", _instance->send_queue_max_msg, kafka_errstr, sizeof(kafka_errstr));
 	rd_kafka_conf_set(rdkafka_conf, "topic.metadata.refresh.interval.ms", _instance->refresh_interval_ms, kafka_errstr, sizeof(kafka_errstr));
