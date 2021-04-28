@@ -112,6 +112,34 @@ static int set_tcp_isn(struct tsg_log_instance_t *_instance, struct TLD_handle_t
 	
 	return 1;
 }
+
+static int set_asn(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, struct _asn_info_t *asn_info)
+{
+	char buff[1024]={0};
+	
+	if(asn_info!=NULL)
+	{
+		snprintf(buff, sizeof(buff), "%s(%s)", asn_info->asn, asn_info->organization);
+		TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
+	}
+
+	return 1;
+}
+
+static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, struct _location_info_t *location_info)
+{
+	char buff[1024]={0};
+	
+	if(location_info!=NULL)
+	{
+		snprintf(buff, sizeof(buff), "%s,%s,%s", location_info->city_full, location_info->province_full, location_info->country_full);
+		TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
+	}
+
+	return 1;
+}
+
+
 static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	int direction=0,i_or_e=0;
@@ -253,6 +281,24 @@ static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
 	}
 	
+	return 1;
+}
+
+static int set_fqdn_category(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, unsigned int *category_id, int category_id_num)
+{
+	int i=0,offset=0;
+	char category_str[128]={0};
+	
+	for(i=0; i< category_id_num; i++)
+	{
+		offset+=snprintf(category_str+offset, sizeof(category_str)-offset, "%d,", category_id[i]);
+	}
+
+	if(offset>0)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_FQDN_CATEGORY].name, (void *)category_str, TLD_TYPE_STRING);
+	}
+
 	return 1;
 }
 
@@ -775,8 +821,6 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 
 int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
-	char buff[1024]={0};
-	struct _location_info_t *location=NULL;
 	struct _session_attribute_label_t *attribute_label=NULL;
 
 	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, _instance->internal_project_id);
@@ -784,31 +828,13 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)attribute_label->establish_latency_ms, TLD_TYPE_LONG);
 
-		if(attribute_label->client_asn!=NULL)
-		{
-			snprintf(buff, sizeof(buff), "%s(%s)", attribute_label->client_asn->asn, attribute_label->client_asn->organization);
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_ASN].name, (void *)buff, TLD_TYPE_STRING);
-		}
+		set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_ASN].name, attribute_label->client_asn);		
+		set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_ASN].name, attribute_label->server_asn);
 		
-		if(attribute_label->server_asn!=NULL)
-		{
-			snprintf(buff, sizeof(buff), "%s(%s)", attribute_label->server_asn->asn, attribute_label->server_asn->organization);
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_ASN].name, (void *)buff, TLD_TYPE_STRING);
-		}
-
-		if(attribute_label->client_location!=NULL)
-		{
-			location=attribute_label->client_location;
-			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
-		}
-
-		if(attribute_label->server_location!=NULL)
-		{
-			location=attribute_label->server_location;
-			snprintf(buff, sizeof(buff), "%s,%s,%s", location->city_full, location->province_full, location->country_full);
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, (void *)buff, TLD_TYPE_STRING);
-		}
+		set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, attribute_label->client_location);
+		set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, attribute_label->server_location);
+		
+		set_fqdn_category(_instance, _handle, a_stream, attribute_label->fqdn_category_id, attribute_label->fqdn_category_id_num);
 
 		if(attribute_label->ja3_fingerprint!=NULL)
 		{

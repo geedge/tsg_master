@@ -168,6 +168,22 @@ static int is_only_monitor(struct Maat_rule_t *result, int hit_cnt)
 	return 1;
 }
 
+static int is_hited_allow(struct Maat_rule_t *result, int hit_cnt)
+{
+	int i=0;
+
+	for(i=0; i<hit_cnt; i++)
+	{
+		if(result[i].action==TSG_ACTION_BYPASS)
+		{
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+
 static int set_drop_stream(const struct streaminfo *a_stream)
 {
 	int opt_value=1;
@@ -1104,14 +1120,6 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 	unsigned char state=APP_STATE_GIVEME;
 
 	p_result=tsg_policy_decision_criteria(result, hit_num);
-	if(g_tsg_para.default_compile_switch==1 && p_result==NULL)
-	{
-		if(get_default_policy(g_tsg_para.default_compile_id, &result[0]))
-		{
-			p_result=&result[0];			
-		}
-	}
-	
 	if(p_result!=NULL)
 	{	
 		switch((unsigned char)p_result->action)
@@ -1120,7 +1128,17 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				state=deal_deny_action(a_stream, context, p_result);
 				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT)
 				{
+					context->hit_cnt=0;
 					master_send_log(a_stream, p_result, 1, context->domain, context->proto, a_stream->threadnum);
+					MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"DENY",
+												"Hit deny policy, policy_id: %d service: %d action: %d addr: %s",
+												p_result->config_id,
+												p_result->service_id,
+												(unsigned char)p_result->action,
+												PRINTADDR(a_stream, g_tsg_para.level)
+											);
 				}
 				break;
 			case	TSG_ACTION_MONITOR:
@@ -1188,6 +1206,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	if(context==NULL)
 	{
 		init_context((void **)&context, a_stream->threadnum);
+		set_struct_project(a_stream, g_tsg_para.context_project_id, (void *)context);
 	}
 	
 	record_time_start(&context->last_scan_time);
@@ -1208,6 +1227,7 @@ static int master_deal_pending_state(const struct streaminfo *a_stream, struct m
 	ret=identify_application_protocol(a_stream, context, a_packet);
 	if(ret==1)
 	{				
+		set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY, NULL, a_stream->threadnum);
 		set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(context->proto), a_stream->threadnum);
 
 		if(context->proto==PROTO_SSL)
@@ -1244,21 +1264,24 @@ static int master_deal_pending_state(const struct streaminfo *a_stream, struct m
 	return hit_num;
 }
 
-extern "C" unsigned char TSG_MASTER_TCP_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
+
+static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **pme, int thread_seq,void *a_packet)
 {
-	int hit_num=0;	
+	int i=0, hit_num=0;	
 	unsigned char state=APP_STATE_GIVEME;
-	Maat_rule_t result[MAX_RESULT_NUM];
+	Maat_rule_t scan_result[MAX_RESULT_NUM];
+	Maat_rule_t *p_result=NULL;
+	struct gather_app_result *identify_result=NULL;
 	struct master_context *context=(struct master_context *)*pme;
 
 	if(*pme==NULL)
 	{
-		context=(struct master_context *)get_struct_project(a_tcp, g_tsg_para.context_project_id);
+		context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
 		if(context==NULL)
 		{
 			init_context(pme, thread_seq);
 			context=(struct master_context *)*pme;
-			set_struct_project(a_tcp, g_tsg_para.context_project_id, *pme);
+			set_struct_project(a_stream, g_tsg_para.context_project_id, *pme);
 		}
 		else
 		{
@@ -1267,70 +1290,79 @@ extern "C" unsigned char TSG_MASTER_TCP_ENTRY(const struct streaminfo *a_tcp, vo
 		record_time_start(&context->last_scan_time);
 	}
 	
-	if(a_tcp->opstate==OP_STATE_PENDING)
+	switch(a_stream->opstate)
 	{
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1);			
-		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY, NULL, thread_seq);
-		hit_num+=master_deal_pending_state(a_tcp, context, result-hit_num, MAX_RESULT_NUM-hit_num, a_packet);
-	}
+		case	OP_STATE_PENDING:
+			hit_num+=master_deal_pending_state(a_stream, context, scan_result+hit_num, MAX_RESULT_NUM-hit_num, a_packet);
+			p_result=tsg_policy_decision_criteria(scan_result, hit_num);
+			if(g_tsg_para.default_compile_switch==1 && p_result==NULL)
+			{
+				if(get_default_policy(g_tsg_para.default_compile_id, &scan_result[0]))
+				{
+					p_result=&scan_result[0];			
+				}
+			}
+			
+			state=master_deal_scan_result(a_stream, context, scan_result, hit_num, a_packet);
+			break;
+		case	OP_STATE_DATA:
+		case	OP_STATE_CLOSE:
+			if(is_hited_allow(context->result, context->hit_cnt))
+			{
+				break;
+			}
+			
+			if(record_time_elapse_us(&context->last_scan_time) < (g_tsg_para.scan_time_interval*1000000))
+			{
+				break;
+			}
+			
+			record_time_start(&context->last_scan_time);
+			hit_num+=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, scan_result+hit_num, MAX_RESULT_NUM-hit_num);
+			
+			identify_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
+			for(i=0; i<ORIGIN_MAX && identify_result!=NULL; i++)
+			{
+				hit_num+=scan_application_id_and_properties(a_stream, scan_result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, &(identify_result->result[i]), thread_seq);
+			}
 
-	if(record_time_elapse_us(&context->last_scan_time)/100000 > g_tsg_para.scan_time_interval)
-	{
-		record_time_start(&context->last_scan_time);
+			p_result=tsg_policy_decision_criteria(scan_result, hit_num);
+			if(p_result!=NULL && p_result->action!=TSG_ACTION_MONITOR)
+			{
+				state=master_deal_scan_result(a_stream, context, scan_result, hit_num, a_packet);
+			}
+			break;
+		default:
+			break;
 	}
-
-	state=master_deal_scan_result(a_tcp, context, result, hit_num, a_packet);
-	if((a_tcp->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
+	
+	if((a_stream->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
-		close_stream_free_context(a_tcp, context, thread_seq);
+		close_stream_free_context(a_stream, context, thread_seq);
 		*pme=NULL;
 	}
 
 	return state;
 }
 
+extern "C" unsigned char TSG_MASTER_TCP_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
+{
+	if(a_tcp->type==STREAM_TYPE_TCP)
+	{		
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1); 		
+	}
+	
+	return tsg_master_entry(a_tcp, pme, thread_seq, a_packet);
+}
+
 extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, void **pme, int thread_seq,void *a_packet)
 {
-	int hit_num=0;	
-	unsigned char state=APP_STATE_GIVEME;
-	Maat_rule_t result[MAX_RESULT_NUM]={0};
-	struct master_context *context=(struct master_context *)*pme;
-
-	if(*pme==NULL)
-	{
-		context=(struct master_context *)get_struct_project(a_udp, g_tsg_para.context_project_id);
-		if(context==NULL)
-		{
-			init_context(pme, thread_seq);
-			context=(struct master_context *)*pme;
-			set_struct_project(a_udp, g_tsg_para.context_project_id, *pme);
-		}
-		else
-		{
-			*pme=(void *)context;
-		}
-		record_time_start(&context->last_scan_time);
-	}
-	
-	if(a_udp->opstate==OP_STATE_PENDING)
-	{
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);	
-		hit_num+=master_deal_pending_state(a_udp, context, result-hit_num, MAX_RESULT_NUM-hit_num, a_packet);
+	if(a_udp->type==STREAM_TYPE_UDP)
+	{		
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1); 		
 	}
 
-	if(record_time_elapse_us(&context->last_scan_time)/100000 > g_tsg_para.scan_time_interval)
-	{
-		record_time_start(&context->last_scan_time);
-	}
-	
-	state=master_deal_scan_result(a_udp, context, result, hit_num, a_packet);
-	
-	if((a_udp->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
-	{
-		close_stream_free_context(a_udp, context, thread_seq);
-		*pme=NULL;
-	}
-	return state;
+	return tsg_master_entry(a_udp, pme, thread_seq, a_packet);
 }
 
 extern "C" int TSG_MASTER_INIT()
@@ -1369,7 +1401,7 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "ENTRANCE_ID", &g_tsg_para.entrance_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "MAIL_PROTOCOL_ID",&(g_tsg_para.mail_proto_id), 110);	
-	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_TIME_INTERVAL", &g_tsg_para.scan_time_interval, 10);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_TIME_INTERVAL", &g_tsg_para.scan_time_interval, 5);
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "DEVICE_ID_COMMAND", g_tsg_para.device_id_command, sizeof(g_tsg_para.device_id_command), NULL);
 	g_tsg_para.device_id=get_device_id(g_tsg_para.device_id_command, g_tsg_para.entrance_id);

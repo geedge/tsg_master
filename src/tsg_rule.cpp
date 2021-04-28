@@ -1152,23 +1152,14 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 	return 0;
 }
 
-int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
-	int ret=0;
-	unsigned int proto_id=0;
-	struct ipaddr t_addr;
-	struct ipaddr* p_addr=NULL;
 	int hit_num=0,tans_proto=0;
+	struct ipaddr t_addr;
+	struct ipaddr* p_addr=NULL;	
 	int is_scan_addr=1, maat_ret=0;	
 	const struct streaminfo *cur_stream = a_stream;
-	struct _session_attribute_label_t *attribute_label=NULL;
 
-	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_NESTING_ADDR", "result==NULL || result_num<=0 || maat_feather==NULL || a_stream==NULL");
-		return -1;
-	}
-	
 	do
 	{
 		if(cur_stream->addr.addrtype == __ADDR_TYPE_IP_PAIR_V4 || cur_stream->addr.addrtype == ADDR_TYPE_IPV4 || cur_stream->addr.addrtype == __ADDR_TYPE_IP_PAIR_V6 || cur_stream->addr.addrtype == ADDR_TYPE_IPV6)
@@ -1234,6 +1225,24 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		cur_stream = cur_stream->pfather;
 		
 	}while(cur_stream != NULL && hit_num < result_num);
+
+	return hit_num;
+}
+
+int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
+{
+	int ret=0;
+	unsigned int proto_id=0;
+	int hit_num=0;
+	struct _session_attribute_label_t *attribute_label=NULL;
+
+	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_NESTING_ADDR", "result==NULL || result_num<=0 || maat_feather==NULL || a_stream==NULL");
+		return -1;
+	}
+
+	hit_num+=tsg_scan_addr(maat_feather, a_stream, proto, mid, result+hit_num, result_num-hit_num);
 
 	if(hit_num<result_num && proto>PROTO_UNKONWN && proto<PROTO_MAX)
 	{
