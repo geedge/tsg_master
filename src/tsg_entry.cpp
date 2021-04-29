@@ -191,7 +191,7 @@ static int set_drop_stream(const struct streaminfo *a_stream)
 
 static int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data)
 {
-	if(a_stream==NULL || project_id<0 || data==NULL)
+	if(a_stream==NULL || project_id<0)
 	{
 		return 0;
 	}
