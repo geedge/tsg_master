@@ -543,6 +543,9 @@ void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* s
 				{
 					user_region->html_profile=item->valueint;
 				}
+
+				cJSON_Delete(object);
+				object=NULL;
 			}
 		}
 
@@ -1501,10 +1504,20 @@ int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, const struct str
 	if(property!=NULL && property_len>0 && district_len>0)
 	{
 		Maat_set_scan_status(g_tsg_maat_feather, mid, MAAT_SET_SCAN_DISTRICT, (void *)district, district_len);
-		ret=Maat_full_scan_string(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_SELECTOR_PROPERTIES], CHARSET_UTF8, property, property_len, property_result, NULL, MAX_RESULT_NUM,mid,thread_seq);
+		ret=Maat_full_scan_string(g_tsg_maat_feather, 
+									g_tsg_para.table_id[TABLE_SELECTOR_PROPERTIES],
+									CHARSET_UTF8,
+									property,
+									property_len,
+									property_result, 
+									NULL,
+									MAX_RESULT_NUM,
+									mid,
+									thread_seq
+								);
 		for(i=0; i<ret; i++)
 		{
-			ret2=Maat_scan_intval(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_SELECTOR_ID], property_result[i].config_id, result, result_num, mid, thread_seq);
+			ret2=Maat_scan_intval(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_SELECTOR_ID], property_result[i].config_id, result+hit_num, result_num-hit_num, mid, thread_seq);
 			if(ret2>0)
 			{
 				MESA_handle_runtime_log(g_tsg_para.logger, 
@@ -1513,9 +1526,9 @@ int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, const struct str
 										"Hit selector_id: %d ret: %d policy_id: %d service: %d action: %d addr: %s",
 										property_result[i].config_id,
 										ret2,
-										result[0].config_id,
-										result[0].service_id,
-										result[0].action,
+										result[hit_num].config_id,
+										result[hit_num].service_id,
+										result[hit_num].action,
 										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 				

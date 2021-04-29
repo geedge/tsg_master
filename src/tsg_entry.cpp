@@ -93,15 +93,10 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"},
 
 
 static int init_context(void **pme, int thread_seq)
-{	
-	struct master_context *context=(struct master_context *)*pme;
-	
+{
 	*pme=dictator_malloc(thread_seq, sizeof(struct master_context));
 	memset(*pme, 0, sizeof(struct master_context));
-	context=(struct master_context *)*pme;
 	
-	context->continue_scan_proto_id=APP_SCAN_FLAG_CONTINUE;
-
 	return 0;
 }
 
@@ -357,6 +352,8 @@ static int tsg_proto_name2flag(char *proto_list, int *flag)
 
 static void free_context_label(int thread_seq, void *project_req_value)
 {
+	project_req_value=NULL;
+
 	return ;
 }
 
@@ -1103,6 +1100,7 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->characteristics, (char *)"characteristics", thread_seq);
 
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->app_name, identify_result->app_id[i], thread_seq);
+			app_id_dict_free_data(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
 		}
 		else
 		{
@@ -1205,13 +1203,13 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
 	if(context==NULL)
 	{
-		init_context((void **)&context, a_stream->threadnum);
+		init_context((void **)(&context), a_stream->threadnum);
 		set_struct_project(a_stream, g_tsg_para.context_project_id, (void *)context);
 	}
 	
-	record_time_start(&context->last_scan_time);
+	record_time_start(&(context->last_scan_time));
 	
-	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, &context->mid, identify_result, a_stream->threadnum);
+	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, &(context->mid), identify_result, a_stream->threadnum);
 	master_deal_scan_result(a_stream, context, scan_result, hit_num, NULL);
 
 	return 0;
@@ -1233,10 +1231,6 @@ static int master_deal_pending_state(const struct streaminfo *a_stream, struct m
 		if(context->proto==PROTO_SSL)
 		{
 			set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_JA3_HASH, NULL, a_stream->threadnum);
-		}
-		else
-		{
-			context->continue_scan_proto_id=APP_SCAN_FLAG_STOP;
 		}
 		
 		table_id=get_table_id(context->proto);	
@@ -1340,6 +1334,7 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 	{
 		close_stream_free_context(a_stream, context, thread_seq);
 		*pme=NULL;
+		set_struct_project(a_stream, g_tsg_para.context_project_id, NULL);	//
 	}
 
 	return state;

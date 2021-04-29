@@ -121,13 +121,10 @@ struct master_context
 {
 	tsg_protocol_t proto;
 	int hit_cnt;
-	int app_id;
 	int is_esni;
-	char continue_scan_proto_id;
-	unsigned short basic_proto_id;
 	char *domain;
-	struct Maat_rule_t *result;
 	scan_status_t mid;	
+	struct Maat_rule_t *result;
 	struct timespec last_scan_time;
 };
 
@@ -253,6 +250,7 @@ int tsg_statistic_init(const char *conffile, void *logger);
 void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void app_id_dict_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp);
 struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, int thread_seq);
 int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num);
