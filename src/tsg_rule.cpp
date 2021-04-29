@@ -593,6 +593,9 @@ void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* s
 				{
 					user_region->html_profile=item->valueint;
 				}
+
+				cJSON_Delete(object);
+				object=NULL;
 			}
 		}
 
