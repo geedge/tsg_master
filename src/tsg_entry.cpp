@@ -422,9 +422,12 @@ static void copy_intercept_result(const struct streaminfo *a_stream, struct mast
 	memset(priority_label, 0, sizeof(policy_priority_label_t));
 
 	priority_label->proto=proto;
-	priority_label->domain_len=MIN(sizeof(priority_label->domain)-1 ,strlen(domain));
-	memcpy(priority_label->domain, domain, priority_label->domain_len);
-
+	if(domain!=NULL)
+	{
+		priority_label->domain_len=MIN(sizeof(priority_label->domain)-1 ,strlen(domain));
+		memcpy(priority_label->domain, domain, priority_label->domain_len);
+	}
+	
 	priority_label->result_num=1;
 	priority_label->result_type=PULL_KNI_RESULT;
 	memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
