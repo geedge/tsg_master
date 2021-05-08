@@ -77,6 +77,24 @@ static char* str_unescape(char* s)
 	return s;
 }
 
+static int get_fqdn_len(char *domain)
+{
+	char *p=NULL;
+	int fqdn_len=0;
+	
+	p=index(domain, ':');
+	if(p==NULL)
+	{
+		fqdn_len=strlen(domain);
+	}
+	else
+	{
+		fqdn_len=p-domain;
+	}
+
+	return fqdn_len;
+}
+
 static int get_data_center(char *accept_tag, char *effective_tag_key, char *data_center, int data_center_len)
 {
 	int i=0,len;
@@ -1309,14 +1327,15 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 //return value: -1: failed, 0: not hit, >0: hit count 
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, char *domain, Maat_rule_t *result, int result_num,  scan_status_t *mid, int table_id, int thread_seq)
 {
-	int ret=0;	
-
+	int ret=0,fqdn_len=0;
+	
 	if(table_id<0 || domain==NULL)
 	{
 		return 0;
 	}
-	
-	ret=Maat_full_scan_string(g_tsg_maat_feather, table_id, CHARSET_UTF8, domain, strlen(domain), result, NULL, result_num, mid, thread_seq);
+
+	fqdn_len=get_fqdn_len(domain);
+	ret=Maat_full_scan_string(g_tsg_maat_feather, table_id, CHARSET_UTF8, domain, fqdn_len, result, NULL, result_num, mid, thread_seq);
 	if(ret>0)
 	{
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_SHARE], 0, FS_OP_ADD, 1);
