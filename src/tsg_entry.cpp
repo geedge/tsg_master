@@ -1074,6 +1074,8 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 				{
 					context->proto=PROTO_SIP;
 				}
+				
+				return 1;
 			}
 			break;
 		default:

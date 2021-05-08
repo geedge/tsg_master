@@ -474,34 +474,50 @@ static int mac_to_string(unsigned char *mac, char *buff)
 
 static int set_link_mac(struct tsg_log_instance_t *_instance, struct layer_addr_mac *mac, cJSON *tunnel_object)
 {
-	char buff[128]={0};
-	cJSON *mac_object=NULL;
+	int flag=0;
 	char default_mac[6]={0,0,0,0,0,0};
+	char c2s_source_mac[128]={0};
+	char c2s_dest_mac[128]={0};
+	char s2c_source_mac[128]={0};
+	char s2c_dest_mac[128]={0};
 
 	if((memcmp(mac->src_addr.h_source, default_mac, 6)))
 	{
-		mac_object=cJSON_CreateObject();
-		mac_to_string(mac->src_addr.h_source, buff);
-		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, buff);
-		
-		mac_to_string(mac->src_addr.h_dest, buff);
-		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, buff);
-
-		cJSON_AddItemToObject(tunnel_object, "c2s_direction_mac", mac_object);
+		flag|=1;
+		mac_to_string(mac->src_addr.h_source, c2s_source_mac);
+		mac_to_string(mac->src_addr.h_dest, c2s_dest_mac);
 	}
 
 	if((memcmp(mac->dst_addr.h_source, default_mac, 6)))
 	{
-		mac_object=cJSON_CreateObject();
-		mac_to_string(mac->dst_addr.h_source, buff);
-		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, buff);
-		
-		mac_to_string(mac->dst_addr.h_dest, buff);
-		cJSON_AddStringToObject(mac_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, buff);
-
-		cJSON_AddItemToObject(tunnel_object, "s2c_direction_mac", mac_object);
+		flag|=2;
+		mac_to_string(mac->dst_addr.h_source, s2c_source_mac);
+		mac_to_string(mac->dst_addr.h_dest, s2c_dest_mac);	
 	}
 
+	switch(flag)
+	{
+		case	1:			
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "ETHERNET");
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, c2s_source_mac);
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, c2s_dest_mac);
+			break;
+		case	2:			
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "ETHERNET");
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, s2c_source_mac);
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, s2c_dest_mac);
+			break;
+		case	3:			
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "MULTIPATH_ETHERNET");
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_C2S_MAC_SOURCE].name, c2s_source_mac);
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_C2S_MAC_DEST].name, c2s_dest_mac);
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_S2C_MAC_SOURCE].name, s2c_source_mac);
+			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_S2C_MAC_DEST].name, s2c_dest_mac);
+			break;
+		default:
+			break;
+	}
+	
 	return 1;
 }
 
@@ -655,7 +671,6 @@ static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_h
 		{
 			case	ADDR_TYPE_MAC:
 				tunnel_object=cJSON_CreateObject();
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "ETHERNET");
 				set_link_mac(_instance, (ptmp->addr.mac), tunnel_object);
 				break;
 			case	ADDR_TYPE_VLAN:
