@@ -291,7 +291,7 @@ static int set_fqdn_category(struct tsg_log_instance_t *_instance, struct TLD_ha
 	
 	for(i=0; i< category_id_num; i++)
 	{
-		offset+=snprintf(category_str+offset, sizeof(category_str)-offset, "%d,", category_id[i]);
+		offset+=snprintf(category_str+offset, sizeof(category_str)-offset, "%s%d", ((i>0) ? "," : ""), category_id[i]);
 	}
 
 	if(offset>0)
@@ -360,10 +360,24 @@ static int get_l7_protocol(struct app_identify_result *result, char *protocol_li
 	return 1;
 }
 
-static int get_app_id_list(struct app_identify_result *result, char *app_list, int app_list_len, char *surrogate_list, int surrogate_list_len, int *flag)
+static int get_app_id_list(struct app_identify_result *result, char *app_list, int app_list_len, char *surrogate_list, int surrogate_list_len)
 {
 	int i=0;
 	int offset1=0,offset2=0;
+	
+	for(i=0; i<result->app_id_num; i++)
+	{
+		offset1+=snprintf(app_list+offset1, app_list_len-offset1, "APP%d=%d;", result->origin, result->app_id[i]);
+		offset2+=snprintf(surrogate_list+offset2, surrogate_list_len-offset2, "SURROGATE%d=%d;", result->origin, result->surrogate_id[i]);
+	}
+
+	return 1;
+}
+
+static int get_app_name_list(struct app_identify_result *result, char *app_name, int app_name_len, int *flag, int is_joint_parent)
+{
+	int i=0;
+	int offset=0;
 
 	if((*flag)==1)
 	{
@@ -373,8 +387,14 @@ static int get_app_id_list(struct app_identify_result *result, char *app_list, i
 	for(i=0; i<result->app_id_num; i++)
 	{
 		(*flag)=1;
-		offset1+=snprintf(app_list+offset1, app_list_len-offset1, "%d;", result->app_id[i]);
-		offset2+=snprintf(surrogate_list+offset2, surrogate_list_len-offset2, "%d;", result->surrogate_id[i]);
+
+		if(i>0 && offset>0 && (app_name_len-offset)>0)
+		{
+			app_name[offset]='.';
+			offset++;
+		}
+		
+		offset+=tsg_app_id2name(result->app_id[i], app_name+offset, app_name_len-offset, is_joint_parent);
 	}
 
 	return 1;
@@ -383,37 +403,56 @@ static int get_app_id_list(struct app_identify_result *result, char *app_list, i
 static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	int app_id_flag=0;
+	int app_offset=0;
+	int surrogate_offset=0;
 	int l7_protocol_flag=0;
-	char app_list[256]={0};
+	char app_list[512]={0};
+	char app_name[512]={0};
 	char protocol_list[256]={0};
-	char surrogate_list[256]={0};
+	char surrogate_list[512]={0};
 	struct gather_app_result *label=NULL;
 	
 	label=(struct gather_app_result *)project_req_get_struct(a_stream, g_tsg_para.gather_app_project_id);
-	if(label!=NULL)
-	{		
-		get_l7_protocol(&(label->result[ORIGIN_BASIC_PROTOCOL]), protocol_list, sizeof(protocol_list), &l7_protocol_flag);
-		get_app_id_list(&(label->result[ORIGIN_USER_DEFINE]), app_list, sizeof(app_list), surrogate_list, sizeof(surrogate_list), &app_id_flag);
-		if(app_id_flag!=1)
-		{
-			get_app_id_list(&(label->result[ORIGIN_DKPT]), app_list, sizeof(app_list), surrogate_list, sizeof(surrogate_list), &app_id_flag);
-		}
+	if(label==NULL)
+	{
+		return 0;
+	}
+	
+	get_l7_protocol(&(label->result[ORIGIN_BASIC_PROTOCOL]), protocol_list, sizeof(protocol_list), &l7_protocol_flag);
+	if(l7_protocol_flag==1)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)protocol_list, TLD_TYPE_STRING);
+	}
 
-		if(app_id_flag!=1)
-		{
-			get_app_id_list(&(label->result[ORIGIN_QM_ENGINE]), app_list, sizeof(app_list), surrogate_list, sizeof(surrogate_list), &app_id_flag);
-		}
-		
-		if(app_id_flag==1)
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)app_list, TLD_TYPE_STRING);		
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_SURROGATE_ID].name, (void *)surrogate_list, TLD_TYPE_STRING);	
-		}
+	app_offset=0;
+	surrogate_offset=0;
+	get_app_id_list(&(label->result[ORIGIN_USER_DEFINE]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
 
-		if(l7_protocol_flag==1)
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)protocol_list, TLD_TYPE_STRING);
-		}
+	app_offset=strlen(app_list);
+	surrogate_offset=strlen(surrogate_list);
+	get_app_id_list(&(label->result[ORIGIN_DKPT]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
+
+	app_offset=strlen(app_list);
+	surrogate_offset=strlen(surrogate_list);
+	get_app_id_list(&(label->result[ORIGIN_QM_ENGINE]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
+
+	get_app_name_list(&(label->result[ORIGIN_USER_DEFINE]), app_name, sizeof(app_name), &app_id_flag, 1);
+	if(app_id_flag!=1)
+	{
+		get_app_name_list(&(label->result[ORIGIN_DKPT]), app_name, sizeof(app_name), &app_id_flag, 0);
+	}
+
+	if(app_id_flag!=1)
+	{
+		get_app_name_list(&(label->result[ORIGIN_QM_ENGINE]), app_name, sizeof(app_name), &app_id_flag, 1);
+	}
+	
+	if(app_id_flag==1)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)app_list, TLD_TYPE_STRING);		
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_SURROGATE_ID].name, (void *)surrogate_list, TLD_TYPE_STRING);
+
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
 	}
 
 	return 1;
@@ -1236,11 +1275,10 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 			set_common_sub_action(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name, &(log_msg->result[i]));
 		}
 		
-		payload = cJSON_PrintUnformatted(_handle->object);
+		payload=cJSON_PrintUnformatted(_handle->object);
 
-		status = rd_kafka_produce(_instance->topic_rkt[log_msg->result[i].service_id], RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, payload, strlen(payload), NULL, 0, NULL);			
-
-		if(status < 0)
+		status=rd_kafka_produce(_instance->topic_rkt[log_msg->result[i].service_id], RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, payload, strlen(payload), NULL, 0, NULL);
+		if(status<0)
 		{
 			clock_gettime(CLOCK_REALTIME, &cur_time);
 			if(cur_time.tv_sec - _instance->drop_start[thread_id].tv_sec>=1)

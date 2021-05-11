@@ -1,33 +1,34 @@
 {
     "compile_table": "TSG_SECURITY_COMPILE",
-    "group_table": "GROUP_COMPILE_RELATION",
+    "group2compile_table": "GROUP_COMPILE_RELATION",
+    "group2group_table": "GROUP_GROUP_RELATION",
     "rules": [
-        {
-            "compile_id": 1,
+	    {
+            "compile_id": 2,
             "service": 0,
-            "action": 128,
+            "action": 1,
             "do_blacklist": 0,
             "do_log": 1,
             "effective_rage": 0,
-            "user_region": "anything",
+            "user_region": "Virtual",
             "is_valid": "yes",
             "groups": [
                 {
-                    "group_name": "IP_ADDR_1",
+                    "group_name":"OBJ_DST_IP_ADDR",
+                    "virtual_table":"TSG_SECURITY_SOURCE_ADDR",
+                    "not_flag" : 0,
                     "regions": [
-                        {
-                            "table_name": "TSG_OBJ_IP_ADDR",
+                        {  
                             "table_type": "ip_plus",
+                            "table_name": "TSG_OBJ_IP_ADDR",
                             "table_content": {
                                 "addr_type": "ipv4",
-                                "src_ip": "192.168.100.5",
-                                "mask_src_ip": "255.255.255.255",
-                                "src_port": "0",
-                                "mask_src_port": "65535",
-                                "dst_ip": "0.0.0.0",
-                                "mask_dst_ip": "255.255.255.255",
-                                "dst_port": "0",
-                                "mask_dst_port": "65535",
+                                "saddr_format": "range",
+                                "src_ip1": "192.168.41.228",
+                                "src_ip2": "192.168.41.228",
+                                "sport_format": "range",
+                                "src_port1": "0",
+                                "src_port2": "0",
                                 "protocol": 6,
                                 "direction": "double"
                             }
@@ -35,116 +36,36 @@
                     ]
                 },
                 {
-                    "group_name": "IP_ADDR_2",
+                    "group_name": "HTTP_APP_ID",
                     "regions": [
                         {
-                            "table_name": "TSG_OBJ_IP_ADDR",
-                            "table_type": "ip_plus",
+                            "table_name": "TSG_OBJ_APP_ID",
+                            "table_type": "intval",
                             "table_content": {
-                                "addr_type": "ipv4",
-                                "src_ip": "192.168.50.37",
-                                "mask_src_ip": "255.255.255.255",
-                                "src_port": "0",
-                                "mask_src_port": "65535",
-                                "dst_ip": "0.0.0.0",
-                                "mask_dst_ip": "255.255.255.255",
-                                "dst_port": "0",
-                                "mask_dst_port": "65535",
-                                "protocol": 6,
-                                "direction": "double"
-                            }
-                        }
-                    ]
-                },
-                {
-                    "group_name": "ASN",
-                    "regions": [
-                        {
-                            "table_name": "TSG_OBJ_AS_NUMBER",
-                            "table_type": "expr",
-                            "table_content": {
-                                "keywords": "101",
-                                "expr_type": "none",
-                                "match_method": "sub",
-                                "format": "uncase plain"
+                                "low_boundary": 106,
+                                "up_boundary": 106
                             }
                         },
-                        {
-                            "table_name": "TSG_OBJ_AS_NUMBER",
-                            "table_type": "expr",
+		    	{
+                            "table_name": "TSG_OBJ_APP_ID",
+                            "table_type": "intval",
                             "table_content": {
-                                "keywords": "102",
-                                "expr_type": "none",
-                                "match_method": "sub",
-                                "format": "uncase plain"
+                                "low_boundary": 67,
+                                "up_boundary": 67
                             }
                         }
                     ]
-                },
-                {
-                    "group_name": "LOCATION",
-                    "regions": [
-                        {
-                            "table_name": "TSG_OBJ_GEO_LOCATION",
-                            "table_type": "expr",
-                            "table_content": {
-                                "keywords": "China",
-                                "expr_type": "none",
-                                "match_method": "sub",
-                                "format": "uncase plain"
-                            }
-                        }
-                    ]
-                }
-            ]    
-        },
-        {
-            "compile_id": 5,
-            "service": 0,
-            "action": 128,
-            "do_blacklist": 0,
-            "do_log": 1,
-            "effective_rage": 0,
-            "user_region": "anything",
-            "is_valid": "yes",
-            "groups": [
-                {
-                    "group_name":"IP_ADDR_1",
-                    "virtual_table":"TSG_SECURITY_SOURCE_ADDR",
-                    "not_flag":0                   
-                },
-                {
-                    "group_name":"IP_ADDR_2",
-                    "virtual_table":"TSG_SECURITY_DESTINATION_ADDR",
-                    "not_flag":0                   
-                },
-                {
-                    "group_name":"ASN",
-                    "virtual_table":"TSG_SECURITY_SOURCE_ASN",
-                    "not_flag":0                   
-                },
-                {
-                    "group_name":"LOCATION",
-                    "virtual_table":"TSG_SECURITY_DESTINATION_LOCATION",
-                    "not_flag":0                   
                 }
             ]
         }
     ],
     "plugin_table": [
         {
-            "table_name": "TSG_IP_ASN_USER_DEFINED",
+            "table_name": "APP_ID_DICT",
             "table_content": [
-                "101\t4\t192.168.50.1\t192.168.50.255\t101\tmesa\t1",
-                "102\t4\t192.168.100.1\t192.168.100.255\t102\tgeedge\t1"
-            ]
-        },
-        {
-            "table_name": "TSG_IP_LOCATION_USER_DEFINED",
-            "table_content": [
-                "201\t20100\t4\t192.168.50.1\t192.168.50.255\t11.12\t11.12\t0\ten\tAS\tAsia\tCN\tChina\tBJ\tBeijing\tBeijing\tAsia/Singapore\t1",
-                "202\t20200\t4\t192.168.100.1\t192.168.100.255\t11.12\t11.12\t0\ten\tAS\tAsia\tCN\tChina\tSH\tShanghai\tShanghai\tAsia/Singapore\t1"
+                "20002\tUSER_DEFINE\t20000\tparent_name\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
+                "20001\tWhatsApp_video\t20000\tWhatsApp\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1"
             ]
         }
-    ]
+    ] 
 }

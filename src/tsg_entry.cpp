@@ -1400,7 +1400,6 @@ extern "C" int TSG_MASTER_INIT()
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "ENTRANCE_ID", &g_tsg_para.entrance_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
-	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "MAIL_PROTOCOL_ID",&(g_tsg_para.mail_proto_id), 110);	
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_TIME_INTERVAL", &g_tsg_para.scan_time_interval, 5);
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "DEVICE_ID_COMMAND", g_tsg_para.device_id_command, sizeof(g_tsg_para.device_id_command), NULL);

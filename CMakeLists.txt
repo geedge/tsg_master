@@ -49,6 +49,7 @@ install(FILES bin/tsg_static_tableinfo.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/
 install(FILES bin/tsg_dynamic_tableinfo.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
 install(FILES bin/tsg_log_field.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
 install(FILES bin/app_l7_proto_id.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
+install(FILES bin/tsg_l7_protocol.conf DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
 install(FILES bin/tsg_maat.json DESTINATION ${CMAKE_INSTALL_PREFIX}/tsgconf COMPONENT PROFILE)
 
 install(FILES inc/tsg_send_log.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)

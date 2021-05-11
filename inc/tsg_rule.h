@@ -55,6 +55,7 @@ struct app_id_dict_table
 {
 	int ref_cnt;
 	int app_id;
+	int parent_app_id;
 	int deny_action;
 	int continue_scanning;
 	int tcp_timeout;
@@ -64,6 +65,7 @@ struct app_id_dict_table
 	int is_valid;
 	char risk[MAX_APP_ID_PROPERTY_LEN*4];
 	char app_name[MAX_APP_ID_PROPERTY_LEN];
+	char parent_app_name[MAX_APP_ID_PROPERTY_LEN];
 	char category[MAX_APP_ID_PROPERTY_LEN*4];
 	char subcategroy[MAX_APP_ID_PROPERTY_LEN*4];
 	char technology[MAX_APP_ID_PROPERTY_LEN*4];
@@ -85,5 +87,7 @@ struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);
 int tsg_get_method_id(char *method);
 
 int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq);
+int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq);
+int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int table_id, unsigned int *category_id, int category_id_num, int thread_seq);
 
 #endif

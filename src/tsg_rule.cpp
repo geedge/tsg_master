@@ -448,9 +448,11 @@ static void app_id_dict_new_data(int table_id, const char* key, const char* tabl
 	app_id_dict=(struct app_id_dict_table *)calloc(1, sizeof(struct app_id_dict_table));
 	
 	ret=sscanf(table_line,
-				"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d",
+				"%d\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d",
 				&app_id_dict->app_id, 
 				app_id_dict->app_name,
+				&app_id_dict->parent_app_id, 
+				app_id_dict->parent_app_name,
 				app_id_dict->category, 
 				app_id_dict->subcategroy, 
 				app_id_dict->technology,
@@ -465,7 +467,7 @@ static void app_id_dict_new_data(int table_id, const char* key, const char* tabl
 				&app_id_dict->tcp_half_close,
 				&app_id_dict->tcp_time_wait, 
 				&app_id_dict->is_valid);
-	if(ret!=16)
+	if(ret!=18)
 	{
 		free(app_id_dict);
 		app_id_dict=NULL;
@@ -483,6 +485,7 @@ static void app_id_dict_new_data(int table_id, const char* key, const char* tabl
 
 	atomic_inc(&app_id_dict->ref_cnt);
 	eliminate_default_value(app_id_dict->app_name);
+	eliminate_default_value(app_id_dict->parent_app_name);
 	eliminate_default_value(app_id_dict->category);
 	eliminate_default_value(app_id_dict->subcategroy);
 	eliminate_default_value(app_id_dict->technology);
@@ -1612,4 +1615,37 @@ int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct strea
 							);
 
 	return 0;
+}
+
+
+int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_parent)
+{
+	int offset=0;
+	char app_id_buff[128]={0};
+	struct app_id_dict_table *dict=NULL;
+
+	if(app_id<=0 || app_name==NULL || app_name_len<=0)
+	{
+		return offset;
+	}
+
+	snprintf(app_id_buff, sizeof(app_id_buff), "%d", app_id);
+	dict=(struct app_id_dict_table *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
+	if(dict!=NULL)
+	{
+		if(dict->parent_app_id!=0)
+		{		
+			offset=snprintf(app_name, app_name_len, "%s.%s", dict->parent_app_name, dict->app_name);
+		}
+		else
+		{
+			offset=snprintf(app_name, app_name_len, "%s", dict->app_name);
+		}
+		
+		app_id_dict_free_data(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
+
+		return offset;
+	}
+
+	return offset;
 }
