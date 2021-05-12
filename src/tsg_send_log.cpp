@@ -353,6 +353,11 @@ static int get_l7_protocol(struct app_identify_result *result, char *protocol_li
 		name=tsg_l7_protocol_id2name(result->app_id[i]);
 		if(name!=NULL)
 		{
+			if(i>0 && offset>0 && (protocol_list_len-offset)>0)
+			{
+				protocol_list[offset]='.';
+				offset++;
+			}
 			offset+=snprintf(protocol_list+offset, protocol_list_len-offset, "%s", name);
 		}
 	}
