@@ -1532,7 +1532,7 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "L7_RPTOCOL_FILE", buff, sizeof(buff), "./tsgconf/tsg_l7_protocol.conf");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "L7_PROTOCOL_FILE", buff, sizeof(buff), "./tsgconf/tsg_l7_protocol.conf");
 	l7_protocol_mapper(buff);
 	
 	return 0;
