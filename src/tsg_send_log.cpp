@@ -632,6 +632,10 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 		case	TLD_TYPE_FILE:
 			break;
 		case	TLD_TYPE_STRING:
+			if(strlen((char *)value)==0)
+			{
+				break;
+			}
 			cJSON_AddStringToObject(_handle->object, key, (char *)value);
 			break;
 		case	TLD_TYPE_CJSON:
@@ -641,7 +645,6 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 			return -1;
 			break;
 	}
-
 	
 	return 0;	
 }
