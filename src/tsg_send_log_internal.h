@@ -129,6 +129,7 @@ struct tsg_log_instance_t
 	int *send_log_percent;
 	int *fs_status_ids;
 	struct timespec *drop_start;
+	char l7_unknown_name[MAX_STRING_LEN];
 	char log_path[MAX_STRING_LEN*2];
 	char tcp_label[MAX_STRING_LEN];
 	char udp_label[MAX_STRING_LEN];
