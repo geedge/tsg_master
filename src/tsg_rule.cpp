@@ -95,6 +95,14 @@ static int get_fqdn_len(char *domain)
 	return fqdn_len;
 }
 
+static int sort_category_id(const void * a, const void * b)
+{
+	struct _fqdn_category_t *x = (struct _fqdn_category_t *) a;
+	struct _fqdn_category_t *y = (struct _fqdn_category_t *) b;
+	
+	return (int)(x->category_id - y->category_id);
+}
+
 static int get_data_center(char *accept_tag, char *effective_tag_key, char *data_center, int data_center_len)
 {
 	int i=0,len;
@@ -622,6 +630,40 @@ void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* 
 			*ad=NULL;
 		}
 	}
+}
+
+
+static int get_fqdn_category_id(Maat_feather_t maat_feather, int table_id, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq)
+{
+	int i=0,j=0,ret=0;	
+	struct _fqdn_category_t *ex_data_array[8]={0};
+
+	ret=Maat_fqdn_plugin_get_EX_data(maat_feather, table_id, fqdn, (MAAT_PLUGIN_EX_DATA *)ex_data_array, 8);
+	if(ret>0)
+	{
+		qsort(ex_data_array, ret, sizeof(struct _fqdn_category_t *), sort_category_id);
+		
+		for(i=0; i<ret; i++)
+		{
+			if(j==0)
+			{
+				category_id[j++]=ex_data_array[i]->category_id;
+			}
+			else
+			{
+				if(j<category_id_num && ex_data_array[i]->category_id!=category_id[j-1])
+				{
+					category_id[j++]=ex_data_array[i]->category_id;
+				}
+			}
+			
+			fqdn_cat_free_data(table_id, (MAAT_PLUGIN_EX_DATA *)&(ex_data_array[i]), 0, logger);
+		}
+
+		return j;
+	}
+
+	return 0;
 }
 
 static Maat_feather_t init_maat_feather(const char* conffile, char* instance_name, char *module, void *logger)
@@ -1410,41 +1452,20 @@ int tsg_get_method_id(char *method)
 
 int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq)
 {
-	int i=0,ret=0;
-	struct _fqdn_category_t *ex_data_array[8]={0};
+	int ret=0;
 
 	if(category_id!=NULL && category_id_num>0)
 	{
-		ret=Maat_fqdn_plugin_get_EX_data(maat_feather, g_tsg_para.table_id[TABLE_FQDN_CAT_USER_DEFINED], fqdn, (MAAT_PLUGIN_EX_DATA *)ex_data_array, 8);
+		ret=get_fqdn_category_id(maat_feather, g_tsg_para.table_id[TABLE_FQDN_CAT_USER_DEFINED], fqdn, category_id, category_id_num, logger, thread_seq);
 		if(ret>0)
 		{
-			for(i=0; i<ret; i++)
-			{
-				if(i<category_id_num)
-				{
-					category_id[i]=ex_data_array[i]->category_id;
-				}
-				
-				fqdn_cat_free_data(g_tsg_para.table_id[TABLE_FQDN_CAT_USER_DEFINED], (MAAT_PLUGIN_EX_DATA *)&(ex_data_array[i]), 0, logger);
-			}
-
-			return i<category_id_num ? i : category_id_num;
+			return ret;
 		}
-		
-		ret=Maat_fqdn_plugin_get_EX_data(maat_feather, g_tsg_para.table_id[TABLE_FQDN_CAT_BUILT_IN], fqdn, (MAAT_PLUGIN_EX_DATA *)ex_data_array, 8);
+
+		ret=get_fqdn_category_id(maat_feather, g_tsg_para.table_id[TABLE_FQDN_CAT_BUILT_IN], fqdn, category_id, category_id_num, logger, thread_seq);
 		if(ret>0)
 		{
-			for(i=0; i<ret && i<category_id_num; i++)
-			{
-				if(i<category_id_num)
-				{
-					category_id[i]=ex_data_array[i]->category_id;
-				}
-
-				fqdn_cat_free_data(g_tsg_para.table_id[TABLE_FQDN_CAT_BUILT_IN], (MAAT_PLUGIN_EX_DATA *)&(ex_data_array[i]), 0, logger);
-			}
-
-			return i<category_id_num ? i : category_id_num;
+			return ret;
 		}
 	}
 	
