@@ -271,10 +271,10 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	struct TLD_handle_t *TLD_handle=NULL;
 
 	TLD_handle=TLD_create(thread_seq);
+	schema_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_SCHAME_TYPE);
+	
 	if(proto>PROTO_UNKONWN && proto<PROTO_MAX)
 	{
-		schema_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_SCHAME_TYPE);
-
 		if(proto==PROTO_IMAP || proto==PROTO_SMTP || proto==PROTO_POP3)
 		{
 			TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[PROTO_MAIL].name, TLD_TYPE_STRING);
@@ -305,6 +305,10 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 					break;
 			}
 		}
+	}
+	else
+	{
+		TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[PROTO_APP].name, TLD_TYPE_STRING);
 	}
 	
 	log_msg.a_stream=(struct streaminfo *)a_stream;
@@ -654,6 +658,27 @@ unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name)
 	return 0;
 }
 
+static int set_l7_protocol_to_context(struct master_context *context, unsigned int app_id)
+{
+	int i=0;
+	char *l7_protocol_name=NULL;
+	l7_protocol_name=tsg_l7_protocol_id2name(app_id);
+	if(l7_protocol_name!=NULL)
+	{
+		for(i=PROTO_HTTP; i<PROTO_MAX; i++)
+		{
+			if((strcasecmp(g_tsg_proto_name2id[i].name, l7_protocol_name))==0)
+			{
+				context->proto=(tsg_protocol_t)g_tsg_proto_name2id[i].type;
+				return 1;
+			}
+		}
+	}
+	
+	context->proto=PROTO_APP;
+
+	return 0;
+}
 
 int is_intercept_exclusion(const struct streaminfo *a_stream, Maat_rule_t *p_result, char *domain, int thread_seq)
 {
@@ -1173,7 +1198,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 
 static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
-	int hit_num=0;	
+	int hit_num=0;
 	struct master_context *context=NULL;
 	struct Maat_rule_t scan_result[MAX_RESULT_NUM];
 	struct gather_app_result *gather_result=NULL;
@@ -1211,7 +1236,11 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 		init_context((void **)(&context), a_stream->threadnum);
 		set_struct_project(a_stream, g_tsg_para.context_project_id, (void *)context);
 	}
-	
+
+	if(identify_result->origin==ORIGIN_BASIC_PROTOCOL)
+	{
+		set_l7_protocol_to_context(context, identify_result->app_id[identify_result->app_id_num-1]);
+	}
 	record_time_start(&(context->last_scan_time));
 	
 	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, &(context->mid), identify_result, a_stream->threadnum);
