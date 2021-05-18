@@ -1308,7 +1308,9 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 			MESA_handle_runtime_log(_instance->logger, 
 										RLOG_LV_INFO, 
 										"TSG_SEND_LOG",
-										"tsg_send_log to kafka is error, status: %d, topic: %s payload: %s",
+										"tsg_send_log to kafka is error of %s(%s), status: %d, topic: %s payload: %s",
+										rd_kafka_err2name(rd_kafka_last_error()),
+										rd_kafka_err2str(rd_kafka_last_error()),
 										status,
 										_instance->service2topic[log_msg->result[i].service_id].name,
 										payload
