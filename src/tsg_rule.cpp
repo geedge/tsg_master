@@ -822,6 +822,10 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "SELECTOR_ID_TABLE", g_tsg_para.table_name[TABLE_SELECTOR_ID], _MAX_TABLE_NAME_LEN, "APP_SELECTOR_ID");
 	MESA_load_profile_string_def(conffile, "MAAT", "SELECTOR_PROPERTIES_TABLE", g_tsg_para.table_name[TABLE_SELECTOR_PROPERTIES], _MAX_TABLE_NAME_LEN, "APP_SELECTOR_PROPERTIES");
 
+	MESA_load_profile_string_def(conffile, "MAAT", "GTP_APN", g_tsg_para.table_name[TABLE_GTP_APN], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_APN");
+	MESA_load_profile_string_def(conffile, "MAAT", "GTP_IMSI", g_tsg_para.table_name[TABLE_GTP_IMSI], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_IMSI");
+	MESA_load_profile_string_def(conffile, "MAAT", "GTP_PHONE_NUMBER", g_tsg_para.table_name[TABLE_GTP_PHONE_NUMBER], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_PHONE_NUMBER");
+
 	//init static maat feather
 	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", logger);
 	if(g_tsg_maat_feather==NULL)
@@ -1353,16 +1357,21 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		hit_num+=tsg_scan_subscribe_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid,attribute_label->server_subscribe_id, (int)a_stream->threadnum);
 	}
 
+	if(hit_num<result_num)
+	{
+		ret=tsg_get_umts_user_info(a_stream, &(attribute_label->user_info));
+		if(ret==1 && attribute_label->user_info!=NULL)
+		{
+			hit_num+=tsg_scan_gtp_apn_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid,attribute_label->user_info->apn, (int)a_stream->threadnum);
+			hit_num+=tsg_scan_gtp_imsi_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid,attribute_label->user_info->imsi, (int)a_stream->threadnum);
+			hit_num+=tsg_scan_gtp_phone_number_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid,attribute_label->user_info->msisdn, (int)a_stream->threadnum);
+		}
+	}
+	
 	ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.internal_project_id, (void *)attribute_label);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_FATAL,
-											"ADD_INTERNAL_LABEL",
-											"Add internal label failed, ret: %d addr: %s",
-											ret,
-											PRINTADDR(a_stream, g_tsg_para.level)
-										);
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "ADD_INTERNAL_LABEL", "Add internal label failed, ret: %d addr: %s", ret, PRINTADDR(a_stream, g_tsg_para.level));
 	}
 
 	return hit_num;
@@ -1599,17 +1608,8 @@ int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct strea
 		return 0;
 	}
 	
-	maat_ret=Maat_full_scan_string(maat_feather,
-								g_tsg_para.table_id[TABLE_SUBSCRIBER_ID],
-								CHARSET_GBK,
-								user_info->subscribe_id,
-								strlen(user_info->subscribe_id),
-								result,
-								NULL,
-								result_num,
-								mid,
-								thread_seq);
-	if(maat_ret > 0)
+	maat_ret=Maat_full_scan_string(maat_feather, g_tsg_para.table_id[TABLE_SUBSCRIBER_ID], CHARSET_GBK, user_info->subscribe_id, strlen(user_info->subscribe_id), result, NULL,	result_num, mid, thread_seq);
+	if(maat_ret>0)
 	{				
 		MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
@@ -1626,18 +1626,106 @@ int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct strea
 		return maat_ret;
 	}
 	
-	MESA_handle_runtime_log(g_tsg_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_SUBSCRIBER",
-								"No hit source subscribe id: %s scan ret: %d addr: %s",
-								user_info->subscribe_id,
-								maat_ret,
-								PRINTADDR(a_stream, g_tsg_para.level)
-							);
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_SUBSCRIBER", "No hit source subscribe id: %s scan ret: %d addr: %s", user_info->subscribe_id, maat_ret, PRINTADDR(a_stream, g_tsg_para.level));
 
 	return 0;
 }
 
+int tsg_scan_gtp_apn_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *apn, int thread_seq)
+{
+	int maat_ret=0;
+
+	if(apn==NULL || result==NULL || result_num==0)
+	{
+		return 0;
+	}
+	
+	maat_ret=Maat_full_scan_string(maat_feather, g_tsg_para.table_id[TABLE_GTP_APN], CHARSET_GBK, apn, strlen(apn), result, NULL, result_num, mid, thread_seq);
+	if(maat_ret>0)
+	{				
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_APN",
+									"Hit APN: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+									apn,
+									maat_ret,
+									result[0].config_id,
+									result[0].service_id,
+									(unsigned char)result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
+
+		return maat_ret;
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_APN", "No hit APN: %s scan ret: %d addr: %s", apn, maat_ret, PRINTADDR(a_stream, g_tsg_para.level));
+
+	return 0;
+}
+
+int tsg_scan_gtp_imsi_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *imsi, int thread_seq)
+{
+	int maat_ret=0;
+
+	if(imsi==NULL || result==NULL || result_num==0)
+	{
+		return 0;
+	}
+	
+	maat_ret=Maat_full_scan_string(maat_feather, g_tsg_para.table_id[TABLE_GTP_IMSI], CHARSET_GBK, imsi, strlen(imsi), result, NULL, result_num, mid, thread_seq);
+	if(maat_ret>0)
+	{				
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_IMSI",
+									"Hit IMSI: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+									imsi,
+									maat_ret,
+									result[0].config_id,
+									result[0].service_id,
+									(unsigned char)result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
+
+		return maat_ret;
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_IMSI", "No hit IMSI: %s scan ret: %d addr: %s", imsi, maat_ret, PRINTADDR(a_stream, g_tsg_para.level));
+
+	return 0;
+}
+
+int tsg_scan_gtp_phone_number_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *phone_number, int thread_seq)
+{
+	int maat_ret=0;
+
+	if(phone_number==NULL || result==NULL || result_num==0)
+	{
+		return 0;
+	}
+	
+	maat_ret=Maat_full_scan_string(maat_feather, g_tsg_para.table_id[TABLE_GTP_PHONE_NUMBER], CHARSET_GBK, phone_number, strlen(phone_number), result, NULL, result_num, mid, thread_seq);
+	if(maat_ret>0)
+	{				
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"PHONE_NUMBER",
+									"Hit PHONE_NUMBER: %s scan ret: %d policy_id: %d service: %d action: %d addr: %s",
+									phone_number,
+									maat_ret,
+									result[0].config_id,
+									result[0].service_id,
+									(unsigned char)result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
+
+		return maat_ret;
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PHONE_NUMBER", "No hit PHONE_NUMBER: %s scan ret: %d addr: %s", phone_number, maat_ret, PRINTADDR(a_stream, g_tsg_para.level));
+
+	return 0;
+}
 
 int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_parent)
 {

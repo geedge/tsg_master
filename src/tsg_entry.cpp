@@ -91,7 +91,6 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"},
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
 
-
 static int init_context(void **pme, int thread_seq)
 {
 	*pme=dictator_malloc(thread_seq, sizeof(struct master_context));
@@ -146,6 +145,15 @@ static int get_device_id(char *command, int entrance_id)
 	}
 	
 	return (entrance_id<<7)+(atoi(buffer)%128);
+}
+
+static void free_user_item(char *item)
+{
+	if(item!=NULL)
+	{
+		free(item);
+		item=NULL;
+	}
 }
 
 static int is_only_monitor(struct Maat_rule_t *result, int hit_cnt)
@@ -909,6 +917,17 @@ static void free_session_attribute_label(int thread_seq, void *project_req_value
 			dictator_free(thread_seq, (void *)label->ja3_fingerprint);
 			label->ja3_fingerprint=NULL;
 		}
+
+		if(label->user_info!=NULL)
+		{
+			free_user_item(label->user_info->apn);
+			free_user_item(label->user_info->imsi);
+			free_user_item(label->user_info->imei);
+			free_user_item(label->user_info->msisdn);
+
+			dictator_free(thread_seq, (void *)label->user_info);
+			label->user_info=NULL;
+		}
 		
 		dictator_free(thread_seq, project_req_value);
 		project_req_value=NULL;
@@ -1334,7 +1353,7 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 			state=master_deal_scan_result(a_stream, context, scan_result, hit_num, a_packet);
 			break;
 		case	OP_STATE_DATA:
-		case	OP_STATE_CLOSE:
+		//case	OP_STATE_CLOSE:
 			if(is_hited_allow(context->result, context->hit_cnt))
 			{
 				break;
@@ -1563,6 +1582,13 @@ extern "C" int TSG_MASTER_INIT()
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "L7_PROTOCOL_FILE", buff, sizeof(buff), "./tsgconf/tsg_l7_protocol.conf");
 	l7_protocol_mapper(buff);
+
+	ret=tsg_gtp_signaling_hash_init(tsg_conffile, g_tsg_para.logger);
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_GTP_HASH", "tsg_gtp_signaling_hash_init failed ...");
+		return -1;
+	}
 	
 	return 0;
 }

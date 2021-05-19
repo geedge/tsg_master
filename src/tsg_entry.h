@@ -57,6 +57,9 @@ enum MASTER_TABLE{
 	TABLE_APP_ID_DICT,
 	TABLE_SELECTOR_ID,
 	TABLE_SELECTOR_PROPERTIES,
+	TABLE_GTP_APN,
+	TABLE_GTP_IMSI,
+	TABLE_GTP_PHONE_NUMBER,
 	TABLE_MAX
 };
 
@@ -135,6 +138,8 @@ typedef	struct _tsg_para
 	int app_id_table_type;
 	int device_id;
 	int entrance_id;
+	int hash_timeout;
+	int hash_slot_size;
 	int scan_time_interval;
 	int default_compile_switch;
 	int default_compile_id;
@@ -244,6 +249,7 @@ typedef	struct _tsg_statistic
 }tsg_statis_para_t;
 
 int tsg_statistic_init(const char *conffile, void *logger);
+int tsg_gtp_signaling_hash_init(const char* conffile, void *logger);
 
 //parent_app_name.app_name
 int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_parent);
@@ -258,5 +264,9 @@ int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, char *domain, Maat_rule_t *result, int result_num,  scan_status_t *mid, int table_id, int thread_seq);
 int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq);
 int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, struct _subscribe_id_info_t *user_info, int thread_seq);
+int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info);
+int tsg_scan_gtp_apn_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *apn, int thread_seq);
+int tsg_scan_gtp_imsi_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *imsi, int thread_seq);
+int tsg_scan_gtp_phone_number_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *phone_number, int thread_seq);
 
 #endif

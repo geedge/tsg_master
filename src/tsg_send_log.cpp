@@ -302,6 +302,35 @@ static int set_fqdn_category(struct tsg_log_instance_t *_instance, struct TLD_ha
 	return 1;
 }
 
+static int set_umts_user_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, struct umts_user_info *user_info)
+{
+	if(user_info==NULL)
+	{
+		return 0;
+	}
+
+	if(user_info->apn!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_GTP_APN].name, (void *)user_info->apn, TLD_TYPE_STRING);
+	}
+
+	if(user_info->imsi!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_GTP_IMSI].name, (void *)user_info->imsi, TLD_TYPE_STRING);
+	}
+
+	if(user_info->imei!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_GTP_IMEI].name, (void *)user_info->imei, TLD_TYPE_STRING);
+	}
+
+	if(user_info->msisdn!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_GTP_MSISDN].name, (void *)user_info->msisdn, TLD_TYPE_STRING);	//phone number
+	}
+
+	return 1;
+}
 
 static int set_packet_bytes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
@@ -907,6 +936,8 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 		{
 			TLD_append(_handle, _instance->id2field[LOG_SSL_JA3_FINGERPRINT].name, (void *)attribute_label->ja3_fingerprint, TLD_TYPE_STRING);
 		}
+
+		set_umts_user_info(_instance, _handle, a_stream, attribute_label->user_info);
 	}
 	
 	return 0;

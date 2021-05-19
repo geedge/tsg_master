@@ -5,6 +5,7 @@ global:
 		*TSG_MASTER*;
   		*tsg_scan_nesting_addr*;
 		*tsg_pull_policy_result*;
+		*tsg_free_gtp_signaling_field;
 		*tsg_*;
 		*TLD_*;
 		*GIT*;

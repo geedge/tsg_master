@@ -73,6 +73,14 @@ struct _subscribe_id_info_t
 	char subscribe_id[MAX_STR_FIELD_LEN*4];
 };
 
+struct umts_user_info
+{
+	char *apn;
+	char *imsi;
+	char *imei;
+	char *msisdn; //MSISDN: phone number
+};
+
 struct _session_attribute_label_t
 {
 	int fqdn_category_id_num;
@@ -86,6 +94,7 @@ struct _session_attribute_label_t
 	struct _subscribe_id_info_t *server_subscribe_id;
 	char *ja3_fingerprint;
 	unsigned int fqdn_category_id[MAX_CATEGORY_ID_NUM];
+	struct umts_user_info *user_info;
 };
 
 typedef	struct _policy_priority_label
