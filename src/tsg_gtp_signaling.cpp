@@ -97,6 +97,9 @@ void free_gtp_signaling_field(void *data)
 		}
 	}
 
+	free(data);
+	data=NULL;
+
 	return ;
 }
 
