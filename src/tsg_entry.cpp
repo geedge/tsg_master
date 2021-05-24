@@ -147,6 +147,41 @@ static int get_device_id(char *command, int entrance_id)
 	return (entrance_id<<7)+(atoi(buffer)%128);
 }
 
+static int print_hit_path(const struct streaminfo *a_stream, struct master_context *context)
+{
+	if(g_tsg_para.hit_path_switch==0)
+	{
+		return 0;
+	}
+
+	char path_buff[1024*128]={0};
+	int i=0, n_read=0, offset=0;
+	struct Maat_hit_path_t hit_path[1024];
+
+	n_read=Maat_get_scan_status(g_tsg_maat_feather, &(context->mid), MAAT_GET_SCAN_HIT_PATH, hit_path, sizeof(hit_path));
+	for(i=0; i<n_read; i++)
+	{
+		if(i==0)
+		{
+			path_buff[offset++]='[';
+		}
+		offset+=snprintf(path_buff+offset, 
+							sizeof(path_buff)-offset, 
+							"{n:%d,v_id:%d,c_id:%d,t_id:%d,s_id:%d,r_id:%d},",
+							hit_path[i].Nth_scan,
+							hit_path[i].virtual_table_id,
+							hit_path[i].compile_id,
+							hit_path[i].top_group_id,
+							hit_path[i].sub_group_id,
+							hit_path[i].region_id
+						);
+	}
+
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "HIT_PATH", "Hit path: %s{}] addr: %s", path_buff, PRINTADDR(a_stream, g_tsg_para.level));
+	
+	return 1;
+}
+
 static void free_user_item(char *item)
 {
 	if(item!=NULL)
@@ -1168,7 +1203,8 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 
 	p_result=tsg_policy_decision_criteria(result, hit_num);
 	if(p_result!=NULL)
-	{	
+	{
+		print_hit_path(a_stream, context);
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
@@ -1442,6 +1478,7 @@ extern "C" int TSG_MASTER_INIT()
 	
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","DEFAULT_POLICY_ID", &g_tsg_para.default_compile_id, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","DEFAULT_POLICY_SWITCH", &g_tsg_para.default_compile_switch, 0);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","HIT_PATH_SWITCH", &g_tsg_para.hit_path_switch, 0);
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;SIP;MAIL;STREAMING_MEDIA;QUIC;SIP;");
 	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);

@@ -141,6 +141,7 @@ typedef	struct _tsg_para
 	int hash_timeout;
 	int hash_slot_size;
 	int scan_time_interval;
+	int hit_path_switch;
 	int default_compile_switch;
 	int default_compile_id;
 	int table_id[TABLE_MAX];
