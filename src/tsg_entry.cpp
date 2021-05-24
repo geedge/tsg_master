@@ -1225,6 +1225,10 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				}
 				break;
 			case	TSG_ACTION_MONITOR:
+				if(context->proto==PROTO_RTP)
+				{
+					break;
+				}
 				copy_monitor_result(a_stream, context, result, hit_num, a_stream->threadnum);
 				break;
 			case	TSG_ACTION_BYPASS:
