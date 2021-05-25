@@ -491,6 +491,15 @@ static void app_id_dict_new_data(int table_id, const char* key, const char* tabl
 		return;
 	}
 
+	str_unescape(app_id_dict->app_name);
+	str_unescape(app_id_dict->parent_app_name);
+	str_unescape(app_id_dict->category);
+	str_unescape(app_id_dict->subcategroy);
+	str_unescape(app_id_dict->technology);
+	str_unescape(app_id_dict->characteristics);
+	str_unescape(app_id_dict->depends_on_app_ids);
+	str_unescape(app_id_dict->implicitly_uses_app_ids);
+
 	atomic_inc(&app_id_dict->ref_cnt);
 	eliminate_default_value(app_id_dict->app_name);
 	eliminate_default_value(app_id_dict->parent_app_name);
