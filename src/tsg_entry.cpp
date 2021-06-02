@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <netinet/ip6.h>
 
 #include <MESA/http.h>
 #include <MESA/ftp.h>
@@ -822,8 +823,8 @@ void close_stream_free_context(const struct streaminfo *a_stream, struct master_
 
 void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int thread_seq)
 {
-	struct timespec tv;
-	unsigned long long create_time=0;	
+	unsigned long long create_time=0;
+	unsigned long long current_time=0;
 	int ret=0,size=sizeof(create_time);
 	struct _ssl_ja3_info_t *ja3_info=NULL;
 	struct _session_attribute_label_t *attribute_label=NULL;
@@ -856,11 +857,19 @@ void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATT
 	{
 		case	TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY:
 			ret=MESA_get_stream_opt(a_stream, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time, &size);
-			if(ret>=0)
+			if(ret<0)
 			{
-				clock_gettime(CLOCK_REALTIME, &tv);
-				attribute_label->establish_latency_ms=tv.tv_sec*1000+tv.tv_nsec/1000/1000 - create_time;
+				break;
 			}
+			
+			size=sizeof(current_time);
+			ret=sapp_get_platform_opt(SPO_CURTIME_TIMET_MS, (void *)&current_time, &size);
+			if(ret<0)
+			{
+				break;
+			}
+
+			attribute_label->establish_latency_ms=current_time-create_time;
 			break;
 		case	TSG_ATTRIBUTE_TYPE_PROTOCOL:
 			attribute_label->proto=(tsg_protocol_t)(*(int *)value);
@@ -872,10 +881,24 @@ void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATT
 				if(attribute_label!=NULL && ja3_info->fp!=NULL && ja3_info->fp_len>0)
 				{
 					attribute_label->ja3_fingerprint=(char *)dictator_malloc(a_stream->threadnum, ja3_info->fp_len+1);
+					memset(attribute_label->ja3_fingerprint, 0, ja3_info->fp_len+1);
 					memcpy(attribute_label->ja3_fingerprint, ja3_info->fp, ja3_info->fp_len);
-					attribute_label->ja3_fingerprint[ja3_info->fp_len]='\0';
 				}			
 			}
+			break;
+		case	TSG_ATTRIBUTE_TYPE_MLTS_USER_INFO:
+			tsg_get_umts_user_info(a_stream, &(attribute_label->user_info));
+			break;
+		case	TSG_ATTRIBUTE_TYPE_SUBSCRIBER_ID:
+			tsg_get_subscribe_id(a_stream, &attribute_label->client_subscribe_id, &attribute_label->server_subscribe_id);
+			break;
+		case	TSG_ATTRIBUTE_TYPE_ASN:
+			tsg_get_ip_asn(a_stream, g_tsg_para.table_id[TABLE_ASN_USER_DEFINED], (void **)&(attribute_label->client_asn), (void **)&(attribute_label->server_asn));
+			tsg_get_ip_asn(a_stream, g_tsg_para.table_id[TABLE_ASN_BUILT_IN], (void **)&(attribute_label->client_asn), (void **)&(attribute_label->server_asn));
+			break;
+		case	TSG_ATTRIBUTE_TYPE_LOCATION:
+			tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_USER_DEFINED], (void **)&(attribute_label->client_location), (void **)&(attribute_label->server_location));
+			tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_BUILT_IN], (void **)&(attribute_label->client_location), (void **)&(attribute_label->server_location));
 			break;
 		default:
 			break;
@@ -1318,7 +1341,6 @@ static int master_deal_pending_state(const struct streaminfo *a_stream, struct m
 	ret=identify_application_protocol(a_stream, context, a_packet);
 	if(ret==1)
 	{				
-		set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY, NULL, a_stream->threadnum);
 		set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(context->proto), a_stream->threadnum);
 
 		if(context->proto==PROTO_SSL)
@@ -1354,7 +1376,7 @@ static int master_deal_pending_state(const struct streaminfo *a_stream, struct m
 
 static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **pme, int thread_seq,void *a_packet)
 {
-	int i=0, hit_num=0;	
+	int i=0, ret=0, hit_num=0;	
 	unsigned char state=APP_STATE_GIVEME;
 	Maat_rule_t scan_result[MAX_RESULT_NUM];
 	Maat_rule_t *p_result=NULL;
@@ -1405,7 +1427,11 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 			}
 			
 			record_time_start(&context->last_scan_time);
-			hit_num+=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, scan_result+hit_num, MAX_RESULT_NUM-hit_num);
+			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, scan_result+hit_num, MAX_RESULT_NUM-hit_num);
+			if(ret>0)
+			{
+				hit_num+=ret;
+			}
 			
 			identify_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
 			for(i=0; i<ORIGIN_MAX && identify_result!=NULL; i++)
@@ -1451,6 +1477,42 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 	}
 
 	return tsg_master_entry(a_udp, pme, thread_seq, a_packet);
+}
+
+extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,const void *ip_hdr)
+{
+	struct tcphdr *tcp=NULL;
+
+	if(ip_hdr==NULL || a_tcp==NULL)
+	{
+		return APP_STATE_GIVEME;
+	}
+	
+	switch(a_tcp->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4:		
+			tcp=(struct tcphdr *)MESA_net_jump_to_layer(ip_hdr, __ADDR_TYPE_IP_PAIR_V4, ADDR_TYPE_TCP);				
+			break;
+		case	ADDR_TYPE_IPV6:				
+			tcp=(struct tcphdr *)MESA_net_jump_to_layer(ip_hdr, __ADDR_TYPE_IP_PAIR_V6, ADDR_TYPE_TCP);
+			break;
+		default:
+			return APP_STATE_GIVEME;
+			break;
+	}
+	
+	if(!(tcp->syn))
+	{
+		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY, NULL, a_tcp->threadnum);
+		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_ASN, NULL, a_tcp->threadnum);
+		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_LOCATION, NULL, a_tcp->threadnum);
+		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_MLTS_USER_INFO, NULL, a_tcp->threadnum);
+		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_SUBSCRIBER_ID, NULL, a_tcp->threadnum);
+		
+		return APP_STATE_DROPME;
+	}
+
+	return APP_STATE_GIVEME;
 }
 
 extern "C" int TSG_MASTER_INIT()

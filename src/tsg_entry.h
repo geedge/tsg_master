@@ -88,6 +88,10 @@ enum TSG_ATTRIBUTE_TYPE
 	TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY=0,
 	TSG_ATTRIBUTE_TYPE_PROTOCOL,
 	TSG_ATTRIBUTE_TYPE_JA3_HASH,
+	TSG_ATTRIBUTE_TYPE_MLTS_USER_INFO,
+	TSG_ATTRIBUTE_TYPE_LOCATION,
+	TSG_ATTRIBUTE_TYPE_ASN,
+	TSG_ATTRIBUTE_TYPE_SUBSCRIBER_ID,
 	_MAX_TSG_ATTRIBUTE_TYPE
 };
 
@@ -269,5 +273,8 @@ int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_i
 int tsg_scan_gtp_apn_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *apn, int thread_seq);
 int tsg_scan_gtp_imsi_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *imsi, int thread_seq);
 int tsg_scan_gtp_phone_number_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *phone_number, int thread_seq);
+int tsg_get_ip_location(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_EX_DATA *client_location, MAAT_PLUGIN_EX_DATA *server_location);
+int tsg_get_ip_asn(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_EX_DATA* client_asn, MAAT_PLUGIN_EX_DATA* server_asn);
+int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct _subscribe_id_info_t **source_subscribe_id, struct _subscribe_id_info_t **dest_subscribe_id);
 
 #endif
