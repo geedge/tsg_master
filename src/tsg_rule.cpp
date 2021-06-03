@@ -454,8 +454,9 @@ static void app_id_dict_new_data(int table_id, const char* key, const char* tabl
 
 	struct app_id_dict_table *app_id_dict=NULL;
 	app_id_dict=(struct app_id_dict_table *)calloc(1, sizeof(struct app_id_dict_table));
-	
-	ret=sscanf(table_line,
+	if(g_tsg_para.app_dict_field_num==18)
+	{
+		ret=sscanf(table_line,
 				"%d\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d",
 				&app_id_dict->app_id, 
 				app_id_dict->app_name,
@@ -475,7 +476,30 @@ static void app_id_dict_new_data(int table_id, const char* key, const char* tabl
 				&app_id_dict->tcp_half_close,
 				&app_id_dict->tcp_time_wait, 
 				&app_id_dict->is_valid);
-	if(ret!=18)
+	}
+	else
+	{
+		ret=sscanf(table_line,
+				"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d",
+				&app_id_dict->app_id, 
+				app_id_dict->app_name,
+				app_id_dict->category, 
+				app_id_dict->subcategroy, 
+				app_id_dict->technology,
+				app_id_dict->risk, 
+				app_id_dict->characteristics, 
+				app_id_dict->depends_on_app_ids, 
+				app_id_dict->implicitly_uses_app_ids, 
+				&app_id_dict->deny_action, 
+				&app_id_dict->continue_scanning, 
+				&app_id_dict->tcp_timeout, 
+				&app_id_dict->udp_timeout, 
+				&app_id_dict->tcp_half_close,
+				&app_id_dict->tcp_time_wait, 
+				&app_id_dict->is_valid);
+	}
+	
+	if(ret!=g_tsg_para.app_dict_field_num)
 	{
 		free(app_id_dict);
 		app_id_dict=NULL;
@@ -799,7 +823,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	char maat_conffile[256]={0};
 	char cb_subscriber_ip_table[32]={0};
 	
-	MESA_load_profile_int_def(conffile, "MAAT","APP_ID_TABLE_TYPE", &g_tsg_para.app_id_table_type, 1);
+	MESA_load_profile_int_def(conffile, "MAAT","APP_ID_TABLE_TYPE", &g_tsg_para.app_dict_field_num, 18);
 
 	MESA_load_profile_string_def(conffile, "MAAT", "PROFILE", maat_conffile, sizeof(maat_conffile), "./tsgconf/maat.conf");		
 	MESA_load_profile_string_def(conffile, "MAAT", "SECURITY_COMPILE", g_tsg_para.table_name[TABLE_SECURITY_COMPILE], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_COMPILE");

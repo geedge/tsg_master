@@ -125,6 +125,7 @@ struct tsg_log_instance_t
 	int mode;
 	int level;
 	int max_service;
+	int app_id_type;
 	int send_user_region;
 	int recovery_interval;
 	int internal_project_id;

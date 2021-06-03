@@ -394,6 +394,20 @@ static int get_l7_protocol(struct app_identify_result *result, char *protocol_li
 	return 1;
 }
 
+static int get_app_id(struct app_identify_result *result, unsigned int *app_id, unsigned int *surrogate_id, int *flag)
+{
+	if(result->app_id_num>0 && (*flag)==0)
+	{
+		(*flag)=1;
+		(*app_id)=result->app_id[result->app_id_num-1];
+		(*surrogate_id)=result->surrogate_id[result->app_id_num-1];
+
+		return 1;
+	}
+
+	return 0;
+}
+
 static int get_app_id_list(struct app_identify_result *result, char *app_list, int app_list_len, char *surrogate_list, int surrogate_list_len)
 {
 	int i=0;
@@ -444,6 +458,8 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	char app_name[512]={0};
 	char protocol_list[256]={0};
 	char surrogate_list[512]={0};
+	unsigned int one_app_id=0;
+	unsigned int one_surrogate_id=0;
 	struct gather_app_result *label=NULL;
 	
 	label=(struct gather_app_result *)project_req_get_struct(a_stream, g_tsg_para.gather_app_project_id);
@@ -463,37 +479,52 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)_instance->l7_unknown_name, TLD_TYPE_STRING);
 	}
 
-	app_offset=0;
-	surrogate_offset=0;
-	get_app_id_list(&(label->result[ORIGIN_USER_DEFINE]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
-
-	app_offset=strlen(app_list);
-	surrogate_offset=strlen(surrogate_list);
-	get_app_id_list(&(label->result[ORIGIN_DKPT]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
-
-	app_offset=strlen(app_list);
-	surrogate_offset=strlen(surrogate_list);
-	get_app_id_list(&(label->result[ORIGIN_QM_ENGINE]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
-
-	get_app_name_list(&(label->result[ORIGIN_USER_DEFINE]), app_name, sizeof(app_name), &app_id_flag, 1);
-	if(app_id_flag!=1)
+	if(_instance->app_id_type==0) // int
 	{
-		get_app_name_list(&(label->result[ORIGIN_DKPT]), app_name, sizeof(app_name), &app_id_flag, 0);
+		get_app_id(&(label->result[ORIGIN_USER_DEFINE]), &one_app_id, &one_surrogate_id, &app_id_flag);
+		get_app_id(&(label->result[ORIGIN_DKPT]), &one_app_id, &one_surrogate_id, &app_id_flag);
+		get_app_id(&(label->result[ORIGIN_QM_ENGINE]), &one_app_id, &one_surrogate_id, &app_id_flag);
+		
+		if(app_id_flag==1)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)(long)one_app_id, TLD_TYPE_LONG);		
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_SURROGATE_ID].name, (void *)(long)one_surrogate_id, TLD_TYPE_LONG);
+		}
 	}
-
-	if(app_id_flag!=1)
+	else //string
 	{
-		get_app_name_list(&(label->result[ORIGIN_QM_ENGINE]), app_name, sizeof(app_name), &app_id_flag, 1);
+		app_offset=0;
+		surrogate_offset=0;
+		get_app_id_list(&(label->result[ORIGIN_USER_DEFINE]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
+
+		app_offset=strlen(app_list);
+		surrogate_offset=strlen(surrogate_list);
+		get_app_id_list(&(label->result[ORIGIN_DKPT]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
+
+		app_offset=strlen(app_list);
+		surrogate_offset=strlen(surrogate_list);
+		get_app_id_list(&(label->result[ORIGIN_QM_ENGINE]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
+
+		get_app_name_list(&(label->result[ORIGIN_USER_DEFINE]), app_name, sizeof(app_name), &app_id_flag, 1);
+		if(app_id_flag!=1)
+		{
+			get_app_name_list(&(label->result[ORIGIN_DKPT]), app_name, sizeof(app_name), &app_id_flag, 0);
+		}
+
+		if(app_id_flag!=1)
+		{
+			get_app_name_list(&(label->result[ORIGIN_QM_ENGINE]), app_name, sizeof(app_name), &app_id_flag, 1);
+		}
+		
+		if(app_id_flag==1)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)app_list, TLD_TYPE_STRING);		
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_SURROGATE_ID].name, (void *)surrogate_list, TLD_TYPE_STRING);
+
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
+		}
 	}
 	
-	if(app_id_flag==1)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)app_list, TLD_TYPE_STRING);		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_SURROGATE_ID].name, (void *)surrogate_list, TLD_TYPE_STRING);
-
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
-	}
-
 	return 1;
 }
 
@@ -946,6 +977,7 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
 	char *addr_proto=NULL;
+	char stream_id_buff[128]={0};
 	unsigned long long stream_id=0;
 	struct TLD_handle_t *_handle=handle;
 	struct tsg_log_instance_t *_instance=instance;
@@ -971,7 +1003,6 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	}
 	
 	stream_id=tsg_get_stream_id(a_stream);
-	char stream_id_buff[128]="";
 	snprintf(stream_id_buff, sizeof(stream_id_buff), "%llu", stream_id);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_STREAM_TRACE_ID].name, (void *)stream_id_buff, TLD_TYPE_STRING);
 	
@@ -1100,6 +1131,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", _instance->log_path, sizeof(_instance->log_path), "./tsglog/tsglog");
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_USER_REGION",&(_instance->send_user_region), 0);	
 
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "APP_ID_TYPE", &(_instance->app_id_type), 1);	//0: int, 1: string	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_UNKNOWN_NAME", _instance->l7_unknown_name, sizeof(_instance->l7_unknown_name), "UNCATEGORIZED");
 
 	_instance->logger=MESA_create_runtime_log_handle(_instance->log_path, _instance->level);

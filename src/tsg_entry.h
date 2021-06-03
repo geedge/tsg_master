@@ -139,7 +139,7 @@ typedef	struct _tsg_para
 {
 	int level;	
 	unsigned short timeout;
-	int app_id_table_type;
+	int app_dict_field_num;
 	int device_id;
 	int entrance_id;
 	int hash_timeout;
