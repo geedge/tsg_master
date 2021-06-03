@@ -286,18 +286,19 @@ static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle
 
 static int set_fqdn_category(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, unsigned int *category_id, int category_id_num)
 {
-	int i=0,offset=0;
-	char category_str[128]={0};
-	
-	for(i=0; i< category_id_num; i++)
+	int i=0;
+	if(category_id_num<=0 || category_id==NULL)
 	{
-		offset+=snprintf(category_str+offset, sizeof(category_str)-offset, "%s%d", ((i>0) ? "," : ""), category_id[i]);
+		return 0;
+	}
+	
+	cJSON *fqdn_array=cJSON_CreateArray();
+	for(i=0; i<category_id_num; i++)
+	{
+		cJSON_AddNumberToObject(fqdn_array, _instance->id2field[LOG_COMMON_FQDN_CATEGORY].name, category_id[i]);
 	}
 
-	if(offset>0)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_FQDN_CATEGORY].name, (void *)category_str, TLD_TYPE_STRING);
-	}
+	cJSON_AddItemToObject(_handle->object, _instance->id2field[LOG_COMMON_FQDN_CATEGORY].name, fqdn_array);
 
 	return 1;
 }
