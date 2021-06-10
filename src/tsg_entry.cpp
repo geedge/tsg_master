@@ -584,54 +584,56 @@ static unsigned char deal_deny_action(const struct streaminfo *a_stream, struct 
 	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 	if(user_region!=NULL)
 	{
-		method_type=tsg_get_method_id(user_region->method);
-		switch(method_type)
-		{
-			case	TSG_METHOD_TYPE_DROP:
-				set_drop_stream(a_stream);
-				//copy_deny_result(a_stream, context, p_result, a_stream->threadnum);
-				state=APP_STATE_DROPPKT|APP_STATE_DROPME;
-				break;
-			case	TSG_METHOD_TYPE_RESET:
-				if(a_stream->type==STREAM_TYPE_TCP)
+		method_type=tsg_get_method_id(user_region->method);		
+		security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+	}
+	else
+	{
+		method_type=TSG_METHOD_TYPE_RESET;
+	}
+	
+	switch(method_type)
+	{
+		case	TSG_METHOD_TYPE_DROP:
+			set_drop_stream(a_stream);
+			state=APP_STATE_DROPPKT|APP_STATE_DROPME;
+			break;
+		case	TSG_METHOD_TYPE_RESET:
+			if(a_stream->type==STREAM_TYPE_TCP)
+			{
+				rst_paras.rst_pkt_num=1;
+				rst_paras.signature_seed1=65535;
+				rst_paras.signature_seed2=13;
+				rst_paras.th_flags=4;
+				rst_paras.__pad_no_use=0;
+				rst_paras.dir=DIR_DOUBLE;
+				ret=MESA_rst_tcp((struct streaminfo *)a_stream, &rst_paras, sizeof(rst_paras));
+				if(ret<0)
 				{
-					rst_paras.rst_pkt_num=1;
-					rst_paras.signature_seed1=65535;
-					rst_paras.signature_seed2=13;
-					rst_paras.th_flags=4;
-					rst_paras.__pad_no_use=0;
-					rst_paras.dir=DIR_DOUBLE;
-					ret=MESA_rst_tcp((struct streaminfo *)a_stream, &rst_paras, sizeof(rst_paras));
-					if(ret<0)
-					{
-						MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_FATAL,
-										"RST_TCP",
-										"Send RST failed policy_id: %d service: %d action: %d addr: %s",
-										p_result->config_id,
-										p_result->service_id,
-										(unsigned char)p_result->action,
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
-					}
-
-					opt_value=1;
-					MESA_set_stream_opt(a_stream, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
+					MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_FATAL,
+									"RST_TCP",
+									"Send RST failed policy_id: %d service: %d action: %d addr: %s",
+									p_result->config_id,
+									p_result->service_id,
+									(unsigned char)p_result->action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
 				}
 
-				set_drop_stream(a_stream);
-				//copy_deny_result(a_stream, context, p_result, a_stream->threadnum);
-				state=APP_STATE_DROPPKT|APP_STATE_DROPME;
-				break;
-			case	TSG_METHOD_TYPE_BLOCK:
-			case	TSG_METHOD_TYPE_ALERT:
-			case	TSG_METHOD_TYPE_REDIRECTION:
-				break;
-			default:
-				break;
-		}
-		
-		security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+				opt_value=1;
+				MESA_set_stream_opt(a_stream, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
+			}
+
+			set_drop_stream(a_stream);
+			state=APP_STATE_DROPPKT|APP_STATE_DROPME;
+			break;
+		case	TSG_METHOD_TYPE_BLOCK:
+		case	TSG_METHOD_TYPE_ALERT:
+		case	TSG_METHOD_TYPE_REDIRECTION:
+			break;
+		default:
+			break;
 	}
 
 	return state;
