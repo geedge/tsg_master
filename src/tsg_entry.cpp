@@ -1029,7 +1029,6 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 {
 	int ret=0, length=0;
 	char buff[4096]={0};
-	context->proto = PROTO_UNKONWN;
 
 	switch(a_stream->type)
 	{
@@ -1184,6 +1183,11 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 			break;
 		default:
 			break;
+	}
+
+	if(context->proto<PROTO_HTTP || context->proto>PROTO_MAX)
+	{
+		context->proto = PROTO_UNKONWN;
 	}
 	
 	return ret;
