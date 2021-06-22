@@ -25,6 +25,7 @@
 char TSG_SEND_LOG_VERSION_20200729=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
+#define	SET_FLAG(a, b, c)	((a)>0 ? (b)|=(c) : (a))
 
 const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"UNKOWN"},
 								 			{TLD_TYPE_LONG, 	TLD_TYPE_LONG,		"LONG"},
@@ -524,6 +525,67 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
 		}
+	}
+
+	app_id_flag=0;
+	SET_FLAG(label->result[ORIGIN_DKPT].app_id_num, app_id_flag, 1);
+	SET_FLAG(label->result[ORIGIN_QM_ENGINE].app_id_num, app_id_flag, 2);
+	SET_FLAG(label->result[ORIGIN_USER_DEFINE].app_id_num, app_id_flag, 4);
+
+	switch(app_id_flag)
+	{
+		case	1:			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_ONLY_DPKT_RESULT], 0, FS_OP_ADD, 1);
+			break;
+		case	2:
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_ONLY_Q_RESULT], 0, FS_OP_ADD, 1);
+			break;
+		case	3:
+			if((label->result[ORIGIN_DKPT].app_id[label->result[ORIGIN_DKPT].app_id_num-1]) == (label->result[ORIGIN_QM_ENGINE].app_id[label->result[ORIGIN_QM_ENGINE].app_id_num-1]))
+			{
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DQ_SAME_RESULT], 0, FS_OP_ADD, 1);
+			}
+			else
+			{
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DQ_DIFF_RESULT], 0, FS_OP_ADD, 1);
+			}
+			break;
+		case	4:
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_ONLY_USER_RESULT], 0, FS_OP_ADD, 1);
+			break;
+		case	5:
+			if((label->result[ORIGIN_USER_DEFINE].app_id[label->result[ORIGIN_USER_DEFINE].app_id_num-1]) == (label->result[ORIGIN_DKPT].app_id[label->result[ORIGIN_DKPT].app_id_num-1]))
+			{
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DU_SAME_RESULT], 0, FS_OP_ADD, 1);
+			}
+			else
+			{
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DU_DIFF_RESULT], 0, FS_OP_ADD, 1);
+			}
+			break;
+		case	6:
+			if((label->result[ORIGIN_USER_DEFINE].app_id[label->result[ORIGIN_USER_DEFINE].app_id_num-1]) == (label->result[ORIGIN_QM_ENGINE].app_id[label->result[ORIGIN_QM_ENGINE].app_id_num-1]))
+			{
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_QU_SAME_RESULT], 0, FS_OP_ADD, 1);
+			}
+			else
+			{
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_QU_DIFF_RESULT], 0, FS_OP_ADD, 1);
+			}
+			break;
+		case	7:
+			if((label->result[ORIGIN_USER_DEFINE].app_id[label->result[ORIGIN_USER_DEFINE].app_id_num-1]) == (label->result[ORIGIN_QM_ENGINE].app_id[label->result[ORIGIN_QM_ENGINE].app_id_num-1]) && 
+				(label->result[ORIGIN_USER_DEFINE].app_id[label->result[ORIGIN_USER_DEFINE].app_id_num-1]) == (label->result[ORIGIN_DKPT].app_id[label->result[ORIGIN_DKPT].app_id_num-1]))
+			{
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DQU_SAME_RESULT], 0, FS_OP_ADD, 1);
+			}
+			else
+			{
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DQU_DIFF_RESULT], 0, FS_OP_ADD, 1);
+			}
+			break;
+		default:
+			break;
 	}
 	
 	return 1;
@@ -1158,8 +1220,8 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "REFRESH_INTERVAL_MS", _instance->refresh_interval_ms, sizeof(_instance->refresh_interval_ms), "600000");
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "REQUIRE_ACK", _instance->require_ack, sizeof(_instance->require_ack), "1");
 
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "TCP_LABEL", _instance->tcp_label, sizeof(_instance->tcp_label), "tcp_flow_stat");
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "UDP_LABEL", _instance->udp_label, sizeof(_instance->udp_label), "udp_flow_stat");
+	MESA_load_profile_string_def(conffile, "SYSTEM", "TCP_LABEL", _instance->tcp_label, sizeof(_instance->tcp_label), "tcp_flow_stat");
+	MESA_load_profile_string_def(conffile, "SYSTEM", "UDP_LABEL", _instance->udp_label, sizeof(_instance->udp_label), "udp_flow_stat");
 
 	_instance->tcp_flow_project_id=project_customer_register(_instance->tcp_label, "struct");
 	_instance->udp_flow_project_id=project_customer_register(_instance->udp_label, "struct");
@@ -1174,7 +1236,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 								);
 	}
 	
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "NIC_NAME", nic_name, sizeof(nic_name), "eth0");	
+	MESA_load_profile_string_def(conffile, "SYSTEM", "NIC_NAME", nic_name, sizeof(nic_name), "lo");	
 	ret=MESA_get_dev_ipv4(nic_name, (int *)&local_ip_nr);
 	if(ret<0)
 	{

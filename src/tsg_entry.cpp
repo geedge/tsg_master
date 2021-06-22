@@ -65,7 +65,21 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_ABORT_DENY, "abort_deny"},
 										 {0, TSG_FS2_ABORT_MONITOR, "abort_monitor"},
 										 {0, TSG_FS2_ABORT_INTERCEPT, "abort_intercept"},
-										 {0, TSG_FS2_ABORT_UNKNOWN, "abort_unknown"}
+										 {0, TSG_FS2_ABORT_UNKNOWN, "abort_unknown"},
+										 {0, TSG_FS2_APP_DPKT_RESULT, "D_result"},
+										 {0, TSG_FS2_APP_Q_RESULT, "Q_result"},
+										 {0, TSG_FS2_APP_USER_RESULT, "U_result"},
+										 {0, TSG_FS2_APP_ONLY_DPKT_RESULT, "only_D_result"},
+										 {0, TSG_FS2_APP_ONLY_Q_RESULT, "only_Q_result"},
+										 {0, TSG_FS2_APP_ONLY_USER_RESULT, "only_U_result"},
+										 {0, TSG_FS2_APP_DQ_SAME_RESULT, "DQ_same_result"},
+										 {0, TSG_FS2_APP_DQ_DIFF_RESULT, "DQ_diff_result"},
+										 {0, TSG_FS2_APP_DU_SAME_RESULT, "DU_same_result"},
+										 {0, TSG_FS2_APP_DU_DIFF_RESULT, "DU_diff_result"},
+										 {0, TSG_FS2_APP_QU_SAME_RESULT, "QU_same_result"},
+										 {0, TSG_FS2_APP_QU_DIFF_RESULT, "QU_diff_result"},
+										 {0, TSG_FS2_APP_DQU_SAME_RESULT, "DQU_same_result"},
+										 {0, TSG_FS2_APP_DQU_DIFF_RESULT, "DQU_diff_result"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
@@ -1297,6 +1311,13 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 		return 0;
 	}
 
+	context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
+	if(context==NULL)
+	{
+		init_context((void **)(&context), a_stream->threadnum);
+		set_struct_project(a_stream, g_tsg_para.context_project_id, (void *)context);
+	}
+
 	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
 	if(gather_result==NULL)
 	{
@@ -1307,28 +1328,24 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	
 	switch(identify_result->origin)
 	{
-		case	ORIGIN_DKPT:
-		case	ORIGIN_QM_ENGINE:
-		case	ORIGIN_USER_DEFINE:
-		case	ORIGIN_BASIC_PROTOCOL:
-			memcpy(&(gather_result->result[identify_result->origin]), identify_result, sizeof(struct app_identify_result));
+		case	ORIGIN_DKPT:			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DPKT_RESULT], 0, FS_OP_ADD, 1);
+			break;
+		case	ORIGIN_QM_ENGINE:			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_Q_RESULT], 0, FS_OP_ADD, 1);
+			break;
+		case	ORIGIN_USER_DEFINE:			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_USER_RESULT], 0, FS_OP_ADD, 1);
+			break;
+		case	ORIGIN_BASIC_PROTOCOL:			
+			set_l7_protocol_to_context(context, identify_result->app_id[identify_result->app_id_num-1]);
 			break;
 		default:
 			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_BRIDGE_CB", "Unknown type: %d addr: %s", identify_result->origin, PRINTADDR(a_stream, g_tsg_para.level));
 			return 0;
 	}
-
-	context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
-	if(context==NULL)
-	{
-		init_context((void **)(&context), a_stream->threadnum);
-		set_struct_project(a_stream, g_tsg_para.context_project_id, (void *)context);
-	}
-
-	if(identify_result->origin==ORIGIN_BASIC_PROTOCOL)
-	{
-		set_l7_protocol_to_context(context, identify_result->app_id[identify_result->app_id_num-1]);
-	}
+	
+	memcpy(&(gather_result->result[identify_result->origin]), identify_result, sizeof(struct app_identify_result));
 	record_time_start(&(context->last_scan_time));
 	
 	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, &(context->mid), identify_result, a_stream->threadnum);
