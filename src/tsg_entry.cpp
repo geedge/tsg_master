@@ -718,7 +718,7 @@ unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name)
 	return 0;
 }
 
-static int set_l7_protocol_to_context(struct master_context *context, unsigned int app_id)
+static int set_l7_protocol_to_pme(struct master_context *context, unsigned int app_id)
 {
 	int i=0;
 	char *l7_protocol_name=NULL;
@@ -1227,6 +1227,8 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->characteristics, (char *)"characteristics", thread_seq);
 
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->app_name, identify_result->app_id[i], thread_seq);
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->parent_app_name, dict->parent_app_id, thread_seq);
+			
 			app_id_dict_free_data(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
 		}
 		else
@@ -1337,8 +1339,11 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 		case	ORIGIN_USER_DEFINE:			
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_USER_RESULT], 0, FS_OP_ADD, 1);
 			break;
-		case	ORIGIN_BASIC_PROTOCOL:			
-			set_l7_protocol_to_context(context, identify_result->app_id[identify_result->app_id_num-1]);
+		case	ORIGIN_BASIC_PROTOCOL:
+			if(context->proto==PROTO_UNKONWN || context->proto==PROTO_APP)
+			{
+				set_l7_protocol_to_pme(context, identify_result->app_id[identify_result->app_id_num-1]);
+			}
 			break;
 		default:
 			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_BRIDGE_CB", "Unknown type: %d addr: %s", identify_result->origin, PRINTADDR(a_stream, g_tsg_para.level));
@@ -1388,7 +1393,7 @@ static int master_deal_pending_state(const struct streaminfo *a_stream, struct m
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 	}
 	
-	if((is_only_monitor(result, hit_num)) && context->proto!=PROTO_UNKONWN)	// business deal action of monitor 
+	if((is_only_monitor(result, hit_num)) && context->proto!=PROTO_UNKONWN && context->proto!=PROTO_APP)	// business deal action of monitor 
 	{
 		hit_num=0;
 	}
