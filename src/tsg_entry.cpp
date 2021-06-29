@@ -241,6 +241,7 @@ static int set_drop_stream(const struct streaminfo *a_stream)
 {
 	int opt_value=1;
 	MESA_set_stream_opt(a_stream, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
+	MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
 	MESA_set_stream_opt(a_stream, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
 
 	return 0;
@@ -1393,7 +1394,7 @@ static int master_deal_pending_state(const struct streaminfo *a_stream, struct m
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 	}
 	
-	if((is_only_monitor(result, hit_num)) && context->proto!=PROTO_UNKONWN && context->proto!=PROTO_APP)	// business deal action of monitor 
+	if((is_only_monitor(result, hit_num)) && context->proto!=PROTO_UNKONWN && context->proto!=PROTO_APP && context->proto!=PROTO_SSH)	// business deal action of monitor 
 	{
 		hit_num=0;
 	}
