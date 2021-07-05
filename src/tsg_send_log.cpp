@@ -25,8 +25,6 @@
 char TSG_SEND_LOG_VERSION_20200729=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
-#define	SET_FLAG(a, b, c)	((a)>0 ? (b)|=(c) : (a))
-
 const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"UNKOWN"},
 								 			{TLD_TYPE_LONG, 	TLD_TYPE_LONG,		"LONG"},
 								 			{TLD_TYPE_STRING, 	TLD_TYPE_STRING, 	"STRING"},
@@ -112,6 +110,45 @@ static int set_tcp_isn(struct tsg_log_instance_t *_instance, struct TLD_handle_t
 	}
 	
 	return 1;
+}
+
+static int set_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	const char *linkinfo=(const char *)project_req_get_struct(a_stream, g_tsg_para.linkinfo_project_id);
+	if(linkinfo==NULL)
+	{
+		return 0;
+	}
+
+	cJSON *item=NULL;
+	cJSON *object=cJSON_Parse(linkinfo);
+	if(object)
+	{
+		item=cJSON_GetObjectItem(object, "common_direction");
+		if(item!=NULL)
+		{			
+			TLD_append(_handle, (char *)"common_direction", (void *)(long)(item->valueint), TLD_TYPE_LONG);
+		}
+		
+		item=cJSON_GetObjectItem(object, "common_egress_link_id");
+		if(item!=NULL)
+		{			
+			TLD_append(_handle, (char *)"common_egress_link_id", (void *)(long)(item->valueint), TLD_TYPE_LONG);
+		}
+		
+		item=cJSON_GetObjectItem(object, "common_ingress_link_id");		
+		if(item!=NULL)
+		{			
+			TLD_append(_handle, (char *)"common_ingress_link_id", (void *)(long)(item->valueint), TLD_TYPE_LONG);
+		}
+
+		cJSON_Delete(object);
+		object=NULL;
+		
+		return 1;
+	}
+	
+	return 0;
 }
 
 static int set_asn(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, struct _asn_info_t *asn_info)
@@ -368,6 +405,34 @@ static int set_packet_bytes(struct tsg_log_instance_t *_instance, struct TLD_han
 	return 1;
 }
 
+
+static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, struct app_identify_result *result, TLD_TYPE type)
+{
+	if(result==NULL || result->app_id_num<=0)
+	{
+		return 0;
+	}
+	
+	int i=0;
+	char app_name[256]={0};
+	
+	cJSON *one_array=cJSON_CreateArray();
+	
+	for(i=0; i<result->app_id_num; i++)
+	{
+		memset(app_name, 0, sizeof(app_name));
+		tsg_app_id2name(result->app_id[i], app_name, sizeof(app_name), 1);
+		if(strnlen(app_name, sizeof(app_name)) > 0)
+		{
+			cJSON_AddStringToObject(one_array, field_name, app_name);
+		}
+	}
+
+	TLD_append(_handle, field_name, one_array, TLD_TYPE_CJSON);
+
+	return 1;
+}
+
 static int get_l7_protocol(struct app_identify_result *result, char *protocol_list, int protocol_list_len,  int *flag)
 {
 	int i=0,offset=0;
@@ -396,6 +461,23 @@ static int get_l7_protocol(struct app_identify_result *result, char *protocol_li
 	return 1;
 }
 
+static unsigned int get_max_app_id(unsigned int *app_id_array, int app_id_num)
+{
+	int i=0;
+	unsigned int max_app_id=app_id_array[0]; 
+
+	for(i=1; i< app_id_num; i++)
+	{
+		if(max_app_id<app_id_array[i])
+		{
+			max_app_id=app_id_array[i];
+		}
+	}
+
+
+	return max_app_id;
+}
+
 static int get_app_id(struct app_identify_result *result, unsigned int *app_id, unsigned int *surrogate_id, int *flag)
 {
 	if(result->app_id_num>0 && (*flag)==0)
@@ -410,21 +492,33 @@ static int get_app_id(struct app_identify_result *result, unsigned int *app_id, 
 	return 0;
 }
 
-static int get_app_id_list(struct app_identify_result *result, char *app_list, int app_list_len, char *surrogate_list, int surrogate_list_len)
+static int get_app_id_list(cJSON *app_id_object, const char *field_name, struct app_identify_result *result)
 {
 	int i=0;
-	int offset1=0,offset2=0;
+
+	if(result->app_id_num==0)
+	{
+		return 0;
+	}
 	
+	cJSON *one_object=NULL;
+	cJSON *one_array=cJSON_CreateArray();
+
 	for(i=0; i<result->app_id_num; i++)
 	{
-		offset1+=snprintf(app_list+offset1, app_list_len-offset1, "APP%d=%d;", result->origin, result->app_id[i]);
-		offset2+=snprintf(surrogate_list+offset2, surrogate_list_len-offset2, "SURROGATE%d=%d;", result->origin, result->surrogate_id[i]);
+		one_object=cJSON_CreateObject();
+		cJSON_AddNumberToObject(one_object, "app_id", result->app_id[i]);
+		cJSON_AddNumberToObject(one_object, "surrogate_id", result->surrogate_id[i]);
+		
+		cJSON_AddItemToArray(one_array, one_object);
 	}
+
+	cJSON_AddItemToObject(app_id_object, field_name, one_array);
 
 	return 1;
 }
 
-static int get_app_name_list(struct app_identify_result *result, char *app_name, int app_name_len, int *flag, int is_joint_parent)
+static int get_app_name_list(unsigned int *app_id_array, int app_id_num, char *app_name, int app_name_len, int *flag, int is_joint_parent)
 {
 	int i=0;
 	int offset=0;
@@ -434,7 +528,7 @@ static int get_app_name_list(struct app_identify_result *result, char *app_name,
 		return 0;
 	}
 	
-	for(i=0; i<result->app_id_num; i++)
+	for(i=0; i<app_id_num; i++)
 	{
 		(*flag)=1;
 
@@ -444,7 +538,7 @@ static int get_app_name_list(struct app_identify_result *result, char *app_name,
 			offset++;
 		}
 		
-		offset+=tsg_app_id2name(result->app_id[i], app_name+offset, app_name_len-offset, is_joint_parent);
+		offset+=tsg_app_id2name(app_id_array[i], app_name+offset, app_name_len-offset, is_joint_parent);
 	}
 
 	return 1;
@@ -453,13 +547,11 @@ static int get_app_name_list(struct app_identify_result *result, char *app_name,
 static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	int app_id_flag=0;
-	int app_offset=0;
-	int surrogate_offset=0;
 	int l7_protocol_flag=0;
-	char app_list[512]={0};
 	char app_name[512]={0};
+	unsigned int max_app_id=0;
 	char protocol_list[256]={0};
-	char surrogate_list[512]={0};
+
 	unsigned int one_app_id=0;
 	unsigned int one_surrogate_id=0;
 	struct gather_app_result *label=NULL;
@@ -495,99 +587,43 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	}
 	else //string
 	{
-		app_offset=0;
-		surrogate_offset=0;
-		get_app_id_list(&(label->result[ORIGIN_USER_DEFINE]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
+		cJSON *app_id_object=cJSON_CreateObject();
+		get_app_id_list(app_id_object, "USER_DEFINE", &(label->result[ORIGIN_USER_DEFINE]));
+		get_app_id_list(app_id_object, "BUILT_IN", &(label->result[ORIGIN_BUILT_IN]));
+		get_app_id_list(app_id_object, "DKPT", &(label->result[ORIGIN_DKPT]));
+		get_app_id_list(app_id_object, "THIRD", &(label->result[ORIGIN_QM_ENGINE]));
+		
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)app_id_object, TLD_TYPE_CJSON);		
 
-		app_offset=strlen(app_list);
-		surrogate_offset=strlen(surrogate_list);
-		get_app_id_list(&(label->result[ORIGIN_DKPT]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
-
-		app_offset=strlen(app_list);
-		surrogate_offset=strlen(surrogate_list);
-		get_app_id_list(&(label->result[ORIGIN_QM_ENGINE]), app_list+app_offset, sizeof(app_list)-app_offset, surrogate_list+surrogate_offset, sizeof(surrogate_list)-surrogate_offset);
-
-		get_app_name_list(&(label->result[ORIGIN_USER_DEFINE]), app_name, sizeof(app_name), &app_id_flag, 1);
+		set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(label->result[ORIGIN_USER_DEFINE]), TLD_TYPE_LONG);
+		
+		max_app_id=get_max_app_id(label->result[ORIGIN_USER_DEFINE].app_id, label->result[ORIGIN_USER_DEFINE].app_id_num);
+		if(max_app_id>0)
+		{
+			get_app_name_list(&max_app_id, 1, app_name, sizeof(app_name), &app_id_flag, 1);
+		}
+		
 		if(app_id_flag!=1)
 		{
-			get_app_name_list(&(label->result[ORIGIN_DKPT]), app_name, sizeof(app_name), &app_id_flag, 0);
+			get_app_name_list(label->result[ORIGIN_BUILT_IN].app_id, label->result[ORIGIN_BUILT_IN].app_id_num, app_name, sizeof(app_name), &app_id_flag, 1);
 		}
 
 		if(app_id_flag!=1)
 		{
-			get_app_name_list(&(label->result[ORIGIN_QM_ENGINE]), app_name, sizeof(app_name), &app_id_flag, 1);
+			get_app_name_list(label->result[ORIGIN_DKPT].app_id, label->result[ORIGIN_DKPT].app_id_num, app_name, sizeof(app_name), &app_id_flag, 0);
+		}
+
+		if(app_id_flag!=1)
+		{
+			get_app_name_list(label->result[ORIGIN_QM_ENGINE].app_id, label->result[ORIGIN_QM_ENGINE].app_id_num, app_name, sizeof(app_name), &app_id_flag, 0);
 		}
 		
 		if(app_id_flag==1)
 		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)app_list, TLD_TYPE_STRING);		
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_SURROGATE_ID].name, (void *)surrogate_list, TLD_TYPE_STRING);
-
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
 		}
 	}
 
-	app_id_flag=0;
-	SET_FLAG(label->result[ORIGIN_DKPT].app_id_num, app_id_flag, 1);
-	SET_FLAG(label->result[ORIGIN_QM_ENGINE].app_id_num, app_id_flag, 2);
-	SET_FLAG(label->result[ORIGIN_USER_DEFINE].app_id_num, app_id_flag, 4);
-
-	switch(app_id_flag)
-	{
-		case	1:			
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_ONLY_DPKT_RESULT], 0, FS_OP_ADD, 1);
-			break;
-		case	2:
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_ONLY_Q_RESULT], 0, FS_OP_ADD, 1);
-			break;
-		case	3:
-			if((label->result[ORIGIN_DKPT].app_id[label->result[ORIGIN_DKPT].app_id_num-1]) == (label->result[ORIGIN_QM_ENGINE].app_id[label->result[ORIGIN_QM_ENGINE].app_id_num-1]))
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DQ_SAME_RESULT], 0, FS_OP_ADD, 1);
-			}
-			else
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DQ_DIFF_RESULT], 0, FS_OP_ADD, 1);
-			}
-			break;
-		case	4:
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_ONLY_USER_RESULT], 0, FS_OP_ADD, 1);
-			break;
-		case	5:
-			if((label->result[ORIGIN_USER_DEFINE].app_id[label->result[ORIGIN_USER_DEFINE].app_id_num-1]) == (label->result[ORIGIN_DKPT].app_id[label->result[ORIGIN_DKPT].app_id_num-1]))
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DU_SAME_RESULT], 0, FS_OP_ADD, 1);
-			}
-			else
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DU_DIFF_RESULT], 0, FS_OP_ADD, 1);
-			}
-			break;
-		case	6:
-			if((label->result[ORIGIN_USER_DEFINE].app_id[label->result[ORIGIN_USER_DEFINE].app_id_num-1]) == (label->result[ORIGIN_QM_ENGINE].app_id[label->result[ORIGIN_QM_ENGINE].app_id_num-1]))
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_QU_SAME_RESULT], 0, FS_OP_ADD, 1);
-			}
-			else
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_QU_DIFF_RESULT], 0, FS_OP_ADD, 1);
-			}
-			break;
-		case	7:
-			if((label->result[ORIGIN_USER_DEFINE].app_id[label->result[ORIGIN_USER_DEFINE].app_id_num-1]) == (label->result[ORIGIN_QM_ENGINE].app_id[label->result[ORIGIN_QM_ENGINE].app_id_num-1]) && 
-				(label->result[ORIGIN_USER_DEFINE].app_id[label->result[ORIGIN_USER_DEFINE].app_id_num-1]) == (label->result[ORIGIN_DKPT].app_id[label->result[ORIGIN_DKPT].app_id_num-1]))
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DQU_SAME_RESULT], 0, FS_OP_ADD, 1);
-			}
-			else
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DQU_DIFF_RESULT], 0, FS_OP_ADD, 1);
-			}
-			break;
-		default:
-			break;
-	}
-	
 	return 1;
 }
 
@@ -1039,6 +1075,7 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
+	int ret=0;
 	char *addr_proto=NULL;
 	char stream_id_buff[128]={0};
 	unsigned long long stream_id=0;
@@ -1051,10 +1088,15 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 		return -1;
 	}
 
+	ret=set_linkinfo(_instance, _handle, a_stream);
+	if(ret==0)
+	{
+		set_direction(_instance, _handle, a_stream);
+	}
+
 	set_app_id(_instance, _handle, a_stream);
 	set_tcp_isn(_instance, _handle, a_stream);
 	set_tuple4(_instance, _handle, a_stream);
-	set_direction(_instance, _handle, a_stream);
 	set_address_list(_instance, _handle, a_stream);
 	set_duraction(_instance, _handle, a_stream);
 	set_packet_bytes(_instance, _handle, a_stream);	

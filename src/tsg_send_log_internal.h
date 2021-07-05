@@ -104,6 +104,7 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_GTP_IMSI,
 	LOG_COMMON_GTP_IMEI,
 	LOG_COMMON_GTP_MSISDN,	//PHONE_NUMBER
+	LOG_COMMON_USERDEFINE_APP,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 

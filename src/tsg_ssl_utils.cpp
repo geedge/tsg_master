@@ -192,6 +192,8 @@ static char*  parse_server_name_extension(const unsigned char* buff, size_t buff
                 strncpy(sni, (const char*)buff + pos + 3, len);
                 sni[len] = '\0';
 				*result = CHELLO_PARSE_SUCCESS;
+			default:
+				break;
         }
         pos += 3 + len;
     }
@@ -373,8 +375,8 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
 		_chello->min_version.major = buff[1];
 		_chello->min_version.minor = buff[2];
 		_chello->min_version.ossl_format=(uint16_t)_chello->min_version.major<<8|_chello->min_version.minor;
-		_chello->max_version.major = -1;
-		_chello->max_version.minor = -1;
+		_chello->max_version.major = (uint8_t)(-1);
+		_chello->max_version.minor =  (uint8_t)(-1);
 		_chello->sni = NULL;
 		_chello->alpn = NULL;
 		_chello->cipher_suites = NULL;

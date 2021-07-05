@@ -83,17 +83,7 @@ enum TSG_FS2_TYPE{
 	TSG_FS2_APP_DPKT_RESULT,
 	TSG_FS2_APP_Q_RESULT,
 	TSG_FS2_APP_USER_RESULT,
-	TSG_FS2_APP_ONLY_DPKT_RESULT,
-	TSG_FS2_APP_ONLY_Q_RESULT,
-	TSG_FS2_APP_ONLY_USER_RESULT,
-	TSG_FS2_APP_DQ_SAME_RESULT,
-	TSG_FS2_APP_DQ_DIFF_RESULT,
-	TSG_FS2_APP_DU_SAME_RESULT,
-	TSG_FS2_APP_DU_DIFF_RESULT,
-	TSG_FS2_APP_QU_SAME_RESULT,
-	TSG_FS2_APP_QU_DIFF_RESULT,
-	TSG_FS2_APP_DQU_SAME_RESULT,
-	TSG_FS2_APP_DQU_DIFF_RESULT,
+	TSG_FS2_APP_BUILT_IN_RESULT,
 	TSG_FS2_MAX
 };
 
@@ -167,6 +157,7 @@ typedef	struct _tsg_para
 	int priority_project_id;
 	int internal_project_id;
 	int context_project_id;
+	int linkinfo_project_id;
 	int gather_app_project_id;
 	int app_bridge_id;
 	int proto_flag; //tsg_protocol_t

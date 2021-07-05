@@ -1775,7 +1775,7 @@ int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_p
 	dict=(struct app_id_dict_table *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
 	if(dict!=NULL)
 	{
-		if(dict->parent_app_id!=0)
+		if(dict->parent_app_id!=0 && is_joint_parent==1)
 		{		
 			offset=snprintf(app_name, app_name_len, "%s.%s", dict->parent_app_name, dict->app_name);
 		}

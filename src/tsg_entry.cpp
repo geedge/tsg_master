@@ -69,17 +69,7 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_APP_DPKT_RESULT, "D_result"},
 										 {0, TSG_FS2_APP_Q_RESULT, "Q_result"},
 										 {0, TSG_FS2_APP_USER_RESULT, "U_result"},
-										 {0, TSG_FS2_APP_ONLY_DPKT_RESULT, "only_D_result"},
-										 {0, TSG_FS2_APP_ONLY_Q_RESULT, "only_Q_result"},
-										 {0, TSG_FS2_APP_ONLY_USER_RESULT, "only_U_result"},
-										 {0, TSG_FS2_APP_DQ_SAME_RESULT, "DQ_same_result"},
-										 {0, TSG_FS2_APP_DQ_DIFF_RESULT, "DQ_diff_result"},
-										 {0, TSG_FS2_APP_DU_SAME_RESULT, "DU_same_result"},
-										 {0, TSG_FS2_APP_DU_DIFF_RESULT, "DU_diff_result"},
-										 {0, TSG_FS2_APP_QU_SAME_RESULT, "QU_same_result"},
-										 {0, TSG_FS2_APP_QU_DIFF_RESULT, "QU_diff_result"},
-										 {0, TSG_FS2_APP_DQU_SAME_RESULT, "DQU_same_result"},
-										 {0, TSG_FS2_APP_DQU_DIFF_RESULT, "DQU_diff_result"}
+										 {0, TSG_FS2_APP_BUILT_IN_RESULT, "B_result"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
@@ -1340,6 +1330,9 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 		case	ORIGIN_USER_DEFINE:			
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_USER_RESULT], 0, FS_OP_ADD, 1);
 			break;
+		case	ORIGIN_BUILT_IN:			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_BUILT_IN_RESULT], 0, FS_OP_ADD, 1);
+			break;
 		case	ORIGIN_BASIC_PROTOCOL:
 			if(context->proto==PROTO_UNKONWN || context->proto==PROTO_APP)
 			{
@@ -1609,6 +1602,13 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_INTERNAL_LABEL", label_buff, sizeof(label_buff), "TSG_MASTER_INTERNAL_LABEL");
 	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_label);
 	if(g_tsg_para.internal_project_id<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
+	}
+
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "LINKINFO", label_buff, sizeof(label_buff), "mirror_linkinfo_from_mac");
+	g_tsg_para.linkinfo_project_id=project_customer_register(label_buff, PROJECT_VAL_TYPE_STRUCT);
+	if(g_tsg_para.linkinfo_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
 	}
