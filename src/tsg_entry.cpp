@@ -471,7 +471,24 @@ static void copy_intercept_result(const struct streaminfo *a_stream, struct mast
 	int ret=0;
 	policy_priority_label_t *priority_label=NULL;	
 
-	priority_label=(policy_priority_label_t *)dictator_malloc(thread_seq, sizeof(policy_priority_label_t));
+	priority_label=(policy_priority_label_t *)project_req_get_struct((struct streaminfo *)a_stream, g_tsg_para.priority_project_id);
+	if(priority_label==NULL)
+	{
+		priority_label=(policy_priority_label_t *)dictator_malloc(thread_seq, sizeof(policy_priority_label_t));
+	}
+	else
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, 
+										RLOG_LV_FATAL,
+										"DUP_HIT_INTERCEPT",
+										"Hit intercept policy, domain: %s policy_id: %d action: %d addr: %s",
+										(domain!=NULL ? domain : ""),
+										p_result->config_id,
+										(unsigned char)p_result->action,
+										PRINTADDR(a_stream, g_tsg_para.level)
+									);
+	}
+	
 	memset(priority_label, 0, sizeof(policy_priority_label_t));
 
 	priority_label->proto=proto;
@@ -490,23 +507,25 @@ static void copy_intercept_result(const struct streaminfo *a_stream, struct mast
 	{
 		free_policy_label(thread_seq, (void *)priority_label);
 		MESA_handle_runtime_log(g_tsg_para.logger,
-								RLOG_LV_FATAL,
-								"PROJECT_ADD",
-								"Add policy_priority_label failed, intercept policy, policy_id: %d action: %d addr: %s",
-								priority_label->result[0].config_id,
-								(unsigned char)priority_label->result[0].action,
-								PRINTADDR(a_stream, g_tsg_para.level)
-							);
-	}
+										RLOG_LV_FATAL,
+										"PROJECT_ADD",
+										"Add policy_priority_label failed, intercept policy, domain: %s policy_id: %d action: %d addr: %s",
+										(domain!=NULL ? domain : ""),
+										priority_label->result[0].config_id,
+										(unsigned char)priority_label->result[0].action,
+										PRINTADDR(a_stream, g_tsg_para.level)
+									);
+			}
 	
 	MESA_handle_runtime_log(g_tsg_para.logger, 
-							RLOG_LV_DEBUG,
-							"INTERCEPT",
-							"Hit intercept policy, policy_id: %d action: %d addr: %s",
-							priority_label->result[0].config_id,
-							(unsigned char)priority_label->result[0].action,
-							PRINTADDR(a_stream, g_tsg_para.level)
-						);
+									RLOG_LV_DEBUG,
+									"INTERCEPT",
+									"Hit intercept policy, domain: %s policy_id: %d action: %d addr: %s",
+									(domain!=NULL ? domain : ""),
+									priority_label->result[0].config_id,
+									(unsigned char)priority_label->result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
 
 	return ;
 }
@@ -527,14 +546,14 @@ static void copy_deny_result(const struct streaminfo *a_stream, struct master_co
 	}
 	
 	MESA_handle_runtime_log(g_tsg_para.logger,
-								RLOG_LV_DEBUG,
-								"DENY",
-								"Hit deny policy, policy_id: %d service: %d action: %d addr: %s",
-								p_result[0].config_id,
-								p_result[0].service_id,
-								(unsigned char)p_result[0].action,
-								PRINTADDR(a_stream, g_tsg_para.level)
-							);
+									RLOG_LV_DEBUG,
+									"DENY",
+									"Hit deny policy, policy_id: %d service: %d action: %d addr: %s",
+									p_result[0].config_id,
+									p_result[0].service_id,
+									(unsigned char)p_result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
 
 	return ;
 }
@@ -566,14 +585,14 @@ static void copy_bypass_result(const struct streaminfo *a_stream, struct master_
 	}
 	
 	MESA_handle_runtime_log(g_tsg_para.logger,
-								RLOG_LV_DEBUG,
-								"ALLOW",
-								"Hit allow policy, policy_id: %d service: %d action: %d addr: %s",
-								p_result[0].config_id,
-								p_result[0].service_id,
-								(unsigned char)p_result[0].action,
-								PRINTADDR(a_stream, g_tsg_para.level)
-							);
+									RLOG_LV_DEBUG,
+									"ALLOW",
+									"Hit allow policy, policy_id: %d service: %d action: %d addr: %s",
+									p_result[0].config_id,
+									p_result[0].service_id,
+									(unsigned char)p_result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
 
 	return ;
 }
@@ -616,14 +635,14 @@ static unsigned char deal_deny_action(const struct streaminfo *a_stream, struct 
 				if(ret<0)
 				{
 					MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_FATAL,
-									"RST_TCP",
-									"Send RST failed policy_id: %d service: %d action: %d addr: %s",
-									p_result->config_id,
-									p_result->service_id,
-									(unsigned char)p_result->action,
-									PRINTADDR(a_stream, g_tsg_para.level)
-								);
+													RLOG_LV_FATAL,
+													"RST_TCP",
+													"Send RST failed policy_id: %d service: %d action: %d addr: %s",
+													p_result->config_id,
+													p_result->service_id,
+													(unsigned char)p_result->action,
+													PRINTADDR(a_stream, g_tsg_para.level)
+												);
 				}
 
 				opt_value=1;
