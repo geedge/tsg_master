@@ -466,7 +466,7 @@ static void copy_monitor_result(const struct streaminfo *a_stream, struct master
 
 }
 
-static void copy_intercept_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, char *domain, tsg_protocol_t proto, int thread_seq)
+static void copy_result_to_project(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, char *domain, tsg_protocol_t proto, PULL_RESULT_TYPE result_type, int thread_seq)
 {
 	int ret=0;
 	policy_priority_label_t *priority_label=NULL;	
@@ -499,7 +499,7 @@ static void copy_intercept_result(const struct streaminfo *a_stream, struct mast
 	}
 	
 	priority_label->result_num=1;
-	priority_label->result_type=PULL_KNI_RESULT;
+	priority_label->result_type=result_type;
 	memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
 	
 	ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.priority_project_id, (void *)priority_label);
@@ -524,34 +524,6 @@ static void copy_intercept_result(const struct streaminfo *a_stream, struct mast
 									(domain!=NULL ? domain : ""),
 									priority_label->result[0].config_id,
 									(unsigned char)priority_label->result[0].action,
-									PRINTADDR(a_stream, g_tsg_para.level)
-								);
-
-	return ;
-}
-
-static void copy_deny_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int thread_seq)
-{
-	if(context->result==NULL)
-	{
-		context->hit_cnt=1;
-		context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
-			
-		memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
-	}
-	else
-	{
-		context->hit_cnt=1;
-		memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
-	}
-	
-	MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_DEBUG,
-									"DENY",
-									"Hit deny policy, policy_id: %d service: %d action: %d addr: %s",
-									p_result[0].config_id,
-									p_result[0].service_id,
-									(unsigned char)p_result[0].action,
 									PRINTADDR(a_stream, g_tsg_para.level)
 								);
 
@@ -1267,7 +1239,8 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT)
 				{
 					context->hit_cnt=0;
-					master_send_log(a_stream, p_result, 1, context->domain, context->proto, a_stream->threadnum);
+					master_send_log(a_stream, p_result, 1, context->domain, context->proto, a_stream->threadnum);					
+					copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_FW_RESULT, a_stream->threadnum);
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
 												"DENY",
@@ -1287,7 +1260,8 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				copy_monitor_result(a_stream, context, result, hit_num, a_stream->threadnum);
 				break;
 			case	TSG_ACTION_BYPASS:
-				copy_bypass_result(a_stream, context, p_result, a_stream->threadnum);
+				copy_bypass_result(a_stream, context, p_result, a_stream->threadnum);				
+				copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_FW_RESULT, a_stream->threadnum);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 				state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 				break;
@@ -1298,7 +1272,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 					break;
 				}
 				
-				copy_intercept_result(a_stream, context, p_result, context->domain, context->proto, a_stream->threadnum);
+				copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_KNI_RESULT, a_stream->threadnum);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
 				state=APP_STATE_DROPME|APP_STATE_KILL_OTHER;
 				break;

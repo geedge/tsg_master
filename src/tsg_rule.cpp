@@ -1027,7 +1027,7 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 	label=(policy_priority_label_t *)project_req_get_struct(a_stream, g_tsg_para.priority_project_id);
 	if(label!=NULL && result!=NULL && result_num>0 && identify_info!=NULL)
 	{
-		if(label->result_type==pull_result_type)
+		if((label->result_type==pull_result_type) || (pull_result_type==PULL_ALL_RESULT))
 		{
 			num=MIN(label->result_num, result_num);
 			memcpy(result, label->result, num*sizeof(Maat_rule_t));
@@ -1042,19 +1042,6 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 			
 			return num;
 		}
-		
-		MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_DEBUG,
-									"PULL_RESULT", 
-									"pull policy failed, hit: %s %s: %s policy_id: %d service: %d action: %d addr: %s",
-									(label->result_type==PULL_KNI_RESULT) ? "KNI" : "FW",
-									label->proto==PROTO_HTTP ? "host" : "sni",
-									label->domain,
-									label->result->config_id,
-									label->result->service_id,
-									label->result->action,
-									PRINTADDR(a_stream, g_tsg_para.level)
-								);
 	}
 
 	return 0;

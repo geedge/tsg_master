@@ -48,7 +48,8 @@ struct compile_user_region
 typedef	enum _PULL_RESULT_TYPE
 {
 	PULL_KNI_RESULT,
-	PULL_FW_RESULT
+	PULL_FW_RESULT,
+	PULL_ALL_RESULT
 }PULL_RESULT_TYPE;
 
 struct app_id_dict_table
