@@ -933,8 +933,8 @@ static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_h
 			case	ADDR_TYPE_PPTP:
 				tunnel_object=cJSON_CreateObject();
 				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "PPTP");
-				cJSON_AddNumberToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_PPTP_C2S_ID].name, ntohl(ptmp->addr.pptp->C2S_call_id));
-				cJSON_AddNumberToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_PPTP_S2C_ID].name, ntohl(ptmp->addr.pptp->S2C_call_id));
+				cJSON_AddNumberToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_PPTP_C2S_ID].name, ntohs(ptmp->addr.pptp->C2S_call_id));
+				cJSON_AddNumberToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_PPTP_S2C_ID].name, ntohs(ptmp->addr.pptp->S2C_call_id));
 				break;
 			case	ADDR_TYPE_GPRS_TUNNEL:
 				tunnel_object=cJSON_CreateObject();

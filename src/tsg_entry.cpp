@@ -187,6 +187,39 @@ static int print_hit_path(const struct streaminfo *a_stream, struct master_conte
 	return 1;
 }
 
+static int is_xxx_proxy(const struct streaminfo *a_stream)
+{
+	if(a_stream!=NULL && a_stream->pfather!=NULL)
+	{
+		switch(a_stream->pfather->type)
+		{
+			case	STREAM_TYPE_SOCKS4:
+			case	STREAM_TYPE_SOCKS5:
+			case	STREAM_TYPE_HTTP_PROXY:
+				return 1;
+				break;
+			default:
+				break;
+		}
+	}
+
+	return 0;
+}
+
+static int is_free_context(const struct streaminfo *a_stream, int proxy_flag)
+{
+	if(proxy_flag==1)
+	{		
+		int is_proxy=is_xxx_proxy(a_stream);
+		if(is_proxy!=1)
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 static void free_user_item(char *item)
 {
 	if(item!=NULL)
@@ -1209,7 +1242,7 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->characteristics, (char *)"characteristics", thread_seq);
 
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->app_name, identify_result->app_id[i], thread_seq);
-			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->parent_app_name, dict->parent_app_id, thread_seq);
+			//hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->parent_app_name, dict->parent_app_id, thread_seq);
 			
 			app_id_dict_free_data(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
 		}
@@ -1406,6 +1439,10 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 			init_context(pme, thread_seq);
 			context=(struct master_context *)*pme;
 			set_struct_project(a_stream, g_tsg_para.context_project_id, *pme);
+			if(is_xxx_proxy(a_stream))	//sock4/5
+			{
+				context->is_proxy=1;
+			}
 		}
 		else
 		{
@@ -1466,9 +1503,13 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 	
 	if((a_stream->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
-		close_stream_free_context(a_stream, context, thread_seq);
+		context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
+		if(context!=NULL && (is_free_context(a_stream, context->is_proxy)))
+		{
+			close_stream_free_context(a_stream, context, thread_seq);
+			set_struct_project(a_stream, g_tsg_para.context_project_id, NULL);	//
+		}
 		*pme=NULL;
-		set_struct_project(a_stream, g_tsg_para.context_project_id, NULL);	//
 	}
 
 	return state;

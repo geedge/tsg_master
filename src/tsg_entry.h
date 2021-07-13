@@ -132,6 +132,7 @@ struct master_context
 	tsg_protocol_t proto;
 	int hit_cnt;
 	int is_esni;
+	int is_proxy;
 	char *domain;
 	scan_status_t mid;	
 	struct Maat_rule_t *result;
