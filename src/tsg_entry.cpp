@@ -1477,6 +1477,12 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 			{
 				break;
 			}
+
+			if(context->mid!=NULL)
+			{
+				Maat_clean_status(&context->mid);
+				context->mid=NULL;
+			}
 			
 			record_time_start(&context->last_scan_time);
 			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, scan_result+hit_num, MAX_RESULT_NUM-hit_num);
@@ -1607,7 +1613,7 @@ extern "C" int TSG_MASTER_INIT()
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "ENTRANCE_ID", &g_tsg_para.entrance_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
-	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_TIME_INTERVAL", &g_tsg_para.scan_time_interval, 5);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_TIME_INTERVAL", &g_tsg_para.scan_time_interval, 120);
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "DEVICE_ID_COMMAND", g_tsg_para.device_id_command, sizeof(g_tsg_para.device_id_command), NULL);
 	g_tsg_para.device_id=get_device_id(g_tsg_para.device_id_command, g_tsg_para.entrance_id);

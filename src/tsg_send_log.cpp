@@ -463,6 +463,11 @@ static int get_l7_protocol(struct app_identify_result *result, char *protocol_li
 
 static unsigned int get_max_app_id(unsigned int *app_id_array, int app_id_num)
 {
+	if(app_id_num<=0)
+	{
+		return 0;
+	}
+	
 	int i=0;
 	unsigned int max_app_id=app_id_array[0]; 
 
@@ -523,12 +528,13 @@ static int get_app_name_list(unsigned int *app_id_array, int app_id_num, char *a
 	int i=0;
 	int offset=0;
 
-	if((*flag)==1)
+	if((*flag)==1 || app_id_num<=0)
 	{
 		return 0;
 	}
 	
-	for(i=0; i<app_id_num; i++)
+	//for(i=0; i<app_id_num; i++)
+	for(i=app_id_num-1; i<app_id_num; i++)
 	{
 		(*flag)=1;
 
@@ -600,12 +606,12 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 		max_app_id=get_max_app_id(label->result[ORIGIN_USER_DEFINE].app_id, label->result[ORIGIN_USER_DEFINE].app_id_num);
 		if(max_app_id>0)
 		{
-			get_app_name_list(&max_app_id, 1, app_name, sizeof(app_name), &app_id_flag, 1);
+			get_app_name_list(&max_app_id, 1, app_name, sizeof(app_name), &app_id_flag, 0);
 		}
 		
 		if(app_id_flag!=1)
 		{
-			get_app_name_list(label->result[ORIGIN_BUILT_IN].app_id, label->result[ORIGIN_BUILT_IN].app_id_num, app_name, sizeof(app_name), &app_id_flag, 1);
+			get_app_name_list(label->result[ORIGIN_BUILT_IN].app_id, label->result[ORIGIN_BUILT_IN].app_id_num, app_name, sizeof(app_name), &app_id_flag, 0);
 		}
 
 		if(app_id_flag!=1)
