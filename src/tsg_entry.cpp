@@ -91,7 +91,7 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"},
 										 {PROTO_IMAP, 	0, 	"IMAP"},
 										 {PROTO_POP3, 	0, 	"POP3"},
 										 {PROTO_RTP, 	0, 	"RTP"},
-										 {PROTO_APP, 	0,"APP"}
+										 {PROTO_APP, 	0,	"APP"}
 										};
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
@@ -512,9 +512,9 @@ static void copy_result_to_project(const struct streaminfo *a_stream, struct mas
 	else
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, 
-										RLOG_LV_FATAL,
-										"DUP_HIT_INTERCEPT",
-										"Hit intercept policy, domain: %s policy_id: %d action: %d addr: %s",
+										RLOG_LV_DEBUG,
+										"DUP_HIT_POLICY",
+										"Hit policy, domain: %s policy_id: %d action: %d addr: %s",
 										(domain!=NULL ? domain : ""),
 										p_result->config_id,
 										(unsigned char)p_result->action,
@@ -1454,6 +1454,15 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 	switch(a_stream->opstate)
 	{
 		case	OP_STATE_PENDING:
+			if(a_stream->type==STREAM_TYPE_TCP)
+			{		
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1); 		
+			}
+			else
+			{
+				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);
+			}
+			
 			hit_num+=master_deal_pending_state(a_stream, context, scan_result+hit_num, MAX_RESULT_NUM-hit_num, a_packet);
 			p_result=tsg_policy_decision_criteria(scan_result, hit_num);
 			if(g_tsg_para.default_compile_switch==1 && p_result==NULL)
@@ -1523,21 +1532,11 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 
 extern "C" unsigned char TSG_MASTER_TCP_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
-	if(a_tcp->type==STREAM_TYPE_TCP)
-	{		
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1); 		
-	}
-	
 	return tsg_master_entry(a_tcp, pme, thread_seq, a_packet);
 }
 
 extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, void **pme, int thread_seq,void *a_packet)
 {
-	if(a_udp->type==STREAM_TYPE_UDP)
-	{		
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1); 		
-	}
-
 	return tsg_master_entry(a_udp, pme, thread_seq, a_packet);
 }
 
