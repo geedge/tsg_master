@@ -24,9 +24,17 @@ enum TSG_METHOD_TYPE
 	TSG_METHOD_TYPE_BLOCK,
 	TSG_METHOD_TYPE_RESET,
 	TSG_METHOD_TYPE_ALERT,
+	TSG_METHOD_TYPE_RATE_LINIT,
 	TSG_METHOD_TYPE_MAX
 };
 
+enum TSG_DENY_TYPE
+{
+	TSG_DENY_TYPE_MESSAGE=0,
+	TSG_DENY_TYPE_PROFILE,
+	TSG_DENY_TYPE_REDIRECT_TO,
+	TSG_DENY_TYPE_MAX
+};
 struct identify_info
 {
 	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
@@ -34,15 +42,37 @@ struct identify_info
 	char domain[MAX_DOAMIN_LEN];
 };
 
-struct compile_user_region
+struct deny_user_region
 {
 	int code;
+	enum TSG_DENY_TYPE type;
+	union
+	{
+		char *message;
+		char *redirect_url_to;
+		int profile_id;
+		int bytes_per_sec;
+		void *para;
+	};
+};
+
+struct monitor_user_region
+{
+	int enabled;
+	int mirror_vlan_id;
+};
+
+struct compile_user_region
+{	
 	int ref_cnt;
-	int html_profile;
-	char protocol[32];
-	char method[32];
-	char *message;
-	Maat_rule_t *result;
+	enum TSG_METHOD_TYPE method_type;
+	union	
+	{
+		struct deny_user_region *deny;		
+		struct monitor_user_region *mirror;		
+		struct Maat_rule_t *result;				//XJ default policy
+		void *user_region_para;
+	};
 };
 
 typedef	enum _PULL_RESULT_TYPE
@@ -85,10 +115,21 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 //return NULL if none exists, otherwise return one deny rule;
 struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);
 
+enum ACTION_RETURN_TYPE
+{
+	ACTION_RETURN_TYPE_PROT=0,
+	ACTION_RETURN_TYPE_APP
+};
+unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *a_packet);
+
 int tsg_get_method_id(char *method);
+
+int tsg_free_compile_user_region(const struct Maat_rule_t *rule, struct compile_user_region *user_region);
+struct compile_user_region *tsg_get_compile_user_region(const Maat_feather_t maat_feather,	struct Maat_rule_t *result);
 
 int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq);
 int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq);
 int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int table_id, unsigned int *category_id, int category_id_num, int thread_seq);
+int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
 
 #endif

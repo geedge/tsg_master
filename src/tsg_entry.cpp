@@ -69,7 +69,13 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_APP_DPKT_RESULT, "D_result"},
 										 {0, TSG_FS2_APP_Q_RESULT, "Q_result"},
 										 {0, TSG_FS2_APP_USER_RESULT, "U_result"},
-										 {0, TSG_FS2_APP_BUILT_IN_RESULT, "B_result"}
+										 {0, TSG_FS2_APP_BUILT_IN_RESULT, "B_result"},
+										 {0, TSG_FS2_INJECT_PKT_SUCCESS, "inject_succuess"},
+										 {0, TSG_FS2_INJECT_PKT_FAILED, "inject_failed"},
+										 {0, TSG_FS2_MIRRORED_PKT_SUCCESS, "mirror_pkt_suc"},
+										 {0, TSG_FS2_MIRRORED_PKT_FAILED, "mirror_pkt_fai"},
+										 {0, TSG_FS2_MIRRORED_BYTE_SUCCESS, "mirror_byte_suc"},
+										 {0, TSG_FS2_MIRRORED_BYTE_FAILED, "mirror_byte_fai"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
@@ -259,18 +265,6 @@ static int is_hited_allow(struct Maat_rule_t *result, int hit_cnt)
 	return 0;
 }
 
-
-static int set_drop_stream(const struct streaminfo *a_stream)
-{
-	int opt_value=1;
-	MESA_set_stream_opt(a_stream, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
-	MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
-	MESA_set_stream_opt(a_stream, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
-
-	return 0;
-				
-}
-
 static int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data)
 {
 	if(a_stream==NULL || project_id<0)
@@ -341,6 +335,24 @@ static int get_default_policy(int compile_id, struct Maat_rule_t *result)
 		security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], &p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
 		return 1;
 	}
+
+	return 0;
+}
+
+int set_vlan_id_to_project(const struct streaminfo *a_stream, struct tcpall_context *context, int *vlan_id, int vlan_id_num, int thread_seq)
+{
+	int num=0;
+	context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	if(context==NULL)
+	{
+		context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
+		memset(context, 0, sizeof(struct tcpall_context));
+		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)context);
+	}
+
+	num=MIN(vlan_id_num, MAX_RESULT_NUM-context->vlan_id_num);
+	memcpy(context->vlan_id+context->vlan_id_num, vlan_id, num);
+	context->vlan_id_num+=num;
 
 	return 0;
 }
@@ -600,72 +612,6 @@ static void copy_bypass_result(const struct streaminfo *a_stream, struct master_
 								);
 
 	return ;
-}
-
-static unsigned char deal_deny_action(const struct streaminfo *a_stream, struct master_context *context, Maat_rule_t *p_result)
-{
-	int ret=0,opt_value=0;
-	struct rst_tcp_para rst_paras;
-	unsigned char state=APP_STATE_GIVEME;
-	int method_type=TSG_METHOD_TYPE_UNKNOWN;
-	struct compile_user_region *user_region=NULL;
-
-	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
-	if(user_region!=NULL)
-	{
-		method_type=tsg_get_method_id(user_region->method);		
-		security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
-	}
-	else
-	{
-		method_type=TSG_METHOD_TYPE_RESET;
-	}
-	
-	switch(method_type)
-	{
-		case	TSG_METHOD_TYPE_DROP:
-			set_drop_stream(a_stream);
-			state=APP_STATE_DROPPKT|APP_STATE_DROPME;
-			break;
-		case	TSG_METHOD_TYPE_RESET:
-			if(a_stream->type==STREAM_TYPE_TCP)
-			{
-				rst_paras.rst_pkt_num=1;
-				rst_paras.signature_seed1=65535;
-				rst_paras.signature_seed2=13;
-				rst_paras.th_flags=4;
-				rst_paras.__pad_no_use=0;
-				rst_paras.dir=DIR_DOUBLE;
-				ret=MESA_rst_tcp((struct streaminfo *)a_stream, &rst_paras, sizeof(rst_paras));
-				if(ret<0)
-				{
-					MESA_handle_runtime_log(g_tsg_para.logger,
-													RLOG_LV_FATAL,
-													"RST_TCP",
-													"Send RST failed policy_id: %d service: %d action: %d addr: %s",
-													p_result->config_id,
-													p_result->service_id,
-													(unsigned char)p_result->action,
-													PRINTADDR(a_stream, g_tsg_para.level)
-												);
-				}
-
-				opt_value=1;
-				MESA_set_stream_opt(a_stream, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
-			}
-
-			set_drop_stream(a_stream);
-			state=APP_STATE_DROPPKT|APP_STATE_DROPME;
-			break;
-		case	TSG_METHOD_TYPE_BLOCK:
-		case	TSG_METHOD_TYPE_ALERT:
-		case	TSG_METHOD_TYPE_REDIRECTION:
-			break;
-		default:
-			break;
-	}
-
-	return state;
 }
 
 static int l7_protocol_mapper(const char *filename)
@@ -1256,7 +1202,7 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 	return hit_num;
 }
 
-static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int hit_num, void *a_packet)
+static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int hit_num, const void *a_packet)
 {
 	Maat_rule_t *p_result=NULL;
 	unsigned char state=APP_STATE_GIVEME;
@@ -1268,7 +1214,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
-				state=deal_deny_action(a_stream, context, p_result);
+				state=tsg_deal_deny_action(a_stream, p_result, context->proto, ACTION_RETURN_TYPE_APP, a_packet);
 				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT)
 				{
 					context->hit_cnt=0;
@@ -1291,6 +1237,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 					break;
 				}
 				copy_monitor_result(a_stream, context, result, hit_num, a_stream->threadnum);
+				tsg_notify_hited_monitor_result(a_stream, result, hit_num, a_stream->threadnum);
 				break;
 			case	TSG_ACTION_BYPASS:
 				copy_bypass_result(a_stream, context, p_result, a_stream->threadnum);				
@@ -1540,40 +1487,62 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 	return tsg_master_entry(a_udp, pme, thread_seq, a_packet);
 }
 
-extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(struct streaminfo *a_tcp, void **pme, int thread_seq,const void *ip_hdr)
+extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq, const void *a_packet)
 {
-	struct tcphdr *tcp=NULL;
-
-	if(ip_hdr==NULL || a_tcp==NULL)
-	{
-		return APP_STATE_GIVEME;
-	}
-	
-	switch(a_tcp->addr.addrtype)
-	{
-		case	ADDR_TYPE_IPV4:		
-			tcp=(struct tcphdr *)MESA_net_jump_to_layer(ip_hdr, __ADDR_TYPE_IP_PAIR_V4, ADDR_TYPE_TCP);				
-			break;
-		case	ADDR_TYPE_IPV6:				
-			tcp=(struct tcphdr *)MESA_net_jump_to_layer(ip_hdr, __ADDR_TYPE_IP_PAIR_V6, ADDR_TYPE_TCP);
-			break;
-		default:
-			return APP_STATE_GIVEME;
-			break;
-	}
-	
-	if(!(tcp->syn))
-	{
-		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY, NULL, a_tcp->threadnum);
-		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_ASN, NULL, a_tcp->threadnum);
-		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_LOCATION, NULL, a_tcp->threadnum);
-		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_MLTS_USER_INFO, NULL, a_tcp->threadnum);
-		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_SUBSCRIBER_ID, NULL, a_tcp->threadnum);
+	int hit_num=0;
+	int vlan_id_num=0;
+	int vlan_id[MAX_RESULT_NUM]={0};
+	scan_status_t scan_mid=NULL;
+	struct Maat_rule_t *p_result=NULL;	
+	unsigned char state=APP_STATE_GIVEME;
+	struct Maat_rule_t result[MAX_RESULT_NUM]={0};
+	struct tcpall_context *context=(struct tcpall_context *)(*pme);
 		
-		return APP_STATE_DROPME;
+	if(a_tcp->pktstate==OP_STATE_PENDING)
+	{
+		hit_num=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, PROTO_UNKONWN, &scan_mid, result, MAX_RESULT_NUM);
+		if(hit_num>0)
+		{
+			p_result=tsg_policy_decision_criteria(result, hit_num);
+			switch(p_result->action)
+			{
+				case	TSG_ACTION_DENY:
+					state=tsg_deal_deny_action(a_tcp, p_result, PROTO_UNKONWN, ACTION_RETURN_TYPE_APP, a_packet);
+					master_send_log(a_tcp, p_result, hit_num, NULL, PROTO_UNKONWN, thread_seq);
+					break;
+				case	TSG_ACTION_MONITOR:
+					vlan_id_num=tsg_get_vlan_id_by_monitor_rule(g_tsg_maat_feather, result, hit_num, vlan_id, MAX_RESULT_NUM);
+					if(vlan_id_num<=0)
+					{
+						break;
+					}
+
+					set_vlan_id_to_project(a_tcp, context, vlan_id, vlan_id_num, thread_seq);
+					*pme=(void *)(context);
+
+					tsg_send_raw_packet(a_tcp, context->vlan_id, context->vlan_id_num, thread_seq);
+					break;
+				default:
+					break;
+			}
+		}
+		
+		Maat_clean_status(&scan_mid);
+		scan_mid=NULL;
+	}
+	
+	if(context!=NULL && context->vlan_id_num>0)
+	{
+		tsg_send_raw_packet(a_tcp, context->vlan_id, context->vlan_id_num, thread_seq);
 	}
 
-	return APP_STATE_GIVEME;
+	if(a_tcp->pktstate==OP_STATE_CLOSE && (*pme)!=NULL)
+	{
+		dictator_free(thread_seq, *pme);
+		*pme=NULL;
+	}
+	
+	return state;
 }
 
 extern "C" int TSG_MASTER_INIT()
@@ -1673,12 +1642,36 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 
+	g_tsg_para.tcpall_project_id=project_producer_register("TSG_TCPALL_CONTEXT", PROJECT_VAL_TYPE_STRUCT, free_context_label);
+	if(g_tsg_para.tcpall_project_id<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "CONTEXT_LABEL", "project_customer_register is error, context label: %s","TSG_TCPALL_CONTEXT");
+		return -1;
+	}
+
 	g_tsg_para.gather_app_project_id=project_producer_register("APP_IDENTIFY_RESULT", PROJECT_VAL_TYPE_STRUCT, free_gather_app_result);
 	if(g_tsg_para.gather_app_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_IDENTIFY_RESULT", "project_customer_register is error, context label: %s","APP_IDENTIFY_RESULT");
 		return -1;
 	}
+
+	char page_path[256];
+	memset(page_path, 0, sizeof(page_path));
+	MESA_load_profile_string_def(tsg_conffile, "HTTP_PLUG", "PAGE403", page_path, sizeof(page_path), "./tsgconf/HTTP403.html");
+	g_tsg_para.tpl_403 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
+	
+	memset(page_path, 0, sizeof(page_path));
+	MESA_load_profile_string_def(tsg_conffile, "HTTP_PLUG", "PAGE404", page_path, sizeof(page_path), "./tsgconf/HTTP404.html");
+	g_tsg_para.tpl_404 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
+
+	memset(page_path, 0, sizeof(page_path));
+	MESA_load_profile_string_def(tsg_conffile, "HTTP_PLUG", "PAGE200", page_path, sizeof(page_path), "./tsgconf/HTTP200.html");
+	g_tsg_para.tpl_200 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
+
+	memset(page_path, 0, sizeof(page_path));
+	MESA_load_profile_string_def(tsg_conffile, "HTTP_PLUG", "PAGE204", page_path, sizeof(page_path), "./tsgconf/HTTP204.html");
+	g_tsg_para.tpl_204 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
 
 	ret=tsg_rule_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
@@ -1741,7 +1734,7 @@ extern "C" int TSG_MASTER_INIT()
 
 	for(i=0; i<thread_num; i++)
 	{
-		FS_operate(g_tsg_para.fs2_handle,g_tsg_log_instance ->fs_status_ids[i], 0, FS_OP_SET, g_tsg_log_instance->send_log_percent[i]);
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_log_instance->fs_status_ids[i], 0, FS_OP_SET, g_tsg_log_instance->send_log_percent[i]);
 	}
 	
 	ret=tsg_statistic_init(tsg_conffile, g_tsg_para.logger);
@@ -1760,7 +1753,12 @@ extern "C" int TSG_MASTER_INIT()
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_GTP_HASH", "tsg_gtp_signaling_hash_init failed ...");
 		return -1;
 	}
-	
+
+	ret=tsg_send_raw_packet_init(tsg_conffile, g_tsg_para.logger);
+	if(ret<0)
+	{
+		return -1;
+	}
 	return 0;
 }
 

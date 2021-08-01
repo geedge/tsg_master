@@ -37,7 +37,8 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
 													{TSG_METHOD_TYPE_REDIRECTION, 8, (char *)"redirect"},
 													{TSG_METHOD_TYPE_BLOCK, 5, (char *)"block"},
 													{TSG_METHOD_TYPE_RESET, 3, (char *)"rst"},
-													{TSG_METHOD_TYPE_ALERT, 5, (char *)"alert"}
+													{TSG_METHOD_TYPE_ALERT, 5, (char *)"alert"},
+													{TSG_METHOD_TYPE_ALERT, 10, (char *)"rate_limit"}
 	};
 
 static char* str_unescape(char* s)
@@ -556,75 +557,170 @@ void app_id_dict_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, voi
 	return;
 }
 
-void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp)
-{	
-	int len=0;
-	cJSON *object=NULL, *item=NULL;
-	struct compile_user_region *user_region=NULL;
-	
-	if(rule!=NULL)
+static int get_string_from_json(cJSON *object, const char *key, char **value)
+{
+	if(object==NULL || key==NULL)
 	{
-		if(srv_def_large!=NULL && strlen(srv_def_large)>2)
-		{
-			object=cJSON_Parse(srv_def_large);
-			if(object!=NULL)
-			{				
-				user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
-				atomic_inc(&user_region->ref_cnt);
+		return 0;
+	}
+	int len=0;
+	cJSON *item=cJSON_GetObjectItem(object, key);
+	if(item!=NULL)
+	{
+		len=strlen(item->valuestring);
+		(*value)=(char *)malloc(len+1);
+		memcpy((*value), item->valuestring, len);
+		(*value)[len]='\0';
 
-				item=cJSON_GetObjectItem(object, "method");
-				if(item!=NULL)
-				{
-					len=MIN(strlen(item->valuestring), sizeof(user_region->method)-1);
-					memcpy(user_region->method, item->valuestring, len);
-				}
+		return 1;
+	}
 
-				item=cJSON_GetObjectItem(object, "protocol");
-				if(item!=NULL)
-				{
-					len=MIN(strlen(item->valuestring), sizeof(user_region->protocol)-1);
-					memcpy(user_region->protocol, item->valuestring, len);
-				}
+	return 0;
+}
 
-				item=cJSON_GetObjectItem(object, "message");
-				if(item!=NULL)
-				{
-					len=strlen(item->valuestring)+1;
-					user_region->message=(char *)calloc(1, len);
-					memcpy(user_region->message, item->valuestring, len-1);
-				}
+static int get_integer_from_json(cJSON *object, const char *key, int *value)
+{
+	if(object==NULL || key==NULL || (value)==NULL)
+	{
+		return 0;
+	}
+	
+	cJSON *item=cJSON_GetObjectItem(object, key);
+	if(item!=NULL)
+	{
+		(*value)=item->valueint;
+		return 1;
+	}
 
-				item=cJSON_GetObjectItem(object, "code");
-				if(item!=NULL)
-				{
-					user_region->code=item->valueint;
-				}
+	return 0;
+}
 
-				item=cJSON_GetObjectItem(object, "html_profile");
-				if(item!=NULL)
-				{
-					user_region->html_profile=item->valueint;
-				}
+static struct compile_user_region *parse_monitor_user_region(cJSON *object)
+{
+	cJSON *mirror_item=NULL;
+	struct compile_user_region *user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
+	mirror_item=cJSON_GetObjectItem(object, "packet_mirror");
+	if(mirror_item)
+	{
+		user_region->mirror=(struct monitor_user_region *)calloc(1, sizeof(struct monitor_user_region));
+		get_integer_from_json(mirror_item, "enable", &(user_region->mirror->enabled));		
+		get_integer_from_json(mirror_item, "mirror_vlan", &(user_region->mirror->mirror_vlan_id));
+	}
 
-				cJSON_Delete(object);
-				object=NULL;
-			}
-		}
+	return user_region;
+}
 
-		if(g_tsg_para.default_compile_switch==1 && g_tsg_para.default_compile_id==rule->config_id)
-		{
-			if(user_region==NULL)
+static struct compile_user_region *parse_deny_user_region(cJSON *object)
+{
+	int ret=0;
+	cJSON *item=NULL;	
+	struct compile_user_region *user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
+	
+	item=cJSON_GetObjectItem(object, "method");
+	if(item!=NULL)
+	{
+		user_region->method_type=(TSG_METHOD_TYPE)tsg_get_method_id(item->valuestring);
+	}
+
+	switch(user_region->method_type)
+	{
+		case	TSG_METHOD_TYPE_ALERT:
+		case	TSG_METHOD_TYPE_BLOCK:
+			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
+			get_integer_from_json(object, "code", &(user_region->deny->code));
+			ret=get_integer_from_json(object, "html_profile", &(user_region->deny->profile_id));
+			if(ret==1)
 			{
-				user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));				
-				atomic_inc(&user_region->ref_cnt);
+				user_region->deny->type=TSG_DENY_TYPE_PROFILE;
+				break;
 			}
 			
-			user_region->result=(struct Maat_rule_t *)calloc(1, sizeof(struct Maat_rule_t));
-			memcpy(user_region->result, rule, sizeof(struct Maat_rule_t));
-		}
-
-		*ad=(MAAT_RULE_EX_DATA)user_region;
+			ret=get_string_from_json(object, "message", &(user_region->deny->message));
+			if(ret==1)
+			{
+				user_region->deny->type=TSG_DENY_TYPE_MESSAGE;
+				break;
+			}
+			
+			user_region->deny->type=TSG_DENY_TYPE_MAX;
+			break;
+		case	TSG_METHOD_TYPE_REDIRECTION:
+			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
+			get_integer_from_json(object, "code", &(user_region->deny->code));
+			ret=get_string_from_json(object, "redirect_url", &(user_region->deny->redirect_url_to));
+			if(ret==1)
+			{
+				user_region->deny->type=TSG_DENY_TYPE_REDIRECT_TO;
+				break;
+			}
+			ret=get_string_from_json(object, "to", &(user_region->deny->redirect_url_to));
+			if(ret==1)
+			{
+				user_region->deny->type=TSG_DENY_TYPE_REDIRECT_TO;
+				break;
+			}
+			break;
+		case	TSG_METHOD_TYPE_RATE_LINIT:
+			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
+			get_integer_from_json(object, "bytes_per_sec", &(user_region->deny->bytes_per_sec));
+			break;
+		case	TSG_METHOD_TYPE_DROP:
+		case	TSG_METHOD_TYPE_RESET:
+			break;
+		default:
+			break;
 	}
+	
+	return user_region;
+}
+
+void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp)
+{
+	cJSON *object=NULL;
+	struct compile_user_region *user_region=NULL;
+	
+	if(rule==NULL)
+	{
+		return ;
+	}
+	
+	if(srv_def_large!=NULL && strlen(srv_def_large)>2)
+	{
+		object=cJSON_Parse(srv_def_large);
+		if(object!=NULL)
+		{				
+			switch(rule->action)
+			{
+				case	TSG_ACTION_DENY:
+					user_region=parse_deny_user_region(object);
+					atomic_inc(&user_region->ref_cnt);
+					break;
+				case	TSG_ACTION_MONITOR:
+					user_region=parse_monitor_user_region(object);
+					atomic_inc(&user_region->ref_cnt);
+					break; 
+				default:
+					break;
+			}
+
+			cJSON_Delete(object);
+			object=NULL;
+		}
+	}
+
+	if(g_tsg_para.default_compile_switch==1 && g_tsg_para.default_compile_id==rule->config_id)
+	{
+		if(user_region==NULL)
+		{
+			user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));				
+			atomic_inc(&user_region->ref_cnt);
+		}
+		
+		user_region->result=(struct Maat_rule_t *)calloc(1, sizeof(struct Maat_rule_t));
+		memcpy(user_region->result, rule, sizeof(struct Maat_rule_t));
+	}
+
+	*ad=(MAAT_RULE_EX_DATA)user_region;
 
 	return ;
 }
@@ -639,32 +735,183 @@ void security_compile_dup(int idx, MAAT_RULE_EX_DATA *to, MAAT_RULE_EX_DATA *fro
 	}
 }
 
+static void free_deny_user_region(struct deny_user_region *deny)
+{
+	if(deny==NULL)
+	{
+		return ;
+	}
+
+	switch(deny->type)
+	{
+		case	TSG_DENY_TYPE_MESSAGE:
+		case	TSG_DENY_TYPE_REDIRECT_TO:
+			if(deny->para)
+			{
+				free(deny->para);
+				deny->para=NULL;
+			}
+			break;
+		default:
+			break;
+	}
+
+}
+
 void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp)
 {
 	struct compile_user_region *user_region=(struct compile_user_region *)(*ad);
-	if(user_region!=NULL)
+	if(user_region==NULL)
 	{
-		atomic_dec(&user_region->ref_cnt);
-		if(user_region->ref_cnt<=0)
-		{
-			if(user_region->message!=NULL)
-			{
-				free(user_region->message);
-				user_region->message=NULL;
-			}
+		return ;
+	}
+	
+	atomic_dec(&user_region->ref_cnt);
+	if(user_region->ref_cnt>0)
+	{
+		return ;
+	}
+	
+	switch(user_region->method_type)
+	{
+		case	TSG_METHOD_TYPE_ALERT:
+		case	TSG_METHOD_TYPE_BLOCK:
+		case	TSG_METHOD_TYPE_RATE_LINIT:
+		case	TSG_METHOD_TYPE_REDIRECTION:
+			free_deny_user_region(user_region->deny);
+			break;
+		default:
+			break;
+	}
+	
+	if(user_region->user_region_para!=NULL)
+	{
+		free(user_region->user_region_para);
+		user_region->user_region_para=NULL;
+	}
+	
+	free(*ad);
+	*ad=NULL;
+		
+}
 
-			if(user_region->result!=NULL)
-			{
-				free(user_region->result);
-				user_region->result=NULL;
-			}
-			
-			free(*ad);
-			*ad=NULL;
-		}
+static char *get_pages_content(const char *filename, int *filelen)
+{
+	FILE *file = NULL;
+	long length = 0;
+	char *content = NULL;
+	size_t read_chars = 0;
+	file = fopen(filename, "rb");
+	if(file == NULL)
+	{
+		goto cleanup;
+	}
+	if(fseek(file, 0, SEEK_END) != 0)
+	{
+		goto cleanup;
+	}
+	length = ftell(file);
+	if(length < 0)
+	{
+		goto cleanup;
+	}
+	if(fseek(file, 0, SEEK_SET) != 0) 
+	{
+		goto cleanup;
+	} 
+	content = (char*)malloc((size_t)length + sizeof("")); 
+	if(content == NULL)
+	{
+		goto cleanup;
+	}
+	read_chars = fread(content, sizeof(char), (size_t)length, file);
+	if ((long)read_chars != length)
+	{
+		free(content);
+		content = NULL;
+		goto cleanup;
+	}
+	*filelen = read_chars;
+	content[read_chars] = '\0';
+cleanup:
+	if (file != NULL)
+	{
+		fclose(file);
+	}
+
+	return content;
+}
+
+
+void http_response_pages_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+{
+	struct http_response_pages *res_pages=(struct http_response_pages *)*from;
+
+	if(*from!=NULL)
+	{
+		*to=*from;
+		atomic_inc(&res_pages->ref_cnt);
 	}
 }
 
+void http_response_pages_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	int ret=0;
+	void *logger=argp;
+	int is_valid;
+	char format[256]={0};
+	char path[1024]={0};
+	char profile_name[256]={0};
+	struct http_response_pages *res_pages=NULL;
+
+	res_pages=(struct http_response_pages *)calloc(1, sizeof(struct http_response_pages));
+	
+	ret=sscanf(table_line, "%d\t%s\t%s\t%s\t%d", &res_pages->profile_id, profile_name, format, path, &is_valid);
+	if(ret!=5)
+	{
+		free(res_pages);
+		res_pages=NULL;
+		if(logger!=NULL)
+		{
+			MESA_handle_runtime_log(logger, 
+									RLOG_LV_FATAL,
+									"RESPONSE_PAGES",
+									"Parse response pages failed, ret: %d table_id: %d key: %s table_line: %s",
+									ret,
+									table_id,
+									key,
+									table_line
+									);
+		}
+		return;
+	}
+	
+	if((strncasecmp(format, "template", strlen(format)))==0)
+	{
+		res_pages->format=HTTP_RESPONSE_FORMAT_TEMPLATE;
+	}
+	else
+	{
+		res_pages->format=HTTP_RESPONSE_FORMAT_HTML;
+	}
+	
+	atomic_inc(&res_pages->ref_cnt);
+	res_pages->content=get_pages_content(path, &res_pages->content_len);
+	*ad=(MAAT_PLUGIN_EX_DATA)res_pages;
+}
+
+void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	struct http_response_pages *res_pages=(struct http_response_pages *)*ad;
+
+	atomic_dec(&res_pages->ref_cnt);
+	if(res_pages->ref_cnt<=0)
+	{
+		free(res_pages->content);
+		free(*ad);
+		*ad=NULL;	
+	}
+}
 
 static int get_fqdn_category_id(Maat_feather_t maat_feather, int table_id, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq)
 {
@@ -858,6 +1105,8 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "GTP_APN", g_tsg_para.table_name[TABLE_GTP_APN], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_APN");
 	MESA_load_profile_string_def(conffile, "MAAT", "GTP_IMSI", g_tsg_para.table_name[TABLE_GTP_IMSI], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_IMSI");
 	MESA_load_profile_string_def(conffile, "MAAT", "GTP_PHONE_NUMBER", g_tsg_para.table_name[TABLE_GTP_PHONE_NUMBER], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_PHONE_NUMBER");
+	MESA_load_profile_string_def(conffile, "MAAT", "GTP_PHONE_NUMBER", g_tsg_para.table_name[TABLE_GTP_PHONE_NUMBER], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_PHONE_NUMBER");
+	MESA_load_profile_string_def(conffile, "MAAT", "RESPONSE_PAGES_TABLE", g_tsg_para.table_name[TABLE_RESPONSE_PAGES], _MAX_TABLE_NAME_LEN, "TSG_PROFILE_RESPONSE_PAGES");
 
 	//init static maat feather
 	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", logger);
@@ -978,6 +1227,25 @@ int tsg_rule_init(const char* conffile, void *logger)
 									g_tsg_para.table_name[TABLE_APP_ID_DICT],
 									g_tsg_para.table_id[TABLE_APP_ID_DICT]
 								); 
+		return -1;		
+	}
+	
+	ret=Maat_plugin_EX_register(g_tsg_maat_feather,
+							g_tsg_para.table_id[TABLE_RESPONSE_PAGES],
+							http_response_pages_new,
+							http_response_pages_free,
+							http_response_pages_dup,
+							NULL,
+							0,
+							logger);
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(logger, 
+								RLOG_LV_FATAL,
+								"RESPONSE_PAGES",
+								"Maat_plugin_EX_register failed, table_name: %s table_id: %d",
+								g_tsg_para.table_name[TABLE_RESPONSE_PAGES],
+								g_tsg_para.table_id[TABLE_RESPONSE_PAGES]); 
 		return -1;		
 	}
 
@@ -1778,3 +2046,40 @@ int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_p
 
 	return offset;
 }
+
+int tsg_free_compile_user_region(const struct Maat_rule_t *rule, struct compile_user_region *user_region)
+{
+	security_compile_free(0,  rule, NULL , (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+
+	return 0;
+}
+
+struct compile_user_region *tsg_get_compile_user_region(const Maat_feather_t maat_feather,  struct Maat_rule_t *result)
+{
+	return ((struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]));
+}
+
+int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rule_t *result, int result_num, int *vlan_id, int vlan_id_num)
+{
+	int i=0,count=0;
+	struct compile_user_region *user_region=NULL;
+
+	for(i=0; i<result_num && count<vlan_id_num; i++)
+	{
+		if(result[i].action!=TSG_ACTION_MONITOR)
+		{
+			continue;
+		}
+		
+		user_region=tsg_get_compile_user_region(maat_feather, &(result[i]));
+		if(user_region!=NULL)
+		{
+			vlan_id[count++]=user_region->mirror->mirror_vlan_id;
+			tsg_free_compile_user_region(&(result[i]), user_region);
+			user_region=NULL;
+		}
+	}
+	
+	return count;
+}
+

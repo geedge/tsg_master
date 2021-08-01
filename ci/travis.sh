@@ -36,6 +36,7 @@ env | sort
 if [ -n "${INSTALL_DEPENDENCY_LIBRARY}" ]; then
 	yum install -y $INSTALL_DEPENDENCY_LIBRARY
 	source /etc/profile.d/framework.sh
+  source /etc/profile.d/mrzcpd.sh
 fi
 
 if [ $ASAN_OPTION ];then
@@ -58,7 +59,7 @@ if [ -n "${PACKAGE}" ]; then
 	make package
 fi
 
-if [ -n "${UPLOAD_RPM}" ]; then	
+if [ -n "${UPLOAD_RPM}" ]; then
 	cp ~/rpm_upload_tools.py ./
 	python3 rpm_upload_tools.py ${PULP3_REPO_NAME} ${PULP3_DIST_NAME} *.rpm
 fi
