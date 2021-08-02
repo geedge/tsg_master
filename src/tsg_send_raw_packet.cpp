@@ -11,11 +11,11 @@
 
 static int send_raw_packet(struct traffic_mirror *ttm,char * pkt_ptr,int pkt_len,int *vlan_array,int vlan_num,int thread_seq)
 {
-	int ret=tsg_traffic_mirror_send_burst(ttm, (char *)pkt_ptr, pkt_len, vlan_array, vlan_num, thread_seq);		
-	if(ret==TRRAFFIC_MIRROR_SEND_SUCCESS)
-	{				
+	int ret=tsg_traffic_mirror_send_burst(ttm, (char *)pkt_ptr, pkt_len, vlan_array, vlan_num, thread_seq);
+	if(ret==TRAFFIC_MIRROR_SEND_SUCCESS)
+	{
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_MIRRORED_PKT_SUCCESS], 0, FS_OP_ADD, 1);
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_MIRRORED_BYTE_SUCCESS], 0, FS_OP_ADD, pkt_len); 		
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_MIRRORED_BYTE_SUCCESS], 0, FS_OP_ADD, pkt_len);
 	}
 	else
 	{
@@ -34,7 +34,7 @@ int tsg_send_raw_packet(const struct streaminfo *a_stream, int *vlan_id, int vla
 	void *p_eth_rawpkt=NULL;
 	int eth_rawpkt_len=0;
 	raw_ipfrag_list_t *frag_pkt=NULL;
-	
+
 	if(g_tsg_para.mirror_switch==0)
 	{
 		return 0;
@@ -49,21 +49,21 @@ int tsg_send_raw_packet(const struct streaminfo *a_stream, int *vlan_id, int vla
 			{
 				break;
 			}
-			
+
 			send_raw_packet(g_tsg_para.mirror_handle, (char *)p_eth_rawpkt, eth_rawpkt_len, vlan_id, vlan_id_num, thread_seq);
 			break;
 		case	1:
 			frag_pkt=(raw_ipfrag_list_t *)p_eth_rawpkt;
 			while(frag_pkt)
 			{
-				send_raw_packet(g_tsg_para.mirror_handle, (char *)(frag_pkt->frag_packet), frag_pkt->pkt_len, vlan_id, vlan_id_num, thread_seq);				
+				send_raw_packet(g_tsg_para.mirror_handle, (char *)(frag_pkt->frag_packet), frag_pkt->pkt_len, vlan_id, vlan_id_num, thread_seq);
 				frag_pkt = frag_pkt->next;
 			}
 			break;
 		default:
 			break;
 	}
-		
+
 	return 0;
 }
 
@@ -96,7 +96,7 @@ int tsg_send_raw_packet_init(const char* conffile, void *logger)
 	{
 		return 0;
 	}
-	
+
 	g_tsg_para.mirror_handle=tsg_traffic_mirror_init(conffile, g_tsg_para.logger);
 	if(g_tsg_para.mirror_handle==NULL)
 	{

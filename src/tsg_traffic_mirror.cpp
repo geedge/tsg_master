@@ -28,7 +28,7 @@ struct traffic_mirror
 
 struct traffic_mirror *tsg_traffic_mirror_init(const char *conffile, void *logger)
 {
-  int ret=0,traffic_mirror_enable=TRRAFFIC_MIRROR_DISABLE;
+  int ret=0,traffic_mirror_enable=TRAFFIC_MIRROR_DISABLE;
   struct traffic_mirror *ttm = NULL;
 
   ttm=(struct traffic_mirror *)calloc(1, sizeof(struct traffic_mirror));
@@ -40,7 +40,7 @@ struct traffic_mirror *tsg_traffic_mirror_init(const char *conffile, void *logge
   }
 
   MESA_load_profile_int_def(conffile, "TRAFFIC_MIRROR", "TRAFFIC_MIRROR_ENABLE", &traffic_mirror_enable, 0);
-  if (traffic_mirror_enable != TRRAFFIC_MIRROR_ENABLE)
+  if (traffic_mirror_enable != TRAFFIC_MIRROR_ENABLE)
   {
     MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "TSG_TRAFFIC_MIRROR", "Traffic Mirror Is Disable !!!");
     goto init_error;
@@ -131,7 +131,7 @@ int tsg_traffic_mirror_send_burst(struct traffic_mirror *ttm,char * pkt_ptr,int 
     return SEND_ERROR_VLAN_NUM_EXCEED_BURST_MAX;
   }
 
-  if (PREDICT_FALSE((vlan_num <= 1) || (vlan_array == NULL)))
+  if (PREDICT_FALSE((vlan_num < 1) || (vlan_array == NULL)))
   {
     tx_buffer_num = 1;
     vlan_tag_array = &ttm->default_vlan_id;
@@ -157,11 +157,12 @@ int tsg_traffic_mirror_send_burst(struct traffic_mirror *ttm,char * pkt_ptr,int 
     marsio_buff_set_metadata(tx_buff_ptr,MR_BUFF_METADATA_VLAN_TCI,&vlan_id,sizeof(vlan_id));
   }
 
-  ret = marsio_send_burst_with_options(ttm->to_dev_sendpath, thread_seq, tx_buff, tx_buffer_num, MARSIO_SEND_OPT_FAST);
+  ret = marsio_send_burst(ttm->to_dev_sendpath, thread_seq, tx_buff, tx_buffer_num);
   if (PREDICT_FALSE(ret < 0))
   {
-    return TRRAFFIC_MIRROR_SEND_ERROR_DROP;
+    marsio_buff_free(ttm->mr_instance, tx_buff, tx_buffer_num, MARSIO_SOCKET_ID_ANY, MARSIO_LCORE_ID_ANY);
+    return TRAFFIC_MIRROR_SEND_ERROR_DROP;
   }
 
-  return TRRAFFIC_MIRROR_SEND_SUCCESS;
+  return TRAFFIC_MIRROR_SEND_SUCCESS;
 }
