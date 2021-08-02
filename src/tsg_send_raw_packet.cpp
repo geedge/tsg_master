@@ -84,7 +84,7 @@ int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Ma
 		return 0;
 	}
 
-	set_vlan_id_to_project(a_stream, context, vlan_id, vlan_id_num, thread_seq);
+	set_vlan_id_to_project(a_stream, &context, vlan_id, vlan_id_num, thread_seq);
 
 	return 1;
 }

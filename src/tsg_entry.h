@@ -308,7 +308,7 @@ void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void app_id_dict_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
-int set_vlan_id_to_project(const struct streaminfo *a_stream, struct tcpall_context *context, int *vlan_id, int vlan_id_num, int thread_seq);
+int set_vlan_id_to_project(const struct streaminfo *a_stream, struct tcpall_context **context, int *vlan_id, int vlan_id_num, int thread_seq);
 void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp);
 
 struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, int thread_seq);

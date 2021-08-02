@@ -339,20 +339,20 @@ static int get_default_policy(int compile_id, struct Maat_rule_t *result)
 	return 0;
 }
 
-int set_vlan_id_to_project(const struct streaminfo *a_stream, struct tcpall_context *context, int *vlan_id, int vlan_id_num, int thread_seq)
+int set_vlan_id_to_project(const struct streaminfo *a_stream, struct tcpall_context **context, int *vlan_id, int vlan_id_num, int thread_seq)
 {
 	int num=0;
-	context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
-	if(context==NULL)
+	(*context)=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	if(*context==NULL)
 	{
-		context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
-		memset(context, 0, sizeof(struct tcpall_context));
-		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)context);
+		(*context)=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
+		memset((*context), 0, sizeof(struct tcpall_context));
+		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)(*context));
 	}
 
-	num=MIN(vlan_id_num, MAX_RESULT_NUM-context->vlan_id_num);
-	memcpy(context->vlan_id+context->vlan_id_num, vlan_id, num);
-	context->vlan_id_num+=num;
+	num=MIN(vlan_id_num, MAX_RESULT_NUM-(*context)->vlan_id_num);
+	memcpy((*context)->vlan_id+(*context)->vlan_id_num, vlan_id, num);
+	(*context)->vlan_id_num+=num;
 
 	return 0;
 }
@@ -1517,7 +1517,7 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 						break;
 					}
 
-					set_vlan_id_to_project(a_tcp, context, vlan_id, vlan_id_num, thread_seq);
+					set_vlan_id_to_project(a_tcp, &context, vlan_id, vlan_id_num, thread_seq);
 					*pme=(void *)(context);
 
 					tsg_send_raw_packet(a_tcp, context->vlan_id, context->vlan_id_num, thread_seq);
