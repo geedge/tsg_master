@@ -1472,6 +1472,12 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 	struct Maat_rule_t result[MAX_RESULT_NUM]={0};	
 	struct mirrored_vlan vlan[MAX_RESULT_NUM]={0};
 	struct tcpall_context *context=(struct tcpall_context *)(*pme);
+
+	if(context==NULL)
+	{
+		context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+		*pme=(void *)context;
+	}
 		
 	switch(stream_state)
 	{
