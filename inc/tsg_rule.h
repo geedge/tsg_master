@@ -52,7 +52,7 @@ struct deny_user_region
 		char *message;
 		char *redirect_url_to;
 		int profile_id;
-		int bytes_per_sec;
+		int bps;
 		void *para;
 	};
 };

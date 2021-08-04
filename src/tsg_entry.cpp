@@ -1529,7 +1529,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 							break;
 						}
 
-						ret=is_permit_pass(eth_rawpkt_len, context->bucket, thread_seq);
+						ret=is_permit_pass(eth_rawpkt_len*8, context->bucket, thread_seq);
 						if(ret==0)
 						{
 							state=APP_STATE_GIVEME|APP_STATE_DROPPKT;

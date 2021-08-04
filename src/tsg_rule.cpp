@@ -38,7 +38,7 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
 													{TSG_METHOD_TYPE_BLOCK, 5, (char *)"block"},
 													{TSG_METHOD_TYPE_RESET, 3, (char *)"rst"},
 													{TSG_METHOD_TYPE_ALERT, 5, (char *)"alert"},
-													{TSG_METHOD_TYPE_ALERT, 10, (char *)"rate_limit"}
+													{TSG_METHOD_TYPE_RATE_LINIT, 10, (char *)"rate_limit"}
 	};
 
 static char* str_unescape(char* s)
@@ -690,7 +690,8 @@ static struct compile_user_region *parse_deny_user_region(cJSON *object)
 			break;
 		case	TSG_METHOD_TYPE_RATE_LINIT:
 			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
-			get_integer_from_json(object, "bytes_per_sec", &(user_region->deny->bytes_per_sec));
+			user_region->deny->type=TSG_DENY_TYPE_MAX;
+			get_integer_from_json(object, "bps", &(user_region->deny->bps));
 			break;
 		case	TSG_METHOD_TYPE_DROP:
 		case	TSG_METHOD_TYPE_RESET:
