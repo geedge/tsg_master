@@ -25,6 +25,7 @@ enum TSG_METHOD_TYPE
 	TSG_METHOD_TYPE_RESET,
 	TSG_METHOD_TYPE_ALERT,
 	TSG_METHOD_TYPE_RATE_LINIT,
+	TSG_METHOD_TYPE_MIRRORED,
 	TSG_METHOD_TYPE_MAX
 };
 
@@ -59,7 +60,7 @@ struct deny_user_region
 struct monitor_user_region
 {
 	int enabled;
-	int mirror_vlan_id;
+	int vlan_id;
 };
 
 struct compile_user_region

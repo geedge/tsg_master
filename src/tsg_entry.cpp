@@ -193,39 +193,6 @@ static int print_hit_path(const struct streaminfo *a_stream, struct master_conte
 	return 1;
 }
 
-static int is_xxx_proxy(const struct streaminfo *a_stream)
-{
-	if(a_stream!=NULL && a_stream->pfather!=NULL)
-	{
-		switch(a_stream->pfather->type)
-		{
-			case	STREAM_TYPE_SOCKS4:
-			case	STREAM_TYPE_SOCKS5:
-			case	STREAM_TYPE_HTTP_PROXY:
-				return 1;
-				break;
-			default:
-				break;
-		}
-	}
-
-	return 0;
-}
-
-static int is_free_context(const struct streaminfo *a_stream, int proxy_flag)
-{
-	if(proxy_flag==1)
-	{		
-		int is_proxy=is_xxx_proxy(a_stream);
-		if(is_proxy!=1)
-		{
-			return 0;
-		}
-	}
-
-	return 1;
-}
-
 static void free_user_item(char *item)
 {
 	if(item!=NULL)
@@ -265,7 +232,7 @@ static int is_hited_allow(struct Maat_rule_t *result, int hit_cnt)
 	return 0;
 }
 
-static int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data)
+int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data)
 {
 	if(a_stream==NULL || project_id<0)
 	{
@@ -288,7 +255,7 @@ static int set_struct_project(const struct streaminfo *a_stream, int project_id,
 	return 1;
 }
 
-static const void *get_struct_project(const struct streaminfo *a_stream, int project_id)
+const void *get_struct_project(const struct streaminfo *a_stream, int project_id)
 {
 	if(a_stream==NULL || project_id<0)
 	{
@@ -314,6 +281,27 @@ static int get_table_id(tsg_protocol_t protocol)
 	return -1;
 }
 
+static int get_raw_packet_len(const struct streaminfo *a_stream)
+{
+	int raw_packet_len=0;
+
+	if(a_stream->type==STREAM_TYPE_TCP)
+	{
+		if(a_stream->ptcpdetail==NULL || a_stream->ptcpdetail->pdata==NULL || a_stream->ptcpdetail->datalen<=0)
+		{
+			return 0;
+		}
+	}
+	
+	int ret=get_rawpkt_opt_from_streaminfo(a_stream, RAW_PKT_GET_TOT_LEN, &raw_packet_len);
+	if(ret<0)
+	{
+		return 0;
+	}
+
+	return raw_packet_len;
+}
+
 static int get_default_policy(int compile_id, struct Maat_rule_t *result)
 {
 	struct Maat_rule_t p_result={0};
@@ -335,24 +323,6 @@ static int get_default_policy(int compile_id, struct Maat_rule_t *result)
 		security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], &p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
 		return 1;
 	}
-
-	return 0;
-}
-
-int set_vlan_id_to_project(const struct streaminfo *a_stream, struct tcpall_context **context, int *vlan_id, int vlan_id_num, int thread_seq)
-{
-	int num=0;
-	(*context)=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
-	if(*context==NULL)
-	{
-		(*context)=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
-		memset((*context), 0, sizeof(struct tcpall_context));
-		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)(*context));
-	}
-
-	num=MIN(vlan_id_num, MAX_RESULT_NUM-(*context)->vlan_id_num);
-	memcpy((*context)->vlan_id+(*context)->vlan_id_num, vlan_id, num);
-	(*context)->vlan_id_num+=num;
 
 	return 0;
 }
@@ -450,7 +420,60 @@ static int tsg_proto_name2flag(char *proto_list, int *flag)
 
 static void free_context_label(int thread_seq, void *project_req_value)
 {
+	struct master_context *context=(struct master_context *)project_req_value;
+	if(context!=NULL)
+	{
+		if(context->domain!=NULL)
+		{
+			dictator_free(thread_seq, (void *)context->domain);
+			context->domain=NULL;
+		}
+
+		if(context->result!=NULL)
+		{
+			dictator_free(thread_seq, (void *)context->result);
+			context->result=NULL;
+		}
+
+		if(context->mid!=NULL)
+		{
+			Maat_clean_status(&context->mid);
+			context->mid=NULL;
+		}
+
+		dictator_free(thread_seq, (void *)context);
+		context=NULL;
+	}
+
 	project_req_value=NULL;
+
+	return ;
+}
+
+static void free_tcpall_label(int thread_seq, void *project_req_value)
+{
+	if(project_req_value!=NULL)
+	{
+		struct tcpall_context *context=(struct tcpall_context *)project_req_value;
+		if(context->para!=NULL)
+		{
+			switch(context->method_type)
+			{
+				case	TSG_METHOD_TYPE_MIRRORED:
+					dictator_free(thread_seq, (void *)(context->vlan));
+					context->vlan=NULL;
+					break;
+				case	TSG_METHOD_TYPE_RATE_LINIT:
+					destroy_bucket(&(context->bucket), thread_seq);
+					break;
+				default:
+					break;
+			}
+		}
+		
+		dictator_free(thread_seq, project_req_value);
+		project_req_value=NULL;
+	}
 
 	return ;
 }
@@ -762,40 +785,6 @@ static int scan_fqdn_category_id(Maat_feather_t maat_feather, const struct strea
 	}
 
 	return scan_ret;
-}
-
-void close_stream_free_context(const struct streaminfo *a_stream, struct master_context *context, int thread_seq)
-{
-	if(context!=NULL)
-	{
-		if(context->hit_cnt>0 && context->result!=NULL)
-		{
-			master_send_log(a_stream, context->result, context->hit_cnt, context->domain, context->proto, thread_seq);
-		}
-
-		if(context->domain!=NULL)
-		{
-			dictator_free(thread_seq, (void *)context->domain);
-			context->domain=NULL;
-		}
-
-		if(context->result!=NULL)
-		{
-			dictator_free(thread_seq, (void *)context->result);
-			context->result=NULL;
-		}
-
-		if(context->mid!=NULL)
-		{
-			Maat_clean_status(&context->mid);
-			context->mid=NULL;
-		}
-
-		dictator_free(thread_seq, (void *)context);
-		context=NULL;
-	}
-
-	return ;
 }
 
 void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int thread_seq)
@@ -1327,7 +1316,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 }
 
 
-static int master_deal_pending_state(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int result_num, void *a_packet)
+static int deal_pending_state(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int result_num, void *a_packet)
 {
 	int table_id=0;
 	int ret=0,hit_num=0;
@@ -1369,7 +1358,7 @@ static int master_deal_pending_state(const struct streaminfo *a_stream, struct m
 }
 
 
-static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **pme, int thread_seq,void *a_packet)
+static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, void **pme, int thread_seq,void *a_packet)
 {
 	int i=0, ret=0, hit_num=0;	
 	unsigned char state=APP_STATE_GIVEME;
@@ -1386,10 +1375,6 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 			init_context(pme, thread_seq);
 			context=(struct master_context *)*pme;
 			set_struct_project(a_stream, g_tsg_para.context_project_id, *pme);
-			if(is_xxx_proxy(a_stream))	//sock4/5
-			{
-				context->is_proxy=1;
-			}
 		}
 		else
 		{
@@ -1410,7 +1395,7 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);
 			}
 			
-			hit_num+=master_deal_pending_state(a_stream, context, scan_result+hit_num, MAX_RESULT_NUM-hit_num, a_packet);
+			hit_num+=deal_pending_state(a_stream, context, scan_result+hit_num, MAX_RESULT_NUM-hit_num, a_packet);
 			p_result=tsg_policy_decision_criteria(scan_result, hit_num);
 			if(g_tsg_para.default_compile_switch==1 && p_result==NULL)
 			{
@@ -1465,13 +1450,91 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 	
 	if((a_stream->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
-		context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
-		if(context!=NULL && (is_free_context(a_stream, context->is_proxy)))
+		if(context!=NULL && context->is_log==0 && context->hit_cnt>0 && context->result!=NULL)
 		{
-			close_stream_free_context(a_stream, context, thread_seq);
-			set_struct_project(a_stream, g_tsg_para.context_project_id, NULL);	//
+			context->is_log=1;
+			master_send_log(a_stream, context->result, context->hit_cnt, context->domain, context->proto, thread_seq);
 		}
 		*pme=NULL;
+	}
+
+	return state;
+}
+
+static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, unsigned char stream_state, void **pme, int thread_seq, const void *a_packet)
+{
+	int ret=0,hit_num=0;
+	int vlan_num=0;
+	int eth_rawpkt_len=0;
+	scan_status_t scan_mid=NULL;
+	struct Maat_rule_t *p_result=NULL;	
+	unsigned char state=APP_STATE_GIVEME;
+	struct Maat_rule_t result[MAX_RESULT_NUM]={0};	
+	struct mirrored_vlan vlan[MAX_RESULT_NUM]={0};
+	struct tcpall_context *context=(struct tcpall_context *)(*pme);
+		
+	switch(stream_state)
+	{
+		case	OP_STATE_PENDING:
+			hit_num=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, PROTO_UNKONWN, &scan_mid, result, MAX_RESULT_NUM);
+			if(hit_num>0)
+			{
+				p_result=tsg_policy_decision_criteria(result, hit_num);
+				switch(p_result->action)
+				{
+					case	TSG_ACTION_DENY:
+						state=tsg_deal_deny_action(a_stream, p_result, PROTO_UNKONWN, ACTION_RETURN_TYPE_APP, a_packet);
+						master_send_log(a_stream, p_result, hit_num, NULL, PROTO_UNKONWN, thread_seq);
+						break;
+					case	TSG_ACTION_MONITOR:
+						vlan_num=tsg_get_vlan_id_by_monitor_rule(g_tsg_maat_feather, result, hit_num, vlan, MAX_RESULT_NUM);
+						ret=tsg_set_vlan_id_to_tcpall(a_stream, &context, vlan, vlan_num, thread_seq);
+						if(ret<=0)
+						{
+							break;
+						}
+						
+						*pme=(void *)(context);
+						tsg_send_raw_packet(a_stream, context->vlan, context->vlan_num, thread_seq);
+						break;
+					default:
+						break;
+				}
+			}
+			
+			Maat_clean_status(&scan_mid);
+			scan_mid=NULL;
+		case	OP_STATE_DATA:
+		case	OP_STATE_CLOSE:
+				if(context==NULL || context->para==NULL)
+				{
+					break;
+				}
+				
+				switch(context->method_type)
+				{
+					case	TSG_METHOD_TYPE_MIRRORED:
+						tsg_send_raw_packet(a_stream, context->vlan, context->vlan_num, thread_seq);
+						break;
+					case	TSG_METHOD_TYPE_RATE_LINIT:
+						eth_rawpkt_len=get_raw_packet_len(a_stream);
+						if(eth_rawpkt_len<=0)
+						{
+							break;
+						}
+
+						ret=is_permit_pass(eth_rawpkt_len, context->bucket, thread_seq);
+						if(ret==0)
+						{
+							state=APP_STATE_GIVEME|APP_STATE_DROPPKT;
+						}
+						break;
+					default:
+						break;
+				}
+			break;
+		default:
+			break;
 	}
 
 	return state;
@@ -1479,70 +1542,43 @@ static unsigned char tsg_master_entry(const struct streaminfo *a_stream, void **
 
 extern "C" unsigned char TSG_MASTER_TCP_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
-	return tsg_master_entry(a_tcp, pme, thread_seq, a_packet);
+	return tsg_master_data_entry(a_tcp, pme, thread_seq, a_packet);
 }
+
+struct udp_context
+{
+	struct master_context *data_entry;
+	struct tcpall_context *all_entry;
+};
 
 extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, void **pme, int thread_seq,void *a_packet)
 {
-	return tsg_master_entry(a_udp, pme, thread_seq, a_packet);
-}
+	unsigned char state1=APP_STATE_GIVEME;
+	unsigned char state2=APP_STATE_GIVEME;
+	struct udp_context *context=(struct udp_context *)(*pme);
 
-extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq, const void *a_packet)
-{
-	int hit_num=0;
-	int vlan_id_num=0;
-	int vlan_id[MAX_RESULT_NUM]={0};
-	scan_status_t scan_mid=NULL;
-	struct Maat_rule_t *p_result=NULL;	
-	unsigned char state=APP_STATE_GIVEME;
-	struct Maat_rule_t result[MAX_RESULT_NUM]={0};
-	struct tcpall_context *context=(struct tcpall_context *)(*pme);
-		
-	if(a_tcp->pktstate==OP_STATE_PENDING)
+	if(*pme==NULL)
 	{
-		hit_num=tsg_scan_nesting_addr(g_tsg_maat_feather, a_tcp, PROTO_UNKONWN, &scan_mid, result, MAX_RESULT_NUM);
-		if(hit_num>0)
-		{
-			p_result=tsg_policy_decision_criteria(result, hit_num);
-			switch(p_result->action)
-			{
-				case	TSG_ACTION_DENY:
-					state=tsg_deal_deny_action(a_tcp, p_result, PROTO_UNKONWN, ACTION_RETURN_TYPE_APP, a_packet);
-					master_send_log(a_tcp, p_result, hit_num, NULL, PROTO_UNKONWN, thread_seq);
-					break;
-				case	TSG_ACTION_MONITOR:
-					vlan_id_num=tsg_get_vlan_id_by_monitor_rule(g_tsg_maat_feather, result, hit_num, vlan_id, MAX_RESULT_NUM);
-					if(vlan_id_num<=0)
-					{
-						break;
-					}
-
-					set_vlan_id_to_project(a_tcp, &context, vlan_id, vlan_id_num, thread_seq);
-					*pme=(void *)(context);
-
-					tsg_send_raw_packet(a_tcp, context->vlan_id, context->vlan_id_num, thread_seq);
-					break;
-				default:
-					break;
-			}
-		}
-		
-		Maat_clean_status(&scan_mid);
-		scan_mid=NULL;
+		*pme=dictator_malloc(thread_seq, sizeof(struct udp_context));
+		memset(*pme, 0, sizeof(struct udp_context));
+		context=(struct udp_context *)(*pme);
 	}
 	
-	if(context!=NULL && context->vlan_id_num>0)
-	{
-		tsg_send_raw_packet(a_tcp, context->vlan_id, context->vlan_id_num, thread_seq);
-	}
+	state1=tsg_master_all_entry(a_udp, a_udp->opstate, (void **)&(context->all_entry), thread_seq, a_packet);
+	state2=tsg_master_data_entry(a_udp, (void **)&(context->data_entry), thread_seq, a_packet);
 
-	if(a_tcp->pktstate==OP_STATE_CLOSE && (*pme)!=NULL)
+	if(state1&APP_STATE_DROPME || state2&APP_STATE_DROPME || a_udp->opstate==OP_STATE_CLOSE)
 	{
 		dictator_free(thread_seq, *pme);
 		*pme=NULL;
 	}
-	
-	return state;
+
+	return (state1|state2);
+}
+
+extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq, const void *a_packet)
+{
+	return tsg_master_all_entry(a_tcp, a_tcp->pktstate, pme, thread_seq, a_packet);
 }
 
 extern "C" int TSG_MASTER_INIT()
@@ -1642,7 +1678,7 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 
-	g_tsg_para.tcpall_project_id=project_producer_register("TSG_TCPALL_CONTEXT", PROJECT_VAL_TYPE_STRUCT, free_context_label);
+	g_tsg_para.tcpall_project_id=project_producer_register("TSG_TCPALL_CONTEXT", PROJECT_VAL_TYPE_STRUCT, free_tcpall_label);
 	if(g_tsg_para.tcpall_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "CONTEXT_LABEL", "project_customer_register is error, context label: %s","TSG_TCPALL_CONTEXT");

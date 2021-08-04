@@ -496,6 +496,17 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 	return APP_STATE_DROPPKT|APP_STATE_DROPME;
 }
 
+static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region)
+{
+	struct tcpall_context *context=NULL;
+	struct leaky_bucket *bucket=create_bucket((double)((user_region->deny->bytes_per_sec)/1000000), user_region->deny->bytes_per_sec, a_stream->threadnum);
+	tsg_set_bucket_to_tcpall(a_stream, &context, bucket, a_stream->threadnum);
+
+	context=NULL;
+	
+	return PROT_STATE_DROPME;
+}
+
 static unsigned char do_action_block_mail(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region)
 {
 	char *payload=NULL;
@@ -634,6 +645,9 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 			break;
 		case	TSG_METHOD_TYPE_REDIRECTION:
 			state=do_action_redirect_xxx( a_stream, p_result, user_region, protocol);
+			break;
+		case	TSG_METHOD_TYPE_RATE_LINIT:
+			state=do_action_ratelimit(a_stream, p_result, user_region);
 			break;
 		default:
 			break;

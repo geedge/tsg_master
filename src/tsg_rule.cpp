@@ -96,6 +96,33 @@ static int get_fqdn_len(char *domain)
 	return fqdn_len;
 }
 
+static int copy_id(int *dst_id, int dst_id_num, int *src_id, int src_id_num)
+{
+	int num=MIN(dst_id_num, src_id_num);
+	memcpy(dst_id, src_id, num);
+
+	return num;
+}
+
+static int copy_vlan_id(struct mirrored_vlan *vlan, int vlan_num, int vlan_id, int *compile_id, int compile_id_num)
+{
+	int i=0;
+
+	for(i=0; i<vlan_num; i++)
+	{
+		if(vlan[i].vlan_id==vlan_id)
+		{
+			vlan[i].compile_id_num+=copy_id(vlan[i].compile_id, MAX_RESULT_NUM-vlan[i].compile_id_num, compile_id, compile_id_num);
+			return 0;
+		}
+	}
+
+	vlan[vlan_num].vlan_id=vlan_id;
+	vlan[vlan_num].compile_id_num=copy_id(vlan[vlan_num].compile_id, MAX_RESULT_NUM, compile_id, compile_id_num);
+
+	return 1;
+}
+
 static int sort_category_id(const void * a, const void * b)
 {
 	struct _fqdn_category_t *x = (struct _fqdn_category_t *) a;
@@ -601,10 +628,11 @@ static struct compile_user_region *parse_monitor_user_region(cJSON *object)
 	struct compile_user_region *user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
 	mirror_item=cJSON_GetObjectItem(object, "packet_mirror");
 	if(mirror_item)
-	{
+	{		
+		user_region->method_type=TSG_METHOD_TYPE_MIRRORED;
 		user_region->mirror=(struct monitor_user_region *)calloc(1, sizeof(struct monitor_user_region));
 		get_integer_from_json(mirror_item, "enable", &(user_region->mirror->enabled));		
-		get_integer_from_json(mirror_item, "mirror_vlan", &(user_region->mirror->mirror_vlan_id));
+		get_integer_from_json(mirror_item, "mirror_vlan", &(user_region->mirror->vlan_id));
 	}
 
 	return user_region;
@@ -2059,12 +2087,12 @@ struct compile_user_region *tsg_get_compile_user_region(const Maat_feather_t maa
 	return ((struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]));
 }
 
-int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rule_t *result, int result_num, int *vlan_id, int vlan_id_num)
+int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rule_t *result, int result_num, struct mirrored_vlan *vlan, int vlan_num)
 {
 	int i=0,count=0;
 	struct compile_user_region *user_region=NULL;
 
-	for(i=0; i<result_num && count<vlan_id_num; i++)
+	for(i=0; i<result_num && count<vlan_num; i++)
 	{
 		if(result[i].action!=TSG_ACTION_MONITOR)
 		{
@@ -2074,7 +2102,7 @@ int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rul
 		user_region=tsg_get_compile_user_region(maat_feather, &(result[i]));
 		if(user_region!=NULL)
 		{
-			vlan_id[count++]=user_region->mirror->mirror_vlan_id;
+			count+=copy_vlan_id(vlan, count, user_region->mirror->vlan_id, &(result[i].config_id), 1);
 			tsg_free_compile_user_region(&(result[i]), user_region);
 			user_region=NULL;
 		}
@@ -2082,4 +2110,66 @@ int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rul
 	
 	return count;
 }
+
+int tsg_set_vlan_id_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct mirrored_vlan *vlan, int vlan_num, int thread_seq)
+{
+	int i=0;
+	
+	if(vlan==NULL || vlan_num<=0)
+	{
+		return 0;
+	}
+	
+	struct tcpall_context * _context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	if(_context==NULL)
+	{
+		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
+		memset(_context, 0, sizeof(struct tcpall_context));
+		_context->method_type=TSG_METHOD_TYPE_MIRRORED;
+		
+		_context->vlan=(struct mirrored_vlan *)dictator_malloc(thread_seq, sizeof(struct mirrored_vlan)*MAX_RESULT_NUM);
+		memset(_context->vlan, 0, sizeof(struct mirrored_vlan));
+		
+		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+	}
+
+	if(_context->method_type==TSG_METHOD_TYPE_MIRRORED)
+	{
+		for(i=0; i<vlan_num; i++)
+		{
+			_context->vlan_num+=copy_vlan_id(_context->vlan, _context->vlan_num, vlan[i].vlan_id, vlan[i].compile_id, vlan[i].compile_id_num);
+		}
+
+		(*context)=_context;
+		return 1;
+	}
+	
+	return 0;
+}
+
+int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct leaky_bucket *bucket, int thread_seq)
+{
+	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	if(_context==NULL)
+	{
+		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
+		memset(_context, 0, sizeof(struct tcpall_context));
+		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+	}
+	else
+	{
+		if(_context->method_type==TSG_METHOD_TYPE_MIRRORED && _context->vlan)
+		{
+			_context->vlan_num=0;
+			dictator_free(thread_seq, _context->vlan);
+			_context->vlan=NULL;
+		}
+	}
+	
+	_context->method_type=TSG_METHOD_TYPE_RATE_LINIT;
+	_context->bucket=bucket;
+	
+	return 0;
+}
+
 
