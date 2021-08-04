@@ -2100,7 +2100,7 @@ int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rul
 		}
 		
 		user_region=tsg_get_compile_user_region(maat_feather, &(result[i]));
-		if(user_region!=NULL)
+		if(user_region!=NULL && user_region->method_type==TSG_METHOD_TYPE_MIRRORED && user_region->mirror!=NULL)
 		{
 			count+=copy_vlan_id(vlan, count, user_region->mirror->vlan_id, &(result[i].config_id), 1);
 			tsg_free_compile_user_region(&(result[i]), user_region);
@@ -2133,7 +2133,7 @@ int tsg_set_vlan_id_to_tcpall(const struct streaminfo *a_stream, struct tcpall_c
 		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
 	}
 
-	if(_context->method_type==TSG_METHOD_TYPE_MIRRORED)
+	if(_context->method_type==TSG_METHOD_TYPE_MIRRORED && _context->vlan!=NULL)
 	{
 		for(i=0; i<vlan_num; i++)
 		{
