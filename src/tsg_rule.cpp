@@ -16,6 +16,7 @@
 #include "tsg_entry.h"
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
+#include "tsg_protocol_common.h"
 
 Maat_feather_t g_tsg_maat_feather;
 Maat_feather_t g_tsg_dynamic_maat_feather;
@@ -41,8 +42,50 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
 													{TSG_METHOD_TYPE_RATE_LINIT, 10, (char *)"rate_limit"}
 	};
 
+//functioned as strdup, for dictator compatible.
+static char* tsg_strdup(const char* s)
+{
+	char*d=NULL;
+	if(s==NULL)
+	{
+		return NULL;
+	}
+	d=(char*)malloc(strlen(s)+1);
+	memcpy(d,s,strlen(s)+1);
+	return d;
+}
+
+static int get_column_pos(const char* line, int column_seq, size_t *offset, size_t *len)
+{
+	const char* seps=" \t";
+	char* saveptr=NULL, *subtoken=NULL, *str=NULL;
+	char* dup_line=tsg_strdup(line);
+	int i=0, ret=-1;
+	for (str = dup_line; ; str = NULL)
+	{
+		subtoken = strtok_r(str, seps, &saveptr);
+		if (subtoken == NULL)
+			break;
+		if(i==column_seq-1)
+		{
+			*offset=subtoken-dup_line;
+			*len=strlen(subtoken);
+			ret=0;
+			break;
+		}
+		i++;
+	}
+	free(dup_line);
+	return ret;
+}
+
 static char* str_unescape(char* s)
 {
+	if(s==NULL)
+	{
+		return NULL;
+	}
+	
 	int i=0,j=0;
 	int len=strlen(s);
 	for(i=0,j=0;i<len;i++)
@@ -78,6 +121,35 @@ static char* str_unescape(char* s)
 	return s;
 }
 
+static int get_dns_qtype(char *qtype, int qtype_len)
+{
+	switch(qtype_len)
+	{
+		case	1:
+			if(qtype[0]=='A')
+			{
+				return DNS_TYPE_A;
+			}
+			break;
+		case	4:
+			if((strcasecmp(qtype, "AAAA"))==0)
+			{
+				return DNS_TYPE_AAAA;
+			}
+			break;
+		case	5:
+			if((strcasecmp(qtype, "CNAME"))==0)
+			{
+				return DNS_TYPE_CNAME;
+			}
+			break;
+		default:
+			break;
+	}
+	
+	return -1;
+}
+
 static int get_fqdn_len(char *domain)
 {
 	char *p=NULL;
@@ -98,9 +170,13 @@ static int get_fqdn_len(char *domain)
 
 static int copy_id(int *dst_id, int dst_id_num, int *src_id, int src_id_num)
 {
-	int num=MIN(dst_id_num, src_id_num);
-	memcpy(dst_id, src_id, num);
+	int i=0,num=0;
 
+	for(i=0; i<src_id_num && num<dst_id_num; i++)
+	{
+		dst_id[num++]=src_id[i];
+	}
+	
 	return num;
 }
 
@@ -125,8 +201,8 @@ static int copy_vlan_id(struct mirrored_vlan *vlan, int vlan_num, int vlan_id, i
 
 static int sort_category_id(const void * a, const void * b)
 {
-	struct _fqdn_category_t *x = (struct _fqdn_category_t *) a;
-	struct _fqdn_category_t *y = (struct _fqdn_category_t *) b;
+	struct fqdn_category *x = (struct fqdn_category *) a;
+	struct fqdn_category *y = (struct fqdn_category *) b;
 	
 	return (int)(x->category_id - y->category_id);
 }
@@ -170,20 +246,39 @@ static int get_data_center(char *accept_tag, char *effective_tag_key, char *data
 	return 0;
 }
 
-static void eliminate_default_value(char *value)
+static void _free_field(char *field)
 {
-	if(value!=NULL && (memcmp(value, "null", 4))==0)
+	if(field!=NULL)
 	{
-		value[0]='\0';
+		free(field);
+		field=NULL;
 	}
 }
 
-void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+static char *_malloc_field(const char *field_start, size_t field_len)
 {
-	struct _asn_info_t *asn=(struct _asn_info_t *)(*from);
-
-	if(asn!=NULL)
+	if(field_start==NULL || field_len<=0)
 	{
+		return NULL;
+	}
+
+	if(field_len==4 && (memcmp(field_start, "null", 4))==0)
+	{
+		return NULL;
+	}
+
+	char *field=(char *)malloc(field_len+1);
+	memcpy(field, field_start, field_len);
+	field[field_len]='\0';
+
+	return field;
+}
+
+void ASN_number_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+{
+	if((*from)!=NULL)
+	{
+		struct asn_info *asn=(struct asn_info *)(*from);
 		atomic_inc(&asn->ref_cnt);
 		*to=*from;
 	}
@@ -191,54 +286,54 @@ void ASN_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *fr
 	return;
 }
 
-void ASN_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+void ASN_number_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	int ret=0,id=0,is_valid=0;
+	int asn_field=5;
+	int organization_field=6;
 
-	struct _asn_info_t *asn=NULL;
-	asn=(struct _asn_info_t *)calloc(1, sizeof(struct _asn_info_t));
+	struct asn_info *asn=(struct asn_info *)calloc(1, sizeof(struct asn_info));
+
+	asn->asn_id=tsg_get_column_string_value(table_line, asn_field);
+	asn->organization=tsg_get_column_string_value(table_line, organization_field);
 	
-	ret=sscanf(table_line, "%d\t%d\t%s\t%s\t%s\t%s\t%d", &id, &asn->addr_type, asn->start_ip, asn->end_ip, asn->asn, asn->organization, &is_valid);
-	if(ret!=7)
+	if(asn->asn_id==NULL && asn->organization==NULL)
 	{
-		free(asn);
+		_free_field((char *)asn);
 		asn=NULL;
-		return;
+		return ;
 	}
-	
+
+	str_unescape(asn->asn_id);
 	str_unescape(asn->organization);
-	eliminate_default_value(asn->organization);
 
 	atomic_inc(&asn->ref_cnt);
-	asn->table_id=table_id;
 	*ad=(MAAT_PLUGIN_EX_DATA)asn;
 	
 	return;
 }
 
-void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+void ASN_number_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	struct _asn_info_t *asn=(struct _asn_info_t *)(*ad);
-
-	if(asn!=NULL)
+	if(*ad!=NULL)
 	{
-		atomic_dec(&asn->ref_cnt);
-				
-		if(asn->ref_cnt<=0)
+		struct asn_info *asn=(struct asn_info *)(*ad);
+		if((__sync_sub_and_fetch(&asn->ref_cnt, 1) == 0))	
 		{
-			free(*ad);
+			_free_field(asn->asn_id);
+			_free_field(asn->organization);
+			_free_field((char *)(*ad));
 			*ad=NULL;
 		}
 	}
+	
 	return;
 }
 
 void location_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
-	struct _location_info_t *location=(struct _location_info_t *)(*from);
-
-	if(location!=NULL)
+	if((*from)!=NULL)
 	{
+		struct location_info *location=(struct location_info *)(*from);
 		atomic_inc(&location->ref_cnt);
 		*to=*from;
 	}
@@ -248,64 +343,25 @@ void location_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DAT
 
 void location_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	void *logger=argp;
-	int ret=0,id=0,is_valid=0;
-	struct _location_info_t *location=NULL;
-
-	location=(struct _location_info_t *)calloc(1, sizeof(struct _location_info_t));
+	int country_full=13,province_full=15,city_full=16;
+	struct location_info *location=(struct location_info *)calloc(1, sizeof(struct location_info));
 	
-	ret=sscanf(table_line,
-				"%d\t%d\t%d\t%s\t%s\t%lf\t%lf\t%lf\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d",
-				&id,
-				&location->geoname_id,
-				&location->addr_type,
-				location->start_ip,
-				location->end_ip,
-				&location->latitude,
-				&location->longitude,
-				&location->coords,
-				location->language,
-				location->continent_abbr,
-				location->continent_full,
-				location->country_abbr,
-				location->country_full,
-				location->province_abbr,
-				location->province_full,
-				location->city_full,
-				location->time_zone,
-				&is_valid);
-	if(ret!=18)
+	location->country_full=tsg_get_column_string_value(table_line, country_full);	
+	location->province_full=tsg_get_column_string_value(table_line, province_full);
+	location->city_full=tsg_get_column_string_value(table_line, city_full);
+
+	if(location->country_full==NULL && location->province_full==NULL && location->city_full==NULL)
 	{
-		free(location);
+		_free_field((char *)location);
 		location=NULL;
-		
-		MESA_handle_runtime_log(logger, 
-									RLOG_LV_FATAL,
-									"IP_LOCATION",
-									"Parse ip location failed, ret: %d table_id: %d table_line: %s",
-									ret,
-									table_id,
-									table_line
-								);
-		return;
+		return ;
 	}
 
-	str_unescape(location->continent_full);
 	str_unescape(location->country_full);
 	str_unescape(location->province_full);
 	str_unescape(location->city_full);
-	eliminate_default_value(location->language);
-	eliminate_default_value(location->continent_abbr);
-	eliminate_default_value(location->continent_full);
-	eliminate_default_value(location->country_abbr);
-	eliminate_default_value(location->country_full);
-	eliminate_default_value(location->province_abbr);
-	eliminate_default_value(location->province_full);
-	eliminate_default_value(location->city_full);
-	eliminate_default_value(location->time_zone);
 	
 	atomic_inc(&location->ref_cnt);
-	location->table_id=table_id;
 	*ad=(MAAT_PLUGIN_EX_DATA)location;
 	
 	return;
@@ -313,15 +369,15 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 
 void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	struct _location_info_t *location=(struct _location_info_t *)(*ad);
-
-	if(location!=NULL)
+	if(*ad!=NULL)
 	{
-		atomic_dec(&location->ref_cnt);
-
-		if(location->ref_cnt<=0)
+		struct location_info *location=(struct location_info *)(*ad);
+		if((__sync_sub_and_fetch(&location->ref_cnt, 1) == 0))	
 		{
-			free(*ad);
+			_free_field(location->country_full);
+			_free_field(location->province_full);
+			_free_field(location->city_full);
+			_free_field((char *)(*ad));
 			*ad=NULL;
 		}
 	}
@@ -329,48 +385,28 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 	return;
 }
 
-void fqdn_cat_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+void fqdn_category_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
-	struct _fqdn_category_t *fqdn_cat=(struct _fqdn_category_t *)(*from);
-
-	if(fqdn_cat!=NULL)
+	if((*from)!=NULL)
 	{
+		struct fqdn_category *fqdn_cat=(struct fqdn_category *)(*from);
 		atomic_inc(&fqdn_cat->ref_cnt);
 		*to=*from;
 	}
 	return;
 }
 
-void fqdn_cat_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+void fqdn_category_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	void *logger=argp;
-	int ret=0,id=0,is_valid=0;
-	struct _fqdn_category_t *fqdn_cat=NULL;
+	int category_id=2;
 
-	fqdn_cat=(struct _fqdn_category_t *)calloc(1, sizeof(struct _fqdn_category_t));
-	
-	ret=sscanf(table_line,
-				"%d\t%u\t%s\t\t%d\t%d",
-				&id,
-				&fqdn_cat->category_id,
-				fqdn_cat->fqdn,
-				&fqdn_cat->match_method,
-				&is_valid
-				);
-	if(ret!=5)
+	struct fqdn_category * fqdn_cat=(struct fqdn_category *)calloc(1, sizeof(struct fqdn_category));
+	fqdn_cat->category_id=(unsigned int)tsg_get_column_integer_value(table_line, category_id);
+	if(fqdn_cat->category_id==((unsigned int)-1))
 	{
-		free(fqdn_cat);
+		_free_field((char *)fqdn_cat);
 		fqdn_cat=NULL;
-		
-		MESA_handle_runtime_log(logger, 
-									RLOG_LV_FATAL,
-									"FQDN_CAT",
-									"Parse fqdn category failed, ret: %d table_id: %d table_line: %s",
-									ret,
-									table_id,
-									table_line
-								);
-		return;
+		return ;
 	}
 	
 	atomic_inc(&fqdn_cat->ref_cnt);
@@ -379,30 +415,26 @@ void fqdn_cat_new_data(int table_id, const char* key, const char* table_line, MA
 	return;
 }
 
-void fqdn_cat_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+void fqdn_category_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	struct _fqdn_category_t *fqdn_cat=(struct _fqdn_category_t *)(*ad);
-
-	if(fqdn_cat!=NULL)
+	if((*ad)!=NULL)
 	{
-		atomic_dec(&fqdn_cat->ref_cnt);
-		
-		if(fqdn_cat->ref_cnt<=0)
+		struct fqdn_category *fqdn_cat=(struct fqdn_category *)(*ad);
+		if((__sync_sub_and_fetch(&fqdn_cat->ref_cnt, 1) == 0))	
 		{
-			free(*ad);
+			_free_field((char *)(*ad));
 			*ad=NULL;
 		}
 	}
+	
 	return;
 }
 
-
-void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+void subscriber_id_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
-	struct _subscribe_id_info_t *subscribe_id=(struct _subscribe_id_info_t *)(*from);
-
-	if(subscribe_id!=NULL)
+	if((*from)!=NULL)
 	{
+		struct subscribe_id_info *subscribe_id=(struct subscribe_id_info *)(*from);
 		atomic_inc(&subscribe_id->ref_cnt);
 		*to=*from;
 	}
@@ -410,52 +442,35 @@ void subscribe_id_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX
 	return;
 }
 
-void subscribe_id_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+void subscriber_id_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	void *logger=argp;
-	int ret=0,id=0,type=0,is_valid=0;
-	char ip_addr[MAX_IPV6_ADDR_LEN]={0};
-	struct _subscribe_id_info_t *subscribe_id=NULL;
+	int subscribe_id=4;
+	struct subscribe_id_info *subscriber=(struct subscribe_id_info *)calloc(1, sizeof(struct subscribe_id_info));
+	subscriber->subscribe_id=tsg_get_column_string_value(table_line, subscribe_id);
 
-	subscribe_id=(struct _subscribe_id_info_t *)calloc(1, sizeof(struct _subscribe_id_info_t));
-	
-	ret=sscanf(table_line, "%d\t%d\t%s\t%s\t%d", &id, &type, ip_addr, subscribe_id->subscribe_id, &is_valid);
-	if(ret!=5)
+	if(subscriber->subscribe_id==NULL)
 	{
-		free(subscribe_id);
-		subscribe_id=NULL;
+		_free_field((char *)subscriber);
+		subscriber=NULL;
 		
-		MESA_handle_runtime_log(logger, 
-								RLOG_LV_FATAL,
-								"SUBSCRIBE_ID",
-								"Parse subscribe_id failed, ret: %d table_id: %d table_line: %s",
-								ret,
-								table_id,
-								table_line
-								);
 		return;
 	}
 	
-	
-	
-	atomic_inc(&subscribe_id->ref_cnt);
-	subscribe_id->table_id=table_id;
-	*ad=(MAAT_PLUGIN_EX_DATA)subscribe_id;
+	atomic_inc(&subscriber->ref_cnt);
+	*ad=(MAAT_PLUGIN_EX_DATA)subscriber;
 	
 	return;
 }
 
-void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+void subscriber_id_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	struct _subscribe_id_info_t *subscribe_id=(struct _subscribe_id_info_t *)(*ad);
-
-	if(subscribe_id!=NULL)
+	if((*ad)!=NULL)
 	{
-		atomic_dec(&subscribe_id->ref_cnt);
-			
-		if(subscribe_id->ref_cnt<=0)
+		struct subscribe_id_info *subscriber=(struct subscribe_id_info *)(*ad);			
+		if((__sync_sub_and_fetch(&subscriber->ref_cnt, 1) == 0))	
 		{
-			free(*ad);
+			_free_field(subscriber->subscribe_id);
+			_free_field((char *)(*ad));
 			*ad=NULL;
 		}
 	}
@@ -463,121 +478,95 @@ void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, vo
 	return;
 }
 
-static void app_id_dict_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+static void app_id_dict_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
-	struct app_id_dict_table *app_id_dict=(struct app_id_dict_table *)(*from);
-
-	if(*from!=NULL)
+	if((*from)!=NULL)
 	{
-		atomic_inc(&app_id_dict->ref_cnt);
+		struct app_id_dict *dict=(struct app_id_dict *)(*from);
+		atomic_inc(&dict->ref_cnt);
 		*to=*from;
 	}
-	return;
-}
-
-static void app_id_dict_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
-{
-	void *logger=argp;
-	int ret=0;
-
-	struct app_id_dict_table *app_id_dict=NULL;
-	app_id_dict=(struct app_id_dict_table *)calloc(1, sizeof(struct app_id_dict_table));
-	if(g_tsg_para.app_dict_field_num==18)
-	{
-		ret=sscanf(table_line,
-				"%d\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d",
-				&app_id_dict->app_id, 
-				app_id_dict->app_name,
-				&app_id_dict->parent_app_id, 
-				app_id_dict->parent_app_name,
-				app_id_dict->category, 
-				app_id_dict->subcategroy, 
-				app_id_dict->technology,
-				app_id_dict->risk, 
-				app_id_dict->characteristics, 
-				app_id_dict->depends_on_app_ids, 
-				app_id_dict->implicitly_uses_app_ids, 
-				&app_id_dict->deny_action, 
-				&app_id_dict->continue_scanning, 
-				&app_id_dict->tcp_timeout, 
-				&app_id_dict->udp_timeout, 
-				&app_id_dict->tcp_half_close,
-				&app_id_dict->tcp_time_wait, 
-				&app_id_dict->is_valid);
-	}
-	else
-	{
-		ret=sscanf(table_line,
-				"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d",
-				&app_id_dict->app_id, 
-				app_id_dict->app_name,
-				app_id_dict->category, 
-				app_id_dict->subcategroy, 
-				app_id_dict->technology,
-				app_id_dict->risk, 
-				app_id_dict->characteristics, 
-				app_id_dict->depends_on_app_ids, 
-				app_id_dict->implicitly_uses_app_ids, 
-				&app_id_dict->deny_action, 
-				&app_id_dict->continue_scanning, 
-				&app_id_dict->tcp_timeout, 
-				&app_id_dict->udp_timeout, 
-				&app_id_dict->tcp_half_close,
-				&app_id_dict->tcp_time_wait, 
-				&app_id_dict->is_valid);
-	}
-	
-	if(ret!=g_tsg_para.app_dict_field_num)
-	{
-		free(app_id_dict);
-		app_id_dict=NULL;
-		
-		MESA_handle_runtime_log(logger, 
-									RLOG_LV_FATAL,
-									"APP_ID_DICT",
-									"Parse app_id_dict failed, ret: %d table_id: %d table_line: %s",
-									ret,
-									table_id,
-									table_line
-								);
-		return;
-	}
-
-	str_unescape(app_id_dict->app_name);
-	str_unescape(app_id_dict->parent_app_name);
-	str_unescape(app_id_dict->category);
-	str_unescape(app_id_dict->subcategroy);
-	str_unescape(app_id_dict->technology);
-	str_unescape(app_id_dict->characteristics);
-	str_unescape(app_id_dict->depends_on_app_ids);
-	str_unescape(app_id_dict->implicitly_uses_app_ids);
-
-	atomic_inc(&app_id_dict->ref_cnt);
-	eliminate_default_value(app_id_dict->app_name);
-	eliminate_default_value(app_id_dict->parent_app_name);
-	eliminate_default_value(app_id_dict->category);
-	eliminate_default_value(app_id_dict->subcategroy);
-	eliminate_default_value(app_id_dict->technology);
-	eliminate_default_value(app_id_dict->risk);
-	eliminate_default_value(app_id_dict->characteristics);
-	eliminate_default_value(app_id_dict->depends_on_app_ids);
-	eliminate_default_value(app_id_dict->implicitly_uses_app_ids);
-	
-	*ad=(MAAT_PLUGIN_EX_DATA)app_id_dict;
 	
 	return;
 }
 
-void app_id_dict_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+static void app_id_dict_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	struct app_id_dict_table *app_id_dict=(struct app_id_dict_table *)(*ad);
+	struct app_id_dict *dict=NULL;
 
-	if(app_id_dict!=NULL)
+	
+	switch(g_tsg_para.app_dict_field_num)
 	{
-		atomic_dec(&app_id_dict->ref_cnt);
-		if(app_id_dict->ref_cnt<=0)
+		case	16:
+			dict=(struct app_id_dict *)calloc(1, sizeof(struct app_id_dict));
+			
+			dict->app_id=tsg_get_column_integer_value(table_line, 1);
+			dict->app_name=tsg_get_column_string_value(table_line, 2);
+			dict->category=tsg_get_column_string_value(table_line, 3);
+			dict->subcategroy=tsg_get_column_string_value(table_line, 4);
+			dict->technology=tsg_get_column_string_value(table_line, 5);
+			dict->risk=tsg_get_column_string_value(table_line, 6); 
+			dict->characteristics=tsg_get_column_string_value(table_line, 7);
+			dict->deny_action=tsg_get_column_integer_value(table_line, 10);
+			dict->continue_scanning=tsg_get_column_integer_value(table_line, 11); 
+			dict->tcp_timeout=tsg_get_column_integer_value(table_line, 12);
+			dict->udp_timeout=tsg_get_column_integer_value(table_line, 13); 
+			dict->tcp_half_close=tsg_get_column_integer_value(table_line, 14);
+			dict->tcp_time_wait=tsg_get_column_integer_value(table_line, 15);
+			break;
+		case	18:
+			dict=(struct app_id_dict *)calloc(1, sizeof(struct app_id_dict));
+			
+			dict->app_id=tsg_get_column_integer_value(table_line, 1);
+			dict->app_name=tsg_get_column_string_value(table_line, 2);
+			dict->parent_app_id=tsg_get_column_integer_value(table_line, 3); 
+			dict->parent_app_name=tsg_get_column_string_value(table_line, 4);
+			dict->category=tsg_get_column_string_value(table_line, 5);
+			dict->subcategroy=tsg_get_column_string_value(table_line, 6);
+			dict->technology=tsg_get_column_string_value(table_line, 7);
+			dict->risk=tsg_get_column_string_value(table_line, 8); 
+			dict->characteristics=tsg_get_column_string_value(table_line, 9);
+			dict->deny_action=tsg_get_column_integer_value(table_line, 12);
+			dict->continue_scanning=tsg_get_column_integer_value(table_line, 13); 
+			dict->tcp_timeout=tsg_get_column_integer_value(table_line, 14);
+			dict->udp_timeout=tsg_get_column_integer_value(table_line, 15); 
+			dict->tcp_half_close=tsg_get_column_integer_value(table_line, 16);
+			dict->tcp_time_wait=tsg_get_column_integer_value(table_line, 17);
+			break;
+		default:
+			return ;
+			break;
+	}
+
+	str_unescape(dict->risk);
+	str_unescape(dict->app_name);
+	str_unescape(dict->parent_app_name);
+	str_unescape(dict->category);
+	str_unescape(dict->subcategroy);
+	str_unescape(dict->technology);
+	str_unescape(dict->characteristics);
+
+	atomic_inc(&dict->ref_cnt);
+	*ad=(MAAT_PLUGIN_EX_DATA)dict;
+	
+	return;
+}
+
+void app_id_dict_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	if((*ad)!=NULL)
+	{
+		struct app_id_dict *dict=(struct app_id_dict *)(*ad);
+		if((__sync_sub_and_fetch(&dict->ref_cnt, 1) == 0))
 		{
-			free(*ad);
+			_free_field(dict->app_name);
+			_free_field(dict->parent_app_name);
+			_free_field(dict->category);
+			_free_field(dict->subcategroy);
+			_free_field(dict->technology);
+			_free_field(dict->risk);
+			_free_field(dict->characteristics);
+			_free_field((char *)(*ad));
 			*ad=NULL;
 		}
 	}
@@ -638,10 +627,191 @@ static struct compile_user_region *parse_monitor_user_region(cJSON *object)
 	return user_region;
 }
 
+static int parse_answer_ttl(struct dns_user_region *user_region_records, cJSON *one_record, int answer_type)
+{
+	if(one_record==NULL || user_region_records==NULL)
+	{
+		return 0;
+	}
+	
+	cJSON *ttl=cJSON_GetObjectItem(one_record, "ttl");
+	if(ttl==NULL)
+	{
+		return 0;
+	}
+
+	struct dns_answer_records *answer_record_tmp=NULL;
+
+	switch(answer_type)
+	{
+		case	DNS_TYPE_A:
+			answer_record_tmp=user_region_records->a;
+			break;
+		case	DNS_TYPE_AAAA:
+			answer_record_tmp=user_region_records->aaaa;
+			break;
+	case	DNS_TYPE_CNAME:
+			answer_record_tmp=user_region_records->cname;
+			break;
+		default:
+			return 0;
+	}
+		
+	get_integer_from_json(ttl, "min", &(answer_record_tmp->min_ttl));		
+	get_integer_from_json(ttl, "max", &(answer_record_tmp->max_ttl));		
+
+	return 1;
+}
+
+static int parse_answer_profile(struct dns_user_region *user_region_records, cJSON *record_profile, int answer_type)
+{
+	struct dns_answer_records *answer_records=(struct dns_answer_records *)calloc(1, sizeof(struct dns_answer_records));
+	answer_records->record_val.answer_type=answer_type;
+	
+	get_integer_from_json(record_profile, "record_id", &(answer_records->record_val.selected.profile_id));
+	get_integer_from_json(record_profile, "selected_num", &(answer_records->record_val.selected.selected_num));
+
+	answer_records->record_val.selected_flag=1;
+
+	switch(answer_type)
+	{
+		case	DNS_TYPE_A:
+			user_region_records->a=answer_records;
+			break;
+		case	DNS_TYPE_AAAA:
+			user_region_records->aaaa=answer_records;
+			break;
+	case	DNS_TYPE_CNAME:
+			user_region_records->cname=answer_records;
+			break;
+		default:
+			return 0;
+	}
+
+	return 1;
+}
+
+static int parse_answer_value(struct dns_user_region *user_region_records, cJSON *record_value, int answer_type)
+{
+	switch(answer_type)
+	{
+		case	DNS_TYPE_A:
+			user_region_records->a=(struct dns_answer_records *)calloc(1, sizeof(struct dns_answer_records));
+			user_region_records->a->record_val.answer_type=answer_type;
+			user_region_records->a->record_val.len=sizeof(struct in_addr);
+			inet_pton(AF_INET, record_value->valuestring, (void *)&(user_region_records->a->record_val.v4_addr.s_addr));
+			break;
+		case	DNS_TYPE_AAAA:
+			user_region_records->aaaa=(struct dns_answer_records *)calloc(1, sizeof(struct dns_answer_records));
+			user_region_records->aaaa->record_val.answer_type=answer_type;
+			user_region_records->aaaa->record_val.len=sizeof(struct in6_addr);
+			inet_pton(AF_INET6, record_value->valuestring, (void *)(user_region_records->aaaa->record_val.v6_addr.s6_addr));
+			break;
+	case	DNS_TYPE_CNAME:
+			user_region_records->cname=(struct dns_answer_records *)calloc(1, sizeof(struct dns_answer_records));
+			user_region_records->cname->record_val.answer_type=answer_type;
+			user_region_records->cname->record_val.len=strlen(record_value->valuestring);
+			user_region_records->cname->record_val.cname=(char *)calloc(1, user_region_records->cname->record_val.len+1);
+			memcpy(user_region_records->cname->record_val.cname, record_value->valuestring, user_region_records->cname->record_val.len);
+			break;
+		default:
+			return -1;
+	}
+
+	return 1;
+}
+
+static int parse_answer_records(struct dns_user_region *user_region_records, cJSON *answer_array)
+{
+	int answer_type=-1;
+	int i=0,ret=0,answer_size=0;	
+	cJSON *a_item=NULL, *one_record=NULL;
+
+	if(answer_array==NULL || user_region_records==NULL)
+	{
+		return -1;
+	}
+	
+	answer_size=cJSON_GetArraySize(answer_array);
+	for(i=0; i<answer_size; i++)
+	{
+		one_record=cJSON_GetArrayItem(answer_array, i);
+		a_item=cJSON_GetObjectItem(one_record, "atype");
+		if(a_item==NULL || a_item->valuestring==NULL)
+		{
+			continue;
+		}
+
+		answer_type=get_dns_qtype(a_item->valuestring, strlen(a_item->valuestring));
+		switch(answer_type==-1)
+		{
+			continue;
+		}
+
+		a_item=cJSON_GetObjectItem(one_record, "value");
+		if(a_item!=NULL)
+		{
+			ret=parse_answer_value(user_region_records, a_item, answer_type);
+		}
+		else
+		{
+			ret=parse_answer_profile(user_region_records, one_record, answer_type);
+		}
+
+		if(ret>0)
+		{
+			parse_answer_ttl(user_region_records, one_record, answer_type);
+		}
+	}
+
+	return 0;
+}
+
+static struct dns_user_region *parse_dns_user_region(cJSON *resolution_array, int arrary_num)
+{
+	int i=0;
+	cJSON *resolution=NULL,*qtype=NULL;
+	cJSON *answer_array=NULL;
+	struct dns_user_region *records=NULL;
+	
+	records=(struct dns_user_region *)calloc(1, sizeof(struct dns_user_region)*arrary_num);
+	for(i=0; i<arrary_num; i++)
+	{
+		resolution=cJSON_GetArrayItem(resolution_array, i);
+		if(resolution==NULL)
+		{
+			continue;
+		}
+		
+		qtype=cJSON_GetObjectItem(resolution, "qtype");
+		if(qtype==NULL || qtype->valuestring==NULL)
+		{
+			continue;
+		}
+		
+		records[i].query_type=get_dns_qtype(qtype->valuestring, strlen(qtype->valuestring));
+		if(records[i].query_type==-1)
+		{
+			continue;
+		}
+
+		answer_array=cJSON_GetObjectItem(resolution, "answer");
+		if(answer_array==NULL)
+		{
+			continue;
+		}
+		
+		parse_answer_records(&(records[i]), answer_array);
+	}
+
+	return records;
+}
+
 static struct compile_user_region *parse_deny_user_region(cJSON *object)
 {
 	int ret=0;
-	cJSON *item=NULL;	
+	cJSON *item=NULL;
+	cJSON *resolution_array=NULL;
 	struct compile_user_region *user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
 	
 	item=cJSON_GetObjectItem(object, "method");
@@ -681,11 +851,28 @@ static struct compile_user_region *parse_deny_user_region(cJSON *object)
 				user_region->deny->type=TSG_DENY_TYPE_REDIRECT_TO;
 				break;
 			}
+
 			ret=get_string_from_json(object, "to", &(user_region->deny->redirect_url_to));
 			if(ret==1)
 			{
 				user_region->deny->type=TSG_DENY_TYPE_REDIRECT_TO;
 				break;
+			}
+
+			resolution_array=cJSON_GetObjectItem(object, "resolution");
+			if(resolution_array!=NULL)
+			{				
+				user_region->deny->records_num=cJSON_GetArraySize(resolution_array);
+				if(user_region->deny->records_num<=0)
+				{
+					break;
+				}
+				user_region->deny->records=parse_dns_user_region(resolution_array, user_region->deny->records_num);
+				if(user_region->deny->records!=NULL)
+				{
+					user_region->deny->type=TSG_DENY_TYPE_REDIRECT_RECORD;
+					break;
+				}
 			}
 			break;
 		case	TSG_METHOD_TYPE_RATE_LINIT:
@@ -764,9 +951,33 @@ void security_compile_dup(int idx, MAAT_RULE_EX_DATA *to, MAAT_RULE_EX_DATA *fro
 	}
 }
 
+static void free_dns_records_val(struct dns_record_val *record_val, int record_val_num)
+{
+	int i=0;
+	for(i=0; i<record_val_num; i++)
+	{
+		_free_field(record_val[i].cname);
+		record_val[i].cname=NULL;
+	}
+}
+
+static void free_dns_answer_records(struct dns_answer_records *answer_records)
+{
+	if(answer_records!=NULL)
+	{
+		if(answer_records->record_val.answer_type==DNS_TYPE_CNAME && answer_records->record_val.selected_flag==0)
+		{
+			free_dns_records_val(&(answer_records->record_val), 1);
+		}
+
+		_free_field((char *)answer_records);
+		answer_records=NULL;
+	}
+}
+
 static void free_deny_user_region(struct deny_user_region *deny)
 {
-	if(deny==NULL)
+	if(deny==NULL || deny->para==NULL)
 	{
 		return ;
 	}
@@ -775,11 +986,16 @@ static void free_deny_user_region(struct deny_user_region *deny)
 	{
 		case	TSG_DENY_TYPE_MESSAGE:
 		case	TSG_DENY_TYPE_REDIRECT_TO:
-			if(deny->para)
-			{
-				free(deny->para);
-				deny->para=NULL;
-			}
+		case	TSG_DENY_TYPE_REDIRECT_URL:
+			_free_field(deny->message);
+			deny->message=NULL;
+			break;
+		case	TSG_DENY_TYPE_REDIRECT_RECORD:
+			free_dns_answer_records(deny->records->a);
+			free_dns_answer_records(deny->records->aaaa);
+			free_dns_answer_records(deny->records->cname);
+			_free_field(deny->message);
+			deny->message=NULL;
 			break;
 		default:
 			break;
@@ -795,32 +1011,29 @@ void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* 
 		return ;
 	}
 	
-	atomic_dec(&user_region->ref_cnt);
-	if(user_region->ref_cnt>0)
+	if((__sync_sub_and_fetch(&user_region->ref_cnt, 1) == 0))
 	{
-		return ;
+		switch(user_region->method_type)
+		{
+			case	TSG_METHOD_TYPE_ALERT:
+			case	TSG_METHOD_TYPE_BLOCK:
+			case	TSG_METHOD_TYPE_RATE_LINIT:
+			case	TSG_METHOD_TYPE_REDIRECTION:
+				free_deny_user_region(user_region->deny);
+				break;
+			default:
+				break;
+		}
+		
+		if(user_region->user_region_para!=NULL)
+		{
+			_free_field((char *)(user_region->user_region_para));
+			user_region->user_region_para=NULL;
+		}
+		
+		_free_field((char *)(*ad));
+		*ad=NULL;
 	}
-	
-	switch(user_region->method_type)
-	{
-		case	TSG_METHOD_TYPE_ALERT:
-		case	TSG_METHOD_TYPE_BLOCK:
-		case	TSG_METHOD_TYPE_RATE_LINIT:
-		case	TSG_METHOD_TYPE_REDIRECTION:
-			free_deny_user_region(user_region->deny);
-			break;
-		default:
-			break;
-	}
-	
-	if(user_region->user_region_para!=NULL)
-	{
-		free(user_region->user_region_para);
-		user_region->user_region_para=NULL;
-	}
-	
-	free(*ad);
-	*ad=NULL;
 		
 }
 
@@ -874,10 +1087,9 @@ cleanup:
 
 void http_response_pages_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
-	struct http_response_pages *res_pages=(struct http_response_pages *)*from;
-
-	if(*from!=NULL)
+	if((*from)!=NULL)
 	{
+		struct http_response_pages *res_pages=(struct http_response_pages *)(*from);
 		*to=*from;
 		atomic_inc(&res_pages->ref_cnt);
 	}
@@ -885,33 +1097,17 @@ void http_response_pages_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_
 
 void http_response_pages_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	int ret=0;
-	void *logger=argp;
-	int is_valid;
-	char format[256]={0};
-	char path[1024]={0};
-	char profile_name[256]={0};
-	struct http_response_pages *res_pages=NULL;
+	char *path=NULL, *format=NULL;
+	struct http_response_pages *res_pages=(struct http_response_pages *)calloc(1, sizeof(struct http_response_pages));
+	res_pages->profile_id=tsg_get_column_integer_value(table_line, 1);
 
-	res_pages=(struct http_response_pages *)calloc(1, sizeof(struct http_response_pages));
-	
-	ret=sscanf(table_line, "%d\t%s\t%s\t%s\t%d", &res_pages->profile_id, profile_name, format, path, &is_valid);
-	if(ret!=5)
+	format=tsg_get_column_string_value(table_line, 3);
+	path=tsg_get_column_string_value(table_line, 4);
+
+	if(format==NULL && path==NULL)
 	{
-		free(res_pages);
+		_free_field((char *)res_pages);
 		res_pages=NULL;
-		if(logger!=NULL)
-		{
-			MESA_handle_runtime_log(logger, 
-									RLOG_LV_FATAL,
-									"RESPONSE_PAGES",
-									"Parse response pages failed, ret: %d table_id: %d key: %s table_line: %s",
-									ret,
-									table_id,
-									key,
-									table_line
-									);
-		}
 		return;
 	}
 	
@@ -923,34 +1119,157 @@ void http_response_pages_new(int table_id, const char* key, const char* table_li
 	{
 		res_pages->format=HTTP_RESPONSE_FORMAT_HTML;
 	}
+
+	_free_field(format);
+	format=NULL;
 	
-	atomic_inc(&res_pages->ref_cnt);
 	res_pages->content=get_pages_content(path, &res_pages->content_len);
-	*ad=(MAAT_PLUGIN_EX_DATA)res_pages;
+	_free_field(path);
+	path=NULL;
+	
+	if(res_pages->content!=NULL && res_pages->content_len>0)
+	{		
+		atomic_inc(&res_pages->ref_cnt);
+		*ad=(MAAT_PLUGIN_EX_DATA)res_pages;
+	}
+	else
+	{
+		_free_field(res_pages->content);
+		_free_field((char *)res_pages);
+		res_pages=NULL;
+	}
 }
 
 void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	struct http_response_pages *res_pages=(struct http_response_pages *)*ad;
-
-	atomic_dec(&res_pages->ref_cnt);
-	if(res_pages->ref_cnt<=0)
+	if((*ad)!=NULL)
 	{
-		free(res_pages->content);
-		free(*ad);
-		*ad=NULL;	
+		struct http_response_pages *res_pages=(struct http_response_pages *)(*ad);
+		if((__sync_sub_and_fetch(&res_pages->ref_cnt, 1) == 0))
+		{
+			_free_field(res_pages->content);
+			_free_field((char *)(*ad));
+			*ad=NULL;	
+		}
+	}
+}
+
+void dns_profile_records_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{
+	int i=0;
+	cJSON *one_record=NULL,*pSub=NULL;
+	struct dns_profile_records *profile_records=(struct dns_profile_records *)calloc(1, sizeof(struct dns_profile_records));
+	profile_records->record_id=tsg_get_column_integer_value(table_line, 1);
+	char *answer_type=tsg_get_column_string_value(table_line, 3);
+	char *json_record=tsg_get_column_string_value(table_line, 4);
+
+	cJSON *records_array=cJSON_Parse(json_record);	
+	if(records_array!=NULL)
+	{
+		profile_records->record_num=cJSON_GetArraySize(records_array);
+		profile_records->record_val=(struct dns_record_val *)calloc(1, profile_records->record_num*sizeof(struct dns_record_val));		
+		profile_records->answer_type=get_dns_qtype(answer_type, strlen(answer_type));
+
+		for(i=0; i<profile_records->record_num; i++)
+		{
+			one_record=cJSON_GetArrayItem(records_array, i);
+			if(one_record==NULL)
+			{
+				continue;
+			}
+			
+			pSub=cJSON_GetObjectItem(one_record, "value");
+			if(NULL==pSub )
+			{
+				continue; 
+			}
+
+			switch(profile_records->answer_type)
+			{
+				case	DNS_TYPE_A:
+					profile_records->record_val[i].answer_type=profile_records->answer_type;
+					profile_records->record_val[i].len=sizeof(struct in_addr);
+					inet_pton(AF_INET, pSub->valuestring, &(profile_records->record_val[i].v4_addr.s_addr));
+					break;
+				case	DNS_TYPE_AAAA:
+					profile_records->record_val[i].answer_type=profile_records->answer_type;
+					profile_records->record_val[i].len=sizeof(struct in6_addr);
+					inet_pton(AF_INET6, pSub->valuestring, (profile_records->record_val[i].v6_addr.s6_addr));
+					break;
+				case	DNS_TYPE_CNAME:
+					profile_records->record_val[i].answer_type=profile_records->answer_type;
+					profile_records->record_val[i].len=strlen(pSub->valuestring);
+					profile_records->record_val[i].cname=(char *)calloc(1, profile_records->record_val[i].len+1);
+					memcpy(profile_records->record_val[i].cname, pSub->valuestring, profile_records->record_val[i].len);
+					break;
+				default:
+					continue;	
+			}
+		}
+
+		atomic_inc(&profile_records->ref_cnt);
+		(*ad)=(MAAT_PLUGIN_EX_DATA)profile_records;
+
+		cJSON_Delete(records_array);
+		records_array=NULL;
+
+		_free_field(json_record);
+		json_record=NULL;
+
+		_free_field(answer_type);
+		answer_type=NULL;
+	}
+	else
+	{		
+		_free_field((char *)profile_records);
+		profile_records=NULL;
+	}
+
+	return ;
+}
+
+void dns_profile_records_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void *argp)
+{
+	if((*from)!=NULL)
+	{
+		struct dns_profile_records *profile_records=(struct dns_profile_records *)(*from);
+		atomic_inc(&profile_records->ref_cnt);
+		(*to)=(*from);
+	}
+
+	return ;
+}
+
+void dns_profile_records_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{
+	if((*ad)!=NULL)
+	{
+		struct dns_profile_records *profile_records=(struct dns_profile_records *)*ad;
+		if((__sync_sub_and_fetch(&profile_records->ref_cnt, 1) == 0))
+		{
+			if(profile_records->answer_type==DNS_TYPE_CNAME)
+			{
+				free_dns_records_val(profile_records->record_val, profile_records->record_num);
+			}
+			
+			_free_field((char *)(profile_records->record_val));
+			profile_records->record_val=NULL;
+			
+			_free_field((char *)(*ad));
+			*ad=NULL;
+		}
 	}
 }
 
 static int get_fqdn_category_id(Maat_feather_t maat_feather, int table_id, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq)
 {
 	int i=0,j=0,ret=0;	
-	struct _fqdn_category_t *ex_data_array[8]={0};
+	struct fqdn_category *ex_data_array[8]={0};
 
 	ret=Maat_fqdn_plugin_get_EX_data(maat_feather, table_id, fqdn, (MAAT_PLUGIN_EX_DATA *)ex_data_array, 8);
 	if(ret>0)
 	{
-		qsort(ex_data_array, ret, sizeof(struct _fqdn_category_t *), sort_category_id);
+		qsort(ex_data_array, ret, sizeof(struct fqdn_category *), sort_category_id);
 		
 		for(i=0; i<ret; i++)
 		{
@@ -966,7 +1285,7 @@ static int get_fqdn_category_id(Maat_feather_t maat_feather, int table_id, char 
 				}
 			}
 			
-			fqdn_cat_free_data(table_id, (MAAT_PLUGIN_EX_DATA *)&(ex_data_array[i]), 0, logger);
+			fqdn_category_free(table_id, (MAAT_PLUGIN_EX_DATA *)&(ex_data_array[i]), 0, logger);
 		}
 
 		return j;
@@ -1136,6 +1455,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "GTP_PHONE_NUMBER", g_tsg_para.table_name[TABLE_GTP_PHONE_NUMBER], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_PHONE_NUMBER");
 	MESA_load_profile_string_def(conffile, "MAAT", "GTP_PHONE_NUMBER", g_tsg_para.table_name[TABLE_GTP_PHONE_NUMBER], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_PHONE_NUMBER");
 	MESA_load_profile_string_def(conffile, "MAAT", "RESPONSE_PAGES_TABLE", g_tsg_para.table_name[TABLE_RESPONSE_PAGES], _MAX_TABLE_NAME_LEN, "TSG_PROFILE_RESPONSE_PAGES");
+	MESA_load_profile_string_def(conffile, "MAAT", "DNS_PROFILE_RECORDS", g_tsg_para.table_name[TABLE_DNS_PROFILE_RECORD], _MAX_TABLE_NAME_LEN, (char *)"TSG_PROFILE_DNS_RECORDS");
 
 	//init static maat feather
 	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", logger);
@@ -1179,9 +1499,9 @@ int tsg_rule_init(const char* conffile, void *logger)
 	{
 		ret=Maat_ip_plugin_EX_register(g_tsg_maat_feather,
 									g_tsg_para.table_id[i],
-									ASN_new_data,
-									ASN_free_data,
-									ASN_dup_data,
+									ASN_number_new,
+									ASN_number_free,
+									ASN_number_dup,
 									0,
 									logger);
 		if(ret<0)
@@ -1222,9 +1542,9 @@ int tsg_rule_init(const char* conffile, void *logger)
 	{
 		ret=Maat_fqdn_plugin_EX_register(g_tsg_maat_feather,
 										g_tsg_para.table_id[i],
-										fqdn_cat_new_data,
-										fqdn_cat_free_data,
-										fqdn_cat_dup_data,
+										fqdn_category_new,
+										fqdn_category_free,
+										fqdn_category_dup,
 										0,
 										logger
 									);
@@ -1242,9 +1562,9 @@ int tsg_rule_init(const char* conffile, void *logger)
 
 	ret=Maat_plugin_EX_register(g_tsg_maat_feather,
 									g_tsg_para.table_id[TABLE_APP_ID_DICT],
-									app_id_dict_new_data,
-									app_id_dict_free_data,
-									app_id_dict_dup_data,
+									app_id_dict_new,
+									app_id_dict_free,
+									app_id_dict_dup,
 									NULL,
 									0,
 									logger);
@@ -1278,6 +1598,21 @@ int tsg_rule_init(const char* conffile, void *logger)
 		return -1;		
 	}
 
+	ret=Maat_plugin_EX_register(g_tsg_maat_feather,
+								g_tsg_para.table_id[TABLE_DNS_PROFILE_RECORD],
+								dns_profile_records_new,
+								dns_profile_records_free,
+								dns_profile_records_dup,
+								NULL,
+								0, 
+								NULL);
+
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "REGISTER_TABLE", "Maat_plugin_EX_register failed, table_name: %s", g_tsg_para.table_name[TABLE_DNS_PROFILE_RECORD]);
+		return -1;
+	}
+
 	//init dynamic maat feather
 	g_tsg_dynamic_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_DYNAMIC", (char *)"DYNAMIC", logger);
 	if(g_tsg_maat_feather==NULL)
@@ -1301,9 +1636,9 @@ int tsg_rule_init(const char* conffile, void *logger)
 	}
 	ret=Maat_plugin_EX_register(g_tsg_dynamic_maat_feather,
 							g_tsg_para.dyn_subscribe_ip_table_id,
-							subscribe_id_new_data,
-							subscribe_id_free_data,
-							subscribe_id_dup_data,
+							subscriber_id_new,
+							subscriber_id_free,
+							subscriber_id_dup,
 							NULL,
 							0,
 							logger);
@@ -1319,9 +1654,9 @@ int tsg_rule_init(const char* conffile, void *logger)
 int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t*result, int result_num, struct identify_info *identify_info)
 {
 	int num=0;
-	policy_priority_label_t *label=NULL;
+	struct policy_priority_label *label=NULL;
 
-	label=(policy_priority_label_t *)project_req_get_struct(a_stream, g_tsg_para.priority_project_id);
+	label=(struct policy_priority_label *)project_req_get_struct(a_stream, g_tsg_para.priority_project_id);
 	if(label!=NULL && result!=NULL && result_num>0 && identify_info!=NULL)
 	{
 		if((label->result_type==pull_result_type) || (pull_result_type==PULL_ALL_RESULT))
@@ -1420,7 +1755,7 @@ int tsg_get_ip_location(const struct streaminfo *a_stream, int table_id, MAAT_PL
 	return 0;
 }
 
-int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct _subscribe_id_info_t **source_subscribe_id, struct _subscribe_id_info_t **dest_subscribe_id)
+int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id)
 {
 	char source_ip[MAX_IPV6_ADDR_LEN]={0};
 	char dest_ip[MAX_IPV6_ADDR_LEN]={0};
@@ -1445,34 +1780,34 @@ int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct _subscribe_id
 
 	if(strlen(dest_ip)>0 && *dest_subscribe_id==NULL)
 	{
-		*dest_subscribe_id = (struct _subscribe_id_info_t *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, dest_ip);
+		*dest_subscribe_id = (struct subscribe_id_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, dest_ip);
 	}
 
 	if(strlen(source_ip)>0 && *source_subscribe_id==NULL)
 	{
-		*source_subscribe_id = (struct _subscribe_id_info_t *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, source_ip);
+		*source_subscribe_id = (struct subscribe_id_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, source_ip);
 	}
 
 	return 0;
 }
 
-int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _asn_info_t *asn, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct asn_info *asn, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
 
-	if(asn==NULL || result==NULL || result_num==0)
+	if(asn==NULL || asn->asn_id==NULL|| result==NULL || result_num==0)
 	{
 		return 0;
 	}
 
-	ret=Maat_full_scan_string(maat_feather, g_tsg_para.table_id[idx], CHARSET_GBK, asn->asn, strlen(asn->asn), result, NULL, result_num, mid, a_stream->threadnum);
+	ret=Maat_full_scan_string(maat_feather, g_tsg_para.table_id[idx], CHARSET_GBK, asn->asn_id, strlen(asn->asn_id), result, NULL, result_num, mid, a_stream->threadnum);
 	if(ret > 0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_ASN",
 									"Hit IP_ASN: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
-									asn->asn,
+									asn->asn_id,
 									ret,
 									g_tsg_para.table_name[idx],
 									result[0].config_id,
@@ -1488,7 +1823,7 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 								RLOG_LV_DEBUG,
 								"SCAN_IP_ASN",
 								"No hit IP_ASN: %s scan ret: %d table_name: %s addr: %s",
-								asn->asn,
+								asn->asn_id,
 								ret,
 								g_tsg_para.table_name[idx],
 								PRINTADDR(a_stream, g_tsg_para.level)
@@ -1497,12 +1832,12 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 }
 
 
-int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct _location_info_t *location, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct location_info *location, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
 	char buff[1024]={0};
 	
-	if(location==NULL || result==NULL || result_num==0)
+	if(location==NULL || location->country_full==NULL || location->city_full==NULL || result==NULL || result_num==0)
 	{
 		return 0;
 	}
@@ -1621,7 +1956,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 	int ret=0;
 	unsigned int proto_id=0;
 	int hit_num=0;
-	struct _session_attribute_label_t *attribute_label=NULL;
+	struct session_attribute_label *attribute_label=NULL;
 
 	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
 	{
@@ -1642,11 +1977,11 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		}
 	}
 
-	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
+	attribute_label=(struct session_attribute_label *)project_req_get_struct(a_stream, g_tsg_para.session_attribute_project_id);
 	if(attribute_label==NULL)
 	{
-		attribute_label=(struct _session_attribute_label_t *)dictator_malloc(a_stream->threadnum, sizeof(struct _session_attribute_label_t));
-		memset(attribute_label, 0, sizeof(struct _session_attribute_label_t));
+		attribute_label=(struct session_attribute_label *)dictator_malloc(a_stream->threadnum, sizeof(struct session_attribute_label));
+		memset(attribute_label, 0, sizeof(struct session_attribute_label));
 	}
 
 	if(hit_num<result_num)
@@ -1685,7 +2020,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 		}
 	}
 	
-	ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.internal_project_id, (void *)attribute_label);
+	ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.session_attribute_project_id, (void *)attribute_label);
 	if(ret<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "ADD_INTERNAL_LABEL", "Add internal label failed, ret: %d addr: %s", ret, PRINTADDR(a_stream, g_tsg_para.level));
@@ -1866,18 +2201,16 @@ int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, const struct str
 {
 	int i=0,ret=0;
 	int ret2=0, hit_num=0;
-	int district_len=strlen(district);
-	int property_len=strlen(property); 
 	struct Maat_rule_t property_result[MAX_RESULT_NUM]={0};
 	
-	if(property!=NULL && property_len>0 && district_len>0)
+	if(property!=NULL && district!=NULL)
 	{
-		Maat_set_scan_status(g_tsg_maat_feather, mid, MAAT_SET_SCAN_DISTRICT, (void *)district, district_len);
+		Maat_set_scan_status(g_tsg_maat_feather, mid, MAAT_SET_SCAN_DISTRICT, (void *)district, strlen(district));
 		ret=Maat_full_scan_string(g_tsg_maat_feather, 
 									g_tsg_para.table_id[TABLE_SELECTOR_PROPERTIES],
 									CHARSET_UTF8,
 									property,
-									property_len,
+									strlen(property),
 									property_result, 
 									NULL,
 									MAX_RESULT_NUM,
@@ -1916,11 +2249,11 @@ int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, const struct str
 	return hit_num;
 }
 
-int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, struct _subscribe_id_info_t *user_info, int thread_seq)
+int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, struct subscribe_id_info *user_info, int thread_seq)
 {
 	int maat_ret=0;
 
-	if(user_info==NULL || result==NULL || result_num==0)
+	if(user_info==NULL || user_info->subscribe_id==NULL || result==NULL || result_num==0)
 	{
 		return 0;
 	}
@@ -2048,7 +2381,7 @@ int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_p
 {
 	int offset=0;
 	char app_id_buff[128]={0};
-	struct app_id_dict_table *dict=NULL;
+	struct app_id_dict *dict=NULL;
 
 	if(app_id<=0 || app_name==NULL || app_name_len<=0)
 	{
@@ -2056,7 +2389,7 @@ int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_p
 	}
 
 	snprintf(app_id_buff, sizeof(app_id_buff), "%d", app_id);
-	dict=(struct app_id_dict_table *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
+	dict=(struct app_id_dict *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
 	if(dict!=NULL)
 	{
 		if(dict->parent_app_id!=0 && is_joint_parent==1)
@@ -2068,7 +2401,7 @@ int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_p
 			offset=snprintf(app_name, app_name_len, "%s", dict->app_name);
 		}
 		
-		app_id_dict_free_data(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
+		app_id_dict_free(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
 
 		return offset;
 	}
@@ -2173,4 +2506,33 @@ int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 	return 0;
 }
 
+char *tsg_get_column_string_value(const char* line, int column_seq)
+{
+	int ret=0;
+	size_t offset=0;
+	size_t length=0;
+
+	ret=get_column_pos(line, column_seq, &offset, &length);
+	if(ret>=0)
+	{
+		return _malloc_field(line+offset, length);
+	}
+
+	return NULL;
+}
+
+int tsg_get_column_integer_value(const char* line, int column_seq)
+{
+	int ret=0;
+	size_t offset=0;
+	size_t length=0;
+
+	ret=get_column_pos(line, column_seq, &offset, &length);
+	if(ret>=0)
+	{
+		return atoi(line+offset);
+	}
+
+	return -1;
+}
 

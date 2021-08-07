@@ -1,6 +1,12 @@
 #ifndef	__TSG_ENTRY_H__
 #define	__TSG_ENTRY_H__
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip6.h>
+
+#include <MESA/dns.h>
+
 #include <MESA/Maat_rule.h>
 #include <MESA/field_stat2.h>
 #include <ctemplate/template.h>
@@ -37,6 +43,14 @@ typedef int atomic_t;
 #define	APP_SCAN_FLAG_STOP	0
 #define	APP_SCAN_FLAG_CONTINUE	1
 
+enum DEPLOY_MODE
+{
+	DEPLOY_MODE_MIRROR,
+	DEPLOY_MODE_INLINE,
+	DEPLOY_MODE_TRANSPARENT,
+	DEPLOY_MODE_MAX
+};
+
 enum MASTER_TABLE{
 	TABLE_SECURITY_COMPILE=0,
 	TABLE_IP_ADDR,
@@ -64,6 +78,7 @@ enum MASTER_TABLE{
 	TABLE_GTP_IMSI,
 	TABLE_GTP_PHONE_NUMBER,
 	TABLE_RESPONSE_PAGES,
+	TABLE_DNS_PROFILE_RECORD,
 	TABLE_MAX
 };
 
@@ -90,9 +105,9 @@ enum TSG_FS2_TYPE{
 	TSG_FS2_APP_BUILT_IN_RESULT,
 	TSG_FS2_INJECT_PKT_SUCCESS,
 	TSG_FS2_INJECT_PKT_FAILED,
-	TSG_FS2_MIRRORED_PKT_SUCCESS,
-	TSG_FS2_MIRRORED_PKT_FAILED,
+	TSG_FS2_MIRRORED_PKT_SUCCESS,	
 	TSG_FS2_MIRRORED_BYTE_SUCCESS,
+	TSG_FS2_MIRRORED_PKT_FAILED,
 	TSG_FS2_MIRRORED_BYTE_FAILED,
 	TSG_FS2_MAX
 };
@@ -106,6 +121,7 @@ enum TSG_ATTRIBUTE_TYPE
 	TSG_ATTRIBUTE_TYPE_LOCATION,
 	TSG_ATTRIBUTE_TYPE_ASN,
 	TSG_ATTRIBUTE_TYPE_SUBSCRIBER_ID,
+	TSG_ATTRIBUTE_TYPE_HTTP_ACTION_FILESIZE,
 	_MAX_TSG_ATTRIBUTE_TYPE
 };
 
@@ -135,12 +151,10 @@ struct l7_protocol
     UT_hash_handle hh2;        /* handle for second hash table */
 };
 
-struct _fqdn_category_t
+struct fqdn_category
 {
 	int ref_cnt;	
 	unsigned int category_id;
-	int match_method;
-	char fqdn[MAX_DOAMIN_LEN/8];
 };
 
 struct http_response_pages
@@ -186,8 +200,18 @@ struct tcpall_context
 	};
 };
 
+struct reset_argv
+{
+	int pkt_num;
+	int seed1;
+	int seed2;
+	int th_flags;
+	int dir;
+	int remedy;
+};
+
 #define	_MAX_TABLE_NAME_LEN	64
-typedef	struct _tsg_para
+typedef	struct tsg_para
 {
 	int level;
 	short mirror_switch;
@@ -197,6 +221,7 @@ typedef	struct _tsg_para
 	int entrance_id;
 	int hash_timeout;
 	int hash_slot_size;
+	enum DEPLOY_MODE deploy_mode;
 	int scan_time_interval;
 	int hit_path_switch;
 	int default_compile_switch;
@@ -204,7 +229,7 @@ typedef	struct _tsg_para
 	int table_id[TABLE_MAX];
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
 	int priority_project_id;
-	int internal_project_id;
+	int session_attribute_project_id;
 	int context_project_id;
 	int tcpall_project_id;
 	int linkinfo_project_id;
@@ -212,12 +237,13 @@ typedef	struct _tsg_para
 	int app_bridge_id;
 	int proto_flag; //tsg_protocol_t
 	int fs2_field_id[TSG_FS2_MAX];
-	char device_sn[MAX_DOAMIN_LEN/8];
-	char log_path[MAX_DOAMIN_LEN/8];
-	char device_id_command[MAX_DOAMIN_LEN/8];
+	char device_sn[MAX_DOMAIN_LEN/8];
+	char log_path[MAX_DOMAIN_LEN/8];
+	char device_id_command[MAX_DOMAIN_LEN/8];
 	char data_center[_MAX_TABLE_NAME_LEN];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
-	void *logger;
+	void *logger;	
+	struct reset_argv reset;
 	screen_stat_handle_t fs2_handle;
 	struct l7_protocol *name_by_id;
 	struct l7_protocol *id_by_name;
@@ -228,8 +254,9 @@ typedef	struct _tsg_para
 }g_tsg_para_t;
 
 extern g_tsg_para_t g_tsg_para;
+extern Maat_feather_t g_tsg_dynamic_maat_feather;
 
-typedef enum _tsg_statis_field_id
+typedef enum tsg_statis_field_id
 {
 	STATIS_UNKNOWN=0,
 	STATIS_ENTRANCE_ID=1,
@@ -301,7 +328,7 @@ enum TRAFFIC_INFO_IDX
 	TRAFFIC_INFO_MAX
 };
 
-typedef	struct _tsg_statistic
+typedef	struct tsg_statistic
 {
 	int cycle;
 	int fs_line_id;
@@ -324,10 +351,13 @@ const void *get_struct_project(const struct streaminfo *a_stream, int project_id
 int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_parent);
 
 void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
-void ASN_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
-void subscribe_id_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
-void app_id_dict_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void ASN_number_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void subscriber_id_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void app_id_dict_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void dns_profile_records_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp);
+void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int thread_seq);
+
 int tsg_set_vlan_id_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct mirrored_vlan *vlan_id, int vlan_num, int thread_seq);
 int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct leaky_bucket *bucket, int thread_seq);
 void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp);
@@ -336,14 +366,14 @@ struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Ma
 int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num);
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, char *domain, Maat_rule_t *result, int result_num,  scan_status_t *mid, int table_id, int thread_seq);
 int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq);
-int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, struct _subscribe_id_info_t *user_info, int thread_seq);
+int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, struct subscribe_id_info *user_info, int thread_seq);
 int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info);
 int tsg_scan_gtp_apn_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *apn, int thread_seq);
 int tsg_scan_gtp_imsi_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *imsi, int thread_seq);
 int tsg_scan_gtp_phone_number_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *phone_number, int thread_seq);
 int tsg_get_ip_location(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_EX_DATA *client_location, MAAT_PLUGIN_EX_DATA *server_location);
 int tsg_get_ip_asn(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_EX_DATA* client_asn, MAAT_PLUGIN_EX_DATA* server_asn);
-int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct _subscribe_id_info_t **source_subscribe_id, struct _subscribe_id_info_t **dest_subscribe_id);
+int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id);
 int tsg_send_raw_packet(const struct streaminfo *a_stream, struct mirrored_vlan *vlan, int vlan_num, int thread_seq);
 int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rule_t *result, int result_num, struct mirrored_vlan *vlan, int vlan_num);
 

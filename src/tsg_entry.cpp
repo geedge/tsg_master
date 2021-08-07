@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <netinet/ip6.h>
 
 #include <MESA/http.h>
 #include <MESA/ftp.h>
@@ -24,6 +23,7 @@
 #include "tsg_send_log_internal.h"
 #include "tsg_ssl_utils.h"
 #include "tsg_ssh_utils.h"
+#include "tsg_protocol_common.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -73,8 +73,8 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_INJECT_PKT_SUCCESS, "inject_succuess"},
 										 {0, TSG_FS2_INJECT_PKT_FAILED, "inject_failed"},
 										 {0, TSG_FS2_MIRRORED_PKT_SUCCESS, "mirror_pkt_suc"},
-										 {0, TSG_FS2_MIRRORED_PKT_FAILED, "mirror_pkt_fai"},
 										 {0, TSG_FS2_MIRRORED_BYTE_SUCCESS, "mirror_byte_suc"},
+										 {0, TSG_FS2_MIRRORED_PKT_FAILED, "mirror_pkt_fai"},
 										 {0, TSG_FS2_MIRRORED_BYTE_FAILED, "mirror_byte_fai"}
 										};
 
@@ -156,6 +156,34 @@ static int get_device_id(char *command, int entrance_id)
 	}
 	
 	return (entrance_id<<7)+(atoi(buffer)%128);
+}
+
+static int get_deploy_mode(void)
+{
+	char s_mode[128]={0};
+	int len=sizeof(s_mode);
+	int ret=sapp_get_platform_opt(SPO_DEPLOYMENT_MODE_STR, s_mode, &len);
+	if(ret>=0)
+	{
+		if((memcmp(s_mode, "mirror", strlen(s_mode)))==0 || (memcmp(s_mode, "dumpfile", strlen(s_mode)))==0)
+		{
+			g_tsg_para.deploy_mode=DEPLOY_MODE_MIRROR;
+		}
+		else if((memcmp(s_mode, "inline", strlen(s_mode)))==0)
+		{
+			g_tsg_para.deploy_mode=DEPLOY_MODE_INLINE;
+		}
+		else if((memcmp(s_mode, "transparent", strlen(s_mode)))==0)
+		{
+			g_tsg_para.deploy_mode=DEPLOY_MODE_TRANSPARENT;
+		}
+		else
+		{
+			g_tsg_para.deploy_mode=DEPLOY_MODE_MIRROR;
+		}
+	}
+
+	return 0;
 }
 
 static int print_hit_path(const struct streaminfo *a_stream, struct master_context *context)
@@ -537,12 +565,12 @@ static void copy_monitor_result(const struct streaminfo *a_stream, struct master
 static void copy_result_to_project(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, char *domain, tsg_protocol_t proto, PULL_RESULT_TYPE result_type, int thread_seq)
 {
 	int ret=0;
-	policy_priority_label_t *priority_label=NULL;	
+	struct policy_priority_label *priority_label=NULL;	
 
-	priority_label=(policy_priority_label_t *)project_req_get_struct((struct streaminfo *)a_stream, g_tsg_para.priority_project_id);
+	priority_label=(struct policy_priority_label *)project_req_get_struct((struct streaminfo *)a_stream, g_tsg_para.priority_project_id);
 	if(priority_label==NULL)
 	{
-		priority_label=(policy_priority_label_t *)dictator_malloc(thread_seq, sizeof(policy_priority_label_t));
+		priority_label=(struct policy_priority_label *)dictator_malloc(thread_seq, sizeof(struct policy_priority_label));
 	}
 	else
 	{
@@ -557,7 +585,7 @@ static void copy_result_to_project(const struct streaminfo *a_stream, struct mas
 									);
 	}
 	
-	memset(priority_label, 0, sizeof(policy_priority_label_t));
+	memset(priority_label, 0, sizeof(struct policy_priority_label));
 
 	priority_label->proto=proto;
 	if(domain!=NULL)
@@ -775,9 +803,9 @@ int is_intercept_exclusion(const struct streaminfo *a_stream, Maat_rule_t *p_res
 static int scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streaminfo *a_stream, char *domain, Maat_rule_t *result, int result_num,  scan_status_t *mid, int table_id, int thread_seq)
 {
 	int scan_ret=0;
-	struct _session_attribute_label_t *attribute_label=NULL;
+	struct session_attribute_label *attribute_label=NULL;
 	
-	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
+	attribute_label=(struct session_attribute_label *)project_req_get_struct(a_stream, g_tsg_para.session_attribute_project_id);
 	if(attribute_label!=NULL && domain!=NULL && table_id>=0)
 	{
 		attribute_label->fqdn_category_id_num=tsg_get_fqdn_category_id(g_tsg_maat_feather, domain, attribute_label->fqdn_category_id, MAX_CATEGORY_ID_NUM, g_tsg_para.logger, thread_seq);
@@ -793,15 +821,15 @@ void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATT
 	unsigned long long current_time=0;
 	int ret=0,size=sizeof(create_time);
 	struct _ssl_ja3_info_t *ja3_info=NULL;
-	struct _session_attribute_label_t *attribute_label=NULL;
+	struct session_attribute_label *attribute_label=NULL;
 
-	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, g_tsg_para.internal_project_id);
+	attribute_label=(struct session_attribute_label *)project_req_get_struct(a_stream, g_tsg_para.session_attribute_project_id);
 	if(attribute_label==NULL)
 	{
-		attribute_label=(struct _session_attribute_label_t *)dictator_malloc(thread_seq, sizeof(struct _session_attribute_label_t));
-		memset(attribute_label, 0, sizeof(struct _session_attribute_label_t));
+		attribute_label=(struct session_attribute_label *)dictator_malloc(thread_seq, sizeof(struct session_attribute_label));
+		memset(attribute_label, 0, sizeof(struct session_attribute_label));
 
-		ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.internal_project_id, (const void *)attribute_label);
+		ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.session_attribute_project_id, (const void *)attribute_label);
 		if(ret<0)
 		{
 			dictator_free(thread_seq, (void *)attribute_label);
@@ -839,6 +867,9 @@ void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATT
 			break;
 		case	TSG_ATTRIBUTE_TYPE_PROTOCOL:
 			attribute_label->proto=(tsg_protocol_t)(*(int *)value);
+			break;
+		case	TSG_ATTRIBUTE_TYPE_HTTP_ACTION_FILESIZE:
+			attribute_label->http_action_file_size=(*(int *)value);
 			break;
 		case	TSG_ATTRIBUTE_TYPE_JA3_HASH:
 			ja3_info=ssl_get_ja3_fingerprint((struct streaminfo *)a_stream, (unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->threadnum);
@@ -896,43 +927,43 @@ int tsg_set_device_id_to_telegraf(char *device_sn)
 
 static void free_session_attribute_label(int thread_seq, void *project_req_value)
 {
-	struct _session_attribute_label_t *label=(struct _session_attribute_label_t *)project_req_value;
+	struct session_attribute_label *label=(struct session_attribute_label *)project_req_value;
 
 	if(label!=NULL)
 	{
 		if(label->client_asn!=NULL)
 		{
-			ASN_free_data(label->client_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_asn), 0, g_tsg_para.logger);
+			ASN_number_free(0, (MAAT_PLUGIN_EX_DATA *)&(label->client_asn), 0, g_tsg_para.logger);
 			label->client_asn=NULL;
 		}
 
 		if(label->server_asn!=NULL)
 		{
-			ASN_free_data(label->server_asn->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_asn), 0, g_tsg_para.logger);
+			ASN_number_free(0, (MAAT_PLUGIN_EX_DATA *)&(label->server_asn), 0, g_tsg_para.logger);
 			label->server_asn=NULL;
 		}
 
 		if(label->client_location!=NULL)
 		{
-			location_free_data(label->client_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->client_location), 0, g_tsg_para.logger);
+			location_free_data(0, (MAAT_PLUGIN_EX_DATA *)&(label->client_location), 0, g_tsg_para.logger);
 			label->client_location=NULL;
 		}
 
 		if(label->server_location!=NULL)
 		{
-			location_free_data(label->server_location->table_id, (MAAT_PLUGIN_EX_DATA *)&(label->server_location), 0, g_tsg_para.logger);
+			location_free_data(0, (MAAT_PLUGIN_EX_DATA *)&(label->server_location), 0, g_tsg_para.logger);
 			label->server_location=NULL;
 		}
 
 		if(label->client_subscribe_id!=NULL)
 		{
-			subscribe_id_free_data(label->client_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->client_subscribe_id, 0, g_tsg_para.logger);
+			subscriber_id_free(0, (MAAT_PLUGIN_EX_DATA *)&label->client_subscribe_id, 0, g_tsg_para.logger);
 			label->client_subscribe_id=NULL;
 		}
 
 		if(label->server_subscribe_id!=NULL)
 		{
-			subscribe_id_free_data(label->server_subscribe_id->table_id, (MAAT_PLUGIN_EX_DATA *)&label->server_subscribe_id, 0, g_tsg_para.logger);
+			subscriber_id_free(0, (MAAT_PLUGIN_EX_DATA *)&label->server_subscribe_id, 0, g_tsg_para.logger);
 			label->server_subscribe_id=NULL;
 		}
 
@@ -1162,12 +1193,12 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 	int i=0,hit_num=0;
 	char *name=NULL;
 	char app_id_buff[32]={0};
-	struct app_id_dict_table *dict=NULL;
+	struct app_id_dict *dict=NULL;
 
 	for(i=0; i< identify_result->app_id_num; i++)
 	{
 		snprintf(app_id_buff, sizeof(app_id_buff), "%d", identify_result->app_id[i]);
-		dict=(struct app_id_dict_table *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
+		dict=(struct app_id_dict *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
 		if(dict!=NULL)
 		{
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->risk, (char *)"risk", thread_seq);
@@ -1179,7 +1210,7 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->app_name, identify_result->app_id[i], thread_seq);
 			//hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->parent_app_name, dict->parent_app_id, thread_seq);
 			
-			app_id_dict_free_data(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
+			app_id_dict_free(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
 		}
 		else
 		{
@@ -1613,7 +1644,16 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 
-	
+	srand(time(0));
+	get_deploy_mode();
+
+	MESA_load_profile_int_def(tsg_conffile, "RESET", "NUM", &g_tsg_para.reset.pkt_num, 1);
+	MESA_load_profile_int_def(tsg_conffile, "RESET", "SEED1", &g_tsg_para.reset.seed1, 65535);
+	MESA_load_profile_int_def(tsg_conffile, "RESET", "SEED2", &g_tsg_para.reset.seed2, 13);
+	MESA_load_profile_int_def(tsg_conffile, "RESET", "FLAGS", &g_tsg_para.reset.th_flags, 0x14);
+	MESA_load_profile_int_def(tsg_conffile, "RESET", "DIR", &g_tsg_para.reset.dir, DIR_DOUBLE);	
+	MESA_load_profile_int_def(tsg_conffile, "RESET", "REMEDY", &g_tsg_para.reset.remedy, 0);
+
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","DEFAULT_POLICY_ID", &g_tsg_para.default_compile_id, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","DEFAULT_POLICY_SWITCH", &g_tsg_para.default_compile_switch, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","HIT_PATH_SWITCH", &g_tsg_para.hit_path_switch, 0);
@@ -1650,8 +1690,8 @@ extern "C" int TSG_MASTER_INIT()
 	}
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_INTERNAL_LABEL", label_buff, sizeof(label_buff), "TSG_MASTER_INTERNAL_LABEL");
-	g_tsg_para.internal_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_label);
-	if(g_tsg_para.internal_project_id<0)
+	g_tsg_para.session_attribute_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_label);
+	if(g_tsg_para.session_attribute_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
 	}
@@ -1728,7 +1768,7 @@ extern "C" int TSG_MASTER_INIT()
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_SENDLOG", "tsg_sendlog_init failed ...");
 		return -1;
 	}
-	g_tsg_log_instance->internal_project_id=g_tsg_para.internal_project_id;
+	g_tsg_log_instance->session_attribute_project_id=g_tsg_para.session_attribute_project_id;
 
 	MESA_load_profile_int_def(tsg_conffile, "FIELD_STAT", "CYCLE", &cycle, 30);
 	MESA_load_profile_short_nodef(tsg_conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));
@@ -1801,6 +1841,7 @@ extern "C" int TSG_MASTER_INIT()
 	{
 		return -1;
 	}
+		
 	return 0;
 }
 
@@ -1808,7 +1849,13 @@ extern "C" int TSG_MASTER_INIT()
 
 extern "C" int TSG_MASTER_UNLOAD()
 {
-	sleep(5);
+	Maat_burn_feather(g_tsg_maat_feather);
+	g_tsg_maat_feather=NULL;
+	
+	Maat_burn_feather(g_tsg_dynamic_maat_feather);
+	g_tsg_dynamic_maat_feather=NULL;
+
+	
 	return 0;
 }
 

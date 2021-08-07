@@ -34,6 +34,16 @@ const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"
 
 extern "C" int MESA_get_dev_ipv4(const char *device, int *ip_add);
 
+static int string_cat(char *dst, int dst_len, char *src)
+{
+	if(dst==NULL || dst_len<=0 || src==NULL)
+	{
+		return 0;
+	}
+
+	return snprintf(dst, dst_len, "%s", src);
+}
+
 static int is_tunnels(struct streaminfo *a_stream)
 {
 	const struct streaminfo *ptmp = a_stream;
@@ -151,26 +161,39 @@ static int set_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_
 	return 0;
 }
 
-static int set_asn(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, struct _asn_info_t *asn_info)
+static int set_asn(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, struct asn_info *asn_info)
 {
+	int len=0;
 	char buff[1024]={0};
+	int buff_len=sizeof(buff);
 	
 	if(asn_info!=NULL)
 	{
-		snprintf(buff, sizeof(buff), "%s(%s)", asn_info->asn, asn_info->organization);
+		len+=string_cat(buff, buff_len-len, asn_info->asn_id);
+		buff[len++]='(';
+		len+=string_cat(buff, buff_len-len, asn_info->organization);
+		buff[len++]=')';
 		TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
 	}
 
 	return 1;
 }
 
-static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, struct _location_info_t *location_info)
+static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, struct location_info *location_info)
 {
+	int len=0;
 	char buff[1024]={0};
+	int buff_len=sizeof(buff);
 	
 	if(location_info!=NULL)
 	{
-		snprintf(buff, sizeof(buff), "%s,%s,%s", location_info->city_full, location_info->province_full, location_info->country_full);
+		len+=string_cat(buff, buff_len-len, location_info->city_full);
+		buff[len++]=',';
+		len+=string_cat(buff, buff_len-len, location_info->province_full);
+		buff[len++]=',';
+		len+=string_cat(buff, buff_len-len, location_info->country_full);
+		buff[len++]=',';
+		
 		TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
 	}
 
@@ -320,6 +343,17 @@ static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle
 	}
 	
 	return 1;
+}
+
+static int set_subscriber_id(struct TLD_handle_t *_handle, char *field_name, struct subscribe_id_info *subscriber)
+{
+	if(subscriber!=NULL && subscriber->subscribe_id!=NULL)
+	{		
+		TLD_append(_handle, field_name, (void *)subscriber->subscribe_id, TLD_TYPE_STRING);
+		return 1;
+	}
+	
+	return 0;
 }
 
 static int set_fqdn_category(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, unsigned int *category_id, int category_id_num)
@@ -835,6 +869,28 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	return _handle;
 }
 
+static int set_user_region(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct Maat_rule_t *p_result, int thread_seq)
+{
+	int ret=0;
+	char *user_region=NULL;
+
+	if(p_result->action!=TSG_ACTION_NONE && p_result->serv_def_len>0)
+	{
+		user_region=(char *)dictator_malloc(thread_seq, p_result->serv_def_len+1);
+		ret=Maat_read_rule(g_tsg_maat_feather, p_result, MAAT_RULE_SERV_DEFINE, user_region, p_result->serv_def_len+1);
+		if(ret==p_result->serv_def_len)
+		{
+			user_region[p_result->serv_def_len]='\0';
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)user_region, TLD_TYPE_STRING);
+		}
+
+		dictator_free(thread_seq, user_region);
+		user_region=NULL;	
+	}
+
+	return 0;
+}
+
 static int get_gtp_ipv4v6_port(struct tsg_log_instance_t *_instance, struct streaminfo *a_stream, cJSON *object)
 {
 	char ip_buff[64]={0};
@@ -1051,20 +1107,63 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 	return 0;
 }
 
+int set_mirrored_pkt_bytes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct mirrored_vlan *vlan, int compile_id)
+{
+	int i=0;
+	for(i=0; i<vlan->compile_id_num; i++)
+	{
+		if(vlan->compile_id[i]==compile_id)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_PKTS].name, (void *)(long)(vlan->mirrored_pkts), TLD_TYPE_LONG);			
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_BYTES].name, (void *)(long)(vlan->mirrored_bytes), TLD_TYPE_LONG);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+int set_mirrored_session(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, struct Maat_rule_t *p_result)
+{
+	int i=0,ret=0;
+	struct tcpall_context *context=(struct tcpall_context *)project_req_get_struct(a_stream, g_tsg_para.tcpall_project_id);
+	if(context!=NULL && context->method_type==TSG_METHOD_TYPE_MIRRORED)
+	{
+		for(i=0; i<context->vlan_num; i++)
+		{
+			ret=set_mirrored_pkt_bytes(_instance, _handle, &(context->vlan[i]), p_result->config_id);
+			if(ret==1)
+			{
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
 int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
-	struct _session_attribute_label_t *attribute_label=NULL;
+	int ret=0;
+	struct session_attribute_label *attribute_label=NULL;
 
-	attribute_label=(struct _session_attribute_label_t *)project_req_get_struct(a_stream, _instance->internal_project_id);
+	attribute_label=(struct session_attribute_label *)project_req_get_struct(a_stream, _instance->session_attribute_project_id);
 	if(attribute_label!=NULL)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)attribute_label->establish_latency_ms, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_HTTP_ACTION_FILESIZE].name, (void *)(long)attribute_label->http_action_file_size, TLD_TYPE_LONG);
 
 		set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_ASN].name, attribute_label->client_asn);		
 		set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_ASN].name, attribute_label->server_asn);
 		
 		set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, attribute_label->client_location);
 		set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, attribute_label->server_location);
+
+		ret=set_subscriber_id(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, attribute_label->client_subscribe_id);
+		if(ret==0)
+		{
+			set_subscriber_id(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, attribute_label->server_subscribe_id);
+		}
 		
 		set_fqdn_category(_instance, _handle, a_stream, attribute_label->fqdn_category_id, attribute_label->fqdn_category_id_num);
 
@@ -1107,7 +1206,7 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	set_duraction(_instance, _handle, a_stream);
 	set_packet_bytes(_instance, _handle, a_stream);	
 	set_session_attributes(_instance, _handle, a_stream);
-
+		
 	if(is_tunnels(a_stream))
 	{
 		set_common_tunnels(_instance, _handle, a_stream);
@@ -1353,10 +1452,9 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 
 int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, tsg_log_t *log_msg, int thread_id)
 {
-	int ret=0,fs_id=0;
+	int fs_id=0;
 	int i=0,status=0;
 	char *payload=NULL;
-	char *user_agent=NULL;
 	int repeat_cnt=0;
 	struct timespec cur_time;
 	int policy_id[MAX_RESULT_NUM]={0};
@@ -1446,18 +1544,14 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
 
-		if(_instance->send_user_region==1 && log_msg->result[i].action!=TSG_ACTION_NONE && log_msg->result[i].serv_def_len>0)
+		if(log_msg->result[i].action==TSG_ACTION_MONITOR)
 		{
-			user_agent=(char *)dictator_malloc(thread_id, log_msg->result[i].serv_def_len+1);
-			ret=Maat_read_rule(g_tsg_maat_feather, &(log_msg->result[i]), MAAT_RULE_SERV_DEFINE, user_agent, log_msg->result[i].serv_def_len+1);
-			if(ret==log_msg->result[i].serv_def_len)
-			{
-				user_agent[log_msg->result[i].serv_def_len]='\0';
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)user_agent, TLD_TYPE_STRING);
-			}
-
-			dictator_free(thread_id, user_agent);
-			user_agent=NULL;
+			set_mirrored_session(_instance, _handle, log_msg->a_stream, &(log_msg->result[i]));
+		}
+		
+		if(_instance->send_user_region==1)
+		{
+			set_user_region(_instance, _handle, &log_msg->result[i], thread_id);
 		}
 		
 		if(log_msg->result[i].action==TSG_ACTION_DENY)

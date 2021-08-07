@@ -29,51 +29,11 @@ enum TSG_METHOD_TYPE
 	TSG_METHOD_TYPE_MAX
 };
 
-enum TSG_DENY_TYPE
-{
-	TSG_DENY_TYPE_MESSAGE=0,
-	TSG_DENY_TYPE_PROFILE,
-	TSG_DENY_TYPE_REDIRECT_TO,
-	TSG_DENY_TYPE_MAX
-};
 struct identify_info
 {
 	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
 	int domain_len;
-	char domain[MAX_DOAMIN_LEN];
-};
-
-struct deny_user_region
-{
-	int code;
-	enum TSG_DENY_TYPE type;
-	union
-	{
-		char *message;
-		char *redirect_url_to;
-		int profile_id;
-		int bps;
-		void *para;
-	};
-};
-
-struct monitor_user_region
-{
-	int enabled;
-	int vlan_id;
-};
-
-struct compile_user_region
-{	
-	int ref_cnt;
-	enum TSG_METHOD_TYPE method_type;
-	union	
-	{
-		struct deny_user_region *deny;		
-		struct monitor_user_region *mirror;		
-		struct Maat_rule_t *result;				//XJ default policy
-		void *user_region_para;
-	};
+	char domain[MAX_DOMAIN_LEN];
 };
 
 typedef	enum _PULL_RESULT_TYPE
@@ -83,7 +43,7 @@ typedef	enum _PULL_RESULT_TYPE
 	PULL_ALL_RESULT
 }PULL_RESULT_TYPE;
 
-struct app_id_dict_table
+struct app_id_dict
 {
 	int ref_cnt;
 	int app_id;
@@ -94,16 +54,13 @@ struct app_id_dict_table
 	int udp_timeout;
 	int tcp_time_wait;
 	int tcp_half_close;
-	int is_valid;
-	char risk[MAX_APP_ID_PROPERTY_LEN*4];
-	char app_name[MAX_APP_ID_PROPERTY_LEN];
-	char parent_app_name[MAX_APP_ID_PROPERTY_LEN];
-	char category[MAX_APP_ID_PROPERTY_LEN*4];
-	char subcategroy[MAX_APP_ID_PROPERTY_LEN*4];
-	char technology[MAX_APP_ID_PROPERTY_LEN*4];
-	char characteristics[MAX_APP_ID_PROPERTY_LEN*4];
-	char depends_on_app_ids[MAX_APP_ID_PROPERTY_LEN];
-	char implicitly_uses_app_ids[MAX_APP_ID_PROPERTY_LEN];
+	char *risk;
+	char *app_name;
+	char *parent_app_name;
+	char *category;
+	char *subcategroy;
+	char *technology;
+	char *characteristics;
 };
 
 extern Maat_feather_t g_tsg_maat_feather;
@@ -121,12 +78,19 @@ enum ACTION_RETURN_TYPE
 	ACTION_RETURN_TYPE_PROT=0,
 	ACTION_RETURN_TYPE_APP
 };
-unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *a_packet);
+unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data);
 
 int tsg_get_method_id(char *method);
 
 int tsg_free_compile_user_region(const struct Maat_rule_t *rule, struct compile_user_region *user_region);
 struct compile_user_region *tsg_get_compile_user_region(const Maat_feather_t maat_feather,	struct Maat_rule_t *result);
+
+
+////return -1 if none exists  otherwise return >=0
+int tsg_get_column_integer_value(const char* line, int column_seq);
+
+//return NULL if none exists, otherwise return value;
+char *tsg_get_column_string_value(const char* line, int column_seq);
 
 int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq);
 int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq);

@@ -107,6 +107,8 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_USERDEFINE_APP,
 	LOG_COMMON_MIRRORED_PKTS,
 	LOG_COMMON_MIRRORED_BYTES,
+	LOG_COMMON_SUBSCRIBER_ID,
+	LOG_COMMON_HTTP_ACTION_FILESIZE,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
@@ -131,7 +133,7 @@ struct tsg_log_instance_t
 	int app_id_type;
 	int send_user_region;
 	int recovery_interval;
-	int internal_project_id;
+	int session_attribute_project_id;
 	int tcp_flow_project_id;
 	int udp_flow_project_id;
 	int *send_log_percent;

@@ -3,6 +3,10 @@
 
 #include <MESA/Maat_rule.h>
 
+#ifndef	PRINTADDR
+#define	PRINTADDR(a, b)	((b)<RLOG_LV_FATAL ? printaddr(&(a->addr), a->threadnum) : "")
+#endif
+
 
 typedef	struct _tsg_log
 {
