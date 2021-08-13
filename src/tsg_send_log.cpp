@@ -22,8 +22,23 @@
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
+#include "rapidjson/document.h"     // rapidjson's DOM-style API
+#include "rapidjson/prettywriter.h" // for stringify JSON
+#include "rapidjson/stringbuffer.h"
+
+
+using namespace rapidjson;
+using namespace std;
+
+
 char TSG_SEND_LOG_VERSION_20200729=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
+
+struct TLD_handle_t
+{
+	int thread_id;
+	Document *document;
+};
 
 const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"UNKOWN"},
 								 			{TLD_TYPE_LONG, 	TLD_TYPE_LONG,		"LONG"},
