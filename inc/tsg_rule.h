@@ -92,6 +92,7 @@ int tsg_get_column_integer_value(const char* line, int column_seq);
 //return NULL if none exists, otherwise return value;
 char *tsg_get_column_string_value(const char* line, int column_seq);
 
+int tsg_set_fqdn_category_id(const struct streaminfo *a_stream, unsigned int *category_id, int category_id_num, int thread_seq);
 int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq);
 int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq);
 int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int table_id, unsigned int *category_id, int category_id_num, int thread_seq);

@@ -2137,7 +2137,7 @@ int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streamin
 {
 	int i=0,ret=0,hit_num=0;
 
-	if(table_id<0 || result_num<=0 || category_id==NULL)
+	if(table_id<0 || result_num<=0 || category_id==NULL || category_id_num <=0)
 	{
 		return 0;
 	}
@@ -2536,3 +2536,12 @@ int tsg_get_column_integer_value(const char* line, int column_seq)
 	return -1;
 }
 
+int tsg_set_fqdn_category_id(const struct streaminfo *a_stream, unsigned int *category_id, int category_id_num, int thread_seq)
+{
+	if(category_id!=NULL && category_id_num>0)
+	{
+		set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_CATEGORY_ID, (void *)category_id, category_id_num, thread_seq);
+	}
+	
+	return 0;
+}

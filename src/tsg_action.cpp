@@ -379,7 +379,7 @@ static int http_build_response_packet(const struct streaminfo *a_stream, struct 
 	http_hdr_len=get_http_header(message+ip_tcp_hdr_len, sizeof(message)-ip_tcp_hdr_len, user_region->deny->code, NULL);
 	payload_len=get_response_pages(p_result, user_region, &payload, a_stream->threadnum);
 
-	set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_HTTP_ACTION_FILESIZE, (void *)&payload_len, a_stream->threadnum);
+	set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_HTTP_ACTION_FILESIZE, (void *)&payload_len, sizeof(int), a_stream->threadnum);
 	
 	get_tcp_mss_option(a_stream, TCP_OPT_MSS, (void *)&max_segment_size);
 	

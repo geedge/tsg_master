@@ -44,6 +44,38 @@ static int string_cat(char *dst, int dst_len, char *src)
 	return snprintf(dst, dst_len, "%s", src);
 }
 
+#define add_number_member   add_member
+#define add_object_member   add_member
+
+#define add_member(handle, object, key, val)                                      \
+    {                                                                             \
+        Value temp_key;                                                           \
+        temp_key.SetString((key), (handle)->document->GetAllocator());            \
+        (object)->AddMember(temp_key, (val), (handle)->document->GetAllocator()); \
+    }
+
+static int copy_rapidjdon(struct TLD_handle_t *_handle, char *field_name, const char *json_string)
+{
+	Document nest_document;
+	nest_document.Parse(json_string);
+
+	Value p_object(kObjectType);
+	p_object.CopyFrom(nest_document, _handle->document->GetAllocator());
+
+	TLD_append(_handle, field_name, (void *)&p_object, TLD_TYPE_OBJECT);
+
+	return 0;
+}
+
+static void add_str_member(struct TLD_handle_t *_handle, Value *object, const char *key, const char *val)
+{
+	Value temp_key;
+	Value temp_val;
+	temp_key.SetString(key, _handle->document->GetAllocator());
+	temp_val.SetString(val, _handle->document->GetAllocator());
+	object->AddMember(temp_key, temp_val, _handle->document->GetAllocator());
+}
+
 static int is_tunnels(struct streaminfo *a_stream)
 {
 	const struct streaminfo *ptmp = a_stream;
@@ -124,7 +156,7 @@ static int set_tcp_isn(struct tsg_log_instance_t *_instance, struct TLD_handle_t
 
 static int set_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
-	const char *linkinfo=(const char *)project_req_get_struct(a_stream, g_tsg_para.linkinfo_project_id);
+	const char *linkinfo=(const char *)project_req_get_struct(a_stream, _instance->mac_linkinfo_project_id);
 	if(linkinfo==NULL)
 	{
 		return 0;
@@ -199,7 +231,6 @@ static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_strea
 
 	return 1;
 }
-
 
 static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
@@ -308,7 +339,6 @@ static int set_tuple4(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	return 1;
 }
 
-
 static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	int ret=0;
@@ -364,13 +394,13 @@ static int set_fqdn_category(struct tsg_log_instance_t *_instance, struct TLD_ha
 		return 0;
 	}
 	
-	cJSON *fqdn_array=cJSON_CreateArray();
+	Value array(kArrayType);
 	for(i=0; i<category_id_num; i++)
 	{
-		cJSON_AddNumberToObject(fqdn_array, _instance->id2field[LOG_COMMON_FQDN_CATEGORY].name, category_id[i]);
+		array.PushBack(category_id[i], _handle->document->GetAllocator());
 	}
 
-	cJSON_AddItemToObject(_handle->object, _instance->id2field[LOG_COMMON_FQDN_CATEGORY].name, fqdn_array);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_FQDN_CATEGORY].name, &array, TLD_TYPE_OBJECT);
 
 	return 1;
 }
@@ -439,7 +469,6 @@ static int set_packet_bytes(struct tsg_log_instance_t *_instance, struct TLD_han
 	return 1;
 }
 
-
 static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, struct app_identify_result *result, TLD_TYPE type)
 {
 	if(result==NULL || result->app_id_num<=0)
@@ -450,19 +479,20 @@ static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, st
 	int i=0;
 	char app_name[256]={0};
 	
-	cJSON *one_array=cJSON_CreateArray();
-	
+	Value array(kArrayType);
 	for(i=0; i<result->app_id_num; i++)
 	{
 		memset(app_name, 0, sizeof(app_name));
 		tsg_app_id2name(result->app_id[i], app_name, sizeof(app_name), 1);
 		if(strnlen(app_name, sizeof(app_name)) > 0)
 		{
-			cJSON_AddStringToObject(one_array, field_name, app_name);
+			Value app_name_str;
+    		app_name_str.SetString(app_name, _handle->document->GetAllocator());
+			array.PushBack(app_name_str, _handle->document->GetAllocator());
 		}
 	}
 
-	TLD_append(_handle, field_name, one_array, TLD_TYPE_CJSON);
+	TLD_append(_handle, field_name, &array, TLD_TYPE_OBJECT);
 
 	return 1;
 }
@@ -531,7 +561,7 @@ static int get_app_id(struct app_identify_result *result, unsigned int *app_id, 
 	return 0;
 }
 
-static int get_app_id_list(cJSON *app_id_object, const char *field_name, struct app_identify_result *result)
+static int get_app_id_list(Value *app_id_object, struct TLD_handle_t *_handle, const char *field_name, struct app_identify_result *result)
 {
 	int i=0;
 
@@ -540,19 +570,15 @@ static int get_app_id_list(cJSON *app_id_object, const char *field_name, struct 
 		return 0;
 	}
 	
-	cJSON *one_object=NULL;
-	cJSON *one_array=cJSON_CreateArray();
-
+	Value array(kArrayType);
 	for(i=0; i<result->app_id_num; i++)
 	{
-		one_object=cJSON_CreateObject();
-		cJSON_AddNumberToObject(one_object, "app_id", result->app_id[i]);
-		cJSON_AddNumberToObject(one_object, "surrogate_id", result->surrogate_id[i]);
-		
-		cJSON_AddItemToArray(one_array, one_object);
+		Value object(kObjectType);
+		object.AddMember("app_id", result->app_id[i], _handle->document->GetAllocator());
+		object.AddMember("surrogate_id", result->surrogate_id[i], _handle->document->GetAllocator());
+		array.PushBack(object, _handle->document->GetAllocator());
 	}
-
-	cJSON_AddItemToObject(app_id_object, field_name, one_array);
+	add_object_member(_handle, app_id_object, field_name, array);
 
 	return 1;
 }
@@ -627,13 +653,12 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	}
 	else //string
 	{
-		cJSON *app_id_object=cJSON_CreateObject();
-		get_app_id_list(app_id_object, "USER_DEFINE", &(label->result[ORIGIN_USER_DEFINE]));
-		get_app_id_list(app_id_object, "BUILT_IN", &(label->result[ORIGIN_BUILT_IN]));
-		get_app_id_list(app_id_object, "DKPT", &(label->result[ORIGIN_DKPT]));
-		get_app_id_list(app_id_object, "THIRD", &(label->result[ORIGIN_QM_ENGINE]));
-		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)app_id_object, TLD_TYPE_CJSON);		
+		Value app_id_object(kObjectType);
+		get_app_id_list(&app_id_object, _handle, "USER_DEFINE", &(label->result[ORIGIN_USER_DEFINE]));
+		get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(label->result[ORIGIN_BUILT_IN]));
+		get_app_id_list(&app_id_object, _handle, "DKPT", &(label->result[ORIGIN_DKPT]));
+		get_app_id_list(&app_id_object, _handle, "THIRD", &(label->result[ORIGIN_QM_ENGINE]));
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, &app_id_object, TLD_TYPE_OBJECT);
 
 		set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(label->result[ORIGIN_USER_DEFINE]), TLD_TYPE_LONG);
 		
@@ -667,7 +692,7 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	return 1;
 }
 
-static int set_vlan(struct tsg_log_instance_t *_instance, struct single_layer_vlan_addr *vlan_addr, int layer_num, cJSON *tunnel_object, tsg_log_field_id_t id)
+static int set_vlan(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct single_layer_vlan_addr *vlan_addr, int layer_num, Value *tunnel_object, tsg_log_field_id_t id)
 {
 	if(layer_num==0)
 	{
@@ -675,18 +700,17 @@ static int set_vlan(struct tsg_log_instance_t *_instance, struct single_layer_vl
 	}
 	
 	int i=0;
-	cJSON *vlan_array=cJSON_CreateArray();
+	Value vlan_array(kArrayType);
 	for(i=0; i<layer_num; i++)
 	{
-		cJSON_AddNumberToObject(vlan_array, _instance->id2field[id].name, ntohs(vlan_addr[i].VID));
+		vlan_array.PushBack(ntohs(vlan_addr[i].VID), _handle->document->GetAllocator());
 	}
-
-	cJSON_AddItemToObject(tunnel_object, _instance->id2field[id].name, vlan_array);
+	add_object_member(_handle, tunnel_object, _instance->id2field[id].name, vlan_array);
 
 	return 1;
 }
 
-static int set_mpls(struct tsg_log_instance_t *_instance, struct single_layer_mpls_addr *mpls_addr, int layer_num, cJSON *tunnel_object, tsg_log_field_id_t id)
+static int set_mpls(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct single_layer_mpls_addr *mpls_addr, int layer_num, Value *tunnel_object, tsg_log_field_id_t id)
 {
 	if(layer_num==0)
 	{
@@ -694,17 +718,15 @@ static int set_mpls(struct tsg_log_instance_t *_instance, struct single_layer_mp
 	}
 
 	int i=0;
-	cJSON *mpls_array=cJSON_CreateArray();
+	Value mpls_array(kArrayType);
 	for(i=0; i<layer_num; i++)
 	{
-		cJSON_AddNumberToObject(mpls_array, _instance->id2field[id].name, ntohl(mpls_addr[i].label));
+		mpls_array.PushBack(ntohl(mpls_addr[i].label), _handle->document->GetAllocator());
 	}
-	
-	cJSON_AddItemToObject(tunnel_object, _instance->id2field[id].name, mpls_array);
+	add_object_member(_handle, tunnel_object, _instance->id2field[id].name, mpls_array);
 
 	return 1;
 }
-
 
 static int mac_to_string(unsigned char *mac, char *buff)
 {
@@ -720,7 +742,7 @@ static int mac_to_string(unsigned char *mac, char *buff)
 	return 0;
 }
 
-static int set_link_mac(struct tsg_log_instance_t *_instance, struct layer_addr_mac *mac, cJSON *tunnel_object)
+static int set_link_mac(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct layer_addr_mac *mac, Value *tunnel_object)
 {
 	int flag=0;
 	char default_mac[6]={0,0,0,0,0,0};
@@ -745,22 +767,22 @@ static int set_link_mac(struct tsg_log_instance_t *_instance, struct layer_addr_
 
 	switch(flag)
 	{
-		case	1:			
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "ETHERNET");
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, c2s_source_mac);
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, c2s_dest_mac);
+		case	1:
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "ETHERNET");
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, c2s_source_mac);
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, c2s_dest_mac);
 			break;
-		case	2:			
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "ETHERNET");
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, s2c_source_mac);
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, s2c_dest_mac);
+		case	2:
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "ETHERNET");
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_SOURCE].name, s2c_source_mac);
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_MAC_DEST].name, s2c_dest_mac);
 			break;
-		case	3:			
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "MULTIPATH_ETHERNET");
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_C2S_MAC_SOURCE].name, c2s_source_mac);
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_C2S_MAC_DEST].name, c2s_dest_mac);
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_S2C_MAC_SOURCE].name, s2c_source_mac);
-			cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_S2C_MAC_DEST].name, s2c_dest_mac);
+		case	3:
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "MULTIPATH_ETHERNET");
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_C2S_MAC_SOURCE].name, c2s_source_mac);
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_C2S_MAC_DEST].name, c2s_dest_mac);
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_S2C_MAC_SOURCE].name, s2c_source_mac);
+			add_str_member(_handle, tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_S2C_MAC_DEST].name, s2c_dest_mac);
 			break;
 		default:
 			break;
@@ -795,33 +817,26 @@ static int action2fs_id(int action)
 
 int TLD_cancel(struct TLD_handle_t *handle)
 {
-	struct TLD_handle_t *_handle=handle;
-	
-	if(_handle!=NULL)
+	if (handle != NULL)
 	{
-		if(_handle->object!=NULL)
+		if (handle->document != NULL)
 		{
-			cJSON_Delete(_handle->object);
-			_handle->object=NULL;
+			delete handle->document;
+			handle->document = NULL;
 		}
-	
 		free(handle);
-		handle=NULL;
+		handle = NULL;
 	}
 	
 	return 0;
 }
 
-int TLD_delete(struct TLD_handle_t *handle, char *key)
+static void TLD_delete(struct TLD_handle_t *handle, char *key)
 {
-	struct TLD_handle_t *_handle=handle;
-	
-	if(_handle!=NULL && key!=NULL)
+	if (handle != NULL && handle->document != NULL && key != NULL)
 	{
-		cJSON_DeleteItemFromObject(_handle->object, key);
+		handle->document->RemoveMember(key);
 	}
-
-	return 0;
 }
 
 int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE type)
@@ -836,7 +851,7 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 	switch(type)
 	{
 		case	TLD_TYPE_LONG:
-			cJSON_AddNumberToObject(_handle->object, key, (long)value);
+			add_number_member(_handle, _handle->document, key, (long)value);
 			break;
 		case	TLD_TYPE_FILE:
 			break;
@@ -845,11 +860,14 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 			{
 				break;
 			}
-			cJSON_AddStringToObject(_handle->object, key, (char *)value);
+			add_str_member(_handle, _handle->document, key, (const char *)value);
+			break;
+		case	TLD_TYPE_OBJECT:
+			add_object_member(handle, handle->document, key, ((Value &)(*(Value *)value)));
 			break;
 		case	TLD_TYPE_CJSON:
-			cJSON_AddItemToObject(_handle->object, key, (cJSON *)value);
-			break;
+			printf("TLD_TYPE_CJSON is obsolete, please use TLD_TYPE_OBJECT !!!\n");
+			abort();
 		default:
 			return -1;
 			break;
@@ -864,8 +882,9 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	
 	struct TLD_handle_t *_handle=(struct TLD_handle_t *)calloc(1, sizeof(struct TLD_handle_t));
 	_handle->thread_id = thread_id;
-	_handle->object = cJSON_CreateObject();
-	
+	_handle->document = new Document();
+	_handle->document->SetObject();
+
 	return _handle;
 }
 
@@ -887,36 +906,50 @@ static int set_user_region(struct tsg_log_instance_t *_instance, struct TLD_hand
 		dictator_free(thread_seq, user_region);
 		user_region=NULL;	
 	}
+	
+	return 0;
+}
+
+int set_nat_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, int project_id)
+{
+	const char *nat_linkinfo=(const char *)project_req_get_struct(a_stream, project_id);
+	if(nat_linkinfo==NULL)
+	{
+		return 0;
+	}
+
+	copy_rapidjdon(_handle, field_name, nat_linkinfo);
 
 	return 0;
 }
 
-static int get_gtp_ipv4v6_port(struct tsg_log_instance_t *_instance, struct streaminfo *a_stream, cJSON *object)
+static int get_gtp_ipv4v6_port(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, Value *object)
 {
 	char ip_buff[64]={0};
-
 	if(a_stream!=NULL)
 	{
 		switch(a_stream->addr.addrtype)
 		{
 			case	ADDR_TYPE_IPV4:
 					inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->saddr), ip_buff, sizeof(ip_buff));
-					cJSON_AddStringToObject(object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_IP].name, ip_buff);	
-					inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->daddr), ip_buff, sizeof(ip_buff));				
-					cJSON_AddStringToObject(object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_IP].name, ip_buff);
+					add_str_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_IP].name, ip_buff);
 
-					cJSON_AddNumberToObject(object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_PORT].name, (unsigned int)(a_stream->addr.ipv4->source));					
-					cJSON_AddNumberToObject(object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_PORT].name, (unsigned int)(a_stream->addr.ipv4->dest));
+					inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->daddr), ip_buff, sizeof(ip_buff));	
+					add_str_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_IP].name, ip_buff);
+					
+					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_PORT].name, (unsigned int)(a_stream->addr.ipv4->source));
+					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_PORT].name, (unsigned int)(a_stream->addr.ipv4->dest));
 					return 1;
 				break;
 			case	ADDR_TYPE_IPV6:
 					inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->saddr), ip_buff, sizeof(ip_buff));
-					cJSON_AddStringToObject(object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_IP].name, ip_buff);	
-					inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->daddr), ip_buff, sizeof(ip_buff));				
-					cJSON_AddStringToObject(object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_IP].name, ip_buff);
+					add_str_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_IP].name, ip_buff);
+	
+					inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->daddr), ip_buff, sizeof(ip_buff));
+					add_str_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_IP].name, ip_buff);
 					
-					cJSON_AddNumberToObject(object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_PORT].name, (unsigned int)(a_stream->addr.ipv6->source));					
-					cJSON_AddNumberToObject(object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_PORT].name, (unsigned int)(a_stream->addr.ipv6->dest));
+					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_PORT].name, (unsigned int)(a_stream->addr.ipv6->source));
+					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_PORT].name, (unsigned int)(a_stream->addr.ipv6->dest));
 					return 1;
 				break;
 			default:
@@ -934,27 +967,24 @@ static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_h
 	char ip_buff[64]={0};
 	const struct streaminfo *ptmp = a_stream;
 	const struct streaminfo *pfather=NULL;
-	cJSON *tunnel_object=NULL;
-	cJSON *tunnel_array=cJSON_CreateArray();
+	Value tunnel_array(kArrayType);
 
 	while(ptmp)
 	{
+		Value tunnel_object(kObjectType);
 		pfather = ptmp->pfather;
 		switch(ptmp->addr.addrtype)
 		{
 			case	ADDR_TYPE_MAC:
-				tunnel_object=cJSON_CreateObject();
-				set_link_mac(_instance, (ptmp->addr.mac), tunnel_object);
+				set_link_mac(_instance, _handle, (ptmp->addr.mac), &tunnel_object);
 				break;
 			case	ADDR_TYPE_VLAN:
-				tunnel_object=cJSON_CreateObject();
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "VLAN");
-				set_vlan(_instance, ptmp->addr.vlan->c2s_addr_array, ptmp->addr.vlan->c2s_layer_num, tunnel_object,  LOG_COMMON_TUNNELS_VLAN_SRC_ID);
-				set_vlan(_instance, ptmp->addr.vlan->s2c_addr_array, ptmp->addr.vlan->s2c_layer_num, tunnel_object, LOG_COMMON_TUNNELS_VLAN_DST_ID);
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "VLAN");
+				set_vlan(_instance, _handle, ptmp->addr.vlan->c2s_addr_array, ptmp->addr.vlan->c2s_layer_num, &tunnel_object,  LOG_COMMON_TUNNELS_VLAN_SRC_ID);
+				set_vlan(_instance, _handle, ptmp->addr.vlan->s2c_addr_array, ptmp->addr.vlan->s2c_layer_num, &tunnel_object, LOG_COMMON_TUNNELS_VLAN_DST_ID);
 				break;
 			case	ADDR_TYPE_GRE:
-				tunnel_object=cJSON_CreateObject();
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "GRE");
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "GRE");
 				break;
 			case	ADDR_TYPE_MPLS:
 				if(ptmp->addr.mpls->s2c_layer_num==0 && ptmp->addr.mpls->c2s_layer_num==0)
@@ -962,57 +992,49 @@ static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_h
 					ptmp = pfather;
 					continue;
 				}
-				
-				tunnel_object=cJSON_CreateObject();
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, (char *)"MPLS");
-				set_mpls(_instance, ptmp->addr.mpls->c2s_addr_array, ptmp->addr.mpls->c2s_layer_num, tunnel_object, LOG_COMMON_TUNNELS_MPLS_SRC_LABEL);
-				set_mpls(_instance, ptmp->addr.mpls->s2c_addr_array, ptmp->addr.mpls->s2c_layer_num, tunnel_object, LOG_COMMON_TUNNELS_MPLS_DST_LABEL);
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "MPLS");
+				set_mpls(_instance, _handle, ptmp->addr.mpls->c2s_addr_array, ptmp->addr.mpls->c2s_layer_num, &tunnel_object, LOG_COMMON_TUNNELS_MPLS_SRC_LABEL);
+				set_mpls(_instance, _handle, ptmp->addr.mpls->s2c_addr_array, ptmp->addr.mpls->s2c_layer_num, &tunnel_object, LOG_COMMON_TUNNELS_MPLS_DST_LABEL);
 				break;
 			case	ADDR_TYPE_L2TP:
-				tunnel_object=cJSON_CreateObject();
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "L2TP");
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "L2TP");
 				break;
 			case	__ADDR_TYPE_IP_PAIR_V4:
-				tunnel_object=cJSON_CreateObject();				
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "IPv4");
-				
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "IPv4");
+
 				inet_ntop(AF_INET, (const void *)&(ptmp->addr.ipv4->saddr), ip_buff, sizeof(ip_buff));
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_CLIENT_IP].name, ip_buff);
-				
-				inet_ntop(AF_INET, (const void *)&(ptmp->addr.ipv4->daddr), ip_buff, sizeof(ip_buff));				
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SERVER_IP].name, ip_buff);
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_CLIENT_IP].name, ip_buff);
+
+				inet_ntop(AF_INET, (const void *)&(ptmp->addr.ipv4->daddr), ip_buff, sizeof(ip_buff));
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SERVER_IP].name, ip_buff);
 				break;
-			case	__ADDR_TYPE_IP_PAIR_V6:
-				tunnel_object=cJSON_CreateObject();				
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "IPv6");
-				
+			case	__ADDR_TYPE_IP_PAIR_V6:			
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "IPv6");
+
 				inet_ntop(AF_INET6, (const void *)(ptmp->addr.ipv6->saddr), ip_buff, sizeof(ip_buff));
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_CLIENT_IP].name, ip_buff);
-				
-				inet_ntop(AF_INET6, (const void *)(ptmp->addr.ipv6->daddr), ip_buff, sizeof(ip_buff));				
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SERVER_IP].name, ip_buff);
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_CLIENT_IP].name, ip_buff);
+
+				inet_ntop(AF_INET6, (const void *)(ptmp->addr.ipv6->daddr), ip_buff, sizeof(ip_buff));
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SERVER_IP].name, ip_buff);
 				break;
 			case	ADDR_TYPE_PPTP:
-				tunnel_object=cJSON_CreateObject();
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "PPTP");
-				cJSON_AddNumberToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_PPTP_C2S_ID].name, ntohs(ptmp->addr.pptp->C2S_call_id));
-				cJSON_AddNumberToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_PPTP_S2C_ID].name, ntohs(ptmp->addr.pptp->S2C_call_id));
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "PPTP");
+				add_number_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_PPTP_C2S_ID].name, ntohs(ptmp->addr.pptp->C2S_call_id));
+				add_number_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_PPTP_S2C_ID].name, ntohs(ptmp->addr.pptp->S2C_call_id));
 				break;
 			case	ADDR_TYPE_GPRS_TUNNEL:
-				tunnel_object=cJSON_CreateObject();
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "GTP");
-				cJSON_AddNumberToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_UPLINK_TEID].name, ntohl(ptmp->addr.gtp->teid_c2s));
-				cJSON_AddNumberToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_DOWNLINK_TEID].name, ntohl(ptmp->addr.gtp->teid_s2c));
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "GTP");
+				add_number_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_UPLINK_TEID].name, ntohl(ptmp->addr.gtp->teid_c2s));
+				add_number_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_DOWNLINK_TEID].name, ntohl(ptmp->addr.gtp->teid_s2c));
 
-				ret=get_gtp_ipv4v6_port(_instance, ptmp->pfather, tunnel_object);
+				ret=get_gtp_ipv4v6_port(_instance, _handle, ptmp->pfather, &tunnel_object);
 				if(ret==1)
 				{
 					ptmp=pfather->pfather;
 				}
 				break;
 			case	ADDR_TYPE_VXLAN:
-				tunnel_object=cJSON_CreateObject();
-				cJSON_AddStringToObject(tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "VXLAN");
+				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "VXLAN");
 				break;
 			default:
 				ptmp = pfather;
@@ -1020,12 +1042,12 @@ static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_h
 				break;
 		}
 		
-		ptmp = pfather;
-		cJSON_AddItemToArray(tunnel_array, tunnel_object);
+		ptmp = pfather;;
+		tunnel_array.PushBack(tunnel_object, _handle->document->GetAllocator());
 	}
 
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS].name, tunnel_array, TLD_TYPE_CJSON);
-	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS].name, &tunnel_array, TLD_TYPE_OBJECT);
+
 	return 0;
 }
 
@@ -1317,6 +1339,7 @@ int load_log_common_field(const char *filename, id2field_t *id2field, id2field_t
 struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 {
 	int i=0,ret=0;
+	char label_buff[128]={0};
 	char nic_name[32]={0};
 	char kafka_errstr[1024]={0};
 	unsigned int local_ip_nr=0;
@@ -1343,6 +1366,27 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "APP_ID_TYPE", &(_instance->app_id_type), 1);	//0: int, 1: string	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_UNKNOWN_NAME", _instance->l7_unknown_name, sizeof(_instance->l7_unknown_name), "UNCATEGORIZED");
+
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "LINKINFO_FROM_MAC", label_buff, sizeof(label_buff), "mirror_linkinfo_from_mac");
+	_instance->mac_linkinfo_project_id=project_customer_register(label_buff, PROJECT_VAL_TYPE_STRUCT);
+	if(_instance->mac_linkinfo_project_id<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
+	}
+
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_C2S_LINKINFO", label_buff, sizeof(label_buff), "common_link_info_c2s");
+	_instance->nat_c2s_linkinfo_project_id=project_customer_register(label_buff, PROJECT_VAL_TYPE_STRUCT);
+	if(_instance->nat_c2s_linkinfo_project_id<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
+	}
+
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_S2C_LINKINFO", label_buff, sizeof(label_buff), "common_link_info_s2c");
+	_instance->nat_s2c_linkinfo_project_id=project_customer_register(label_buff, PROJECT_VAL_TYPE_STRUCT);
+	if(_instance->nat_s2c_linkinfo_project_id<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
+	}
 
 	_instance->logger=MESA_create_runtime_log_handle(_instance->log_path, _instance->level);
 	if(_instance->logger==NULL)
@@ -1449,12 +1493,10 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	return _instance;
 }
 
-
 int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, tsg_log_t *log_msg, int thread_id)
 {
 	int fs_id=0;
 	int i=0,status=0;
-	char *payload=NULL;
 	int repeat_cnt=0;
 	struct timespec cur_time;
 	int policy_id[MAX_RESULT_NUM]={0};
@@ -1553,15 +1595,23 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		{
 			set_user_region(_instance, _handle, &log_msg->result[i], thread_id);
 		}
+
+		if(log_msg->result[i].config_id==0 && log_msg->a_stream!=NULL)
+		{			
+			set_nat_linkinfo(_instance, _handle, log_msg->a_stream, _instance->id2field[LOG_COMMON_LINK_INFO_C2S].name, _instance->nat_c2s_linkinfo_project_id);
+			set_nat_linkinfo(_instance, _handle, log_msg->a_stream, _instance->id2field[LOG_COMMON_LINK_INFO_S2C].name, _instance->nat_s2c_linkinfo_project_id);
+		}
 		
 		if(log_msg->result[i].action==TSG_ACTION_DENY)
 		{
 			set_common_sub_action(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name, &(log_msg->result[i]));
 		}
 		
-		payload=cJSON_PrintUnformatted(_handle->object);
+		StringBuffer sb(0, 2048);
+		Writer<StringBuffer> writer(sb);
+		_handle->document->Accept(writer);
 
-		status=rd_kafka_produce(_instance->topic_rkt[log_msg->result[i].service_id], RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, payload, strlen(payload), NULL, 0, NULL);
+		status=rd_kafka_produce(_instance->topic_rkt[log_msg->result[i].service_id], RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, (void *)sb.GetString(), sb.GetSize(), NULL, 0, NULL);
 		if(status<0)
 		{
 			clock_gettime(CLOCK_REALTIME, &cur_time);
@@ -1582,7 +1632,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 										rd_kafka_err2str(rd_kafka_last_error()),
 										status,
 										_instance->service2topic[log_msg->result[i].service_id].name,
-										payload
+										sb.GetString()
 									);
 		}
 		else
@@ -1592,14 +1642,11 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 										"TSG_SEND_LOG", 
 										"log send successfully %s: %s",
 										_instance->service2topic[log_msg->result[i].service_id].name,
-										payload
+										sb.GetString()
 									);
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUCCESS_LOG], 0, FS_OP_ADD, 1);		
 			FS_operate(g_tsg_para.fs2_handle, _instance->fs_status_ids[thread_id], 0, FS_OP_SET, _instance->send_log_percent[thread_id]);
 		}
-
-		cJSON_free(payload);
-		payload=NULL;
 
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);

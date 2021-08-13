@@ -122,6 +122,7 @@ enum TSG_ATTRIBUTE_TYPE
 	TSG_ATTRIBUTE_TYPE_ASN,
 	TSG_ATTRIBUTE_TYPE_SUBSCRIBER_ID,
 	TSG_ATTRIBUTE_TYPE_HTTP_ACTION_FILESIZE,
+	TSG_ATTRIBUTE_TYPE_CATEGORY_ID,
 	_MAX_TSG_ATTRIBUTE_TYPE
 };
 
@@ -232,7 +233,6 @@ typedef	struct tsg_para
 	int session_attribute_project_id;
 	int context_project_id;
 	int tcpall_project_id;
-	int linkinfo_project_id;
 	int gather_app_project_id;
 	int app_bridge_id;
 	int proto_flag; //tsg_protocol_t
@@ -356,7 +356,7 @@ void subscriber_id_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 void app_id_dict_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void dns_profile_records_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp);
-void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int thread_seq);
+void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int value_len, int thread_seq);
 
 int tsg_set_vlan_id_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct mirrored_vlan *vlan_id, int vlan_num, int thread_seq);
 int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct leaky_bucket *bucket, int thread_seq);

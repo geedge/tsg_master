@@ -109,6 +109,8 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_MIRRORED_BYTES,
 	LOG_COMMON_SUBSCRIBER_ID,
 	LOG_COMMON_HTTP_ACTION_FILESIZE,
+	LOG_COMMON_LINK_INFO_C2S,
+	LOG_COMMON_LINK_INFO_S2C,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
@@ -118,12 +120,6 @@ typedef	struct _id2field
 	int id;
 	char name[MAX_STRING_LEN];
 }id2field_t;
-
-struct TLD_handle_t
-{
-	int thread_id;
-	cJSON *object;
-};
 
 struct tsg_log_instance_t
 {
@@ -136,6 +132,9 @@ struct tsg_log_instance_t
 	int session_attribute_project_id;
 	int tcp_flow_project_id;
 	int udp_flow_project_id;
+	int mac_linkinfo_project_id;
+	int nat_c2s_linkinfo_project_id;	
+	int nat_s2c_linkinfo_project_id;
 	int *send_log_percent;
 	int *fs_status_ids;
 	struct timespec *drop_start;

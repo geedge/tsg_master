@@ -815,7 +815,7 @@ static int scan_fqdn_category_id(Maat_feather_t maat_feather, const struct strea
 	return scan_ret;
 }
 
-void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int thread_seq)
+void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int value_len, int thread_seq)
 {
 	unsigned long long create_time=0;
 	unsigned long long current_time=0;
@@ -896,6 +896,14 @@ void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATT
 		case	TSG_ATTRIBUTE_TYPE_LOCATION:
 			tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_USER_DEFINED], (void **)&(attribute_label->client_location), (void **)&(attribute_label->server_location));
 			tsg_get_ip_location(a_stream, g_tsg_para.table_id[TABLE_LOCATION_BUILT_IN], (void **)&(attribute_label->client_location), (void **)&(attribute_label->server_location));
+			break;
+		case	TSG_ATTRIBUTE_TYPE_CATEGORY_ID:
+			if(value_len<=0 || value_len>MAX_CATEGORY_ID_NUM)
+			{
+				break;
+			}
+			memcpy(attribute_label->fqdn_category_id, value, sizeof(unsigned int)*value_len);
+			attribute_label->fqdn_category_id_num=value_len;
 			break;
 		default:
 			break;
@@ -1356,11 +1364,11 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 	ret=identify_application_protocol(a_stream, context, a_packet);
 	if(ret==1)
 	{				
-		set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(context->proto), a_stream->threadnum);
+		set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(context->proto), sizeof(int), a_stream->threadnum);
 
 		if(context->proto==PROTO_SSL)
 		{
-			set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_JA3_HASH, NULL, a_stream->threadnum);
+			set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_JA3_HASH, NULL, 0, a_stream->threadnum);
 		}
 		
 		table_id=get_table_id(context->proto);	
@@ -1692,13 +1700,6 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_INTERNAL_LABEL", label_buff, sizeof(label_buff), "TSG_MASTER_INTERNAL_LABEL");
 	g_tsg_para.session_attribute_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_label);
 	if(g_tsg_para.session_attribute_project_id<0)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
-	}
-
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "LINKINFO", label_buff, sizeof(label_buff), "mirror_linkinfo_from_mac");
-	g_tsg_para.linkinfo_project_id=project_customer_register(label_buff, PROJECT_VAL_TYPE_STRUCT);
-	if(g_tsg_para.linkinfo_project_id<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
 	}
