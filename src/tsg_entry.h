@@ -174,6 +174,7 @@ struct master_context
 	int hit_cnt;
 	int is_esni;
 	int is_log;
+	int is_ratelimit;
 	char *domain;
 	scan_status_t mid;	
 	struct Maat_rule_t *result;

@@ -35,6 +35,17 @@ static int set_drop_stream(const struct streaminfo *a_stream)
 	return STATE_DROPME|STATE_DROPPKT;				
 }
 
+static int set_ratelimit_flag(const struct streaminfo *a_stream)
+{	
+	struct master_context *_context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
+	if(_context!=NULL)
+	{
+		_context->is_ratelimit=1;
+	}
+
+	return 0;
+}
+
 static int get_http_header(char *buff, int len, int code, char *user_define)
 {
 	int used_len=0;
@@ -516,15 +527,22 @@ static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region)
+static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, enum ACTION_RETURN_TYPE type)
 {
 	struct tcpall_context *context=NULL;
 	struct leaky_bucket *bucket=create_bucket((double)((user_region->deny->bps)/1000000), user_region->deny->bps, a_stream->threadnum);
 	tsg_set_bucket_to_tcpall(a_stream, &context, bucket, a_stream->threadnum);
 
+	set_ratelimit_flag(a_stream);
+
 	context=NULL;
-	
-	return STATE_GIVEME;
+
+	if(type==ACTION_RETURN_TYPE_PROT)
+	{		
+		return STATE_DROPME;
+	}
+
+	return STATE_GIVEME|STATE_KILL_OTHER;
 }
 
 static unsigned char do_action_block_mail(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region)
@@ -681,7 +699,7 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 			local_state=do_action_redirect_xxx( a_stream, p_result, user_region, protocol, user_data);
 			break;
 		case	TSG_METHOD_TYPE_RATE_LINIT:
-			local_state=do_action_ratelimit(a_stream, p_result, user_region);
+			local_state=do_action_ratelimit(a_stream, p_result, user_region, type);
 			break;
 		default:
 			break;
@@ -693,7 +711,8 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_DROPME ? PROT_STATE_DROPME : 0) : (local_state&STATE_DROPME ? APP_STATE_DROPME : 0));	
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_GIVEME ? PROT_STATE_GIVEME: 0) : (local_state&STATE_GIVEME ? APP_STATE_GIVEME: 0));
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_DROPPKT ? PROT_STATE_DROPPKT : 0) : (local_state&STATE_DROPPKT ? APP_STATE_DROPPKT: 0));
-
+	state|=((type==ACTION_RETURN_TYPE_PROT) ? (0) : (local_state&STATE_KILL_OTHER ? APP_STATE_KILL_OTHER : 0));
+	
 	return state;
 }
 

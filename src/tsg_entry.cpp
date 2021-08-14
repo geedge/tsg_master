@@ -1243,7 +1243,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 		{
 			case	TSG_ACTION_DENY:
 				state=tsg_deal_deny_action(a_stream, p_result, context->proto, ACTION_RETURN_TYPE_APP, a_packet);
-				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT)
+				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT || (state&APP_STATE_KILL_OTHER))
 				{
 					context->hit_cnt=0;
 					master_send_log(a_stream, p_result, 1, context->domain, context->proto, a_stream->threadnum);					
@@ -1486,6 +1486,11 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		default:
 			break;
 	}
+
+	if(context->is_ratelimit==1 && a_stream->type==STREAM_TYPE_TCP)
+	{
+		state=APP_STATE_KILL_OTHER|APP_STATE_DROPME;
+	}
 	
 	if((a_stream->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
@@ -1511,12 +1516,6 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 	struct Maat_rule_t result[MAX_RESULT_NUM]={0};	
 	struct mirrored_vlan vlan[MAX_RESULT_NUM]={0};
 	struct tcpall_context *context=(struct tcpall_context *)(*pme);
-
-	if(context==NULL)
-	{
-		context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
-		*pme=(void *)context;
-	}
 		
 	switch(stream_state)
 	{
@@ -1536,7 +1535,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 						ret=tsg_set_vlan_id_to_tcpall(a_stream, &context, vlan, vlan_num, thread_seq);
 						if(ret<=0)
 						{
-							break;
+							return state;
 						}
 						
 						*pme=(void *)(context);
@@ -1551,35 +1550,41 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			scan_mid=NULL;
 		case	OP_STATE_DATA:
 		case	OP_STATE_CLOSE:
-				if(context==NULL || context->para==NULL)
-				{
-					break;
-				}
-				
-				switch(context->method_type)
-				{
-					case	TSG_METHOD_TYPE_MIRRORED:
-						tsg_send_raw_packet(a_stream, context->vlan, context->vlan_num, thread_seq);
-						break;
-					case	TSG_METHOD_TYPE_RATE_LINIT:
-						eth_rawpkt_len=get_raw_packet_len(a_stream);
-						if(eth_rawpkt_len<=0)
-						{
-							break;
-						}
 
-						ret=is_permit_pass(eth_rawpkt_len*8, context->bucket, thread_seq);
-						if(ret==0)
-						{
-							state=APP_STATE_GIVEME|APP_STATE_DROPPKT;
-						}
-						break;
-					default:
-						break;
-				}
 			break;
 		default:
 			break;
+	}
+
+	if(context==NULL)
+	{
+		context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+		*pme=(void *)context;
+	}
+
+	if(context!=NULL && context->para!=NULL)
+	{
+		switch(context->method_type)
+		{
+			case	TSG_METHOD_TYPE_MIRRORED:
+				tsg_send_raw_packet(a_stream, context->vlan, context->vlan_num, thread_seq);
+				break;
+			case	TSG_METHOD_TYPE_RATE_LINIT:
+				eth_rawpkt_len=get_raw_packet_len(a_stream);
+				if(eth_rawpkt_len<=0)
+				{
+					break;
+				}
+		
+				ret=is_permit_pass(eth_rawpkt_len*8, context->bucket, thread_seq);
+				if(ret==0)
+				{
+					state|=APP_STATE_GIVEME|APP_STATE_DROPPKT;
+				}
+				break;
+			default:
+				break;
+		}
 	}
 
 	return state;
@@ -1610,7 +1615,10 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 	}
 	
 	state1=tsg_master_all_entry(a_udp, a_udp->opstate, (void **)&(context->all_entry), thread_seq, a_packet);
-	state2=tsg_master_data_entry(a_udp, (void **)&(context->data_entry), thread_seq, a_packet);
+	if(context->all_entry==NULL || context->all_entry->method_type!=TSG_METHOD_TYPE_RATE_LINIT)
+	{
+		state2=tsg_master_data_entry(a_udp, (void **)&(context->data_entry), thread_seq, a_packet);		
+	}
 
 	if(state1&APP_STATE_DROPME || state2&APP_STATE_DROPME || a_udp->opstate==OP_STATE_CLOSE)
 	{
