@@ -69,7 +69,7 @@ static int string_cat(char *dst, int dst_len, char *src)
         (object)->AddMember(temp_key, (val), (handle)->document->GetAllocator()); \
     }
 
-static int copy_rapidjdon(struct TLD_handle_t *_handle, char *field_name, const char *json_string)
+static int copy_rapidjson(struct TLD_handle_t *_handle, char *field_name, const char *json_string)
 {
 	Document nest_document;
 	nest_document.Parse(json_string);
@@ -933,7 +933,7 @@ int set_nat_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *
 		return 0;
 	}
 
-	copy_rapidjdon(_handle, field_name, nat_linkinfo);
+	copy_rapidjson(_handle, field_name, nat_linkinfo);
 
 	return 0;
 }

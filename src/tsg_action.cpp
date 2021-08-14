@@ -32,8 +32,7 @@ static int set_drop_stream(const struct streaminfo *a_stream)
 	MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
 	MESA_set_stream_opt(a_stream, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
 
-	return 0;
-				
+	return STATE_DROPME|STATE_DROPPKT;				
 }
 
 static int get_http_header(char *buff, int len, int code, char *user_define)
@@ -461,17 +460,6 @@ static int http_get_content_303(const struct streaminfo *a_stream, struct Maat_r
 	return used_len;
 }
 
-static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol)
-{
-	if(protocol==PROTO_DNS)
-	{
-		return STATE_GIVEME|STATE_DROPPKT;
-	}
-	
-	set_drop_stream(a_stream);
-
-	return STATE_DROPME|STATE_DROPPKT;
-}
 static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol)
 {
 	int ret=0,opt_value=0;
@@ -507,6 +495,25 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 	}
 
 	return STATE_DROPPKT|STATE_DROPME;
+}
+
+static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol)
+{
+	if(protocol==PROTO_DNS)
+	{
+		return STATE_GIVEME|STATE_DROPPKT;
+	}
+
+	if(g_tsg_para.deploy_mode==DEPLOY_MODE_MIRROR)
+	{
+		return do_action_reset(a_stream, p_result, protocol);
+	}
+	else
+	{
+		set_drop_stream(a_stream);
+	}
+	
+	return STATE_DROPME|STATE_DROPPKT;
 }
 
 static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region)
@@ -658,9 +665,9 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 	{
 		case	TSG_METHOD_TYPE_DROP:
 			local_state=do_action_drop(a_stream, p_result, protocol);
-			if(g_tsg_para.deploy_mode==DEPLOY_MODE_MIRROR)
+			if(protocol==PROTO_DNS && type==ACTION_RETURN_TYPE_APP)
 			{
-				local_state=do_action_reset(a_stream, p_result, protocol);
+				local_state=set_drop_stream(a_stream);
 			}
 			break;
 		case	TSG_METHOD_TYPE_RESET:
