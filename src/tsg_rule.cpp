@@ -1303,6 +1303,7 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 	char effective_tag_key[128]={0};
 	char effective_range_filename[1024]={0};
 	char redis_ip[16]={0}, effective_flag[1024]={0};
+	int output_prometheus=0;
 	int maat_mode=0,maat_stat_on=0,maat_perf_on=0,thread_max=0;
 	char json_cfg_file[MAX_PATH_LEN]={0},maat_stat_file[MAX_PATH_LEN]={0};
 	char table_info[MAX_PATH_LEN]={0},inc_cfg_dir[MAX_PATH_LEN]={0},ful_cfg_dir[MAX_PATH_LEN]={0};
@@ -1329,6 +1330,7 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 	MESA_load_profile_int_def(conffile, module,"MAAT_MODE", &(maat_mode),0);
 	MESA_load_profile_int_def(conffile, module,"STAT_SWITCH", &(maat_stat_on),1);
 	MESA_load_profile_int_def(conffile, module,"PERF_SWITCH", &(maat_perf_on),1);
+	MESA_load_profile_int_def(conffile, module,"OUTPUT_PROMETHEUS", &(output_prometheus), 1);
 
 	MESA_load_profile_string_def(conffile,module,"TABLE_INFO",table_info, sizeof(table_info), "");
 	MESA_load_profile_string_def(conffile,module,"STAT_FILE",maat_stat_file, sizeof(maat_stat_file), "");
@@ -1361,7 +1363,9 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_PERF_ON, NULL, 0);
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_REDIS_INDEX, &redis_index, sizeof(redis_index));
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_SCAN_DETAIL, &scan_detail, sizeof(scan_detail));
-		Maat_set_feather_opt(_maat_feather, MAAT_OPT_FOREIGN_CONT_DIR, "./alerts_files", strlen("./alerts_files")+1);
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_FOREIGN_CONT_DIR, "./alerts_files", strlen("./alerts_files")+1);		
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_INSTANCE_NAME,instance_name, strlen(instance_name)+1);		
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_STATUS_OUTPUT_PROMETHEUS, &output_prometheus, sizeof(output_prometheus));
 	}
 	else
 	{
@@ -1374,7 +1378,8 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 		{
 			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "EFFECTIVE_RANGE", "Effective range is empty, please check %s", effective_range_filename);
 		}
-		Maat_set_feather_opt(_maat_feather,MAAT_OPT_INSTANCE_NAME,instance_name, strlen(instance_name)+1);
+		Maat_set_feather_opt(_maat_feather,MAAT_OPT_INSTANCE_NAME,instance_name, strlen(instance_name)+1);		
+		Maat_set_feather_opt(_maat_feather, MAAT_OPT_STATUS_OUTPUT_PROMETHEUS, &output_prometheus, sizeof(output_prometheus));
 		if(maat_mode==1)
 		{
 			MESA_load_profile_string_def(conffile,module,"JSON_CFG_FILE",json_cfg_file, sizeof(json_cfg_file),"");

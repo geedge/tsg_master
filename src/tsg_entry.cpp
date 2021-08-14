@@ -143,7 +143,7 @@ static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
 	return flags;
 }
 
-static int get_device_id(char *command, int entrance_id)
+static int get_device_id(char *command, int datacenter_id)
 {
 	FILE *fp=NULL; 
 	char buffer[128]={0};
@@ -155,7 +155,7 @@ static int get_device_id(char *command, int entrance_id)
     	pclose(fp);
 	}
 	
-	return (entrance_id<<7)+(atoi(buffer)%128);
+	return (datacenter_id<<7)+(atoi(buffer)%128);
 }
 
 static int get_deploy_mode(void)
@@ -1532,14 +1532,12 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 						break;
 					case	TSG_ACTION_MONITOR:
 						vlan_num=tsg_get_vlan_id_by_monitor_rule(g_tsg_maat_feather, result, hit_num, vlan, MAX_RESULT_NUM);
-						ret=tsg_set_vlan_id_to_tcpall(a_stream, &context, vlan, vlan_num, thread_seq);
+						ret=tsg_set_vlan_id_to_tcpall(a_stream, (struct tcpall_context**)pme, vlan, vlan_num, thread_seq);
 						if(ret<=0)
 						{
 							return state;
 						}
-						
-						*pme=(void *)(context);
-						tsg_send_raw_packet(a_stream, context->vlan, context->vlan_num, thread_seq);
+						context=(struct tcpall_context*)(*pme);
 						break;
 					default:
 						break;
@@ -1548,9 +1546,6 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			
 			Maat_clean_status(&scan_mid);
 			scan_mid=NULL;
-		case	OP_STATE_DATA:
-		case	OP_STATE_CLOSE:
-
 			break;
 		default:
 			break;
@@ -1677,13 +1672,21 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;SIP;MAIL;STREAMING_MEDIA;QUIC;SIP;");
 	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);
 
-	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "ENTRANCE_ID", &g_tsg_para.entrance_id, 0);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DATACENTER_ID", &g_tsg_para.datacenter_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_TIME_INTERVAL", &g_tsg_para.scan_time_interval, 120);
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "DEVICE_ID_COMMAND", g_tsg_para.device_id_command, sizeof(g_tsg_para.device_id_command), NULL);
-	g_tsg_para.device_id=get_device_id(g_tsg_para.device_id_command, g_tsg_para.entrance_id);
-		
+	ret=MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_SEQ_IN_DATA_CENTER", &g_tsg_para.device_seq_in_dc, 0);
+	if(ret<0)
+	{
+		MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "DEVICE_ID_COMMAND", g_tsg_para.device_id_command, sizeof(g_tsg_para.device_id_command), NULL);
+		g_tsg_para.device_seq_in_dc=get_device_id(g_tsg_para.device_id_command, g_tsg_para.datacenter_id);
+	}
+	else
+	{
+		g_tsg_para.device_seq_in_dc=(g_tsg_para.datacenter_id<<7)+((g_tsg_para.device_seq_in_dc)%128);
+	}
+	
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "DEVICE_SN_FILENAME", device_sn_filename, sizeof(device_sn_filename), "/opt/tsg/etc/tsg_sn.json");
 	ret=tsg_get_sn(device_sn_filename, g_tsg_para.device_sn, sizeof(g_tsg_para.device_sn));
 	if(ret==0)

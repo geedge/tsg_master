@@ -1081,7 +1081,7 @@ unsigned long long tsg_get_stream_id(struct streaminfo * a_stream)
 {
 	int ret=0;
 	int device_id_size=sizeof(unsigned long long);
-	unsigned long long device_id=(unsigned long long)g_tsg_para.device_id;
+	unsigned long long device_id=(unsigned long long)g_tsg_para.device_seq_in_dc;
 
 	ret=MESA_get_stream_opt(a_stream, MSO_GLOBAL_STREAM_ID, (void *)&device_id, &device_id_size);
 	if(ret==0)

@@ -219,8 +219,8 @@ typedef	struct tsg_para
 	short mirror_switch;
 	unsigned short timeout;
 	int app_dict_field_num;
-	int device_id;
-	int entrance_id;
+	int device_seq_in_dc;
+	int datacenter_id;
 	int hash_timeout;
 	int hash_slot_size;
 	enum DEPLOY_MODE deploy_mode;
