@@ -144,6 +144,8 @@ struct tsg_log_instance_t
 	char udp_label[MAX_STRING_LEN];
 	char common_field_file[MAX_STRING_LEN*4];
 	char broker_list[MAX_STRING_LEN*8];
+	char sasl_username[MAX_STRING_LEN];
+	char sasl_passwd[MAX_STRING_LEN];
 	char send_queue_max_msg[MAX_STRING_LEN];
 	char require_ack[MAX_STRING_LEN];
 	char refresh_interval_ms[MAX_STRING_LEN];

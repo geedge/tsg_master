@@ -510,18 +510,17 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 
 static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol)
 {
-	if(protocol==PROTO_DNS)
-	{
-		return STATE_GIVEME|STATE_DROPPKT;
-	}
-
-	if(g_tsg_para.deploy_mode==DEPLOY_MODE_MIRROR)
-	{
-		return do_action_reset(a_stream, p_result, protocol);
-	}
-	else
-	{
-		set_drop_stream(a_stream);
+	switch(protocol)
+	{		
+		case	PROTO_DNS:
+			return STATE_GIVEME|STATE_DROPPKT;
+		default:			
+			set_drop_stream(a_stream);
+			if(g_tsg_para.deploy_mode==DEPLOY_MODE_MIRROR)
+			{
+				return do_action_reset(a_stream, p_result, protocol);
+			}
+			break;
 	}
 	
 	return STATE_DROPME|STATE_DROPPKT;
@@ -672,6 +671,11 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 	unsigned char state=0;
 	int method_type=TSG_METHOD_TYPE_RESET;
 	struct compile_user_region *user_region=NULL;
+
+	if(p_result->action==TSG_ACTION_BYPASS)
+	{
+		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPME : APP_STATE_GIVEME);
+	}
 
 	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 	if(user_region!=NULL)
