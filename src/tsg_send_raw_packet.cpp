@@ -14,7 +14,7 @@ static int send_raw_packet(struct traffic_mirror *ttm,char * pkt_ptr,int pkt_len
 	int i=0,ret=0;
 	for(i=0; i<vlan_num; i++)
 	{
-		ret=tsg_traffic_mirror_send_burst(ttm, (char *)pkt_ptr, pkt_len, &(vlan[i].vlan_id), 1, thread_seq);		
+		ret=tsg_traffic_mirror_send_burst(ttm, (char *)pkt_ptr, pkt_len, &(vlan[i].vlan_id), ((vlan[i].vlan_id>0) ? 1 : 0), thread_seq);		
 		if(ret==TRAFFIC_MIRROR_SEND_SUCCESS)
 		{				
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_MIRRORED_PKT_SUCCESS], 0, FS_OP_ADD, 1);
