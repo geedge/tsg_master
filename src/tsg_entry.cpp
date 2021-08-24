@@ -1262,7 +1262,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				}
 				break;
 			case	TSG_ACTION_MONITOR:
-				if(context->proto==PROTO_RTP)
+				if(context->proto==PROTO_RTP || context->is_parent_ssl==1)
 				{
 					break;
 				}
@@ -1296,10 +1296,10 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 
 static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
-	int hit_num=0;
-	struct master_context *context=NULL;
-	struct Maat_rule_t scan_result[MAX_RESULT_NUM];
+	int hit_num=0,app_id=-1;
+	struct master_context *context=NULL;	
 	struct gather_app_result *gather_result=NULL;
+	struct Maat_rule_t scan_result[MAX_RESULT_NUM]={0};
 	struct app_identify_result *identify_result=(struct app_identify_result *)data;
 
 	if(data==NULL)
@@ -1340,6 +1340,17 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 			if(context->proto==PROTO_UNKONWN || context->proto==PROTO_APP)
 			{
 				set_l7_protocol_to_pme(context, identify_result->app_id[identify_result->app_id_num-1]);
+			}
+			
+			app_id=identify_result->app_id[identify_result->app_id_num-1];
+			if(app_id==(int)tsg_l7_protocol_name2id("SMTPS")	|| 
+			app_id==(int)tsg_l7_protocol_name2id("IMAPS")	||
+			app_id==(int)tsg_l7_protocol_name2id("POP3S")	||
+			app_id==(int)tsg_l7_protocol_name2id("FTPS")	||
+			app_id==(int)tsg_l7_protocol_name2id("HTTPS")
+			)
+			{
+				context->is_parent_ssl=1;
 			}
 			break;
 		default:

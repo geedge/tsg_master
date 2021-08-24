@@ -177,6 +177,7 @@ struct master_context
 	int is_esni;
 	int is_log;
 	int is_ratelimit;
+	int is_parent_ssl;
 	char *domain;
 	scan_status_t mid;	
 	struct Maat_rule_t *result;
