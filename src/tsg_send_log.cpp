@@ -1688,14 +1688,13 @@ int tsg_register_topic(struct tsg_log_instance_t *instance, char *topic_name)
 {
 	rd_kafka_topic_conf_t *topic_conf;
 	struct tsg_log_instance_t *_instance=(struct tsg_log_instance_t *)instance;
-	if(_instance->mode==CLOSE)
+	if(_instance==NULL || _instance->mode==CLOSE)
 	{
 		return 0;
 	}
 	
-	if(topic_name!=NULL && _instance!=NULL && _instance->kafka_handle!=NULL)
+	if(topic_name!=NULL && _instance->kafka_handle!=NULL)
 	{
-		
 		_instance->service2topic=(id2field_t *)realloc(_instance->service2topic, (_instance->max_service+1)*sizeof(id2field_t));
 		_instance->service2topic[_instance->max_service].id=_instance->max_service;
 		_instance->service2topic[_instance->max_service].type=TLD_TYPE_MAX;
@@ -1721,12 +1720,12 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 	int status=0;	
 	struct tsg_log_instance_t *_instance=instance;
 	
-	if(_instance->mode==CLOSE)
+	if(_instance==NULL || _instance->mode==CLOSE)
 	{
 		return 0;
 	}
 
-	if(_instance==NULL || payload==NULL || payload_len<=0 || topic_id<0 || _instance->topic_rkt==NULL)
+	if(payload==NULL || payload_len<=0 || topic_id<0 || _instance->topic_rkt==NULL)
 	{
 		return -1;
 	}

@@ -1294,7 +1294,7 @@ static int get_fqdn_category_id(Maat_feather_t maat_feather, int table_id, char 
 	return 0;
 }
 
-static Maat_feather_t init_maat_feather(const char* conffile, char* instance_name, char *module, void *logger)
+static Maat_feather_t init_maat_feather(const char* conffile, char* instance_name, char *module, void *maat_logger)
 {
 	unsigned short redis_port = 0;
 	int ret=0,scan_detail=0,effect_interval=60;
@@ -1338,7 +1338,7 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 	effect_interval*=1000;//convert s to ms
 
 	thread_max=get_thread_count();
-	_maat_feather=Maat_feather(thread_max, table_info, logger);
+	_maat_feather=Maat_feather(thread_max, table_info, maat_logger);
 	
 	if(maat_mode==2)
 	{
@@ -1376,7 +1376,7 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 		}
 		else
 		{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "EFFECTIVE_RANGE", "Effective range is empty, please check %s", effective_range_filename);
+			MESA_handle_runtime_log(maat_logger, RLOG_LV_FATAL, "EFFECTIVE_RANGE", "Effective range is empty, please check %s", effective_range_filename);
 		}
 		Maat_set_feather_opt(_maat_feather,MAAT_OPT_INSTANCE_NAME,instance_name, strlen(instance_name)+1);		
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_STATUS_OUTPUT_PROMETHEUS, &output_prometheus, sizeof(output_prometheus));
@@ -1420,6 +1420,8 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 int tsg_rule_init(const char* conffile, void *logger)
 {
 	int i=0,ret=0;
+	int log_level=30;
+	char log_path[128]={0};
 	char maat_conffile[256]={0};
 	char cb_subscriber_ip_table[32]={0};
 	
@@ -1462,11 +1464,20 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "RESPONSE_PAGES_TABLE", g_tsg_para.table_name[TABLE_RESPONSE_PAGES], _MAX_TABLE_NAME_LEN, "TSG_PROFILE_RESPONSE_PAGES");
 	MESA_load_profile_string_def(conffile, "MAAT", "DNS_PROFILE_RECORDS", g_tsg_para.table_name[TABLE_DNS_PROFILE_RECORD], _MAX_TABLE_NAME_LEN, (char *)"TSG_PROFILE_DNS_RECORDS");
 
+	MESA_load_profile_int_def(conffile, "MAAT","LOG_LEVEL", &log_level, 30);
+	MESA_load_profile_string_def(conffile, "MAAT", "LOG_PATH", log_path, sizeof(log_path), "./tsglog/maat/tsg_maat.log");
+	g_tsg_para.maat_logger=MESA_create_runtime_log_handle(log_path, log_level);
+	if(g_tsg_para.maat_logger==NULL)
+	{
+		printf("MESA_create_runtime_log_handle failed ...\n");
+		return -1;
+	}
+
 	//init static maat feather
-	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", logger);
+	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_STATIC", (char *)"STATIC", g_tsg_para.maat_logger);
 	if(g_tsg_maat_feather==NULL)
 	{
-		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "init_maat_feather failed, instance_name: %s module: %s", "TSG_STATIC", "STATIC"); 
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "init_maat_feather failed, instance_name: %s module: %s", "TSG_STATIC", "STATIC"); 
 		return -1;
 	}
 
@@ -1476,13 +1487,13 @@ int tsg_rule_init(const char* conffile, void *logger)
 																security_compile_free,
 																security_compile_dup,
 																0,
-																logger
+																g_tsg_para.maat_logger
 															);
 	
 	if(g_tsg_para.table_id[TABLE_SECURITY_COMPILE]<0)
 	{
 		
-		MESA_handle_runtime_log(logger,	RLOG_LV_FATAL, "REGISTER_TABLE", "Register table: %s failed ...", g_tsg_para.table_name[TABLE_SECURITY_COMPILE]);		
+		MESA_handle_runtime_log(g_tsg_para.maat_logger,	RLOG_LV_FATAL, "REGISTER_TABLE", "Register table: %s failed ...", g_tsg_para.table_name[TABLE_SECURITY_COMPILE]);		
 		return -1;
 	}
 
@@ -1491,7 +1502,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 		g_tsg_para.table_id[i]=Maat_table_register(g_tsg_maat_feather, g_tsg_para.table_name[i]);
 		if(g_tsg_para.table_id[i]<0)
 		{
-			MESA_handle_runtime_log(logger,
+			MESA_handle_runtime_log(g_tsg_para.maat_logger,
 									RLOG_LV_FATAL,
 									"Maat_table_register %s failed, Please check tsgconf/tsg_static_tableinfo.conf",
 									g_tsg_para.table_name[i]
@@ -1508,10 +1519,10 @@ int tsg_rule_init(const char* conffile, void *logger)
 									ASN_number_free,
 									ASN_number_dup,
 									0,
-									logger);
+									g_tsg_para.maat_logger);
 		if(ret<0)
 		{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL,
+			MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL,
 										"RULE_INIT",
 										"Maat_ip_plugin_EX_register failed, table_name: %s table_id: %d",
 										g_tsg_para.table_name[i],
@@ -1530,10 +1541,10 @@ int tsg_rule_init(const char* conffile, void *logger)
 									location_free_data,
 									location_dup_data,
 									0,
-									logger);
+									g_tsg_para.maat_logger);
 		if(ret<0)
 		{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL,
+			MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL,
 										"RULE_INIT",
 										"Maat_ip_plugin_EX_register failed, table_name: %s table_id: %d",
 										g_tsg_para.table_name[i],
@@ -1551,11 +1562,11 @@ int tsg_rule_init(const char* conffile, void *logger)
 										fqdn_category_free,
 										fqdn_category_dup,
 										0,
-										logger
+										g_tsg_para.maat_logger
 									);
 		if(ret<0)
 		{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL,
+			MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL,
 										"RULE_INIT",
 										"Maat_ip_plugin_EX_register failed, table_name: %s table_id: %d",
 										g_tsg_para.table_name[i],
@@ -1572,10 +1583,10 @@ int tsg_rule_init(const char* conffile, void *logger)
 									app_id_dict_dup,
 									NULL,
 									0,
-									logger);
+									g_tsg_para.maat_logger);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(logger, RLOG_LV_FATAL,
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL,
 									"RULE_INIT",
 									"Maat_ip_plugin_EX_register failed, table_name: %s table_id: %d",
 									g_tsg_para.table_name[TABLE_APP_ID_DICT],
@@ -1591,10 +1602,10 @@ int tsg_rule_init(const char* conffile, void *logger)
 							http_response_pages_dup,
 							NULL,
 							0,
-							logger);
+							g_tsg_para.maat_logger);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(logger, 
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, 
 								RLOG_LV_FATAL,
 								"RESPONSE_PAGES",
 								"Maat_plugin_EX_register failed, table_name: %s table_id: %d",
@@ -1614,7 +1625,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "REGISTER_TABLE", "Maat_plugin_EX_register failed, table_name: %s", g_tsg_para.table_name[TABLE_DNS_PROFILE_RECORD]);
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "REGISTER_TABLE", "Maat_plugin_EX_register failed, table_name: %s", g_tsg_para.table_name[TABLE_DNS_PROFILE_RECORD]);
 		return -1;
 	}
 
@@ -1622,7 +1633,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	g_tsg_dynamic_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_DYNAMIC", (char *)"DYNAMIC", logger);
 	if(g_tsg_maat_feather==NULL)
 	{
-		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "init_maat_feather failed, instance_name: %s module: %s", "TSG_DYNAMIC", "DYNAMIC"); 
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "init_maat_feather failed, instance_name: %s module: %s", "TSG_DYNAMIC", "DYNAMIC"); 
 		return -1;
 	}
 
@@ -1631,7 +1642,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	g_tsg_para.dyn_subscribe_ip_table_id=Maat_table_register(g_tsg_dynamic_maat_feather, cb_subscriber_ip_table);
 	if(g_tsg_para.dyn_subscribe_ip_table_id<0)
 	{
-		MESA_handle_runtime_log(logger,
+		MESA_handle_runtime_log(g_tsg_para.maat_logger,
 								RLOG_LV_FATAL,
 								"RULE_INIT",
 								"Maat_table_register %s failed, Please check tsgconf/tsg_static_tableinfo.conf",
@@ -1646,10 +1657,10 @@ int tsg_rule_init(const char* conffile, void *logger)
 							subscriber_id_dup,
 							NULL,
 							0,
-							logger);
+							g_tsg_para.maat_logger);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "RULE_INIT", "Maat_plugin_EX_register failed, table_name: %s table_id: %d", cb_subscriber_ip_table, g_tsg_para.dyn_subscribe_ip_table_id); 
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "RULE_INIT", "Maat_plugin_EX_register failed, table_name: %s table_id: %d", cb_subscriber_ip_table, g_tsg_para.dyn_subscribe_ip_table_id); 
 		return -1;		
 	}
 
@@ -2439,7 +2450,7 @@ int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rul
 		}
 		
 		user_region=tsg_get_compile_user_region(maat_feather, &(result[i]));
-		if(user_region!=NULL && user_region->method_type==TSG_METHOD_TYPE_MIRRORED && user_region->mirror!=NULL)
+		if(user_region!=NULL && user_region->method_type==TSG_METHOD_TYPE_MIRRORED && user_region->mirror!=NULL && user_region->mirror->enabled==1)
 		{
 			count+=copy_vlan_id(vlan, count, user_region->mirror->vlan_id, &(result[i].config_id), 1);
 			tsg_free_compile_user_region(&(result[i]), user_region);
