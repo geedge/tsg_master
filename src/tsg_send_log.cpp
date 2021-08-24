@@ -1358,7 +1358,6 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	char nic_name[32]={0};
 	char kafka_errstr[1024]={0};
 	unsigned int local_ip_nr=0;
-	rd_kafka_t *kafka_handle = NULL;
 	rd_kafka_conf_t *rdkafka_conf = NULL;
 	rd_kafka_topic_conf_t *topic_conf;
 	struct tsg_log_instance_t *_instance=NULL;
@@ -1473,7 +1472,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 		rd_kafka_conf_set(rdkafka_conf, "sasl.password", _instance->sasl_passwd, kafka_errstr, sizeof(kafka_errstr));
 	}
 	
-	if(!(kafka_handle=rd_kafka_new(RD_KAFKA_PRODUCER, rdkafka_conf, kafka_errstr, sizeof(kafka_errstr))))
+	if(!(_instance->kafka_handle=rd_kafka_new(RD_KAFKA_PRODUCER, rdkafka_conf, kafka_errstr, sizeof(kafka_errstr))))
 	{
 		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "KAFKA_INIT", "rd_kafka_new is error");
 		return NULL;
@@ -1490,7 +1489,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 			if(_instance->service2topic[i].type==TLD_TYPE_MAX)
 			{
 				topic_conf=rd_kafka_topic_conf_new();
-				_instance->topic_rkt[_instance->service2topic[i].id]=rd_kafka_topic_new(kafka_handle, _instance->service2topic[i].name, topic_conf);
+				_instance->topic_rkt[_instance->service2topic[i].id]=rd_kafka_topic_new(_instance->kafka_handle, _instance->service2topic[i].name, topic_conf);
 			}
 		}
 	}
@@ -1685,3 +1684,72 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	return 0;
 }
 
+int tsg_register_topic(struct tsg_log_instance_t *instance, char *topic_name)
+{
+	rd_kafka_topic_conf_t *topic_conf;
+	struct tsg_log_instance_t *_instance=(struct tsg_log_instance_t *)instance;
+	if(_instance->mode==CLOSE)
+	{
+		return 0;
+	}
+	
+	if(topic_name!=NULL && _instance!=NULL && _instance->kafka_handle!=NULL)
+	{
+		
+		_instance->service2topic=(id2field_t *)realloc(_instance->service2topic, (_instance->max_service+1)*sizeof(id2field_t));
+		_instance->service2topic[_instance->max_service].id=_instance->max_service;
+		_instance->service2topic[_instance->max_service].type=TLD_TYPE_MAX;
+		memset(_instance->service2topic[_instance->max_service].name, 0, MAX_STRING_LEN);
+		memcpy(_instance->service2topic[_instance->max_service].name, topic_name, MIN(MAX_STRING_LEN-1, strlen(topic_name)));
+		
+		_instance->topic_rkt=(rd_kafka_topic_t **)realloc(_instance->topic_rkt, (_instance->max_service+1)*sizeof(rd_kafka_topic_t*));
+		topic_conf=rd_kafka_topic_conf_new();
+		_instance->topic_rkt[_instance->max_service]=rd_kafka_topic_new(_instance->kafka_handle, topic_name, topic_conf);
+
+		_instance->max_service++;
+	}
+	else
+	{
+		return -1;
+	}
+	
+	return (_instance->max_service-1);
+}
+
+int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *payload, int payload_len, int thread_id)
+{
+	int status=0;	
+	struct tsg_log_instance_t *_instance=instance;
+	
+	if(_instance->mode==CLOSE)
+	{
+		return 0;
+	}
+
+	if(_instance==NULL || payload==NULL || payload_len<=0 || topic_id<0 || _instance->topic_rkt==NULL)
+	{
+		return -1;
+	}
+
+	status=rd_kafka_produce(_instance->topic_rkt[topic_id], RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, payload, payload_len, NULL, 0, NULL);
+	if(status<0)
+	{
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DDOS_FAILED_LOG], 0, FS_OP_ADD, 1);
+		
+		MESA_handle_runtime_log(_instance->logger, 
+									RLOG_LV_INFO, 
+									"TSG_SEND_LOG",
+									"tsg_send_log to kafka is error of %s(%s), status: %d, topic: %s",
+									rd_kafka_err2name(rd_kafka_last_error()),
+									rd_kafka_err2str(rd_kafka_last_error()),
+									status,
+									_instance->service2topic[topic_id].name
+								);
+	}
+	else
+	{
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DDOS_SUCCESS_LOG], 0, FS_OP_ADD, 1);		
+	}
+
+	return 0;
+}

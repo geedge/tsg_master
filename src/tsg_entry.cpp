@@ -75,7 +75,9 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_MIRRORED_PKT_SUCCESS, "mirror_pkt_suc"},
 										 {0, TSG_FS2_MIRRORED_BYTE_SUCCESS, "mirror_byte_suc"},
 										 {0, TSG_FS2_MIRRORED_PKT_FAILED, "mirror_pkt_fai"},
-										 {0, TSG_FS2_MIRRORED_BYTE_FAILED, "mirror_byte_fai"}
+										 {0, TSG_FS2_MIRRORED_BYTE_FAILED, "mirror_byte_fai"},
+										 {0, TSG_FS2_DDOS_SUCCESS_LOG, "ddos_suc_log"},
+										 {0, TSG_FS2_DDOS_FAILED_LOG, "ddos_fai_log"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 

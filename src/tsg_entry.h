@@ -109,6 +109,8 @@ enum TSG_FS2_TYPE{
 	TSG_FS2_MIRRORED_BYTE_SUCCESS,
 	TSG_FS2_MIRRORED_PKT_FAILED,
 	TSG_FS2_MIRRORED_BYTE_FAILED,
+	TSG_FS2_DDOS_SUCCESS_LOG,
+	TSG_FS2_DDOS_FAILED_LOG,
 	TSG_FS2_MAX
 };
 
@@ -243,7 +245,8 @@ typedef	struct tsg_para
 	char device_id_command[MAX_DOMAIN_LEN/8];
 	char data_center[_MAX_TABLE_NAME_LEN];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
-	void *logger;	
+	void *logger;
+	void *maat_logger;
 	struct reset_argv reset;
 	screen_stat_handle_t fs2_handle;
 	struct l7_protocol *name_by_id;

@@ -153,6 +153,7 @@ struct tsg_log_instance_t
 	char l7_proto_id_file[MAX_STRING_LEN*4];
 	id2field_t id2field[LOG_COMMON_MAX];
 	rd_kafka_topic_t **topic_rkt;
+	rd_kafka_t *kafka_handle;
 	id2field_t *service2topic;	
 	void *logger;
 };
