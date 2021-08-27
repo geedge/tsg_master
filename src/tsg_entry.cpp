@@ -493,7 +493,7 @@ static void free_tcpall_label(int thread_seq, void *project_req_value)
 					dictator_free(thread_seq, (void *)(context->vlan));
 					context->vlan=NULL;
 					break;
-				case	TSG_METHOD_TYPE_RATE_LINIT:
+				case	TSG_METHOD_TYPE_RATE_LIMIT:
 					destroy_bucket(&(context->bucket), thread_seq);
 					break;
 				default:
@@ -607,7 +607,7 @@ static void copy_result_to_project(const struct streaminfo *a_stream, struct mas
 		MESA_handle_runtime_log(g_tsg_para.logger,
 										RLOG_LV_FATAL,
 										"PROJECT_ADD",
-										"Add policy_priority_label failed, intercept policy, domain: %s policy_id: %d action: %d addr: %s",
+										"Add policy_priority_label failed, policy, domain: %s policy_id: %d action: %d addr: %s",
 										(domain!=NULL ? domain : ""),
 										priority_label->result[0].config_id,
 										(unsigned char)priority_label->result[0].action,
@@ -617,8 +617,8 @@ static void copy_result_to_project(const struct streaminfo *a_stream, struct mas
 	
 	MESA_handle_runtime_log(g_tsg_para.logger, 
 									RLOG_LV_DEBUG,
-									"INTERCEPT",
-									"Hit intercept policy, domain: %s policy_id: %d action: %d addr: %s",
+									"COPY_RESULT",
+									"Hit policy, domain: %s policy_id: %d action: %d addr: %s",
 									(domain!=NULL ? domain : ""),
 									priority_label->result[0].config_id,
 									(unsigned char)priority_label->result[0].action,
@@ -1262,7 +1262,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				}
 				break;
 			case	TSG_ACTION_MONITOR:
-				if(context->proto==PROTO_RTP || context->is_parent_ssl==1)
+				if(context->proto==PROTO_RTP)
 				{
 					break;
 				}
@@ -1297,9 +1297,10 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
 	int hit_num=0,app_id=-1;
+	int is_parent_ssl=0;
 	struct master_context *context=NULL;	
 	struct gather_app_result *gather_result=NULL;
-	struct Maat_rule_t scan_result[MAX_RESULT_NUM]={0};
+	struct Maat_rule_t scan_result[MAX_RESULT_NUM]={0}, *p_result=NULL;
 	struct app_identify_result *identify_result=(struct app_identify_result *)data;
 
 	if(data==NULL)
@@ -1350,7 +1351,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 			app_id==(int)tsg_l7_protocol_name2id("HTTPS")
 			)
 			{
-				context->is_parent_ssl=1;
+				is_parent_ssl=1;
 			}
 			break;
 		default:
@@ -1362,8 +1363,14 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	record_time_start(&(context->last_scan_time));
 	
 	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, &(context->mid), identify_result, a_stream->threadnum);
-	master_deal_scan_result(a_stream, context, scan_result, hit_num, NULL);
+	p_result=tsg_policy_decision_criteria(scan_result, hit_num);
+	if(p_result==NULL || (p_result->action==TSG_ACTION_MONITOR && is_parent_ssl==1))
+	{
+		return 0;
+	}
 
+	master_deal_scan_result(a_stream, context, scan_result, hit_num, NULL);
+	
 	return 0;
 }
 
@@ -1577,7 +1584,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			case	TSG_METHOD_TYPE_MIRRORED:
 				tsg_send_raw_packet(a_stream, context->vlan, context->vlan_num, thread_seq);
 				break;
-			case	TSG_METHOD_TYPE_RATE_LINIT:
+			case	TSG_METHOD_TYPE_RATE_LIMIT:
 				eth_rawpkt_len=get_raw_packet_len(a_stream);
 				if(eth_rawpkt_len<=0)
 				{
@@ -1623,7 +1630,7 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 	}
 	
 	state1=tsg_master_all_entry(a_udp, a_udp->opstate, (void **)&(context->all_entry), thread_seq, a_packet);
-	if(context->all_entry==NULL || context->all_entry->method_type!=TSG_METHOD_TYPE_RATE_LINIT)
+	if(context->all_entry==NULL || context->all_entry->method_type!=TSG_METHOD_TYPE_RATE_LIMIT)
 	{
 		state2=tsg_master_data_entry(a_udp, (void **)&(context->data_entry), thread_seq, a_packet);		
 	}

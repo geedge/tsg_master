@@ -702,7 +702,7 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 		case	TSG_METHOD_TYPE_REDIRECTION:
 			local_state=do_action_redirect_xxx( a_stream, p_result, user_region, protocol, user_data);
 			break;
-		case	TSG_METHOD_TYPE_RATE_LINIT:
+		case	TSG_METHOD_TYPE_RATE_LIMIT:
 			local_state=do_action_ratelimit(a_stream, p_result, user_region, type);
 			break;
 		default:

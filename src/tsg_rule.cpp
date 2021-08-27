@@ -39,7 +39,7 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
 													{TSG_METHOD_TYPE_BLOCK, 5, (char *)"block"},
 													{TSG_METHOD_TYPE_RESET, 3, (char *)"rst"},
 													{TSG_METHOD_TYPE_ALERT, 5, (char *)"alert"},
-													{TSG_METHOD_TYPE_RATE_LINIT, 10, (char *)"rate_limit"}
+													{TSG_METHOD_TYPE_RATE_LIMIT, 10, (char *)"rate_limit"}
 	};
 
 //functioned as strdup, for dictator compatible.
@@ -875,7 +875,7 @@ static struct compile_user_region *parse_deny_user_region(cJSON *object)
 				}
 			}
 			break;
-		case	TSG_METHOD_TYPE_RATE_LINIT:
+		case	TSG_METHOD_TYPE_RATE_LIMIT:
 			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
 			user_region->deny->type=TSG_DENY_TYPE_MAX;
 			get_integer_from_json(object, "bps", &(user_region->deny->bps));
@@ -1017,7 +1017,7 @@ void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* 
 		{
 			case	TSG_METHOD_TYPE_ALERT:
 			case	TSG_METHOD_TYPE_BLOCK:
-			case	TSG_METHOD_TYPE_RATE_LINIT:
+			case	TSG_METHOD_TYPE_RATE_LIMIT:
 			case	TSG_METHOD_TYPE_REDIRECTION:
 				free_deny_user_region(user_region->deny);
 				break;
@@ -2516,7 +2516,7 @@ int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 		}
 	}
 	
-	_context->method_type=TSG_METHOD_TYPE_RATE_LINIT;
+	_context->method_type=TSG_METHOD_TYPE_RATE_LIMIT;
 	_context->bucket=bucket;
 	
 	return 0;
