@@ -216,9 +216,9 @@ static int set_asn(struct TLD_handle_t *_handle, struct streaminfo *a_stream, ch
 	
 	if(asn_info!=NULL)
 	{
-		len+=string_cat(buff, buff_len-len, asn_info->asn_id);
+		len+=string_cat(buff+len, buff_len-len, asn_info->asn_id);
 		buff[len++]='(';
-		len+=string_cat(buff, buff_len-len, asn_info->organization);
+		len+=string_cat(buff+len, buff_len-len, asn_info->organization);
 		buff[len++]=')';
 		TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
 	}
@@ -234,11 +234,11 @@ static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_strea
 	
 	if(location_info!=NULL)
 	{
-		len+=string_cat(buff, buff_len-len, location_info->city_full);
+		len+=string_cat(buff+len, buff_len-len, location_info->city_full);
 		buff[len++]=',';
-		len+=string_cat(buff, buff_len-len, location_info->province_full);
+		len+=string_cat(buff+len, buff_len-len, location_info->province_full);
 		buff[len++]=',';
-		len+=string_cat(buff, buff_len-len, location_info->country_full);
+		len+=string_cat(buff+len, buff_len-len, location_info->country_full);
 		buff[len++]=',';
 		
 		TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
