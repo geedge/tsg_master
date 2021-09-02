@@ -1464,7 +1464,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	rd_kafka_conf_set(rdkafka_conf, "socket.keepalive.enable", "true", kafka_errstr, sizeof(kafka_errstr));	
 	rd_kafka_conf_set(rdkafka_conf, "bootstrap.servers", _instance->broker_list, kafka_errstr, sizeof(kafka_errstr));
 	
-	if(strlen(_instance->sasl_passwd)> 0 && strlen(_instance->sasl_passwd)>0)
+	if(strlen(_instance->sasl_username)> 0 && strlen(_instance->sasl_passwd)>0)
 	{
 		rd_kafka_conf_set(rdkafka_conf, "security.protocol", "sasl_plaintext", kafka_errstr, sizeof(kafka_errstr));
 		rd_kafka_conf_set(rdkafka_conf, "sasl.mechanisms", "PLAIN", kafka_errstr, sizeof(kafka_errstr));
