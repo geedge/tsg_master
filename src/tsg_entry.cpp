@@ -77,7 +77,9 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_MIRRORED_PKT_FAILED, "mirror_pkt_fai"},
 										 {0, TSG_FS2_MIRRORED_BYTE_FAILED, "mirror_byte_fai"},
 										 {0, TSG_FS2_DDOS_SUCCESS_LOG, "ddos_suc_log"},
-										 {0, TSG_FS2_DDOS_FAILED_LOG, "ddos_fai_log"}
+										 {0, TSG_FS2_DDOS_FAILED_LOG, "ddos_fai_log"},
+										 {0, TSG_FS2_SET_TIMOUT_SUCCESS, "set_timeout_suc"},
+										 {0, TSG_FS2_SET_TIMOUT_FAILED, "set_timeout_fai"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
@@ -143,6 +145,48 @@ static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
 	}
 
 	return flags;
+}
+
+static int set_app_timeout(const struct streaminfo *a_stream, struct app_id_dict *dict, unsigned short *timeout)
+{
+	if(a_stream==NULL || dict==NULL)
+	{
+		return 0;
+	}
+	
+	switch(a_stream->type)
+	{
+		case	STREAM_TYPE_TCP:
+			if((*timeout) >= dict->tcp_timeout)
+			{
+				return 0;
+			}
+			
+			*timeout=dict->tcp_timeout;
+			break;
+		case	STREAM_TYPE_UDP:
+			if((*timeout) >= dict->udp_timeout)
+			{
+				return 0;
+			}
+			
+			*timeout=dict->udp_timeout;
+			break;
+		default:
+			return 0;
+	}
+	
+	int ret=MESA_set_stream_opt(a_stream, MSO_TIMEOUT, (void *)timeout, sizeof(unsigned short));
+	if(ret<0)
+	{
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SET_TIMOUT_FAILED], 0, FS_OP_ADD, 1); 		
+	}
+	else
+	{
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SET_TIMOUT_SUCCESS], 0, FS_OP_ADD, 1);
+	}
+	
+	return 1;
 }
 
 static int get_device_id(char *command, int datacenter_id)
@@ -1198,7 +1242,7 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 	return ret;
 }
 
-int scan_application_id_and_properties(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, struct app_identify_result *identify_result, int thread_seq)
+int scan_application_id_and_properties(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, struct master_context *context, struct app_identify_result *identify_result, int thread_seq)
 {
 	int i=0,hit_num=0;
 	char *name=NULL;
@@ -1211,23 +1255,24 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 		dict=(struct app_id_dict *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
 		if(dict!=NULL)
 		{
-			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->risk, (char *)"risk", thread_seq);
-			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->category, (char *)"category", thread_seq);	
-			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->technology, (char *)"technology", thread_seq);	
-			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->subcategroy, (char *)"subcategroy", thread_seq);	
-			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->characteristics, (char *)"characteristics", thread_seq);
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->risk, (char *)"risk", thread_seq);
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->category, (char *)"category", thread_seq);	
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->technology, (char *)"technology", thread_seq);	
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->subcategroy, (char *)"subcategroy", thread_seq);	
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->characteristics, (char *)"characteristics", thread_seq);
 
-			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->app_name, identify_result->app_id[i], thread_seq);
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->app_name, identify_result->app_id[i], thread_seq);
 			//hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->parent_app_name, dict->parent_app_id, thread_seq);
-			
+
+			set_app_timeout(a_stream, dict, &(context->timeout));
 			app_id_dict_free(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
 		}
 		else
 		{
 			name=tsg_l7_protocol_id2name(identify_result->app_id[i]);
-			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, ((name==NULL) ? (char *)"" : name), identify_result->app_id[i], thread_seq);
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), ((name==NULL) ? (char *)"" : name), identify_result->app_id[i], thread_seq);
 		}
-	}
+	}	
 
 	return hit_num;
 }
@@ -1362,7 +1407,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	memcpy(&(gather_result->result[identify_result->origin]), identify_result, sizeof(struct app_identify_result));
 	record_time_start(&(context->last_scan_time));
 	
-	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, &(context->mid), identify_result, a_stream->threadnum);
+	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, context, identify_result, a_stream->threadnum);
 	p_result=tsg_policy_decision_criteria(scan_result, hit_num);
 	if(p_result==NULL || (p_result->action==TSG_ACTION_MONITOR && is_parent_ssl==1))
 	{
@@ -1494,7 +1539,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			identify_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
 			for(i=0; i<ORIGIN_MAX && identify_result!=NULL; i++)
 			{
-				hit_num+=scan_application_id_and_properties(a_stream, scan_result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, &(identify_result->result[i]), thread_seq);
+				hit_num+=scan_application_id_and_properties(a_stream, scan_result+hit_num, MAX_RESULT_NUM-hit_num, context, &(identify_result->result[i]), thread_seq);
 			}
 
 			p_result=tsg_policy_decision_criteria(scan_result, hit_num);

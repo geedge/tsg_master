@@ -50,8 +50,8 @@ struct app_id_dict
 	int parent_app_id;
 	int deny_action;
 	int continue_scanning;
-	int tcp_timeout;
-	int udp_timeout;
+	unsigned short tcp_timeout;
+	unsigned short udp_timeout;
 	int tcp_time_wait;
 	int tcp_half_close;
 	char *risk;

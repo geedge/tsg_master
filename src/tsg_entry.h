@@ -111,6 +111,8 @@ enum TSG_FS2_TYPE{
 	TSG_FS2_MIRRORED_BYTE_FAILED,
 	TSG_FS2_DDOS_SUCCESS_LOG,
 	TSG_FS2_DDOS_FAILED_LOG,
+	TSG_FS2_SET_TIMOUT_SUCCESS,
+	TSG_FS2_SET_TIMOUT_FAILED,
 	TSG_FS2_MAX
 };
 
@@ -177,6 +179,7 @@ struct master_context
 	int is_esni;
 	int is_log;
 	int is_ratelimit;
+	unsigned short timeout;
 	char *domain;
 	scan_status_t mid;	
 	struct Maat_rule_t *result;

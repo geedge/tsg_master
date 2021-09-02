@@ -509,8 +509,8 @@ static void app_id_dict_new(int table_id, const char* key, const char* table_lin
 			dict->characteristics=tsg_get_column_string_value(table_line, 7);
 			dict->deny_action=tsg_get_column_integer_value(table_line, 10);
 			dict->continue_scanning=tsg_get_column_integer_value(table_line, 11); 
-			dict->tcp_timeout=tsg_get_column_integer_value(table_line, 12);
-			dict->udp_timeout=tsg_get_column_integer_value(table_line, 13); 
+			dict->tcp_timeout=(unsigned short)tsg_get_column_integer_value(table_line, 12);
+			dict->udp_timeout=(unsigned short)tsg_get_column_integer_value(table_line, 13); 
 			dict->tcp_half_close=tsg_get_column_integer_value(table_line, 14);
 			dict->tcp_time_wait=tsg_get_column_integer_value(table_line, 15);
 			break;
