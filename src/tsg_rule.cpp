@@ -55,6 +55,75 @@ static char* tsg_strdup(const char* s)
 	return d;
 }
 
+unsigned short get_redis_port(char *redis_port_range)
+{
+	int	i=0,ret=0;
+	int idx=0,port_num=0;
+	int range_len=0,used_len=0;
+	char buf[256]={0};
+	unsigned short s_port=0,e_port=0;
+	unsigned short redis_port[32]={0};
+	char *begin=NULL,*end=NULL,*pchr=NULL;
+
+	if(redis_port_range==NULL)
+	{
+		return 0;
+	}
+	
+	begin=redis_port_range;
+	end=NULL;
+	range_len=strlen(redis_port_range);
+	
+	while(range_len>used_len)
+	{
+		end=index(begin, ';');
+		if(end==NULL)
+		{
+			end=begin+range_len-used_len;
+		}
+
+		if(end==begin)
+		{
+			break;
+		}
+		
+		memset(buf, 0, sizeof(buf));
+		strncpy(buf, begin, end-begin);
+		used_len+=end-begin+1;
+		if(range_len>used_len)
+		{			
+			begin=end+1;
+		}
+		
+		pchr=strchr(buf, '-');
+		if(pchr == NULL)
+		{
+			s_port=(unsigned short)atoi(buf);
+			e_port=s_port;
+		}
+		else
+		{
+			ret=sscanf(buf, "%hu-%hu", &s_port, &e_port);
+			assert(ret==2);
+		}
+		
+		for(i=s_port; i<=e_port && port_num<32; i++)
+		{
+			redis_port[port_num++]=i;
+		}
+	}
+
+	if(port_num==0)
+	{
+		return 0;
+	}
+	
+	srand((unsigned int)time(NULL));
+	idx=rand()%port_num;
+
+	return redis_port[idx];
+}
+
 static int get_column_pos(const char* line, int column_seq, size_t *offset, size_t *len)
 {
 	const char* seps=" \t";
@@ -1296,10 +1365,11 @@ static int get_fqdn_category_id(Maat_feather_t maat_feather, int table_id, char 
 
 static Maat_feather_t init_maat_feather(const char* conffile, char* instance_name, char *module, void *maat_logger)
 {
-	unsigned short redis_port = 0;
+	int redis_index=0;
+	unsigned short redis_port=0;
 	int ret=0,scan_detail=0,effect_interval=60;
 	Maat_feather_t _maat_feather=NULL;
-	int factor=0, redis_port_num=0,redis_index=0;
+	char redis_port_range[256]={0};
 	char effective_tag_key[128]={0};
 	char effective_range_filename[1024]={0};
 	char redis_ip[16]={0}, effective_flag[1024]={0};
@@ -1343,19 +1413,15 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 	if(maat_mode==2)
 	{
 		MESA_load_profile_string_def(conffile,module,"REDIS_IP", redis_ip, sizeof(redis_ip),"");
-		MESA_load_profile_int_def(conffile, module,"REDIS_PORT_NUM", &(redis_port_num), 1);
-		MESA_load_profile_short_def(conffile, module,"REDIS_PORT", (short*)&(redis_port), 6379);
 		MESA_load_profile_int_def(conffile, module,"REDIS_INDEX", &redis_index, 0);
+		MESA_load_profile_string_def(conffile,module,"REDIS_PORT", redis_port_range, sizeof(redis_port_range), "6379;");
+		redis_port=get_redis_port(redis_port_range);
 		
 		if(strlen(effective_flag)!=0)
 		{
 			Maat_set_feather_opt(_maat_feather,MAAT_OPT_ACCEPT_TAGS,effective_flag, strlen(effective_flag)+1);
 		}
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_EFFECT_INVERVAL_MS, &effect_interval, sizeof(effect_interval));
-
-		srand((unsigned int)time(NULL));
-		factor = rand()%redis_port_num;
-		redis_port = redis_port+factor;
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_REDIS_IP, redis_ip, strlen(redis_ip)+1);
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_REDIS_PORT, (void *)&redis_port, sizeof(redis_port));
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_STAT_FILE_PATH, maat_stat_file, strlen(maat_stat_file)+1);
