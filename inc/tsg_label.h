@@ -89,4 +89,16 @@ struct policy_priority_label
 	Maat_rule_t result[MAX_RESULT_NUM];
 };
 
+
+struct tsg_conn_sketch_notify_data
+{
+	tsg_protocol_t protocol;
+	union
+	{
+		char *mail_eml_filename;
+		void *value;
+	}pdata;
+};
+
+
 #endif
