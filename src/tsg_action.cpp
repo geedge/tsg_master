@@ -25,20 +25,31 @@
 
 extern "C" int sendpacket_do_checksum(unsigned char *buf, int protocol, int len);
 
-static int set_drop_stream(const struct streaminfo *a_stream)
+static int set_drop_stream(const struct streaminfo *a_stream, tsg_protocol_t protocol)
 {
-	int opt_value=1;
+	int ret=0, opt_value=1;
 	MESA_set_stream_opt(a_stream, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
 	MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
 
-	int ret=MESA_set_stream_opt(a_stream, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
-	if(ret<0)
+	switch(protocol)
 	{
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SET_TIMOUT_FAILED], 0, FS_OP_ADD, 1); 		
-	}
-	else
-	{
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SET_TIMOUT_SUCCESS], 0, FS_OP_ADD, 1);
+		case	PROTO_MAIL:
+		case	PROTO_POP3:
+		case	PROTO_SMTP:
+		case	PROTO_IMAP:
+		case	PROTO_FTP:
+				ret=MESA_set_stream_opt(a_stream, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
+				if(ret<0)
+				{
+					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SET_TIMOUT_FAILED], 0, FS_OP_ADD, 1); 		
+				}
+				else
+				{
+					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SET_TIMOUT_SUCCESS], 0, FS_OP_ADD, 1);
+				}
+			break;
+		default:
+			break;
 	}
 
 	return STATE_DROPME|STATE_DROPPKT;				
@@ -512,6 +523,8 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 			opt_value=1;
 			MESA_set_stream_opt(a_stream, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
 		}
+
+		set_drop_stream(a_stream, protocol);
 	}
 
 	return STATE_DROPPKT|STATE_DROPME;
@@ -524,7 +537,7 @@ static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule
 		case	PROTO_DNS:
 			return STATE_GIVEME|STATE_DROPPKT;
 		default:			
-			set_drop_stream(a_stream);
+			set_drop_stream(a_stream, protocol);
 			if(g_tsg_para.deploy_mode==DEPLOY_MODE_MIRROR)
 			{
 				return do_action_reset(a_stream, p_result, protocol);
@@ -621,7 +634,7 @@ static unsigned char do_action_block_xxx(const struct streaminfo *a_stream, Maat
 			break;
 	}
 
-	set_drop_stream(a_stream);
+	set_drop_stream(a_stream, protocol);
 
 	return STATE_DROPME|STATE_DROPPKT;
 }
@@ -665,7 +678,7 @@ static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, M
 			break;
 		case	PROTO_HTTP:
 			do_action_redirect_http(a_stream, p_result, user_region);
-			set_drop_stream(a_stream);
+			set_drop_stream(a_stream, protocol);
 			break;
 		default:
 			break;
@@ -698,7 +711,7 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 			local_state=do_action_drop(a_stream, p_result, protocol);
 			if(protocol==PROTO_DNS && type==ACTION_RETURN_TYPE_APP)
 			{
-				local_state=set_drop_stream(a_stream);
+				local_state=set_drop_stream(a_stream, protocol);
 			}
 			break;
 		case	TSG_METHOD_TYPE_RESET:

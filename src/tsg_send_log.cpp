@@ -239,7 +239,6 @@ static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_strea
 		len+=string_cat(buff+len, buff_len-len, location_info->province_full);
 		buff[len++]=',';
 		len+=string_cat(buff+len, buff_len-len, location_info->country_full);
-		buff[len++]=',';
 		
 		TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
 	}
