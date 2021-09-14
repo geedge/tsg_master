@@ -401,12 +401,20 @@ static int get_default_policy(int compile_id, struct Maat_rule_t *result)
 	return 0;
 }
 
-static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int result_num, char *domain, tsg_protocol_t proto, int thread_seq)
+static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int result_num, struct master_context *context, int thread_seq)
 {
-	tsg_log_t log_msg;	
+	tsg_log_t log_msg;
+	char quic_version[64]={0};
 	char *domain_field_name=NULL;
 	char *schema_field_name=NULL;
+	char *quic_ua_field_name=NULL;
+	char *quic_version_field_name=NULL;
 	struct TLD_handle_t *TLD_handle=NULL;
+	tsg_protocol_t proto=PROTO_UNKONWN;
+	if(context!=NULL)
+	{
+		proto=context->proto;
+	}
 
 	TLD_handle=TLD_create(thread_seq);
 	schema_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_SCHAME_TYPE);
@@ -423,24 +431,39 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 			TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[proto].name, TLD_TYPE_STRING);
 		}
 
-		if(domain!=NULL)
+		if(context->domain!=NULL)
 		{
 			switch(proto)
 			{
 				case	PROTO_HTTP:
 					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_HTTP_HOST);
-					TLD_append(TLD_handle, domain_field_name, (void *)domain, TLD_TYPE_STRING);
+					TLD_append(TLD_handle, domain_field_name, (void *)context->domain, TLD_TYPE_STRING);
 					break;
 				case	PROTO_SSL:
 					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_SSL_SNI);
-					TLD_append(TLD_handle, domain_field_name, (void *)domain, TLD_TYPE_STRING);
+					TLD_append(TLD_handle, domain_field_name, (void *)context->domain, TLD_TYPE_STRING);
 					break;
 				case	PROTO_QUIC:
 					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_QUIC_SNI);
-					TLD_append(TLD_handle, domain_field_name, (void *)domain, TLD_TYPE_STRING);
+					TLD_append(TLD_handle, domain_field_name, (void *)context->domain, TLD_TYPE_STRING);
 					break;
 				default:
 					break;
+			}
+		}
+		
+		if(context->quic_version>0)
+		{
+			if(quic_version_int2string(context->quic_version, quic_version, sizeof(quic_version)))
+			{
+				quic_version_field_name=log_field_id2name(g_tsg_log_instance, LOG_QUIC_VERSION);
+				TLD_append(TLD_handle, quic_version_field_name, (void *)quic_version, TLD_TYPE_STRING);
+			}
+
+			if(context->quic_ua!=NULL)
+			{
+				quic_ua_field_name=log_field_id2name(g_tsg_log_instance, LOG_QUIC_USER_AGENT);
+				TLD_append(TLD_handle, quic_ua_field_name, (void *)context->quic_ua, TLD_TYPE_STRING);
 			}
 		}
 	}
@@ -501,6 +524,12 @@ static void free_context_label(int thread_seq, void *project_req_value)
 		{
 			dictator_free(thread_seq, (void *)context->domain);
 			context->domain=NULL;
+		}
+
+		if(context->quic_ua!=NULL)
+		{
+			dictator_free(thread_seq, (void *)context->quic_ua);
+			context->quic_ua=NULL;
 		}
 
 		if(context->result!=NULL)
@@ -1077,7 +1106,6 @@ struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result
 static int identify_application_protocol(const struct streaminfo *a_stream, struct master_context *context, void *a_packet)
 {
 	int ret=0, length=0;
-	char buff[4096]={0};
 
 	switch(a_stream->type)
 	{
@@ -1202,15 +1230,25 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 			
 			if(g_tsg_para.proto_flag&(1<<PROTO_QUIC))  //quic
 			{
-				length=quic_protocol_identify((struct streaminfo *)a_stream, a_packet, buff, sizeof(buff));
-				if(length>=0)
+				char ua_buff[512]={0};
+				char sni_buff[512]={0};
+				int sni_len=sizeof(sni_buff),ua_len=sizeof(ua_buff);
+				context->quic_version=quic_protocol_identify((struct streaminfo *)a_stream, a_packet, sni_buff, &sni_len, ua_buff, &ua_len);
+				if(context->quic_version > 0)
 				{
 					context->proto=PROTO_QUIC;
-					if(length>0 && strlen(buff)>0)
+					if(sni_len>0)
 					{
-						context->domain=(char *)dictator_malloc(a_stream->threadnum, length+1);
-						memset(context->domain, 0, length+1);
-						memcpy(context->domain, buff, length);
+						context->domain=(char *)dictator_malloc(a_stream->threadnum, sni_len+1);
+						memcpy(context->domain, sni_buff, sni_len);
+						context->domain[sni_len]='\0';
+					}
+
+					if(ua_len>0)
+					{
+						context->quic_ua=(char *)dictator_malloc(a_stream->threadnum, ua_len+1);
+						memcpy(context->quic_ua, ua_buff, ua_len);
+						context->quic_ua[ua_len]='\0';
 					}
 					return 1;
 				}
@@ -1293,7 +1331,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT || (state&APP_STATE_KILL_OTHER))
 				{
 					context->hit_cnt=0;
-					master_send_log(a_stream, p_result, 1, context->domain, context->proto, a_stream->threadnum);					
+					master_send_log(a_stream, p_result, 1, context, a_stream->threadnum);					
 					copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_FW_RESULT, a_stream->threadnum);
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
@@ -1562,7 +1600,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		if(context!=NULL && context->is_log==0 && context->hit_cnt>0 && context->result!=NULL)
 		{
 			context->is_log=1;
-			master_send_log(a_stream, context->result, context->hit_cnt, context->domain, context->proto, thread_seq);
+			master_send_log(a_stream, context->result, context->hit_cnt, context, thread_seq);
 		}
 		*pme=NULL;
 	}
@@ -1593,7 +1631,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 				{
 					case	TSG_ACTION_DENY:
 						state=tsg_deal_deny_action(a_stream, p_result, PROTO_UNKONWN, ACTION_RETURN_TYPE_APP, a_packet);
-						master_send_log(a_stream, p_result, hit_num, NULL, PROTO_UNKONWN, thread_seq);
+						master_send_log(a_stream, p_result, hit_num, NULL, thread_seq);
 						break;
 					case	TSG_ACTION_MONITOR:
 						vlan_num=tsg_get_vlan_id_by_monitor_rule(g_tsg_maat_feather, result, hit_num, vlan, MAX_RESULT_NUM);

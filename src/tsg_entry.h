@@ -179,8 +179,10 @@ struct master_context
 	int is_esni;
 	int is_log;
 	int is_ratelimit;
+	unsigned int quic_version;
 	unsigned short timeout;
 	char *domain;
+	char *quic_ua;
 	scan_status_t mid;	
 	struct Maat_rule_t *result;
 	struct timespec last_scan_time;
