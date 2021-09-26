@@ -10,7 +10,7 @@
 #include <MESA/ssl.h>
 #include <MESA/mail.h>
 #include <MESA/gquic.h>
-#include "MESA/mesa_sip.h"
+#include "MESA/sip.h"
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
@@ -1638,6 +1638,8 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 						ret=tsg_set_vlan_id_to_tcpall(a_stream, (struct tcpall_context**)pme, vlan, vlan_num, thread_seq);
 						if(ret<=0)
 						{
+							Maat_clean_status(&scan_mid);
+							scan_mid=NULL;
 							return state;
 						}
 						context=(struct tcpall_context*)(*pme);

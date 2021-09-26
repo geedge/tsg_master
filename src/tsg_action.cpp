@@ -13,7 +13,7 @@
 #include <MESA/ssl.h>
 #include <MESA/mail.h>
 #include <MESA/gquic.h>
-#include "MESA/mesa_sip.h"
+#include "MESA/sip.h"
 #include <MESA/stream.h>
 #include <MESA/MESA_handle_logger.h>
 
