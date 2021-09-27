@@ -1631,7 +1631,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 				{
 					case	TSG_ACTION_DENY:
 						state=tsg_deal_deny_action(a_stream, p_result, PROTO_UNKONWN, ACTION_RETURN_TYPE_APP, a_packet);
-						master_send_log(a_stream, p_result, hit_num, NULL, thread_seq);
+						master_send_log(a_stream, p_result, 1, NULL, thread_seq);
 						break;
 					case	TSG_ACTION_MONITOR:
 						vlan_num=tsg_get_vlan_id_by_monitor_rule(g_tsg_maat_feather, result, hit_num, vlan, MAX_RESULT_NUM);
