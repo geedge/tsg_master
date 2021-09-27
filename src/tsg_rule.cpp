@@ -2516,12 +2516,19 @@ int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rul
 		}
 		
 		user_region=tsg_get_compile_user_region(maat_feather, &(result[i]));
-		if(user_region!=NULL && user_region->method_type==TSG_METHOD_TYPE_MIRRORED && user_region->mirror!=NULL && user_region->mirror->enabled==1)
+		if(user_region==NULL)
+		{
+			continue;
+		}
+		
+		if(user_region->method_type==TSG_METHOD_TYPE_MIRRORED && user_region->mirror!=NULL && user_region->mirror->enabled==1)
 		{
 			count+=copy_vlan_id(vlan, count, user_region->mirror->vlan_id, &(result[i].config_id), 1);
-			tsg_free_compile_user_region(&(result[i]), user_region);
-			user_region=NULL;
+			
 		}
+
+		tsg_free_compile_user_region(&(result[i]), user_region);
+		user_region=NULL;
 	}
 	
 	return count;
