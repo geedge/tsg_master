@@ -14,6 +14,7 @@
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
+#include <MESA/MESA_jump_layer.h>
 
 #include "app_label.h"
 #include "tsg_rule.h"
@@ -987,6 +988,37 @@ void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATT
 	return ;
 }
 
+static int set_tcp_establish_latency_ms(const struct streaminfo *a_tcp, int thread_seq,const void *ip_hdr)
+{
+	struct tcphdr *tcp=NULL;
+
+	if(ip_hdr==NULL || a_tcp==NULL)
+	{
+		return 0;
+	}
+	
+	switch(a_tcp->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4: 	
+			tcp=(struct tcphdr *)MESA_net_jump_to_layer(ip_hdr, __ADDR_TYPE_IP_PAIR_V4, ADDR_TYPE_TCP); 			
+			break;
+		case	ADDR_TYPE_IPV6: 			
+			tcp=(struct tcphdr *)MESA_net_jump_to_layer(ip_hdr, __ADDR_TYPE_IP_PAIR_V6, ADDR_TYPE_TCP);
+			break;
+		default:
+			return 0;
+			break;
+	}
+	
+	if(!(tcp->syn))
+	{
+		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY, NULL, 0, a_tcp->threadnum);
+		return 1;
+	}
+
+	return 0;
+}
+
 int tsg_set_device_id_to_telegraf(char *device_sn)
 {
 	char buff[128]={0};
@@ -1731,6 +1763,24 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 
 extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq, const void *a_packet)
 {
+	if(*pme==NULL)
+	{		
+		*pme=(void *)get_struct_project(a_tcp, g_tsg_para.tcpall_project_id);
+		if(*pme==NULL)
+		{
+			*pme=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
+			memset(*pme, 0, sizeof(struct tcpall_context));		
+			set_struct_project(a_tcp, g_tsg_para.tcpall_project_id, (void *)(*pme));
+		}
+	}
+	
+	struct tcpall_context *_context=(struct tcpall_context *)(*pme);
+
+	if(_context->set_latency_flag==0)
+	{
+		_context->set_latency_flag=set_tcp_establish_latency_ms(a_tcp, thread_seq, a_packet);
+	}
+	
 	return tsg_master_all_entry(a_tcp, a_tcp->pktstate, pme, thread_seq, a_packet);
 }
 

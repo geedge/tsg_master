@@ -2550,14 +2550,18 @@ int tsg_set_vlan_id_to_tcpall(const struct streaminfo *a_stream, struct tcpall_c
 		memset(_context, 0, sizeof(struct tcpall_context));
 		_context->method_type=TSG_METHOD_TYPE_MIRRORED;
 		
-		_context->vlan=(struct mirrored_vlan *)dictator_malloc(thread_seq, sizeof(struct mirrored_vlan)*MAX_RESULT_NUM);
-		memset(_context->vlan, 0, sizeof(struct mirrored_vlan));
-		
 		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
 	}
 
-	if(_context->method_type==TSG_METHOD_TYPE_MIRRORED && _context->vlan!=NULL)
+	if(_context->method_type==TSG_METHOD_TYPE_MIRRORED || _context->method_type==TSG_METHOD_TYPE_UNKNOWN)
 	{
+		if(_context->vlan==NULL)
+		{
+			_context->method_type=TSG_METHOD_TYPE_MIRRORED;
+			_context->vlan=(struct mirrored_vlan *)dictator_malloc(thread_seq, sizeof(struct mirrored_vlan)*MAX_RESULT_NUM);
+			memset(_context->vlan, 0, sizeof(struct mirrored_vlan));	
+		}
+		
 		for(i=0; i<vlan_num; i++)
 		{
 			_context->vlan_num+=copy_vlan_id(_context->vlan, _context->vlan_num, vlan[i].vlan_id, vlan[i].compile_id, vlan[i].compile_id_num);

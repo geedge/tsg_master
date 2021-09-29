@@ -199,6 +199,7 @@ struct mirrored_vlan
 
 struct tcpall_context
 {
+	int set_latency_flag;
 	int vlan_num;
 	enum TSG_METHOD_TYPE method_type; 
 	union
