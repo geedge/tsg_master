@@ -226,7 +226,7 @@ static int set_tcp_flags(char *packet, int ip_tcp_hdr_len)
 {	
 	struct tcphdr *tcp=(struct tcphdr *)(packet+(ip_tcp_hdr_len-20));  // tcp header=20 bytes
 
-	tcp->fin=1;
+	tcp->rst=1;
 	tcp->psh=0;
 	tcp->ack=1;
 
@@ -429,10 +429,10 @@ static int http_build_response_packet(const struct streaminfo *a_stream, struct 
 	}	
 	
 	set_tcp_flags(message, ip_tcp_hdr_len);
-	http_send_reponse_packet(a_stream, message, 0, v4_or_v6, ip_tcp_hdr_len, 0); //fin
+	http_send_reponse_packet(a_stream, message, 0, v4_or_v6, ip_tcp_hdr_len, 0); //rst
 	
 	reverse_ip_tcp_header(message, ip_tcp_hdr_len, v4_or_v6);
-	http_send_reponse_packet(a_stream, message, 0, v4_or_v6, ip_tcp_hdr_len, 0); //fin
+	http_send_reponse_packet(a_stream, message, 0, v4_or_v6, ip_tcp_hdr_len, 0); //rst
 	
 	return send_pkt_len;
 }
@@ -594,6 +594,7 @@ static unsigned char do_action_block_mail(const struct streaminfo *a_stream, Maa
 
 static unsigned char do_action_block_http(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, const void *a_packet)
 {
+	int opt_value=0;
 	int send_pkt_len=0;
 
 	switch(user_region->deny->code)
@@ -607,6 +608,12 @@ static unsigned char do_action_block_http(const struct streaminfo *a_stream, Maa
 			break;
 		default:
 			break;
+	}
+
+	if(g_tsg_para.reset.remedy==1)
+	{
+		opt_value=1;
+		MESA_set_stream_opt(a_stream, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
 	}
 	
 	return STATE_DROPME|STATE_DROPPKT;
