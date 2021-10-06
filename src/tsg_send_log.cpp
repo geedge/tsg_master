@@ -171,7 +171,7 @@ static int set_tcp_isn(struct tsg_log_instance_t *_instance, struct TLD_handle_t
 
 static int set_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
-	const char *linkinfo=(const char *)project_req_get_struct(a_stream, _instance->mac_linkinfo_project_id);
+	const char *linkinfo=(const char *)stream_bridge_async_data_get(a_stream, _instance->mac_linkinfo_project_id);
 	if(linkinfo==NULL)
 	{
 		return 0;
@@ -926,7 +926,7 @@ static int set_user_region(struct tsg_log_instance_t *_instance, struct TLD_hand
 
 int set_nat_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, int project_id)
 {
-	const char *nat_linkinfo=(const char *)project_req_get_struct(a_stream, project_id);
+	const char *nat_linkinfo=(const char *)stream_bridge_async_data_get(a_stream, project_id);
 	if(nat_linkinfo==NULL)
 	{
 		return 0;
@@ -1382,24 +1382,24 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_UNKNOWN_NAME", _instance->l7_unknown_name, sizeof(_instance->l7_unknown_name), "UNCATEGORIZED");
 
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LINKINFO_FROM_MAC", label_buff, sizeof(label_buff), "mirror_linkinfo_from_mac");
-	_instance->mac_linkinfo_project_id=project_customer_register(label_buff, PROJECT_VAL_TYPE_STRUCT);
+	_instance->mac_linkinfo_project_id=stream_bridge_build(label_buff, "w");
 	if(_instance->mac_linkinfo_project_id<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "LINKINFO_FROM_MAC", "stream_bridge_build is error, app_bridge_name: %s", label_buff);	
 	}
 
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_C2S_LINKINFO", label_buff, sizeof(label_buff), "common_link_info_c2s");
-	_instance->nat_c2s_linkinfo_project_id=project_customer_register(label_buff, PROJECT_VAL_TYPE_STRUCT);
+	_instance->nat_c2s_linkinfo_project_id=stream_bridge_build(label_buff, "w");
 	if(_instance->nat_c2s_linkinfo_project_id<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "NAT_C2S_LINKINFO", "stream_bridge_build is error, app_bridge_name: %s", label_buff);	
 	}
-
+	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_S2C_LINKINFO", label_buff, sizeof(label_buff), "common_link_info_s2c");
-	_instance->nat_s2c_linkinfo_project_id=project_customer_register(label_buff, PROJECT_VAL_TYPE_STRUCT);
+	_instance->nat_s2c_linkinfo_project_id=stream_bridge_build(label_buff, "w");
 	if(_instance->nat_s2c_linkinfo_project_id<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "NAT_S2C_LINKINFO", "stream_bridge_build is error, app_bridge_name: %s", label_buff);	
 	}
 
 	_instance->logger=MESA_create_runtime_log_handle(_instance->log_path, _instance->level);
