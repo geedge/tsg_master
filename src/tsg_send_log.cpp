@@ -1375,7 +1375,8 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(_instance->level), 30);	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", _instance->log_path, sizeof(_instance->log_path), "./tsglog/tsglog");
-	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_USER_REGION",&(_instance->send_user_region), 0);	
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_USER_REGION", &(_instance->send_user_region), 0);		
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_DATA_CENTER_SWITCH", &(_instance->send_data_center), 0);	
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "APP_ID_TYPE", &(_instance->app_id_type), 1);	//0: int, 1: string	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_UNKNOWN_NAME", _instance->l7_unknown_name, sizeof(_instance->l7_unknown_name), "UNCATEGORIZED");
@@ -1537,11 +1538,16 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
 	}
 
-	if(strlen(g_tsg_para.data_center)>0)
+	if(strlen(g_tsg_para.data_center)>0 && _instance->send_data_center==1)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_DATA_CENTER].name, (void *)(g_tsg_para.data_center), TLD_TYPE_STRING);
 	}
-	
+
+	if(strlen(g_tsg_para.device_tag)>0)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_TAG].name, (void *)(g_tsg_para.device_tag), TLD_TYPE_STRING);
+	}
+		
 	for(i=0;i<log_msg->result_num; i++)
 	{
 		if(is_multi_hit_same_policy(&(log_msg->result[i]), policy_id, &repeat_cnt))

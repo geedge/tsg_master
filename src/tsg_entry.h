@@ -250,6 +250,7 @@ typedef	struct tsg_para
 	char log_path[MAX_DOMAIN_LEN/8];
 	char device_id_command[MAX_DOMAIN_LEN/8];
 	char data_center[_MAX_TABLE_NAME_LEN];
+	char device_tag[MAX_DOMAIN_LEN/2];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;
 	void *maat_logger;

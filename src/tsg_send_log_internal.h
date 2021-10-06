@@ -113,6 +113,7 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_LINK_INFO_S2C,
 	LOG_QUIC_VERSION,
 	LOG_QUIC_USER_AGENT,
+	LOG_COMMON_DEVICE_TAG,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
@@ -130,6 +131,7 @@ struct tsg_log_instance_t
 	int max_service;
 	int app_id_type;
 	int send_user_region;
+	int send_data_center;
 	int recovery_interval;
 	int session_attribute_project_id;
 	int tcp_flow_project_id;

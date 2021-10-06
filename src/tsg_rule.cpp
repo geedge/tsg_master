@@ -1391,6 +1391,11 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 		MESA_load_profile_string_def(conffile, "MAAT", "ACCEPT_TAGS", effective_flag, sizeof(effective_flag),"");
 	}
 
+	if(strlen(g_tsg_para.device_tag)==0 && strlen(effective_flag)>0)
+	{
+		memcpy(g_tsg_para.device_tag, effective_flag, MIN(strlen(effective_flag), sizeof(g_tsg_para.device_tag)-1));
+	}
+
 	if(strlen(g_tsg_para.data_center)==0 && strlen(effective_flag)>0)
 	{
 		MESA_load_profile_string_def(conffile, module, "EFFECTIVE_TAG_KEY", effective_tag_key, sizeof(effective_tag_key),"data_center");
