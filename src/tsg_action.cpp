@@ -222,13 +222,26 @@ static int get_response_pages(struct Maat_rule_t *p_result, struct compile_user_
 	return payload_len;
 }
 
-static int set_tcp_flags(char *packet, int ip_tcp_hdr_len)
+static int set_tcp_rst_flags(char *packet, int ip_tcp_hdr_len)
 {	
 	struct tcphdr *tcp=(struct tcphdr *)(packet+(ip_tcp_hdr_len-20));  // tcp header=20 bytes
 
 	tcp->rst=1;
+	tcp->ack=1;	
 	tcp->psh=0;
+	tcp->fin=0;
+
+	return 0;
+}
+
+static int set_tcp_fin_flags(char *packet, int ip_tcp_hdr_len)
+{	
+	struct tcphdr *tcp=(struct tcphdr *)(packet+(ip_tcp_hdr_len-20));  // tcp header=20 bytes
+
+	tcp->fin=1;	
 	tcp->ack=1;
+	tcp->psh=0;
+	tcp->rst=0;
 
 	return 0;
 }
@@ -426,9 +439,15 @@ static int http_build_response_packet(const struct streaminfo *a_stream, struct 
 	{
 		dictator_free(a_stream->threadnum, payload);
 		payload=NULL;
-	}	
+	}
+
+	set_tcp_fin_flags(message, ip_tcp_hdr_len);
+	http_send_reponse_packet(a_stream, message, 0, v4_or_v6, ip_tcp_hdr_len, 0); //fin
 	
-	set_tcp_flags(message, ip_tcp_hdr_len);
+	reverse_ip_tcp_header(message, ip_tcp_hdr_len, v4_or_v6);
+	http_send_reponse_packet(a_stream, message, 0, v4_or_v6, ip_tcp_hdr_len, 0); //fin
+	
+	set_tcp_rst_flags(message, ip_tcp_hdr_len);
 	http_send_reponse_packet(a_stream, message, 0, v4_or_v6, ip_tcp_hdr_len, 0); //rst
 	
 	reverse_ip_tcp_header(message, ip_tcp_hdr_len, v4_or_v6);
