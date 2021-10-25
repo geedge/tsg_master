@@ -1220,6 +1220,16 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 				}
 			}
 
+			if(g_tsg_para.proto_flag&(1<<PROTO_SSH))  //ssh
+			{
+				ret = ssh_protocol_identify((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen,g_tsg_para.logger);
+				if(ret > 0)
+				{
+					context->proto=PROTO_SSH;
+					return 1;
+				}
+			}
+
 			break;
 		case	STREAM_TYPE_UDP:
 			if(g_tsg_para.proto_flag&(1<<PROTO_DNS))  //dns
@@ -1247,16 +1257,6 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 						break;
 					default:
 						break;
-				}
-			}
-				
-			if(g_tsg_para.proto_flag&(1<<PROTO_SSH))  //ssh
-			{
-				ret = ssh_protocol_identify((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen,g_tsg_para.logger);
-				if(ret > 0)
-				{
-					context->proto=PROTO_SSH;
-					return 1;
 				}
 			}
 			
@@ -1824,7 +1824,7 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","DEFAULT_POLICY_SWITCH", &g_tsg_para.default_compile_switch, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","HIT_PATH_SWITCH", &g_tsg_para.hit_path_switch, 0);
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;SIP;MAIL;STREAMING_MEDIA;QUIC;SIP;");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;SIP;MAIL;STREAMING_MEDIA;QUIC;SIP;SSH;");
 	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DATACENTER_ID", &g_tsg_para.datacenter_id, 0);
