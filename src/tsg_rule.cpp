@@ -1700,14 +1700,23 @@ int tsg_rule_init(const char* conffile, void *logger)
 		return -1;
 	}
 
-	//init dynamic maat feather
-	g_tsg_dynamic_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_DYNAMIC", (char *)"DYNAMIC", logger);
-	if(g_tsg_maat_feather==NULL)
-	{
-		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "init_maat_feather failed, instance_name: %s module: %s", "TSG_DYNAMIC", "DYNAMIC"); 
-		return -1;
-	}
 
+	//init dynamic maat feather	
+	MESA_load_profile_int_def(conffile, "MAAT", "DYNAMIC_MAAT_SWITCH", &g_tsg_para.dynamic_maat_switch, 0);
+	if(g_tsg_para.dynamic_maat_switch==1)
+	{
+		g_tsg_dynamic_maat_feather=init_maat_feather(maat_conffile, (char *)"TSG_DYNAMIC", (char *)"DYNAMIC", logger);
+		if(g_tsg_maat_feather==NULL)
+		{
+			MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "init_maat_feather failed, instance_name: %s module: %s", "TSG_DYNAMIC", "DYNAMIC"); 
+			return -1;
+		}
+	}
+	else
+	{
+		g_tsg_dynamic_maat_feather=g_tsg_maat_feather;
+	}
+	
 	MESA_load_profile_string_def(conffile, "MAAT", "CB_SUBSCRIBER_IP_TABLE", cb_subscriber_ip_table, sizeof(cb_subscriber_ip_table), "TSG_DYN_SUBSCRIBER_IP");
 
 	g_tsg_para.dyn_subscribe_ip_table_id=Maat_table_register(g_tsg_dynamic_maat_feather, cb_subscriber_ip_table);

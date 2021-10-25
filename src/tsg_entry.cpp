@@ -2018,10 +2018,12 @@ extern "C" int TSG_MASTER_UNLOAD()
 {
 	Maat_burn_feather(g_tsg_maat_feather);
 	g_tsg_maat_feather=NULL;
-	
-	Maat_burn_feather(g_tsg_dynamic_maat_feather);
-	g_tsg_dynamic_maat_feather=NULL;
 
+	if(g_tsg_para.dynamic_maat_switch==1)
+	{
+		Maat_burn_feather(g_tsg_dynamic_maat_feather);
+		g_tsg_dynamic_maat_feather=NULL;
+	}
 	
 	return 0;
 }
