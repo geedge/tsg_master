@@ -1010,7 +1010,7 @@ static int set_tcp_establish_latency_ms(const struct streaminfo *a_tcp, int thre
 			break;
 	}
 	
-	if(!(tcp->syn))
+	if((tcp!=NULL) && !(tcp->syn))
 	{
 		set_session_attribute_label(a_tcp, TSG_ATTRIBUTE_TYPE_ESTABLISH_LATECY, NULL, 0, a_tcp->threadnum);
 		return 1;
