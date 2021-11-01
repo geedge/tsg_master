@@ -890,6 +890,21 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 	return 0;	
 }
 
+struct TLD_handle_t *TLD_duplicate(struct TLD_handle_t *handle)
+{
+	if (handle == NULL)
+	{
+		return NULL;
+	}
+	struct TLD_handle_t *_handle=(struct TLD_handle_t *)calloc(1, sizeof(struct TLD_handle_t));
+	_handle->thread_id = handle->thread_id;
+	_handle->document = new Document();
+	//_handle->document->SetObject();
+
+	_handle->document->CopyFrom(*handle->document, _handle->document->GetAllocator());
+	return _handle;
+}
+
 struct TLD_handle_t *TLD_create(int thread_id)
 {
 	//struct _tld_handle *_handle=(struct _tld_handle *)dictator_malloc(thread_id, sizeof(struct _tld_handle));

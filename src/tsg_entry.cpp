@@ -47,8 +47,13 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 }
 #endif
 
+struct session_record_ctx
+{
+    struct TLD_handle_t *log;
+    tsg_protocol_t proto_type;
+};
 
-char TSG_MASTER_VERSION_20200805=0;
+char TSG_MASTER_VERSION_20200805 = 0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
@@ -1631,6 +1636,27 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 	{
 		if(context!=NULL && context->is_log==0 && context->hit_cnt>0 && context->result!=NULL)
 		{
+			if (context->proto == PROTO_SSH && context->result->action == TSG_ACTION_MONITOR)
+			{
+				int ssh_project_id = project_customer_register("SKETCH_PROTO_CTX_LABEL", PROJECT_VAL_TYPE_STRUCT);
+				if (ssh_project_id >= 0)
+				{
+					session_record_ctx * ssh_session_record_ctx =  (session_record_ctx *)project_req_get_struct(a_stream, ssh_project_id);
+                    if (ssh_session_record_ctx != NULL && ssh_session_record_ctx->proto_type == PROTO_SSH)
+                    {
+                        tsg_log_t log_msg;
+                        log_msg.a_stream = (streaminfo *)a_stream;
+                        log_msg.result = p_result;
+                        log_msg.result_num = 1;
+
+                        struct TLD_handle_t *_handle = TLD_duplicate(ssh_session_record_ctx->log);
+                        if (_handle != NULL)
+                        {
+                            tsg_send_log(g_tsg_log_instance, _handle, &log_msg, thread_seq);
+                        }
+                    }
+				}
+			}
 			context->is_log=1;
 			master_send_log(a_stream, context->result, context->hit_cnt, context, thread_seq);
 		}
