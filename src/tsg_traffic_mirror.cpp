@@ -154,7 +154,10 @@ int tsg_traffic_mirror_send_burst(struct traffic_mirror *ttm,char * pkt_ptr,int 
     marsio_buff_t * tx_buff_ptr = tx_buff[i];
     char * tx_buff_begin = marsio_buff_append(tx_buff_ptr, pkt_len);
     memcpy(tx_buff_begin, pkt_ptr, pkt_len);
-    marsio_buff_set_metadata(tx_buff_ptr,MR_BUFF_METADATA_VLAN_TCI,&vlan_id,sizeof(vlan_id));
+	if(vlan_id>0)
+	{
+    	marsio_buff_set_metadata(tx_buff_ptr,MR_BUFF_METADATA_VLAN_TCI,&vlan_id,sizeof(vlan_id));
+	}
   }
 
   ret = marsio_send_burst(ttm->to_dev_sendpath, thread_seq, tx_buff, tx_buffer_num);
