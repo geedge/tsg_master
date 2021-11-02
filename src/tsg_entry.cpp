@@ -1641,26 +1641,29 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 				int ssh_project_id = project_customer_register("SKETCH_PROTO_CTX_LABEL", PROJECT_VAL_TYPE_STRUCT);
 				if (ssh_project_id >= 0)
 				{
-					session_record_ctx * ssh_session_record_ctx =  (session_record_ctx *)project_req_get_struct(a_stream, ssh_project_id);
-                    if (ssh_session_record_ctx != NULL && ssh_session_record_ctx->proto_type == PROTO_SSH)
-                    {
-                        tsg_log_t log_msg;
-                        log_msg.a_stream = (streaminfo *)a_stream;
-                        log_msg.result = p_result;
-                        log_msg.result_num = 1;
+					session_record_ctx *ssh_session_record_ctx = (session_record_ctx *)project_req_get_struct(a_stream, ssh_project_id);
+					if (ssh_session_record_ctx != NULL && ssh_session_record_ctx->proto_type == PROTO_SSH)
+					{
+						tsg_log_t log_msg;
+						log_msg.a_stream = (streaminfo *)a_stream;
+						log_msg.result = context->result;
+						log_msg.result_num = context->hit_cnt;
 
-                        struct TLD_handle_t *_handle = TLD_duplicate(ssh_session_record_ctx->log);
-                        if (_handle != NULL)
-                        {
-                            tsg_send_log(g_tsg_log_instance, _handle, &log_msg, thread_seq);
-                        }
-                    }
+						struct TLD_handle_t *_handle = TLD_duplicate(ssh_session_record_ctx->log);
+						if (_handle != NULL)
+						{
+							tsg_send_log(g_tsg_log_instance, _handle, &log_msg, thread_seq);
+						}
+					}
 				}
 			}
-			context->is_log=1;
-			master_send_log(a_stream, context->result, context->hit_cnt, context, thread_seq);
+			if (context->proto != PROTO_SSH)
+			{
+				context->is_log = 1;
+				master_send_log(a_stream, context->result, context->hit_cnt, context, thread_seq);
+			}
 		}
-		*pme=NULL;
+		*pme = NULL;
 	}
 
 	return state;
