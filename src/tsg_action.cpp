@@ -549,10 +549,17 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 	return STATE_DROPPKT|STATE_DROPME;
 }
 
-static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol)
+
+static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *a_packet)
 {
+    if(user_region-> drop_para != NULL){
+        if(user_region->drop_para->send_icmp_unreachable_enable){
+            send_icmp_unreachable(a_stream, a_packet);
+        }
+    }
+
 	switch(protocol)
-	{		
+    {		
 		case	PROTO_DNS:
 			return STATE_GIVEME|STATE_DROPPKT;
 		default:			
@@ -642,7 +649,7 @@ static unsigned char do_action_block_xxx(const struct streaminfo *a_stream, Maat
 {
 	if(user_region==NULL || user_region->deny==NULL)
 	{
-		return do_action_drop(a_stream, p_result, protocol);
+		return do_action_drop(a_stream, p_result, user_region, protocol, a_packet);
 	}
 	
 	switch(protocol)
@@ -694,8 +701,8 @@ static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, M
 {
 	if(user_region==NULL || user_region->deny==NULL)
 	{
-		return do_action_drop(a_stream, p_result, protocol);
-	}
+        return do_action_drop(a_stream, p_result, user_region, protocol, user_data);
+    }
 
 	switch(protocol)
 	{
@@ -711,6 +718,16 @@ static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, M
 	}
 
 	return STATE_DROPME|STATE_DROPPKT;
+}
+
+static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
+{
+	if(user_region==NULL)
+	{
+        return do_action_drop(a_stream, p_result, user_region, protocol, user_data);
+    }
+
+    return send_tamper_xxx(a_stream, user_data);
 }
 
 unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
@@ -734,7 +751,7 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 	switch(method_type)
 	{
 		case	TSG_METHOD_TYPE_DROP:
-			local_state=do_action_drop(a_stream, p_result, protocol);
+			local_state=do_action_drop(a_stream, p_result, user_region, protocol, user_data);
 			if(protocol==PROTO_DNS && type==ACTION_RETURN_TYPE_APP)
 			{
 				local_state=set_drop_stream(a_stream, protocol);
@@ -753,6 +770,9 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 		case	TSG_METHOD_TYPE_RATE_LIMIT:
 			local_state=do_action_ratelimit(a_stream, p_result, user_region, type);
 			break;
+        case TSG_METHOD_TYPE_TAMPER:
+            local_state=do_action_tamper(a_stream, p_result, user_region, protocol, user_data);
+            break;
 		default:
 			break;
 	}

@@ -94,6 +94,11 @@ struct monitor_user_region
 	int vlan_id;
 };
 
+struct drop_user_para
+{
+    int send_icmp_unreachable_enable;
+};
+
 struct compile_user_region
 {	
 	int ref_cnt;
@@ -103,12 +108,16 @@ struct compile_user_region
 		struct deny_user_region *deny;		
 		struct monitor_user_region *mirror;		
 		struct Maat_rule_t *result;				//XJ default policy
+        struct drop_user_para  *drop_para;    
 		void *user_region_para;
 	};
 };
 
 int tsg_send_inject_packet(const struct streaminfo *a_stream, enum sapp_inject_opt sio, char *payload, int payload_len, unsigned char raw_route_dir);
 unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, const void *user_data);
+
+unsigned char send_icmp_unreachable(const struct streaminfo *a_stream, const void *raw_pkt);
+unsigned char send_tamper_xxx(const struct streaminfo *a_stream, const void *raw_pkt);
 
 
 #endif

@@ -39,7 +39,9 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
 													{TSG_METHOD_TYPE_BLOCK, 5, (char *)"block"},
 													{TSG_METHOD_TYPE_RESET, 3, (char *)"rst"},
 													{TSG_METHOD_TYPE_ALERT, 5, (char *)"alert"},
-													{TSG_METHOD_TYPE_RATE_LIMIT, 10, (char *)"rate_limit"}
+													{TSG_METHOD_TYPE_RATE_LIMIT, 10, (char *)"rate_limit"}, 
+                                                    {TSG_METHOD_TYPE_MIRRORED, 8, (char *)"mirrored"},
+                                                    {TSG_METHOD_TYPE_TAMPER, 6, (char *)"tamper"}
 	};
 
 //functioned as strdup, for dictator compatible.
@@ -950,8 +952,13 @@ static struct compile_user_region *parse_deny_user_region(cJSON *object)
 			get_integer_from_json(object, "bps", &(user_region->deny->bps));
 			break;
 		case	TSG_METHOD_TYPE_DROP:
+			user_region->drop_para=(struct drop_user_para *)calloc(1, sizeof(struct drop_user_para));
+			get_integer_from_json(object, "send_icmp_unreachable", &(user_region->drop_para->send_icmp_unreachable_enable));
+            break;
 		case	TSG_METHOD_TYPE_RESET:
 			break;
+        case    TSG_METHOD_TYPE_TAMPER:
+            break;
 		default:
 			break;
 	}
