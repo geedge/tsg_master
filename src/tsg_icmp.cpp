@@ -23,6 +23,11 @@
 #define ETH_IP_TYPE_LEN 2
 #define ETH_LEN ((MAC_LEN_2)+(ETH_IP_TYPE_LEN))
 
+
+#define TCP_MAX_LEN             60
+#define ICMP_IPV4_TCP_MAX_LEN   44 //64-20 = 44       
+#define IPV4_SHAM_FIXED_LEN     12   
+
 #define IPV4_LEN        20
 #define IPV4_IP_LEN     4
 #define IPV4_IP_LEN_INDEX   2   //eth_len(14)+ ip_len_index(2)
@@ -36,9 +41,9 @@
 #define IPV6_PESUDO_HEAD_LEN  40
 
 //icmpv6的srcPacket len需要再确认
-#define ICMP_MAX_LEN   190       //eth_len(14) + ipv6_len(40) + ICMP_MAX_LEN(8+128)
-#define ICMP_SRCPACKET_MAX_LEN    64
-#define ICMPV6_SRCPACKET_MAX_LEN  128
+#define ICMP_MAX_LEN   65535       //eth_len(14) + ipv6_len(40) + ICMP_MAX_LEN(8+128)
+#define ICMP_SRCPACKET_MAX_LEN    548  // 548 == ipv4(max_len 576)-ip_len(20)-icmp_head_len(8)
+#define ICMPV6_SRCPACKET_MAX_LEN  1232 // 1232 == ipv6(max_len 1280)-ipv6_len(40)-icmp_head_len(8)
 
 typedef struct icmpv4{
     char type;
@@ -87,7 +92,7 @@ static void format_icmpv4(const char *raw_pkt, char *buf, int *len){
     short ipv4_checksum = 0;             
     short sip_len = 12;                 //skip sip start index
     short dip_len = 16;                 //skip dip start index
-    
+
     memcpy(&src_ipv4_total_len, &raw_pkt[IPV4_IP_LEN_INDEX], sizeof(short));
     src_ipv4_total_len = htons(src_ipv4_total_len);
 
@@ -106,7 +111,7 @@ static void format_icmpv4(const char *raw_pkt, char *buf, int *len){
     memset(&icmpst, 0, sizeof(icmpv4_st));
     memcpy(icmpst.srcPacket, raw_pkt, icmp_srcpacket_len); //
     icmpst.type = ICMPV4_UNREACHABLE;
-    icmpst.type = ICMPV4_PORT_UNREACHABLE;
+    icmpst.code = ICMPV4_PORT_UNREACHABLE;
     icmpst.checksum = in_checksum((void*)&icmpst, icmp_len);
 
     //format ipv4
@@ -128,8 +133,8 @@ static void format_icmpv4(const char *raw_pkt, char *buf, int *len){
     return;
 }
 
-
 //int format_icmpv6(char *icmp, short icmp_len, char *eth, const char *data){
+#if 0
 static void format_icmpv6(const char *data, char *buf, int *len){
     char checksum_str[ICMPV6_SRCPACKET_MAX_LEN] = {0}; 
     char ipv6[IPV6_LEN] = {0};
@@ -144,7 +149,9 @@ static void format_icmpv6(const char *data, char *buf, int *len){
     short dip_len = 24; //skip dip start index, 16+8 == 24
     short ipv6_ip2 = IPV6_IP_LEN + IPV6_IP_LEN;
     short payload_len = 0;
-    
+    short fill_icmp_len = 0;       
+    int checksum_payload_len = 0;  
+
     memcpy(&src_ipv6_total_len, &data[IPV6_IP_PAYLOAD_INDEX], sizeof(short));  //get ipv6_payload_len 
     src_ipv6_total_len = htons(src_ipv6_total_len) + IPV6_LEN;
 
@@ -172,10 +179,18 @@ static void format_icmpv6(const char *data, char *buf, int *len){
     icmpst.code = ICMPV6_PORT_UNREACHABLE;
     memcpy(icmpst.srcPacket, data, icmp_srcpacket_len);
 
+    //补充为4字节
+    checksum_payload_len = htonl((int)icmp_len);            
+    fill_icmp_len = icmp_len % 4;                           
+    if( fill_icmp_len > 0){                                 
+        icmp_len = icmp_len + (4-fill_icmp_len);            
+        checksum_len = checksum_len + (4-fill_icmp_len);    
+    }                                                       
+
     //calc icmpv6 checksum
     memcpy(checksum_str, &icmpst, icmp_len);  
     memcpy(&checksum_str[icmp_len], &ipv6[8], ipv6_ip2);
-    memcpy(&checksum_str[icmp_len+ipv6_ip2+2], &ipv6[4], sizeof(short));
+    memcpy(&checksum_str[icmp_len+ipv6_ip2], &checksum_payload_len, sizeof(int)); 
     checksum_str[icmp_len+ipv6_ip2+7] = ICMPV6_PROTOCAL_TYPE;
     icmpst.checksum = in_checksum(checksum_str, checksum_len);
 
@@ -186,13 +201,15 @@ static void format_icmpv6(const char *data, char *buf, int *len){
 
     return;
 }
+#endif
 
 static void format_icmp(const char *raw_pkt, char *icmp_buf, int *icmp_len, int ip_type){
     if(IPV4_TYPE == ip_type) {
         format_icmpv4(raw_pkt, icmp_buf, icmp_len);
-    }else{ //IPV6_TYPE
-        format_icmpv6(raw_pkt, icmp_buf, icmp_len);
     }
+    //else{ //IPV6_TYPE
+    //    format_icmpv6(raw_pkt, icmp_buf, icmp_len);
+    //}
     return;
 }
 
@@ -200,13 +217,20 @@ static void format_icmp(const char *raw_pkt, char *icmp_buf, int *icmp_len, int 
 unsigned char send_icmp_unreachable(const struct streaminfo *a_stream, const void *raw_pkt)
 {
     char icmp_buf[ICMP_MAX_LEN]; 
+    unsigned char raw_route_dir = 0;
     int  icmp_len = 0;
 
-    if(a_stream->curdir==DIR_S2C || raw_pkt == NULL){
-        return 0;
+    if(a_stream == NULL){
+	    return STATE_DROPPKT;
+    }
+
+    if((a_stream->curdir==DIR_S2C)||(raw_pkt==NULL)||(a_stream->addr.addrtype!=IPV4_TYPE)){
+	    return STATE_DROPPKT;
     }
 
     format_icmp((char *)raw_pkt, icmp_buf, &icmp_len, a_stream->addr.addrtype);
-    return tsg_send_inject_packet(a_stream, SIO_EXCLUDE_THIS_LAYER_HDR, icmp_buf, icmp_len, DIR_S2C); 
+    raw_route_dir = (a_stream->curdir==DIR_C2S) ? MESA_dir_reverse(a_stream->routedir) : a_stream->routedir;
+
+    return tsg_send_inject_packet(a_stream, SIO_EXCLUDE_THIS_LAYER_HDR, icmp_buf, icmp_len, raw_route_dir); 
 }
 

@@ -552,9 +552,11 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 
 static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *a_packet)
 {
-    if(user_region-> drop_para != NULL){
-        if(user_region->drop_para->send_icmp_unreachable_enable){
-            send_icmp_unreachable(a_stream, a_packet);
+    if(user_region != NULL){
+        if(user_region->drop_para != NULL){
+            if(user_region->drop_para->send_icmp_unreachable_enable){
+                send_icmp_unreachable(a_stream, a_packet);
+            }
         }
     }
 
