@@ -6,17 +6,19 @@
 #include "tsg_entry.h"
 #include "tsg_protocol_common.h"
 
-#define IPV4_TYPE           1 //ADDR_TYPE_IPV4 ==1 , 取的enum 0x0800
-#define IPV6_TYPE           2 //ADDR_TYPE_IPV6 ==2 0x86dd   
-#define TCP_TYPE            0x06
-#define UDP_TYPE            0x11
-#define ICMP_PROTOCOL_TYPE  0x01      //ipv4 icmp  proctocol
+#define IPV4_TYPE               1     //ADDR_TYPE_IPV4 ==1 , 取的enum 0x0800
+#define IPV6_TYPE               2     //ADDR_TYPE_IPV6 ==2 0x86dd   
+#define TCP_TYPE                0x06
+#define UDP_TYPE                0x11
+#define ICMP_PROTOCOL_TYPE      0x01  //ipv4 icmp  proctocol
 #define ICMPV6_PROTOCAL_TYPE    0x3a  //ipv6 icmpv6 protocl
 
-#define ICMPV4_UNREACHABLE      0x03
-#define ICMPV4_PORT_UNREACHABLE 0x03
-#define ICMPV6_UNREACHABLE      0x01
-#define ICMPV6_PORT_UNREACHABLE 0X04
+#define ICMPV4_UNREACHABLE                  0x03
+#define ICMPV4_PORT_UNREACHABLE             0x03
+#define ICMPV4_ADMINISTRATIVELY_PROHIBITED  0x0d
+#define ICMPV6_UNREACHABLE                  0x01
+#define ICMPV6_PORT_UNREACHABLE             0X04
+#define ICMPV6_ADMINISTRATIVELY_PROHIBITED  0x01
 
 #define MAC_LEN 6
 #define MAC_LEN_2  ((MAC_LEN)+(MAC_LEN))
@@ -35,15 +37,15 @@
 #define IPV6_IP_LEN     16
 #define IPV6_IP_PAYLOAD_INDEX  4  // ipv6_payload_index(4)
 #define ICMP_IPV4_PROTOCOL_TYPE_LEN 24
-#define ICMP_HEAD_LEN         8
-#define ICMPV4_SOURCE_MAX_LEN 64
+#define ICMP_HEAD_LEN               8
+#define ICMPV4_SOURCE_MAX_LEN       64
 #define ICMPV4_MAX_LEN  ((ICMPV4_SOURCE_MAX_LEN)+(ICMP_HEAD_LEN))
-#define IPV6_PESUDO_HEAD_LEN  40
+#define IPV6_PESUDO_HEAD_LEN        40
 
-//icmpv6的srcPacket len需要再确认
-#define ICMP_MAX_LEN   65535       //eth_len(14) + ipv6_len(40) + ICMP_MAX_LEN(8+128)
+#define ICMP_MAX_LEN   65535     
 #define ICMP_SRCPACKET_MAX_LEN    548  // 548 == ipv4(max_len 576)-ip_len(20)-icmp_head_len(8)
 #define ICMPV6_SRCPACKET_MAX_LEN  1232 // 1232 == ipv6(max_len 1280)-ipv6_len(40)-icmp_head_len(8)
+#define ICMPV6_MTU  1280     
 
 typedef struct icmpv4{
     char type;
@@ -111,7 +113,7 @@ static void format_icmpv4(const char *raw_pkt, char *buf, int *len){
     memset(&icmpst, 0, sizeof(icmpv4_st));
     memcpy(icmpst.srcPacket, raw_pkt, icmp_srcpacket_len); //
     icmpst.type = ICMPV4_UNREACHABLE;
-    icmpst.code = ICMPV4_PORT_UNREACHABLE;
+    icmpst.code = ICMPV4_ADMINISTRATIVELY_PROHIBITED;
     icmpst.checksum = in_checksum((void*)&icmpst, icmp_len);
 
     //format ipv4
@@ -133,10 +135,8 @@ static void format_icmpv4(const char *raw_pkt, char *buf, int *len){
     return;
 }
 
-//int format_icmpv6(char *icmp, short icmp_len, char *eth, const char *data){
-#if 0
 static void format_icmpv6(const char *data, char *buf, int *len){
-    char checksum_str[ICMPV6_SRCPACKET_MAX_LEN] = {0}; 
+    char checksum_str[ICMPV6_MTU] = {0}; 
     char ipv6[IPV6_LEN] = {0};
     icmpv6_st icmpst = {0};
     short src_ipv6_total_len = 0;
@@ -167,7 +167,7 @@ static void format_icmpv6(const char *data, char *buf, int *len){
     payload_len = htons(icmp_len);
 
     //format ipv6
-    memcpy(ipv6, data, IPV6_LEN);                      //copy source ipv6 data
+    memcpy(ipv6, data, IPV6_LEN);                       //copy source ipv6 data
     memcpy(&ipv6[8], &data[dip_len], IPV6_IP_LEN);      //get sip 
     memcpy(&ipv6[24],&data[sip_len], IPV6_IP_LEN);      //get dip 
     memcpy(&ipv6[4], &payload_len, sizeof(short));      //format ipv6 payload
@@ -176,7 +176,7 @@ static void format_icmpv6(const char *data, char *buf, int *len){
     //format icmp
     memset(&icmpst, 0, sizeof(icmpv6_st));
     icmpst.type = ICMPV6_UNREACHABLE;
-    icmpst.code = ICMPV6_PORT_UNREACHABLE;
+    icmpst.code = ICMPV6_ADMINISTRATIVELY_PROHIBITED;
     memcpy(icmpst.srcPacket, data, icmp_srcpacket_len);
 
     //补充为4字节
@@ -201,19 +201,16 @@ static void format_icmpv6(const char *data, char *buf, int *len){
 
     return;
 }
-#endif
 
 static void format_icmp(const char *raw_pkt, char *icmp_buf, int *icmp_len, int ip_type){
     if(IPV4_TYPE == ip_type) {
         format_icmpv4(raw_pkt, icmp_buf, icmp_len);
+    } else{ //IPV6_TYPE
+        format_icmpv6(raw_pkt, icmp_buf, icmp_len);
     }
-    //else{ //IPV6_TYPE
-    //    format_icmpv6(raw_pkt, icmp_buf, icmp_len);
-    //}
     return;
 }
 
-//int send_icmp_unreach_xxx(const void *raw_pkt, xxxxx)
 unsigned char send_icmp_unreachable(const struct streaminfo *a_stream, const void *raw_pkt)
 {
     char icmp_buf[ICMP_MAX_LEN]; 
@@ -224,8 +221,8 @@ unsigned char send_icmp_unreachable(const struct streaminfo *a_stream, const voi
 	    return STATE_DROPPKT;
     }
 
-    if((a_stream->curdir==DIR_S2C)||(raw_pkt==NULL)||(a_stream->addr.addrtype!=IPV4_TYPE)){
-	    return STATE_DROPPKT;
+    if((a_stream->curdir==DIR_S2C)||(raw_pkt==NULL)){
+        return STATE_DROPPKT;
     }
 
     format_icmp((char *)raw_pkt, icmp_buf, &icmp_len, a_stream->addr.addrtype);

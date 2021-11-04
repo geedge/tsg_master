@@ -18,7 +18,7 @@
 #define TCP_TYPE 0x06
 #define UDP_TYPE 0x11
 
-#define IPV4_LEN                   20    //ip_len(20) 
+#define IPV4_LEN                    20    //ip_len(20) 
 #define IPV4_PROTOCOL_INDEX         9     //ipv4_protocol_index_len
 #define IPV4_TCP_HEAD_LEN_INDEX     32    //ip_len(20) + tcp_head_len_index()
 #define ETH_IPV4_IP_UPD_LEN         28    //ip_len(20) + udp_len(8) 
@@ -69,13 +69,13 @@ unsigned char send_tamper_xxx(const struct streaminfo *a_stream, const void *raw
         return STATE_DROPPKT;   
     }
 
-    if((p_trans_payload==NULL)||(trans_layload_len<=0)||(a_stream->curdir== DIR_S2C)){
+    if((p_trans_payload==NULL)||(trans_layload_len<=0)||(a_stream->curdir==DIR_S2C)){
         return STATE_DROPPKT;   
     }
 
     memcpy(tamper_buf, p_trans_payload, trans_layload_len);
     ret = tamper_calc(tamper_buf, 0, trans_layload_len);
-    if (ret < 0){
+    if(ret < 0){
         return STATE_DROPPKT; 
     }
 
