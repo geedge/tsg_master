@@ -96,6 +96,7 @@ struct tsg_conn_sketch_notify_data
 	union
 	{
 		char *mail_eml_filename;
+		struct TLD_handle_t *TLD_handle;
 		void *value;
 	}pdata;
 };

@@ -244,6 +244,7 @@ typedef	struct tsg_para
 	int context_project_id;
 	int tcpall_project_id;
 	int gather_app_project_id;
+	int share_bridge_id;
 	int app_bridge_id;
 	int proto_flag; //tsg_protocol_t
 	int fs2_field_id[TSG_FS2_MAX];

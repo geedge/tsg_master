@@ -407,6 +407,7 @@ static int get_default_policy(int compile_id, struct Maat_rule_t *result)
 	return 0;
 }
 
+
 static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int result_num, struct master_context *context, int thread_seq)
 {
 	tsg_log_t log_msg;
@@ -417,9 +418,28 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	char *quic_version_field_name=NULL;
 	struct TLD_handle_t *TLD_handle=NULL;
 	tsg_protocol_t proto=PROTO_UNKONWN;
+	struct tsg_conn_sketch_notify_data *notify=NULL;
 	if(context!=NULL)
 	{
 		proto=context->proto;
+	}
+
+	log_msg.a_stream=(struct streaminfo *)a_stream;
+	log_msg.result=p_result;
+	log_msg.result_num=result_num;
+
+	if(proto==PROTO_SSH && p_result[0].action==TSG_ACTION_MONITOR && g_tsg_para.share_bridge_id>=0)
+	{
+		notify=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.share_bridge_id);
+		if (notify != NULL && notify->protocol== PROTO_SSH && notify->pdata.TLD_handle!=NULL)
+		{
+			TLD_handle = TLD_duplicate(notify->pdata.TLD_handle);
+			if (TLD_handle!=NULL)
+			{
+				tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);
+				return 1;
+			}
+		}
 	}
 
 	TLD_handle=TLD_create(thread_seq);
@@ -478,9 +498,6 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 		TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[PROTO_APP].name, TLD_TYPE_STRING);
 	}
 	
-	log_msg.a_stream=(struct streaminfo *)a_stream;
-	log_msg.result=p_result;
-	log_msg.result_num=result_num;
 	tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);
 	
 	if(p_result->config_id!=DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID)
@@ -1635,33 +1652,9 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 	if((a_stream->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
 		if(context!=NULL && context->is_log==0 && context->hit_cnt>0 && context->result!=NULL)
-		{
-			if (context->proto == PROTO_SSH && context->result->action == TSG_ACTION_MONITOR)
-			{
-				int ssh_project_id = project_customer_register("SKETCH_PROTO_CTX_LABEL", PROJECT_VAL_TYPE_STRUCT);
-				if (ssh_project_id >= 0)
-				{
-					session_record_ctx *ssh_session_record_ctx = (session_record_ctx *)project_req_get_struct(a_stream, ssh_project_id);
-					if (ssh_session_record_ctx != NULL && ssh_session_record_ctx->proto_type == PROTO_SSH)
-					{
-						tsg_log_t log_msg;
-						log_msg.a_stream = (streaminfo *)a_stream;
-						log_msg.result = context->result;
-						log_msg.result_num = context->hit_cnt;
-
-						struct TLD_handle_t *_handle = TLD_duplicate(ssh_session_record_ctx->log);
-						if (_handle != NULL)
-						{
-							tsg_send_log(g_tsg_log_instance, _handle, &log_msg, thread_seq);
-						}
-					}
-				}
-			}
-			if (context->proto != PROTO_SSH)
-			{
-				context->is_log = 1;
-				master_send_log(a_stream, context->result, context->hit_cnt, context, thread_seq);
-			}
+		{	
+			context->is_log = 1;
+			master_send_log(a_stream, context->result, context->hit_cnt, context, thread_seq);
 		}
 		*pme = NULL;
 	}
@@ -1919,6 +1912,13 @@ extern "C" int TSG_MASTER_INIT()
 	{		
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_BRIDGE", "Register callback failed, app_bridge_id: %d", g_tsg_para.app_bridge_id);	
 		return -1;
+	}
+	
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_SHARE_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_NOTIFY_DATA");
+	g_tsg_para.share_bridge_id=stream_bridge_build(label_buff,  "w");
+	if(g_tsg_para.share_bridge_id<0)
+	{
+        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "TSG_BRIDGE", "stream_bridge_build failed, bridge_name: %s", label_buff);
 	}
 
 	g_tsg_para.context_project_id=project_producer_register("TSG_MASTER_CONTEXT", PROJECT_VAL_TYPE_STRUCT, free_context_label);
