@@ -1743,6 +1743,14 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 					state|=APP_STATE_GIVEME|APP_STATE_DROPPKT;
 				}
 				break;
+            case    TSG_METHOD_TYPE_TAMPER:
+                ret = send_tamper_xxx(a_stream, a_packet);
+                if(ret==STATE_DROPPKT){
+                    state|=APP_STATE_GIVEME|APP_STATE_DROPPKT;
+                }else{
+                    state=APP_STATE_GIVEME;
+                }
+                break;
 			default:
 				break;
 		}

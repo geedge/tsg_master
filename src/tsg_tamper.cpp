@@ -5,6 +5,7 @@
 #include <time.h>
 
 #include "tsg_entry.h"
+#include <MESA/MESA_handle_logger.h>
 #include "tsg_protocol_common.h"
 
 #define MTU_LEN 65535
@@ -32,15 +33,23 @@
 #define IPV6_IP_PAYLOAD_INDEX  4         //ipv6_payload_index(4)
 
 
-int tamper_calc(char *str, int startlen, int endlen)
+int tamper_calc(const struct streaminfo *a_stream, char *str, int endlen)
 {
     int i = 0;
     int j = 0;
     char temp;
+    int startlen = 0;
+    int data_len = a_stream->ptcpdetail->datalen;   //tcp和udp结构体内容一样，取tcp的datalen即可
+
+
+    //判断是否需要偏移一个字节
+    if(data_len%2!=0){
+         startlen = 1;     
+    }
 
     //最小交换paythod的第2个字节和第四个字节，否则不处理
     if ((endlen - startlen) < 4){
-        return -1;
+        return 0;
     }
 
     //start_len+1 : 因为计算校验和是16bit为单位，这里调换16bit的低8bit。
@@ -50,37 +59,43 @@ int tamper_calc(char *str, int startlen, int endlen)
                 temp = str[i];
                 str[i] = str[j];
                 str[j] = temp;
-                return 0;
+                return i;
             }
         }
     }
-    return -1;
+    return 0;
 }
 
 unsigned char send_tamper_xxx(const struct streaminfo *a_stream, const void *raw_pkt)
 {
-    const char *p_trans_payload = (char *)a_stream->ptcpdetail->pdata;
-    int trans_layload_len = a_stream->ptcpdetail->datalen;
+    const char *p_trans_payload = NULL;
+    int trans_layload_len = 0;
     char tamper_buf[MTU_LEN] = {0}; 
-    unsigned char raw_route_dir = 0;
     int  ret = 0;
     
-    if(a_stream == NULL){
-        return STATE_DROPPKT;   
+    if(a_stream==NULL){
+        return STATE_GIVEME;   
     }
 
-    if((p_trans_payload==NULL)||(trans_layload_len<=0)||(a_stream->curdir==DIR_S2C)){
-        return STATE_DROPPKT;   
+    p_trans_payload = (char *)a_stream->ptcpdetail->pdata;
+    trans_layload_len = a_stream->ptcpdetail->datalen;
+    if((p_trans_payload==NULL)||(trans_layload_len<=0)){
+        return STATE_GIVEME;   
     }
 
     memcpy(tamper_buf, p_trans_payload, trans_layload_len);
-    ret = tamper_calc(tamper_buf, 0, trans_layload_len);
-    if(ret < 0){
-        return STATE_DROPPKT; 
+    ret = tamper_calc(a_stream, tamper_buf, trans_layload_len);
+    MESA_handle_runtime_log(g_tsg_para.logger,
+            RLOG_LV_DEBUG,
+            __FUNCTION__,
+            "Modify the index position of the payload: %d",
+            ret);
+    if(ret > 0){
+        ret=tsg_send_inject_packet(a_stream, SIO_DEFAULT, tamper_buf, trans_layload_len, a_stream->routedir); 
+        if(ret == 0){
+            return STATE_DROPPKT;
+        }
     }
 
-    raw_route_dir = (a_stream->curdir==DIR_C2S) ? a_stream->routedir : MESA_dir_reverse(a_stream->routedir);
-    tsg_send_inject_packet(a_stream, SIO_DEFAULT, tamper_buf, trans_layload_len, raw_route_dir); 
-
-    return STATE_DROPPKT;
+    return STATE_GIVEME;   
 }

@@ -729,6 +729,33 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
         return do_action_drop(a_stream, p_result, user_region, protocol, user_data);
     }
 
+    struct tcpall_context * _context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+    if(_context==NULL)
+    {
+        _context=(struct tcpall_context *)dictator_malloc(a_stream->threadnum, sizeof(struct tcpall_context));
+        memset(_context, 0, sizeof(struct tcpall_context));
+        _context->method_type=TSG_METHOD_TYPE_TAMPER;
+
+        set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+    }else{
+        if(_context->method_type == TSG_METHOD_TYPE_UNKNOWN)
+        {
+            _context->method_type=TSG_METHOD_TYPE_TAMPER;
+        }
+        else
+        {
+            //to do error log 
+            //_context->method_type                                                                                            
+			MESA_handle_runtime_log(g_tsg_para.logger,
+                                    RLOG_LV_DEBUG,
+                                    __FUNCTION__,
+                                    "_context->method_type : %d",
+                                    _context->method_type);
+	
+            return STATE_GIVEME;
+        }
+    }
+
     return send_tamper_xxx(a_stream, user_data);
 }
 
