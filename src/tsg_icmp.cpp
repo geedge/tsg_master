@@ -213,21 +213,15 @@ static void format_icmp(const char *raw_pkt, char *icmp_buf, int *icmp_len, int 
 
 unsigned char send_icmp_unreachable(const struct streaminfo *a_stream, const void *raw_pkt)
 {
-    char icmp_buf[ICMP_MAX_LEN]; 
-    unsigned char raw_route_dir = 0;
+    char icmp_buf[ICMP_MAX_LEN] = {0}; 
     int  icmp_len = 0;
 
-    if(a_stream == NULL){
-	    return STATE_DROPPKT;
-    }
-
-    if((a_stream->curdir==DIR_S2C)||(raw_pkt==NULL)){
+    if((a_stream==NULL)||(raw_pkt==NULL)){
         return STATE_DROPPKT;
-    }
+    }                                                                                                                        
 
     format_icmp((char *)raw_pkt, icmp_buf, &icmp_len, a_stream->addr.addrtype);
-    raw_route_dir = (a_stream->curdir==DIR_C2S) ? MESA_dir_reverse(a_stream->routedir) : a_stream->routedir;
-
-    return tsg_send_inject_packet(a_stream, SIO_EXCLUDE_THIS_LAYER_HDR, icmp_buf, icmp_len, raw_route_dir); 
+    tsg_send_inject_packet(a_stream, SIO_EXCLUDE_THIS_LAYER_HDR, icmp_buf, icmp_len, MESA_dir_reverse(a_stream->routedir)); 
+    return STATE_DROPPKT;
 }
 

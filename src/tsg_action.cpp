@@ -734,11 +734,11 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
     {
         _context=(struct tcpall_context *)dictator_malloc(a_stream->threadnum, sizeof(struct tcpall_context));
         memset(_context, 0, sizeof(struct tcpall_context));
-        _context->method_type=TSG_METHOD_TYPE_TAMPER;
-
         set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+        _context->method_type=TSG_METHOD_TYPE_TAMPER;
+        _context->tamper_count = 1;
     }else{
-        if(_context->method_type == TSG_METHOD_TYPE_UNKNOWN)
+        if(_context->method_type != TSG_METHOD_TYPE_TAMPER)
         {
             _context->method_type=TSG_METHOD_TYPE_TAMPER;
         }
