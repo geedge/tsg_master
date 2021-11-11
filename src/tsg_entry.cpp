@@ -9,7 +9,7 @@
 #include <MESA/ftp.h>
 #include <MESA/ssl.h>
 #include <MESA/mail.h>
-#include <MESA/gquic.h>
+#include <MESA/quic.h>
 #include "MESA/sip.h"
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
