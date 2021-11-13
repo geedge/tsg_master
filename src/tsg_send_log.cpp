@@ -37,6 +37,7 @@ struct tsg_log_instance_t *g_tsg_log_instance;
 struct TLD_handle_t
 {
 	int thread_id;
+	MemoryPoolAllocator<> *valueAllocator;
 	Document *document;
 };
 
@@ -831,15 +832,28 @@ static int action2fs_id(int action)
 
 int TLD_cancel(struct TLD_handle_t *handle)
 {
+	long long length=0;
 	if (handle != NULL)
 	{
 		if (handle->document != NULL)
 		{
+			length=handle->document->GetAllocator().Size();			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_FREE_RAPID_SIZE], 0, FS_OP_ADD, length);
+
+			length=handle->document->GetAllocator().Capacity();
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_FREE_RAPID_CAPACITY], 0, FS_OP_ADD, length);
+			
 			delete handle->document;
 			handle->document = NULL;
+
+			delete handle->valueAllocator;
+			handle->valueAllocator=NULL;
+			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_FREE_LOG_HANDLE], 0, FS_OP_ADD, 1);
 		}
+		
 		free(handle);
-		handle = NULL;
+		handle = NULL;		
 	}
 	
 	return 0;
@@ -886,6 +900,8 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 			return -1;
 			break;
 	}
+
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APPEND_LOG_HANDLE], 0, FS_OP_ADD, 1);
 	
 	return 0;	
 }
@@ -902,6 +918,9 @@ struct TLD_handle_t *TLD_duplicate(struct TLD_handle_t *handle)
 	//_handle->document->SetObject();
 
 	_handle->document->CopyFrom(*handle->document, _handle->document->GetAllocator());
+	
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DUP_LOG_HANDLE], 0, FS_OP_ADD, 1);
+
 	return _handle;
 }
 
@@ -911,8 +930,12 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	
 	struct TLD_handle_t *_handle=(struct TLD_handle_t *)calloc(1, sizeof(struct TLD_handle_t));
 	_handle->thread_id = thread_id;
-	_handle->document = new Document();
+	
+    _handle->valueAllocator =new MemoryPoolAllocator<>(g_tsg_log_instance->rapidjson_chunk_capacity);
+	_handle->document = new Document(_handle->valueAllocator);
 	_handle->document->SetObject();
+	
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_CREATE_LOG_HANDLE], 0, FS_OP_ADD, 1);
 
 	return _handle;
 }
@@ -1392,6 +1415,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", _instance->log_path, sizeof(_instance->log_path), "./tsglog/tsglog");
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_USER_REGION", &(_instance->send_user_region), 0);		
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_DATA_CENTER_SWITCH", &(_instance->send_data_center), 0);	
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "RAPIDJSON_CHUNK_CAPACITY", &(_instance->rapidjson_chunk_capacity), 8096);
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "APP_ID_TYPE", &(_instance->app_id_type), 1);	//0: int, 1: string	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_UNKNOWN_NAME", _instance->l7_unknown_name, sizeof(_instance->l7_unknown_name), "UNCATEGORIZED");
@@ -1534,7 +1558,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	if(_instance==NULL || _handle==NULL || log_msg==NULL)
 	{
 		TLD_cancel(handle);
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "TSG_SEND_LOG", " instance==NULL || TLD_handle==NULL || log_msg==NULL ");
+		MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG, "TSG_SEND_LOG", " instance==NULL || TLD_handle==NULL || log_msg==NULL ");
 		return -1;
 	}
 

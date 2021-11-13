@@ -85,7 +85,13 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_DDOS_SUCCESS_LOG, "ddos_suc_log"},
 										 {0, TSG_FS2_DDOS_FAILED_LOG, "ddos_fai_log"},
 										 {0, TSG_FS2_SET_TIMOUT_SUCCESS, "set_timeout_suc"},
-										 {0, TSG_FS2_SET_TIMOUT_FAILED, "set_timeout_fai"}
+										 {0, TSG_FS2_SET_TIMOUT_FAILED, "set_timeout_fai"},
+										 {0, TSG_FS2_CREATE_LOG_HANDLE, "create_log_cnt"},
+										 {0, TSG_FS2_DUP_LOG_HANDLE, "dup_log_cnt"},
+										 {0, TSG_FS2_APPEND_LOG_HANDLE, "append_log_cnt"},
+										 {0, TSG_FS2_FREE_LOG_HANDLE, "free_log_cnt"},
+										 {0, TSG_FS2_FREE_RAPID_SIZE, "free_rapid_size"},
+										 {0, TSG_FS2_FREE_RAPID_CAPACITY, "free_rapid_capacity"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 

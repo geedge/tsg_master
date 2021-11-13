@@ -133,6 +133,7 @@ struct tsg_log_instance_t
 	int send_user_region;
 	int send_data_center;
 	int recovery_interval;
+	int rapidjson_chunk_capacity;
 	int session_attribute_project_id;
 	int tcp_flow_project_id;
 	int udp_flow_project_id;
