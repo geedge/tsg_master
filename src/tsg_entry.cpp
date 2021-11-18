@@ -1743,13 +1743,18 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 				}
 				break;
             case    TSG_METHOD_TYPE_TAMPER:
-                ret = send_tamper_xxx(a_stream, a_packet);
-                context->tamper_count += 1; 
-                if(ret==STATE_DROPPKT){
+                if(0 == send_tamper_xxx(a_stream, a_packet)){
                     state|=APP_STATE_GIVEME|APP_STATE_DROPPKT;
                 }else{
                     state=APP_STATE_GIVEME;
                 }
+                context->tamper_count += 1;
+                MESA_handle_runtime_log(g_tsg_para.logger,
+                                        RLOG_LV_DEBUG,
+                                        __FUNCTION__,
+                                        "Addr: %s, send_tamper_xxx num %ld",
+                                        PRINTADDR(a_stream, g_tsg_para.level),
+                                        context->tamper_count);
                 break;
 			default:
 				break;

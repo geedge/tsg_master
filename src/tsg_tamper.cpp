@@ -55,38 +55,51 @@ int tamper_calc(char *str, int endlen)
     return 0;
 }
 
-unsigned char send_tamper_xxx(const struct streaminfo *a_stream, const void *raw_pkt)
+int send_tamper_xxx(const struct streaminfo *a_stream, const void *raw_pkt)
 {
     const char *p_trans_payload = NULL;
     int trans_layload_len = 0;
     char tamper_buf[MTU_LEN] = {0}; 
-    int  ret = 0;
+    int  tamper_index = 0;
+    int  ret = -1;
     
     if(a_stream==NULL){
-        return STATE_GIVEME;   
+        return -1;
     }
 
     p_trans_payload = (char *)a_stream->ptcpdetail->pdata;
     trans_layload_len = a_stream->ptcpdetail->datalen;
     if((p_trans_payload==NULL)||(trans_layload_len<=4)){
-        return STATE_GIVEME;   
+        MESA_handle_runtime_log(g_tsg_para.logger,
+                RLOG_LV_DEBUG,
+                __FUNCTION__,
+                "Addr: %s  Packet is not tamper because the payload is too short or there is no payload",
+                PRINTADDR(a_stream, g_tsg_para.level));
+        return -1;
     }
 
     memcpy(tamper_buf, p_trans_payload, trans_layload_len);
-    ret = tamper_calc(tamper_buf, trans_layload_len);
-    if(ret > 0){
+    tamper_index = tamper_calc(tamper_buf, trans_layload_len);
+    if(tamper_index > 0){
         MESA_handle_runtime_log(g_tsg_para.logger,
-                            RLOG_LV_DEBUG,
-                            __FUNCTION__,
-                            "Modify the index(%d) position of the payload:(old: %x %x %x %x, new: %x %x %x %x)",
-                            ret,
-                            p_trans_payload[ret-1],p_trans_payload[ret],p_trans_payload[ret+1], p_trans_payload[ret+2],
-                            tamper_buf[ret-1], tamper_buf[ret], tamper_buf[ret+1], tamper_buf[ret+2]);
-        ret=tsg_send_inject_packet(a_stream, SIO_DEFAULT, tamper_buf, trans_layload_len, a_stream->routedir); 
-        if(ret == 0){
-            return STATE_DROPPKT;
+                RLOG_LV_DEBUG,
+                __FUNCTION__,
+                "Addr: %s,modify the index(%d) position of the payload:(old: %02x %02x %02x %02x, new: %02x %02x %02x %02x)",
+                PRINTADDR(a_stream, g_tsg_para.level),
+                tamper_index,
+                (uint8_t)p_trans_payload[tamper_index-1], (uint8_t)p_trans_payload[tamper_index], (uint8_t)p_trans_payload[tamper_index+1], (uint8_t)p_trans_payload[tamper_index+2],
+                (uint8_t)tamper_buf[tamper_index-1], (uint8_t)tamper_buf[tamper_index], (uint8_t)tamper_buf[tamper_index+1], (uint8_t)tamper_buf[tamper_index+2]);
+
+        if(0 == tsg_send_inject_packet(a_stream, SIO_DEFAULT, tamper_buf, trans_layload_len, a_stream->routedir)){
+            ret = 0;
         }
+    }else{
+        MESA_handle_runtime_log(g_tsg_para.logger,
+                RLOG_LV_DEBUG,
+                __FUNCTION__,
+                "Addr: %s num , payload tamper failed because payload data same",
+                PRINTADDR(a_stream, g_tsg_para.level));
     }
 
-    return STATE_GIVEME;   
+    return ret;
 }

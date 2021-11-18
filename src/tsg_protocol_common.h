@@ -117,7 +117,7 @@ int tsg_send_inject_packet(const struct streaminfo *a_stream, enum sapp_inject_o
 unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, const void *user_data);
 
 unsigned char send_icmp_unreachable(const struct streaminfo *a_stream, const void *raw_pkt);
-unsigned char send_tamper_xxx(const struct streaminfo *a_stream, const void *raw_pkt);
+int send_tamper_xxx(const struct streaminfo *a_stream, const void *raw_pkt);
 
 
 #endif

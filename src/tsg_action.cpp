@@ -741,6 +741,7 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
         if(_context->method_type != TSG_METHOD_TYPE_TAMPER)
         {
             _context->method_type=TSG_METHOD_TYPE_TAMPER;
+            _context->tamper_count = 1;
         }
         else
         {
@@ -756,7 +757,10 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
         }
     }
 
-    return send_tamper_xxx(a_stream, user_data);
+    if(0 == send_tamper_xxx(a_stream, user_data)){
+        return STATE_DROPPKT;
+    }
+    return STATE_GIVEME;
 }
 
 unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
