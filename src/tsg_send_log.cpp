@@ -743,6 +743,35 @@ static int set_mpls(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_
 	return 1;
 }
 
+static int set_l2tp(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct layer_addr_l2tp *l2tp_addr, Value *object)
+{
+	if(l2tp_addr==NULL || object==NULL)
+	{
+		return 0;
+	}
+
+	struct layer_addr_l2tp_v2_t *l2tp_v2=NULL;
+	
+	switch(l2tp_addr->version)
+	{
+		case	2:
+			l2tp_v2=&(l2tp_addr->l2tpun.l2tp_addr_v2);			
+			add_str_member(_handle, object, _instance->id2field[LOG_COMMON_L2TP_VERSION].name, "v2");
+			add_number_member(_handle, object, _instance->id2field[LOG_COMMON_L2TP_LAC2LNS_TUNNEL_ID].name, ntohs(l2tp_v2->tunnelid_C2S));			
+			add_number_member(_handle, object, _instance->id2field[LOG_COMMON_L2TP_LNS2LAC_TUNNEL_ID].name, ntohs(l2tp_v2->tunnelid_S2C));
+			add_number_member(_handle, object, _instance->id2field[LOG_COMMON_L2TP_LAC2LNS_SESSION_ID].name, ntohs(l2tp_v2->sessionid_C2S));			
+			add_number_member(_handle, object, _instance->id2field[LOG_COMMON_L2TP_LNS2LAC_SESSION_ID].name, ntohs(l2tp_v2->sessionid_S2C));
+			break;
+		case	3:
+			add_str_member(_handle, object, _instance->id2field[LOG_COMMON_L2TP_VERSION].name, "v3");
+			break;
+		default:
+			return 0;	
+	}
+	
+	return 1;
+}
+
 static int mac_to_string(unsigned char *mac, char *buff)
 {
 	int i=0,len=0;
@@ -975,41 +1004,64 @@ int set_nat_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *
 	return 0;
 }
 
-static int get_gtp_ipv4v6_port(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, Value *object)
+static int set_tunnel_ipv4v6_port(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, Value *object, enum addr_type_t up_layer_type)
 {
 	char ip_buff[64]={0};
-	if(a_stream!=NULL)
-	{
-		switch(a_stream->addr.addrtype)
-		{
-			case	ADDR_TYPE_IPV4:
-					inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->saddr), ip_buff, sizeof(ip_buff));
-					add_str_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_IP].name, ip_buff);
-
-					inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->daddr), ip_buff, sizeof(ip_buff));	
-					add_str_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_IP].name, ip_buff);
-					
-					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_PORT].name, ntohs(a_stream->addr.ipv4->source));
-					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_PORT].name, ntohs(a_stream->addr.ipv4->dest));
-					return 1;
-				break;
-			case	ADDR_TYPE_IPV6:
-					inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->saddr), ip_buff, sizeof(ip_buff));
-					add_str_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_IP].name, ip_buff);
-	
-					inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->daddr), ip_buff, sizeof(ip_buff));
-					add_str_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_IP].name, ip_buff);
-					
-					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_PORT].name, ntohs(a_stream->addr.ipv6->source));
-					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_PORT].name, ntohs(a_stream->addr.ipv6->dest));
-					return 1;
-				break;
-			default:
-				break;
-				
-		}
+	if(a_stream==NULL)
+	{		
+		return 0;
 	}
 
+	tsg_log_field_id_t s_ip_idx, d_ip_idx, s_port_idx, d_port_idx;
+
+	switch(up_layer_type)
+	{
+		case	ADDR_TYPE_L2TP:
+			s_ip_idx=LOG_COMMON_L2TP_ACCESS_CONCENTRATOR_IP;
+			d_ip_idx=LOG_COMMON_L2TP_NETWORK_SERVER_IP;
+			s_port_idx=LOG_COMMON_L2TP_ACCESS_CONCENTRATOR_PORT;
+			d_port_idx=LOG_COMMON_L2TP_NETWORK_SERVER_PORT;
+			break;
+		case	ADDR_TYPE_GPRS_TUNNEL:
+			s_ip_idx=LOG_COMMON_TUNNELS_GTP_SGW_IP;
+			d_ip_idx=LOG_COMMON_TUNNELS_GTP_PGW_IP;
+			s_port_idx=LOG_COMMON_TUNNELS_GTP_SGW_PORT;
+			d_port_idx=LOG_COMMON_TUNNELS_GTP_PGW_PORT;			
+			break;
+		default:
+			return 0;
+			break;
+	}
+		
+	switch(a_stream->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4:
+				inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->saddr), ip_buff, sizeof(ip_buff));
+				add_str_member(_handle, object, _instance->id2field[s_ip_idx].name, ip_buff);
+
+				inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->daddr), ip_buff, sizeof(ip_buff));	
+				add_str_member(_handle, object, _instance->id2field[d_ip_idx].name, ip_buff);
+				
+				add_number_member(_handle, object, _instance->id2field[s_port_idx].name, ntohs(a_stream->addr.ipv4->source));
+				add_number_member(_handle, object, _instance->id2field[d_port_idx].name, ntohs(a_stream->addr.ipv4->dest));
+				return 1;
+			break;
+		case	ADDR_TYPE_IPV6:
+				inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->saddr), ip_buff, sizeof(ip_buff));
+				add_str_member(_handle, object, _instance->id2field[s_ip_idx].name, ip_buff);
+
+				inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->daddr), ip_buff, sizeof(ip_buff));
+				add_str_member(_handle, object, _instance->id2field[d_ip_idx].name, ip_buff);
+				
+				add_number_member(_handle, object, _instance->id2field[s_port_idx].name, ntohs(a_stream->addr.ipv6->source));
+				add_number_member(_handle, object, _instance->id2field[d_port_idx].name, ntohs(a_stream->addr.ipv6->dest));
+				return 1;
+			break;
+		default:
+			break;
+			
+	}
+	
 	return 0;
 }
 
@@ -1050,6 +1102,13 @@ static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_h
 				break;
 			case	ADDR_TYPE_L2TP:
 				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "L2TP");
+				set_l2tp(_instance, _handle, ptmp->addr.l2tp, &tunnel_object);
+
+				ret=set_tunnel_ipv4v6_port(_instance, _handle, ptmp->pfather, &tunnel_object, ADDR_TYPE_L2TP);
+				if(ret==1)
+				{
+					ptmp=pfather->pfather;
+				}
 				break;
 			case	__ADDR_TYPE_IP_PAIR_V4:
 				add_str_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_SCHEMA_TYPE].name, "IPv4");
@@ -1079,7 +1138,7 @@ static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_h
 				add_number_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_UPLINK_TEID].name, ntohl(ptmp->addr.gtp->teid_c2s));
 				add_number_member(_handle, &tunnel_object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_DOWNLINK_TEID].name, ntohl(ptmp->addr.gtp->teid_s2c));
 
-				ret=get_gtp_ipv4v6_port(_instance, _handle, ptmp->pfather, &tunnel_object);
+				ret=set_tunnel_ipv4v6_port(_instance, _handle, ptmp->pfather, &tunnel_object, ADDR_TYPE_GPRS_TUNNEL);
 				if(ret==1)
 				{
 					ptmp=pfather->pfather;
