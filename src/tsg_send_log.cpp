@@ -989,8 +989,8 @@ static int get_gtp_ipv4v6_port(struct tsg_log_instance_t *_instance, struct TLD_
 					inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->daddr), ip_buff, sizeof(ip_buff));	
 					add_str_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_IP].name, ip_buff);
 					
-					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_PORT].name, (unsigned int)(a_stream->addr.ipv4->source));
-					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_PORT].name, (unsigned int)(a_stream->addr.ipv4->dest));
+					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_PORT].name, ntohs(a_stream->addr.ipv4->source));
+					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_PORT].name, ntohs(a_stream->addr.ipv4->dest));
 					return 1;
 				break;
 			case	ADDR_TYPE_IPV6:
@@ -1000,8 +1000,8 @@ static int get_gtp_ipv4v6_port(struct tsg_log_instance_t *_instance, struct TLD_
 					inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->daddr), ip_buff, sizeof(ip_buff));
 					add_str_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_IP].name, ip_buff);
 					
-					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_PORT].name, (unsigned int)(a_stream->addr.ipv6->source));
-					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_PORT].name, (unsigned int)(a_stream->addr.ipv6->dest));
+					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_SGW_PORT].name, ntohs(a_stream->addr.ipv6->source));
+					add_number_member(_handle, object, _instance->id2field[LOG_COMMON_TUNNELS_GTP_PGW_PORT].name, ntohs(a_stream->addr.ipv6->dest));
 					return 1;
 				break;
 			default:
