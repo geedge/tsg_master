@@ -579,7 +579,7 @@ static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule
 static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, enum ACTION_RETURN_TYPE type)
 {
 	struct tcpall_context *context=NULL;
-	struct leaky_bucket *bucket=create_bucket((double)((user_region->deny->bps)/1000000), user_region->deny->bps, a_stream->threadnum);
+	struct leaky_bucket *bucket=create_bucket(user_region->deny->bps, a_stream->threadnum);
 	tsg_set_bucket_to_tcpall(a_stream, &context, bucket, a_stream->threadnum);
 
 	set_ratelimit_flag(a_stream);
