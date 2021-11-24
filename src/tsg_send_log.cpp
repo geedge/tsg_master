@@ -668,13 +668,6 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	}
 	else //string
 	{
-		Value app_id_object(kObjectType);
-		get_app_id_list(&app_id_object, _handle, "USER_DEFINE", &(label->result[ORIGIN_USER_DEFINE]));
-		get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(label->result[ORIGIN_BUILT_IN]));
-		get_app_id_list(&app_id_object, _handle, "DKPT", &(label->result[ORIGIN_DKPT]));
-		get_app_id_list(&app_id_object, _handle, "THIRD", &(label->result[ORIGIN_QM_ENGINE]));
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, &app_id_object, TLD_TYPE_OBJECT);
-
 		set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(label->result[ORIGIN_USER_DEFINE]), TLD_TYPE_LONG);
 		
 		max_app_id=get_max_app_id(label->result[ORIGIN_USER_DEFINE].app_id, label->result[ORIGIN_USER_DEFINE].app_id_num);
@@ -701,6 +694,13 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 		if(app_id_flag==1)
 		{
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
+
+			Value app_id_object(kObjectType);
+			get_app_id_list(&app_id_object, _handle, "USER_DEFINE", &(label->result[ORIGIN_USER_DEFINE]));
+			get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(label->result[ORIGIN_BUILT_IN]));
+			get_app_id_list(&app_id_object, _handle, "DKPT", &(label->result[ORIGIN_DKPT]));
+			get_app_id_list(&app_id_object, _handle, "THIRD", &(label->result[ORIGIN_QM_ENGINE]));
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, &app_id_object, TLD_TYPE_OBJECT);
 		}
 	}
 

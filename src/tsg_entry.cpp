@@ -919,6 +919,29 @@ static int scan_fqdn_category_id(Maat_feather_t maat_feather, const struct strea
 	return scan_ret;
 }
 
+static int set_l7_protocol_label(const struct streaminfo *a_stream, tsg_protocol_t protocol)
+{
+	struct gather_app_result *gather_result=NULL;
+	
+	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
+	if(gather_result==NULL)
+	{
+		gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result));
+		memset(gather_result, 0, sizeof(struct gather_app_result));
+		set_struct_project(a_stream, g_tsg_para.gather_app_project_id, (void *)gather_result);
+	}
+
+	int app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[protocol].name);
+	if(app_id>0)
+	{
+		gather_result->result[ORIGIN_BASIC_PROTOCOL].app_id_num=1;		
+		gather_result->result[ORIGIN_BASIC_PROTOCOL].app_id[0]=app_id;
+		gather_result->result[ORIGIN_BASIC_PROTOCOL].origin=ORIGIN_BASIC_PROTOCOL;
+	}
+
+	return 0;
+}
+
 void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int value_len, int thread_seq)
 {
 	unsigned long long create_time=0;
@@ -1503,8 +1526,13 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	}
 	
 	memcpy(&(gather_result->result[identify_result->origin]), identify_result, sizeof(struct app_identify_result));
-	record_time_start(&(context->last_scan_time));
+
+	if(context->mid==NULL)
+	{
+		return 0;
+	}
 	
+	record_time_start(&(context->last_scan_time));	
 	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, context, identify_result, a_stream->threadnum);
 	p_result=tsg_policy_decision_criteria(scan_result, hit_num);
 	if(p_result==NULL || (p_result->action==TSG_ACTION_MONITOR && is_parent_ssl==1))
@@ -1520,13 +1548,15 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 
 static int deal_pending_state(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int result_num, void *a_packet)
 {
-	int table_id=0;
+	int i=0,table_id=0;
 	int ret=0,hit_num=0;
 	unsigned int protocol_id=0;
+	struct gather_app_result *identify_result=NULL;
 	
 	ret=identify_application_protocol(a_stream, context, a_packet);
 	if(ret==1)
-	{				
+	{
+		//set_l7_protocol_label(a_stream, context->proto);
 		set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(context->proto), sizeof(int), a_stream->threadnum);
 
 		if(context->proto==PROTO_SSL)
@@ -1550,6 +1580,13 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 		hit_num+=ret;
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 	}
+
+	identify_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
+	for(i=0; i<ORIGIN_MAX && identify_result!=NULL; i++)
+	{
+		hit_num+=scan_application_id_and_properties(a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, context, &(identify_result->result[i]), a_stream->threadnum);
+	}
+			
 	
 	if((is_only_monitor(result, hit_num)) && context->proto!=PROTO_UNKONWN && context->proto!=PROTO_APP && context->proto!=PROTO_SSH)	// business deal action of monitor 
 	{
