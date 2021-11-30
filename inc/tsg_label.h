@@ -29,6 +29,8 @@ typedef enum _tsg_protocol
    PROTO_POP3,
    PROTO_RTP,
    PROTO_APP,
+   PROTO_L2TP,
+   PROTO_PPTP,
    PROTO_MAX
 }tsg_protocol_t;
 

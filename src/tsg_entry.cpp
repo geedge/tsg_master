@@ -113,7 +113,9 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"},
 										 {PROTO_IMAP, 	0, 	"IMAP"},
 										 {PROTO_POP3, 	0, 	"POP3"},
 										 {PROTO_RTP, 	0, 	"RTP"},
-										 {PROTO_APP, 	0,	"APP"}
+										 {PROTO_APP, 	0,	"APP"},
+										 {PROTO_L2TP, 	0,	"L2TP"},
+										 {PROTO_PPTP, 	0,	"PPTP"}
 										};
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
@@ -924,13 +926,15 @@ static int set_l7_protocol_label(const struct streaminfo *a_stream, tsg_protocol
 	struct gather_app_result *gather_result=NULL;
 	
 	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
-	if(gather_result==NULL)
+	if(gather_result!=NULL)
 	{
-		gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result));
-		memset(gather_result, 0, sizeof(struct gather_app_result));
-		set_struct_project(a_stream, g_tsg_para.gather_app_project_id, (void *)gather_result);
+		return 0;
 	}
-
+	
+	gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result));
+	memset(gather_result, 0, sizeof(struct gather_app_result));
+	set_struct_project(a_stream, g_tsg_para.gather_app_project_id, (void *)gather_result);
+	
 	int app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[protocol].name);
 	if(app_id>0)
 	{
@@ -1556,7 +1560,7 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 	ret=identify_application_protocol(a_stream, context, a_packet);
 	if(ret==1)
 	{
-		//set_l7_protocol_label(a_stream, context->proto);
+		set_l7_protocol_label(a_stream, context->proto);
 		set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(context->proto), sizeof(int), a_stream->threadnum);
 
 		if(context->proto==PROTO_SSL)

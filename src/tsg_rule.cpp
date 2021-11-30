@@ -44,6 +44,7 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
                                                     {TSG_METHOD_TYPE_TAMPER, 6, (char *)"tamper"}
 	};
 
+
 //functioned as strdup, for dictator compatible.
 static char* tsg_strdup(const char* s)
 {
@@ -1977,74 +1978,103 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 	return 0;
 }
 
+
+static unsigned short get_trans_protocol(const struct streaminfo *a_stream)
+{
+	if(a_stream==NULL)
+	{
+		return 255;
+	}
+	
+	switch(a_stream->type)
+	{
+		case	STREAM_TYPE_TCP:
+			return 6;
+			break;
+		case	STREAM_TYPE_UDP:
+			return 17;
+			break;
+		default:
+			break;
+	}
+
+	return 255;
+}
+
+
 int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
-	int hit_num=0,tans_proto=0;
+	int hit_num=0,maat_ret=0;
+	unsigned short tans_proto=0;
+	unsigned int proto_id=0;
 	struct ipaddr t_addr;
 	struct ipaddr* p_addr=NULL;	
-	int is_scan_addr=1, maat_ret=0;	
 	const struct streaminfo *cur_stream = a_stream;
 
 	do
 	{
-		if(cur_stream->addr.addrtype == __ADDR_TYPE_IP_PAIR_V4 || cur_stream->addr.addrtype == ADDR_TYPE_IPV4 || cur_stream->addr.addrtype == __ADDR_TYPE_IP_PAIR_V6 || cur_stream->addr.addrtype == ADDR_TYPE_IPV6)
+		switch(cur_stream->addr.addrtype)
 		{
-			is_scan_addr = 1;
-			if(cur_stream->addr.addrtype == __ADDR_TYPE_IP_PAIR_V4 || cur_stream->addr.addrtype == __ADDR_TYPE_IP_PAIR_V6)
-			{
-				memcpy(&t_addr, &cur_stream->addr, sizeof(t_addr));
-				if(cur_stream->addr.addrtype == __ADDR_TYPE_IP_PAIR_V4)
-					t_addr.addrtype = ADDR_TYPE_IPV4;
+			case	ADDR_TYPE_IPV4:
+			case	ADDR_TYPE_IPV6:
+			case	__ADDR_TYPE_IP_PAIR_V4:
+			case	__ADDR_TYPE_IP_PAIR_V6:
+				if(cur_stream->addr.addrtype == __ADDR_TYPE_IP_PAIR_V4 ||
+					cur_stream->addr.addrtype == __ADDR_TYPE_IP_PAIR_V6)
+				{
+					memcpy(&t_addr, &cur_stream->addr, sizeof(t_addr));
+					if(cur_stream->addr.addrtype == __ADDR_TYPE_IP_PAIR_V4)
+					{
+						t_addr.addrtype = ADDR_TYPE_IPV4;
+					}
+					else
+					{
+						t_addr.addrtype = ADDR_TYPE_IPV6;
+					}
+					p_addr = &t_addr;
+				}
 				else
-					t_addr.addrtype = ADDR_TYPE_IPV6;
-				p_addr = &t_addr;
-			}
-			else
-			{
-				p_addr = (struct ipaddr *)&cur_stream->addr;
-			}
-		}
-		else
-		{
-			is_scan_addr = 0;
-			p_addr = NULL;
-		}
-		
-		if(is_scan_addr==1 && p_addr!=NULL)
-		{
-			switch(cur_stream->type)
-			{
-				case	STREAM_TYPE_TCP:
-					tans_proto=6;
-					break;
-				case	STREAM_TYPE_UDP:
-					tans_proto=17;
-					break;
-				default:
-					tans_proto=255;
-					break;
-			}
-			
- 			maat_ret=Maat_scan_proto_addr(maat_feather, g_tsg_para.table_id[TABLE_IP_ADDR], p_addr, tans_proto, result+hit_num, result_num-hit_num, mid, (int)cur_stream->threadnum);
-			if(maat_ret>0)
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_DEBUG,
-											"SCAN_IP",
-											"Hit addr: %s scan ret: %d policy_id: %d service: %d action: %d",
-											PRINTADDR(a_stream, g_tsg_para.level),
-											maat_ret,
-											result[hit_num].config_id,
-											result[hit_num].service_id,
-											(unsigned char)result[hit_num].action
-										);
+				{
+					p_addr = (struct ipaddr *)&cur_stream->addr;
+				}
 
-				hit_num+=maat_ret;
-			}
-			else
-			{
-				MESA_handle_runtime_log(g_tsg_para.logger,RLOG_LV_DEBUG, "SCAN_IP", "No hit addr: %s scan ret: %d", PRINTADDR(a_stream, g_tsg_para.level), maat_ret);	
-			}
+				if(p_addr==NULL)
+				{
+					break;
+				}
+
+				tans_proto=get_trans_protocol(cur_stream);
+	 			maat_ret=Maat_scan_proto_addr(maat_feather, g_tsg_para.table_id[TABLE_IP_ADDR], p_addr, tans_proto, result+hit_num, result_num-hit_num, mid, (int)cur_stream->threadnum);
+				if(maat_ret>0)
+				{
+					MESA_handle_runtime_log(g_tsg_para.logger,
+												RLOG_LV_DEBUG,
+												"SCAN_IP",
+												"Hit addr: %s scan ret: %d policy_id: %d service: %d action: %d",
+												PRINTADDR(a_stream, g_tsg_para.level),
+												maat_ret,
+												result[hit_num].config_id,
+												result[hit_num].service_id,
+												(unsigned char)result[hit_num].action
+											);
+
+					hit_num+=maat_ret;
+				}
+				else
+				{
+					MESA_handle_runtime_log(g_tsg_para.logger,RLOG_LV_DEBUG, "SCAN_IP", "No hit addr: %s scan ret: %d", PRINTADDR(a_stream, g_tsg_para.level), maat_ret);	
+				}
+				break;
+			case	ADDR_TYPE_L2TP:
+				proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_L2TP].name);				
+				hit_num+=tsg_scan_app_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, g_tsg_proto_name2id[PROTO_L2TP].name, proto_id, (int)a_stream->threadnum);
+				break;
+			case	ADDR_TYPE_PPTP:
+				proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_PPTP].name);
+				hit_num+=tsg_scan_app_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, g_tsg_proto_name2id[PROTO_PPTP].name, proto_id, (int)a_stream->threadnum);
+				break;
+			default:
+				break;
 		}
 		
 		cur_stream = cur_stream->pfather;
