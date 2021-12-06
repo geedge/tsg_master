@@ -790,6 +790,7 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 				local_state=set_drop_stream(a_stream, protocol);
 			}
 			break;
+		case	TSG_METHOD_TYPE_RST:
 		case	TSG_METHOD_TYPE_RESET:
 			local_state=do_action_reset(a_stream, p_result, protocol);
 			break;
