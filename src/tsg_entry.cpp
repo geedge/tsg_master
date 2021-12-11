@@ -1383,7 +1383,7 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->risk, (char *)"risk", thread_seq);
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->category, (char *)"category", thread_seq);	
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->technology, (char *)"technology", thread_seq);	
-			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->subcategroy, (char *)"subcategroy", thread_seq);	
+			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->subcategroy, (char *)"subcategory", thread_seq);	
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->characteristics, (char *)"characteristics", thread_seq);
 
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->app_name, identify_result->app_id[i], thread_seq);
