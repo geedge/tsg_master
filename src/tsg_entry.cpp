@@ -1644,7 +1644,8 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			{
 				if(get_default_policy(g_tsg_para.default_compile_id, &scan_result[0]))
 				{
-					p_result=&scan_result[0];			
+					hit_num=1;
+					p_result=&scan_result[0];		
 				}
 			}
 			
