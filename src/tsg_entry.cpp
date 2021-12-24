@@ -320,6 +320,46 @@ static int is_hited_allow(struct Maat_rule_t *result, int hit_cnt)
 	return 0;
 }
 
+static int is_dns_protocol(const struct streaminfo *a_stream)
+{
+	struct stream_tuple4_v4 *tpl4 = NULL;
+	struct stream_tuple4_v6 *tpl6 = NULL;
+
+	if(a_stream->pudpdetail==NULL || a_stream->pudpdetail->pdata==NULL || a_stream->pudpdetail->datalen<12)
+	{
+		return 0;
+	}
+	
+	switch(a_stream->addr.addrtype)
+	{
+		case ADDR_TYPE_IPV4:
+			tpl4=a_stream->addr.tuple4_v4;
+			if((ntohs(tpl4->source)!=53) && (ntohs(tpl4->dest)!=53))
+			{
+				return 0;
+			}
+			break;
+		case ADDR_TYPE_IPV6:
+			tpl6=a_stream->addr.tuple4_v6;
+			if((ntohs(tpl6->source)!=53) && (ntohs(tpl6->dest)!=53))
+			{
+				return 0;
+			}
+			break;
+		default:
+			return 0;
+			break;
+	}
+
+	struct _dns_hdr *dns_hdr=(struct _dns_hdr *)(a_stream->pudpdetail->pdata);
+	if(dns_hdr->qdcount==1 && dns_hdr->z==0)
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
 int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data)
 {
 	if(a_stream==NULL || project_id<0)
@@ -1289,29 +1329,10 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 		case	STREAM_TYPE_UDP:
 			if(g_tsg_para.proto_flag&(1<<PROTO_DNS))  //dns
 			{
-				struct stream_tuple4_v4 *tpl4 = NULL;
-				struct stream_tuple4_v6 *tpl6 = NULL;
-
-				switch(a_stream->addr.addrtype)
+				if(is_dns_protocol(a_stream))
 				{
-					case ADDR_TYPE_IPV4:
-						tpl4=a_stream->addr.tuple4_v4;
-						if((ntohs(tpl4->source)==53) || (ntohs(tpl4->dest)==53))
-						{
-							context->proto=PROTO_DNS;
-							return 1;
-						}
-						break;
-					case ADDR_TYPE_IPV6:
-						tpl6=a_stream->addr.tuple4_v6;
-						if((ntohs(tpl6->source)==53) || (ntohs(tpl6->dest)==53))
-						{
-							context->proto=PROTO_DNS;
-							return 1;
-						}
-						break;
-					default:
-						break;
+					context->proto=PROTO_DNS;
+					return 1;
 				}
 			}
 			
