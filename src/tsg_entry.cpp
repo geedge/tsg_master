@@ -1965,14 +1965,14 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 	
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_SEND_NOTIFICATION_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_SEND_NOTIFICATION_DATA");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_CONN_SKETCH_NOTIFY_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_CONN_SKETCH_NOTIFY_DATA");
 	g_tsg_para.send_notification_data_bridge_id=stream_bridge_build(label_buff,  "w");
 	if(g_tsg_para.send_notification_data_bridge_id<0)
 	{
         MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "TSG_BRIDGE", "stream_bridge_build failed, bridge_name: %s", label_buff);
 	}
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_RECV_NOTIFICATION_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_RECV_NOTIFICATION_DATA");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_NOTIFY_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_MASTER_NOTIFY_DATA");
 	g_tsg_para.recv_notification_data_bridge_id=stream_bridge_build(label_buff,  "w");
 	if(g_tsg_para.recv_notification_data_bridge_id<0)
 	{
