@@ -552,12 +552,9 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 
 static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *a_packet)
 {
-    if(user_region != NULL){
-        if(user_region->drop_para != NULL){
-            if(user_region->drop_para->send_icmp_unreachable_enable){
-                send_icmp_unreachable(a_stream, a_packet);
-            }
-        }
+    if(user_region!=NULL && user_region->deny!=NULL && user_region->deny->type==TSG_DENY_TYPE_SEND_ICMP)
+	{
+		send_icmp_unreachable(a_stream, a_packet);
     }
 
 	switch(protocol)
@@ -580,8 +577,14 @@ static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat
 {
 	struct tcpall_context *context=NULL;
 	struct leaky_bucket *bucket=create_bucket(user_region->deny->bps, a_stream->threadnum);
-	tsg_set_bucket_to_tcpall(a_stream, &context, bucket, a_stream->threadnum);
 
+	int ret=tsg_set_bucket_to_tcpall(a_stream, &context, bucket, a_stream->threadnum);
+	if(ret==0)
+	{
+		destroy_bucket(&bucket, a_stream->threadnum);
+		bucket=NULL;
+	}
+	
 	set_ratelimit_flag(a_stream);
 
 	context=NULL;

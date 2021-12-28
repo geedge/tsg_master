@@ -17,7 +17,6 @@
 #include "tsg_label.h"
 #include "tsg_statistic.h"
 #include "tsg_leaky_bucket.h"
-#include "tsg_traffic_mirror.h"
 
 #if(__GNUC__ * 100 + __GNUC_MINOR__ * 10 + __GNUC_PATCHLEVEL__ >= 411)
 #define atomic_inc(x) __sync_add_and_fetch((x),1)
@@ -79,6 +78,7 @@ enum MASTER_TABLE{
 	TABLE_GTP_PHONE_NUMBER,
 	TABLE_RESPONSE_PAGES,
 	TABLE_DNS_PROFILE_RECORD,
+	TABLE_PROFILE_MIRROR,
 	TABLE_MAX
 };
 
@@ -194,15 +194,6 @@ struct master_context
 	struct timespec last_scan_time;
 };
 
-struct mirrored_vlan
-{
-	int vlan_id;
-	int mirrored_pkts;
-	int mirrored_bytes;
-	int compile_id_num;
-	int compile_id[MAX_RESULT_NUM];
-};
-
 struct tcpall_context
 {
 	int set_latency_flag;
@@ -210,7 +201,6 @@ struct tcpall_context
 	enum TSG_METHOD_TYPE method_type; 
 	union
 	{
-		struct mirrored_vlan *vlan;
 		struct leaky_bucket *bucket;
         long   tamper_count;
 		void *para;
@@ -250,8 +240,10 @@ typedef	struct tsg_para
 	int session_attribute_project_id;
 	int context_project_id;
 	int tcpall_project_id;
-	int gather_app_project_id;
-	int share_bridge_id;
+	int gather_app_project_id;	
+	int notify_execution_result_bridge_id;
+	int send_notification_data_bridge_id;
+	int recv_notification_data_bridge_id;
 	int app_bridge_id;
 	int proto_flag; //tsg_protocol_t
 	int fs2_field_id[TSG_FS2_MAX];
@@ -361,7 +353,6 @@ typedef	struct tsg_statistic
 
 int tsg_statistic_init(const char *conffile, void *logger);
 int tsg_gtp_signaling_hash_init(const char* conffile, void *logger);
-int tsg_send_raw_packet_init(const char* conffile, void *logger);
 
 int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data);
 const void *get_struct_project(const struct streaminfo *a_stream, int project_id);
@@ -378,7 +369,6 @@ void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, 
 void dns_profile_records_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp);
 void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int value_len, int thread_seq);
 
-int tsg_set_vlan_id_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct mirrored_vlan *vlan_id, int vlan_num, int thread_seq);
 int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct leaky_bucket *bucket, int thread_seq);
 void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp);
 
@@ -395,6 +385,5 @@ int tsg_get_ip_location(const struct streaminfo *a_stream, int table_id, MAAT_PL
 int tsg_get_ip_asn(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_EX_DATA* client_asn, MAAT_PLUGIN_EX_DATA* server_asn);
 int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id);
 int tsg_send_raw_packet(const struct streaminfo *a_stream, struct mirrored_vlan *vlan, int vlan_num, int thread_seq);
-int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rule_t *result, int result_num, struct mirrored_vlan *vlan, int vlan_num);
 
 #endif

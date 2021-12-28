@@ -1240,39 +1240,32 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 	return 0;
 }
 
-int set_mirrored_pkt_bytes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct mirrored_vlan *vlan, int compile_id)
+int set_notification_execution_result(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, struct Maat_rule_t *p_result)
 {
 	int i=0;
-	for(i=0; i<vlan->compile_id_num; i++)
+	struct tsg_notify_execution_result *execution_result=NULL;
+	execution_result=(struct tsg_notify_execution_result *)stream_bridge_async_data_get(a_stream, g_tsg_para.notify_execution_result_bridge_id);
+	if(execution_result==NULL)
 	{
-		if(vlan->compile_id[i]==compile_id)
+		return 0;
+	}
+	
+	for(i=0; i<execution_result->stat_mirrored_cnt; i++)
+	{
+		if(execution_result->stat_mirrored[i].compile_id==p_result->config_id)
 		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_PKTS].name, (void *)(long)(vlan->mirrored_pkts), TLD_TYPE_LONG);			
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_BYTES].name, (void *)(long)(vlan->mirrored_bytes), TLD_TYPE_LONG);
-			return 1;
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_PKTS].name, (void *)(execution_result->stat_mirrored[i].packets), TLD_TYPE_LONG);			
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_BYTES].name, (void *)(execution_result->stat_mirrored[i].bytes), TLD_TYPE_LONG);
+			break;
 		}
 	}
 
-	return 0;
-}
-
-int set_mirrored_session(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, struct Maat_rule_t *p_result)
-{
-	int i=0,ret=0;
-	struct tcpall_context *context=(struct tcpall_context *)project_req_get_struct(a_stream, g_tsg_para.tcpall_project_id);
-	if(context!=NULL && context->method_type==TSG_METHOD_TYPE_MIRRORED)
+	if(execution_result->capture_packet_path!=NULL)
 	{
-		for(i=0; i<context->vlan_num; i++)
-		{
-			ret=set_mirrored_pkt_bytes(_instance, _handle, &(context->vlan[i]), p_result->config_id);
-			if(ret==1)
-			{
-				return 1;
-			}
-		}
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_PACKET_CAPTURE_FILE].name, (void *)(execution_result->capture_packet_path), TLD_TYPE_STRING);
 	}
-
-	return 0;
+	
+	return 1;
 }
 
 int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
@@ -1702,10 +1695,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
 
-		if(log_msg->result[i].action==TSG_ACTION_MONITOR)
-		{
-			set_mirrored_session(_instance, _handle, log_msg->a_stream, &(log_msg->result[i]));
-		}
+		set_notification_execution_result(_instance, _handle, log_msg->a_stream, &(log_msg->result[i]));
 		
 		if(_instance->send_user_region==1)
 		{

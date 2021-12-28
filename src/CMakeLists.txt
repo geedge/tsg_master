@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 add_definitions(-fPIC)
 
-set(SRC tsg_entry.cpp tsg_rule.cpp tsg_ssl_utils.cpp tsg_send_log.cpp tsg_statistic.cpp tsg_ssh_utils.cpp tsg_gtp_signaling.cpp tsg_traffic_mirror.cpp tsg_send_raw_packet.cpp tsg_action.cpp
-    tsg_leaky_bucket.cpp tsg_dns.cpp tsg_icmp.cpp tsg_tamper.cpp)
+set(SRC tsg_entry.cpp tsg_rule.cpp tsg_ssl_utils.cpp tsg_send_log.cpp tsg_statistic.cpp tsg_ssh_utils.cpp tsg_gtp_signaling.cpp tsg_action.cpp tsg_leaky_bucket.cpp tsg_dns.cpp tsg_icmp.cpp tsg_tamper.cpp)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 include_directories(/opt/MESA/include/MESA/)

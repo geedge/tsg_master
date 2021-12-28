@@ -4,6 +4,8 @@
 #define	MAX_CATEGORY_ID_NUM	8
 #define	MAX_STR_FIELD_LEN	64
 
+#define	MAX_VLAN_ID_NUM		32
+
 #define	MAX_RESULT_NUM	8
 #define	MAX_DOMAIN_LEN	2048
 
@@ -103,5 +105,43 @@ struct tsg_conn_sketch_notify_data
 	}pdata;
 };
 
+
+enum NOTIFY_TYPE
+{
+	NOTIFY_TYPE_MIRRORED=0,
+	NOTIFY_TYPE_CAPTURE,
+	NOTIFY_TYPE_MAX
+};
+
+struct mirrored_vlan
+{
+	int num;
+	int id[MAX_VLAN_ID_NUM];
+};
+
+struct mirrored_stat
+{
+	long bytes;
+	long packets;	
+	int compile_id;
+};
+
+struct tsg_notify_data
+{
+	int compile_id;
+	enum NOTIFY_TYPE type;
+	union
+	{		
+		int capture_depth;
+		struct mirrored_vlan *vlan;
+	};
+};
+
+struct tsg_notify_execution_result
+{	
+	int stat_mirrored_cnt;
+	char *capture_packet_path;
+	struct mirrored_stat stat_mirrored[MAX_RESULT_NUM];
+};
 
 #endif

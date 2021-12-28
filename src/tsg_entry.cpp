@@ -476,9 +476,9 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	log_msg.result=p_result;
 	log_msg.result_num=result_num;
 
-	if(proto==PROTO_SSH && p_result[0].action==TSG_ACTION_MONITOR && g_tsg_para.share_bridge_id>=0)
+	if(proto==PROTO_SSH && p_result[0].action==TSG_ACTION_MONITOR && g_tsg_para.recv_notification_data_bridge_id>=0)
 	{
-		notify=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.share_bridge_id);
+		notify=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.recv_notification_data_bridge_id);
 		if (notify != NULL && notify->protocol== PROTO_SSH && notify->pdata.TLD_handle!=NULL)
 		{
 			TLD_handle = TLD_duplicate(notify->pdata.TLD_handle);
@@ -633,10 +633,6 @@ static void free_tcpall_label(int thread_seq, void *project_req_value)
 		{
 			switch(context->method_type)
 			{
-				case	TSG_METHOD_TYPE_MIRRORED:
-					dictator_free(thread_seq, (void *)(context->vlan));
-					context->vlan=NULL;
-					break;
 				case	TSG_METHOD_TYPE_RATE_LIMIT:
 					destroy_bucket(&(context->bucket), thread_seq);
 					break;
@@ -1734,13 +1730,11 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, unsigned char stream_state, void **pme, int thread_seq, const void *a_packet)
 {
 	int ret=0,hit_num=0;
-	int vlan_num=0;
 	int eth_rawpkt_len=0;
 	scan_status_t scan_mid=NULL;
 	struct Maat_rule_t *p_result=NULL;	
 	unsigned char state=APP_STATE_GIVEME;
 	struct Maat_rule_t result[MAX_RESULT_NUM]={0};	
-	struct mirrored_vlan vlan[MAX_RESULT_NUM]={0};
 	struct tcpall_context *context=(struct tcpall_context *)(*pme);
 		
 	switch(stream_state)
@@ -1757,15 +1751,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 						master_send_log(a_stream, p_result, 1, NULL, thread_seq);
 						break;
 					case	TSG_ACTION_MONITOR:
-						vlan_num=tsg_get_vlan_id_by_monitor_rule(g_tsg_maat_feather, result, hit_num, vlan, MAX_RESULT_NUM);
-						ret=tsg_set_vlan_id_to_tcpall(a_stream, (struct tcpall_context**)pme, vlan, vlan_num, thread_seq);
-						if(ret<=0)
-						{
-							Maat_clean_status(&scan_mid);
-							scan_mid=NULL;
-							return state;
-						}
-						context=(struct tcpall_context*)(*pme);
+						tsg_notify_hited_monitor_result(a_stream, result, hit_num, thread_seq);
 						break;
 					default:
 						break;
@@ -1789,9 +1775,6 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 	{
 		switch(context->method_type)
 		{
-			case	TSG_METHOD_TYPE_MIRRORED:
-				tsg_send_raw_packet(a_stream, context->vlan, context->vlan_num, thread_seq);
-				break;
 			case	TSG_METHOD_TYPE_RATE_LIMIT:
 				eth_rawpkt_len=get_raw_packet_len(a_stream);
 				if(eth_rawpkt_len<=0)
@@ -1982,9 +1965,23 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 	
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_SHARE_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_NOTIFY_DATA");
-	g_tsg_para.share_bridge_id=stream_bridge_build(label_buff,  "w");
-	if(g_tsg_para.share_bridge_id<0)
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_SEND_NOTIFICATION_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_SEND_NOTIFICATION_DATA");
+	g_tsg_para.send_notification_data_bridge_id=stream_bridge_build(label_buff,  "w");
+	if(g_tsg_para.send_notification_data_bridge_id<0)
+	{
+        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "TSG_BRIDGE", "stream_bridge_build failed, bridge_name: %s", label_buff);
+	}
+
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_RECV_NOTIFICATION_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_RECV_NOTIFICATION_DATA");
+	g_tsg_para.recv_notification_data_bridge_id=stream_bridge_build(label_buff,  "w");
+	if(g_tsg_para.recv_notification_data_bridge_id<0)
+	{
+        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "TSG_BRIDGE", "stream_bridge_build failed, bridge_name: %s", label_buff);
+	}
+
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_NOTIFICATION_EXECUTION_RESULT_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_NOTIFICATION_EXECUTION_RESULT");
+	g_tsg_para.notify_execution_result_bridge_id=stream_bridge_build(label_buff,  "w");
+	if(g_tsg_para.notify_execution_result_bridge_id<0)
 	{
         MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "TSG_BRIDGE", "stream_bridge_build failed, bridge_name: %s", label_buff);
 	}
@@ -2105,12 +2102,6 @@ extern "C" int TSG_MASTER_INIT()
 	if(ret<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_GTP_HASH", "tsg_gtp_signaling_hash_init failed ...");
-		return -1;
-	}
-
-	ret=tsg_send_raw_packet_init(tsg_conffile, g_tsg_para.logger);
-	if(ret<0)
-	{
 		return -1;
 	}
 		

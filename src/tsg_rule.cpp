@@ -241,37 +241,6 @@ static int get_fqdn_len(char *domain)
 	return fqdn_len;
 }
 
-static int copy_id(int *dst_id, int dst_id_num, int *src_id, int src_id_num)
-{
-	int i=0,num=0;
-
-	for(i=0; i<src_id_num && num<dst_id_num; i++)
-	{
-		dst_id[num++]=src_id[i];
-	}
-	
-	return num;
-}
-
-static int copy_vlan_id(struct mirrored_vlan *vlan, int vlan_num, int vlan_id, int *compile_id, int compile_id_num)
-{
-	int i=0;
-
-	for(i=0; i<vlan_num; i++)
-	{
-		if(vlan[i].vlan_id==vlan_id)
-		{
-			vlan[i].compile_id_num+=copy_id(vlan[i].compile_id, MAX_RESULT_NUM-vlan[i].compile_id_num, compile_id, compile_id_num);
-			return 0;
-		}
-	}
-
-	vlan[vlan_num].vlan_id=vlan_id;
-	vlan[vlan_num].compile_id_num=copy_id(vlan[vlan_num].compile_id, MAX_RESULT_NUM, compile_id, compile_id_num);
-
-	return 1;
-}
-
 static int sort_category_id(const void * a, const void * b)
 {
 	struct fqdn_category *x = (struct fqdn_category *) a;
@@ -684,17 +653,28 @@ static int get_integer_from_json(cJSON *object, const char *key, int *value)
 	return 0;
 }
 
-static struct compile_user_region *parse_monitor_user_region(cJSON *object)
+static struct compile_user_region *parse_monitor_user_region(cJSON *monitor_user_region_object)
 {
+	int ret=0;
 	cJSON *mirror_item=NULL;
 	struct compile_user_region *user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
-	mirror_item=cJSON_GetObjectItem(object, "packet_mirror");
-	if(mirror_item)
+	mirror_item=cJSON_GetObjectItem(monitor_user_region_object, "traffic_mirror");
+	if(mirror_item==NULL)
 	{		
+		return user_region;
+	}
+
+	user_region->mirror=(struct monitor_user_region *)calloc(1, sizeof(struct monitor_user_region));
+	ret=get_integer_from_json(mirror_item, "enable", &(user_region->mirror->enabled));		
+	if(ret!=1)
+	{
+		return user_region;
+	}
+	
+	ret=get_integer_from_json(mirror_item, "mirror_profile", &(user_region->mirror->profile_id));
+	if(ret==1)
+	{
 		user_region->method_type=TSG_METHOD_TYPE_MIRRORED;
-		user_region->mirror=(struct monitor_user_region *)calloc(1, sizeof(struct monitor_user_region));
-		get_integer_from_json(mirror_item, "enable", &(user_region->mirror->enabled));		
-		get_integer_from_json(mirror_item, "mirror_vlan", &(user_region->mirror->vlan_id));
 	}
 
 	return user_region;
@@ -880,14 +860,36 @@ static struct dns_user_region *parse_dns_user_region(cJSON *resolution_array, in
 	return records;
 }
 
-static struct compile_user_region *parse_deny_user_region(cJSON *object)
+static int parse_packet_capture(cJSON *packet_capture_object, struct compile_user_region *user_region)
+{
+	if(packet_capture_object==NULL || user_region==NULL)
+	{
+		return 0;
+	}
+
+	int ret=get_integer_from_json(packet_capture_object, "enable", &(user_region->capture.enabled));
+	if(ret!=1 || user_region->capture.enabled!=1)
+	{
+		return 0;
+	}
+
+	ret=get_integer_from_json(packet_capture_object, "capture_depth", &(user_region->capture.depth));
+	if(ret==1)
+	{
+		return 1;
+	}
+	
+	return 0;
+}
+
+static struct compile_user_region *parse_deny_user_region(cJSON *deny_user_region_object)
 {
 	int ret=0;
 	cJSON *item=NULL;
 	cJSON *resolution_array=NULL;
 	struct compile_user_region *user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
 	
-	item=cJSON_GetObjectItem(object, "method");
+	item=cJSON_GetObjectItem(deny_user_region_object, "method");
 	if(item!=NULL)
 	{
 		user_region->method_type=(TSG_METHOD_TYPE)tsg_get_method_id(item->valuestring);
@@ -898,15 +900,15 @@ static struct compile_user_region *parse_deny_user_region(cJSON *object)
 		case	TSG_METHOD_TYPE_ALERT:
 		case	TSG_METHOD_TYPE_BLOCK:
 			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
-			get_integer_from_json(object, "code", &(user_region->deny->code));
-			ret=get_integer_from_json(object, "html_profile", &(user_region->deny->profile_id));
+			get_integer_from_json(deny_user_region_object, "code", &(user_region->deny->code));
+			ret=get_integer_from_json(deny_user_region_object, "html_profile", &(user_region->deny->profile_id));
 			if(ret==1)
 			{
 				user_region->deny->type=TSG_DENY_TYPE_PROFILE;
 				break;
 			}
 			
-			ret=get_string_from_json(object, "message", &(user_region->deny->message));
+			ret=get_string_from_json(deny_user_region_object, "message", &(user_region->deny->message));
 			if(ret==1)
 			{
 				user_region->deny->type=TSG_DENY_TYPE_MESSAGE;
@@ -917,22 +919,22 @@ static struct compile_user_region *parse_deny_user_region(cJSON *object)
 			break;
 		case	TSG_METHOD_TYPE_REDIRECTION:
 			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
-			get_integer_from_json(object, "code", &(user_region->deny->code));
-			ret=get_string_from_json(object, "redirect_url", &(user_region->deny->redirect_url_to));
+			get_integer_from_json(deny_user_region_object, "code", &(user_region->deny->code));
+			ret=get_string_from_json(deny_user_region_object, "redirect_url", &(user_region->deny->redirect_url_to));
 			if(ret==1)
 			{
 				user_region->deny->type=TSG_DENY_TYPE_REDIRECT_TO;
 				break;
 			}
 
-			ret=get_string_from_json(object, "to", &(user_region->deny->redirect_url_to));
+			ret=get_string_from_json(deny_user_region_object, "to", &(user_region->deny->redirect_url_to));
 			if(ret==1)
 			{
 				user_region->deny->type=TSG_DENY_TYPE_REDIRECT_TO;
 				break;
 			}
 
-			resolution_array=cJSON_GetObjectItem(object, "resolution");
+			resolution_array=cJSON_GetObjectItem(deny_user_region_object, "resolution");
 			if(resolution_array!=NULL)
 			{				
 				user_region->deny->records_num=cJSON_GetArraySize(resolution_array);
@@ -951,11 +953,16 @@ static struct compile_user_region *parse_deny_user_region(cJSON *object)
 		case	TSG_METHOD_TYPE_RATE_LIMIT:
 			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
 			user_region->deny->type=TSG_DENY_TYPE_MAX;
-			get_integer_from_json(object, "bps", &(user_region->deny->bps));
+			get_integer_from_json(deny_user_region_object, "bps", &(user_region->deny->bps));
 			break;
 		case	TSG_METHOD_TYPE_DROP:
-			user_region->drop_para=(struct drop_user_para *)calloc(1, sizeof(struct drop_user_para));
-			get_integer_from_json(object, "send_icmp_unreachable", &(user_region->drop_para->send_icmp_unreachable_enable));
+			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
+			ret=get_integer_from_json(deny_user_region_object, "send_icmp_unreachable", &(user_region->deny->send_icmp_unreachable_enable));
+			if(ret==1)
+			{
+				user_region->deny->type=TSG_DENY_TYPE_SEND_ICMP;
+				break;
+			}
             break;
 		case	TSG_METHOD_TYPE_RST:
 		case	TSG_METHOD_TYPE_RESET:
@@ -970,8 +977,9 @@ static struct compile_user_region *parse_deny_user_region(cJSON *object)
 }
 
 void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp)
-{
-	cJSON *object=NULL;
+{	
+	cJSON *user_region_object=NULL;	
+	cJSON *packet_capture_object=NULL;
 	struct compile_user_region *user_region=NULL;
 	
 	if(rule==NULL)
@@ -981,25 +989,29 @@ void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* s
 	
 	if(srv_def_large!=NULL && strlen(srv_def_large)>2)
 	{
-		object=cJSON_Parse(srv_def_large);
-		if(object!=NULL)
-		{				
+		user_region_object=cJSON_Parse(srv_def_large);
+		if(user_region_object!=NULL)
+		{			
+			packet_capture_object=cJSON_GetObjectItem(user_region_object, "packet_capture");
+
 			switch(rule->action)
 			{
 				case	TSG_ACTION_DENY:
-					user_region=parse_deny_user_region(object);
+					user_region=parse_deny_user_region(user_region_object);					
+					parse_packet_capture(packet_capture_object, user_region);
 					atomic_inc(&user_region->ref_cnt);
 					break;
 				case	TSG_ACTION_MONITOR:
-					user_region=parse_monitor_user_region(object);
+					user_region=parse_monitor_user_region(user_region_object);
+					parse_packet_capture(packet_capture_object, user_region);
 					atomic_inc(&user_region->ref_cnt);
 					break; 
 				default:
 					break;
 			}
 
-			cJSON_Delete(object);
-			object=NULL;
+			cJSON_Delete(user_region_object);
+			user_region_object=NULL;
 		}
 	}
 
@@ -1340,6 +1352,69 @@ void dns_profile_records_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, 
 	}
 }
 
+void mirrored_profile_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{
+	int i=0,vlan_id_num=0;
+	cJSON *one_vlan=NULL;
+	struct traffic_mirror_profile *mirror_profile=(struct traffic_mirror_profile *)calloc(1, sizeof(struct traffic_mirror_profile));
+	
+	mirror_profile->profile_id=tsg_get_column_integer_value(table_line, 1);
+	char *vlan_ids_str=tsg_get_column_string_value(table_line, 3);
+	
+	cJSON *vlan_ids_object=cJSON_Parse(vlan_ids_str);	
+	if(vlan_ids_object!=NULL)
+	{
+		vlan_id_num=cJSON_GetArraySize(vlan_ids_object);
+		for(i=0; i<vlan_id_num; i++)
+		{
+			one_vlan=cJSON_GetArrayItem(vlan_ids_object, i);
+			if(one_vlan==NULL)
+			{
+				continue;
+			}
+
+			mirror_profile->vlan.id[mirror_profile->vlan.num++]=one_vlan->valueint;
+		}
+	}
+
+	atomic_inc(&mirror_profile->ref_cnt);
+
+	*ad=(MAAT_PLUGIN_EX_DATA)mirror_profile;
+	
+	cJSON_Delete(vlan_ids_object);
+	vlan_ids_object=NULL;
+
+	_free_field(vlan_ids_str);
+	vlan_ids_str=NULL;
+
+	return ;
+}
+
+void mirrored_profile_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void *argp)
+{
+	if((*from)!=NULL)
+	{
+		struct traffic_mirror_profile *mirror_profile=(struct traffic_mirror_profile *)(*from);
+		atomic_inc(&mirror_profile->ref_cnt);
+		(*to)=(*from);
+	}
+
+	return ;
+}
+
+void mirrored_profile_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{
+	if((*ad)!=NULL)
+	{
+		struct traffic_mirror_profile *mirror_profile=(struct traffic_mirror_profile *)*ad;
+		if((__sync_sub_and_fetch(&mirror_profile->ref_cnt, 1) == 0))
+		{	
+			_free_field((char *)(*ad));
+			*ad=NULL;
+		}
+	}
+}
+
 static int get_fqdn_category_id(Maat_feather_t maat_feather, int table_id, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq)
 {
 	int i=0,j=0,ret=0;	
@@ -1544,6 +1619,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "GTP_PHONE_NUMBER", g_tsg_para.table_name[TABLE_GTP_PHONE_NUMBER], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_PHONE_NUMBER");
 	MESA_load_profile_string_def(conffile, "MAAT", "RESPONSE_PAGES_TABLE", g_tsg_para.table_name[TABLE_RESPONSE_PAGES], _MAX_TABLE_NAME_LEN, "TSG_PROFILE_RESPONSE_PAGES");
 	MESA_load_profile_string_def(conffile, "MAAT", "DNS_PROFILE_RECORDS", g_tsg_para.table_name[TABLE_DNS_PROFILE_RECORD], _MAX_TABLE_NAME_LEN, (char *)"TSG_PROFILE_DNS_RECORDS");
+	MESA_load_profile_string_def(conffile, "MAAT", "TRAFFIC_MIRROR_PROFILE", g_tsg_para.table_name[TABLE_PROFILE_MIRROR], _MAX_TABLE_NAME_LEN, (char *)"TSG_PROFILE_TRAFFIC_MIRROR");
 
 	MESA_load_profile_int_def(conffile, "MAAT","LOG_LEVEL", &log_level, 30);
 	MESA_load_profile_string_def(conffile, "MAAT", "LOG_PATH", log_path, sizeof(log_path), "./tsglog/maat/tsg_maat.log");
@@ -1710,6 +1786,20 @@ int tsg_rule_init(const char* conffile, void *logger)
 		return -1;
 	}
 
+	ret=Maat_plugin_EX_register(g_tsg_maat_feather,
+								g_tsg_para.table_id[TABLE_PROFILE_MIRROR],
+								mirrored_profile_new,
+								mirrored_profile_free,
+								mirrored_profile_dup,
+								NULL,
+								0, 
+								NULL);
+
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "REGISTER_TABLE", "Maat_plugin_EX_register failed, table_name: %s", g_tsg_para.table_name[TABLE_PROFILE_MIRROR]);
+		return -1;
+	}
 
 	//init dynamic maat feather	
 	MESA_load_profile_int_def(conffile, "MAAT", "DYNAMIC_MAAT_SWITCH", &g_tsg_para.dynamic_maat_switch, 0);
@@ -2556,19 +2646,22 @@ struct compile_user_region *tsg_get_compile_user_region(const Maat_feather_t maa
 	return ((struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]));
 }
 
-int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rule_t *result, int result_num, struct mirrored_vlan *vlan, int vlan_num)
+int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq)
 {
-	int i=0,count=0;
+	int i=0;
+	char profile_id_str[32]={0};
+	struct tsg_notify_data notify_data={0};
 	struct compile_user_region *user_region=NULL;
+	struct traffic_mirror_profile *mirror_profile=NULL;
 
-	for(i=0; i<result_num && count<vlan_num; i++)
+	for(i=0; i<result_num; i++)
 	{
 		if(result[i].action!=TSG_ACTION_MONITOR)
 		{
 			continue;
 		}
 		
-		user_region=tsg_get_compile_user_region(maat_feather, &(result[i]));
+		user_region=tsg_get_compile_user_region(g_tsg_maat_feather, &(result[i]));
 		if(user_region==NULL)
 		{
 			continue;
@@ -2576,55 +2669,32 @@ int tsg_get_vlan_id_by_monitor_rule(Maat_feather_t maat_feather, struct Maat_rul
 		
 		if(user_region->method_type==TSG_METHOD_TYPE_MIRRORED && user_region->mirror!=NULL && user_region->mirror->enabled==1)
 		{
-			count+=copy_vlan_id(vlan, count, user_region->mirror->vlan_id, &(result[i].config_id), 1);
-			
+			snprintf(profile_id_str, sizeof(profile_id_str), "%d", user_region->mirror->profile_id);
+			mirror_profile=(struct traffic_mirror_profile *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_PROFILE_MIRROR], profile_id_str);
+			if(mirror_profile!=NULL)
+			{
+				notify_data.compile_id=result[i].config_id;
+				notify_data.type=NOTIFY_TYPE_MIRRORED;
+				notify_data.vlan=&(mirror_profile->vlan);
+				
+				stream_bridge_sync_data_put(a_stream, g_tsg_para.send_notification_data_bridge_id, (void *)&(notify_data));
+				mirrored_profile_free(0, (MAAT_PLUGIN_EX_DATA *)&mirror_profile, 0, NULL);
+			}
 		}
 
+		if(user_region->capture.enabled==1)
+		{
+			notify_data.compile_id=result[i].config_id;
+			notify_data.type=NOTIFY_TYPE_CAPTURE;
+			notify_data.capture_depth=user_region->capture.depth;
+			stream_bridge_sync_data_put(a_stream, g_tsg_para.send_notification_data_bridge_id, (void *)&(notify_data));
+		}
+		
 		tsg_free_compile_user_region(&(result[i]), user_region);
 		user_region=NULL;
 	}
 	
-	return count;
-}
-
-int tsg_set_vlan_id_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct mirrored_vlan *vlan, int vlan_num, int thread_seq)
-{
-	int i=0;
-	
-	if(vlan==NULL || vlan_num<=0)
-	{
-		return 0;
-	}
-	
-	struct tcpall_context * _context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
-	if(_context==NULL)
-	{
-		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
-		memset(_context, 0, sizeof(struct tcpall_context));
-		_context->method_type=TSG_METHOD_TYPE_MIRRORED;
-		
-		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
-	}
-
-	if(_context->method_type==TSG_METHOD_TYPE_MIRRORED || _context->method_type==TSG_METHOD_TYPE_UNKNOWN)
-	{
-		if(_context->vlan==NULL)
-		{
-			_context->method_type=TSG_METHOD_TYPE_MIRRORED;
-			_context->vlan=(struct mirrored_vlan *)dictator_malloc(thread_seq, sizeof(struct mirrored_vlan)*MAX_RESULT_NUM);
-			memset(_context->vlan, 0, sizeof(struct mirrored_vlan));	
-		}
-		
-		for(i=0; i<vlan_num; i++)
-		{
-			_context->vlan_num+=copy_vlan_id(_context->vlan, _context->vlan_num, vlan[i].vlan_id, vlan[i].compile_id, vlan[i].compile_id_num);
-		}
-
-		(*context)=_context;
-		return 1;
-	}
-	
-	return 0;
+	return 1;
 }
 
 int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct leaky_bucket *bucket, int thread_seq)
@@ -2638,18 +2708,20 @@ int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 	}
 	else
 	{
-		if(_context->method_type==TSG_METHOD_TYPE_MIRRORED && _context->vlan)
+		if(_context->method_type==TSG_METHOD_TYPE_RATE_LIMIT)
 		{
-			_context->vlan_num=0;
-			dictator_free(thread_seq, _context->vlan);
-			_context->vlan=NULL;
+			return 1;	
+		}
+		else
+		{
+			return 0;
 		}
 	}
 	
 	_context->method_type=TSG_METHOD_TYPE_RATE_LIMIT;
 	_context->bucket=bucket;
 	
-	return 0;
+	return 1;
 }
 
 char *tsg_get_column_string_value(const char* line, int column_seq)

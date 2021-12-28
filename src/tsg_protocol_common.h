@@ -3,6 +3,7 @@
 
 #include <MESA/stream.h>
 #include "tsg_rule.h"
+#include "tsg_label.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -19,6 +20,7 @@ enum TSG_DENY_TYPE
 	TSG_DENY_TYPE_REDIRECT_TO,
 	TSG_DENY_TYPE_REDIRECT_URL,
 	TSG_DENY_TYPE_REDIRECT_RECORD,
+	TSG_DENY_TYPE_SEND_ICMP,
 	TSG_DENY_TYPE_MAX
 };
 
@@ -68,6 +70,12 @@ struct dns_user_region
 	struct dns_answer_records	*cname;
 };
 
+struct packet_capture
+{
+	int enabled;
+	int depth;
+};
+
 struct deny_user_region
 {
 	enum TSG_DENY_TYPE type;
@@ -83,19 +91,22 @@ struct deny_user_region
 		struct dns_user_region *records;
 		int profile_id;
 		int bps;
+		int send_icmp_unreachable_enable;
 		void *para;
 	};
+};
+
+struct traffic_mirror_profile
+{
+	int profile_id;
+	int ref_cnt;
+	struct mirrored_vlan vlan;
 };
 
 struct monitor_user_region
 {
 	int enabled;
-	int vlan_id;
-};
-
-struct drop_user_para
-{
-    int send_icmp_unreachable_enable;
+	int profile_id;
 };
 
 struct compile_user_region
@@ -107,9 +118,9 @@ struct compile_user_region
 		struct deny_user_region *deny;		
 		struct monitor_user_region *mirror;		
 		struct Maat_rule_t *result;				//XJ default policy
-        struct drop_user_para  *drop_para;    
 		void *user_region_para;
-	};
+	};	
+	struct packet_capture capture;
 };
 
 int tsg_send_inject_packet(const struct streaminfo *a_stream, enum sapp_inject_opt sio, char *payload, int payload_len, unsigned char raw_route_dir);
