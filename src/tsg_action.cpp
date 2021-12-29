@@ -724,42 +724,37 @@ static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, M
 
 static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
 {
-	if(user_region==NULL)
-	{
+	if(user_region==NULL){
         return do_action_drop(a_stream, p_result, user_region, protocol, user_data);
     }
 
     struct tcpall_context * _context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
-    if(_context==NULL)
-    {
+    if(_context==NULL){
         _context=(struct tcpall_context *)dictator_malloc(a_stream->threadnum, sizeof(struct tcpall_context));
         memset(_context, 0, sizeof(struct tcpall_context));
         set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
         _context->method_type=TSG_METHOD_TYPE_TAMPER;
-        _context->tamper_count = 1;
+        _context->tamper_count = -1;
     }else{
-        if(_context->method_type != TSG_METHOD_TYPE_TAMPER)
-        {
+        if(_context->method_type == TSG_METHOD_TYPE_UNKNOWN){
             _context->method_type=TSG_METHOD_TYPE_TAMPER;
-            _context->tamper_count = 1;
-        }
-        else
-        {
-            //to do error log 
-            //_context->method_type                                                                                            
+            _context->tamper_count = -1;
+        }else if (_context->method_type == TSG_METHOD_TYPE_TAMPER){
 			MESA_handle_runtime_log(g_tsg_para.logger,
                                     RLOG_LV_DEBUG,
                                     __FUNCTION__,
-                                    "_context->method_type : %d",
+                                    "Tamper is been processed, _context->method_type : %d",
                                     _context->method_type);
-	
             return STATE_GIVEME;
         }
     }
-
-    if(0 == send_tamper_xxx(a_stream, user_data)){
-        return STATE_DROPPKT;
+   
+    if(a_stream->type != STREAM_TYPE_TCP){
+        if(0 == send_tamper_xxx(a_stream, &_context->tamper_count, user_data)){
+            return STATE_DROPPKT;
+        }
     }
+
     return STATE_GIVEME;
 }
 

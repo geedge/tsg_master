@@ -212,7 +212,7 @@ struct tcpall_context
 	{
 		struct mirrored_vlan *vlan;
 		struct leaky_bucket *bucket;
-        long tamper_count;
+        long   tamper_count;
 		void *para;
 	};
 };

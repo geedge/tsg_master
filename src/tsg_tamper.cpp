@@ -55,7 +55,7 @@ int tamper_calc(char *str, int endlen)
     return 0;
 }
 
-int send_tamper_xxx(const struct streaminfo *a_stream, const void *raw_pkt)
+int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count, const void *raw_pkt)
 {
     const char *p_trans_payload = NULL;
     int trans_layload_len = 0;
@@ -63,18 +63,29 @@ int send_tamper_xxx(const struct streaminfo *a_stream, const void *raw_pkt)
     int  tamper_index = 0;
     int  ret = -1;
     
-    if(a_stream==NULL){
+    if(a_stream==NULL || raw_pkt==NULL){
         return -1;
+    }
+
+    if(*tamper_count == -1){
+        *tamper_count = 1; 
+    }else{
+        *tamper_count = *tamper_count + 1;
     }
 
     p_trans_payload = (char *)a_stream->ptcpdetail->pdata;
     trans_layload_len = a_stream->ptcpdetail->datalen;
+
     if((p_trans_payload==NULL)||(trans_layload_len<=4)){
         MESA_handle_runtime_log(g_tsg_para.logger,
                 RLOG_LV_DEBUG,
                 __FUNCTION__,
-                "Addr: %s  Packet is not tamper because the payload is too short or there is no payload",
-                PRINTADDR(a_stream, g_tsg_para.level));
+                "Addr: %s, try send num %ld ptcpdetail->pdata %p, ptcpdetail->datalen %d  rawpkt %p , but packet is not tamper because the payload is too short or there is no payload",
+                PRINTADDR(a_stream, g_tsg_para.level),
+                *tamper_count,
+                p_trans_payload,
+                trans_layload_len,
+                raw_pkt);
         return -1;
     }
 
@@ -84,8 +95,12 @@ int send_tamper_xxx(const struct streaminfo *a_stream, const void *raw_pkt)
         MESA_handle_runtime_log(g_tsg_para.logger,
                 RLOG_LV_DEBUG,
                 __FUNCTION__,
-                "Addr: %s,modify the index(%d) position of the payload:(old: %02x %02x %02x %02x, new: %02x %02x %02x %02x)",
+                "Addr: %s, try send num %ld ptcpdetail->pdata %p, ptcpdetail->datalen %d rawpkt %p, modify the index(%d) position of the payload:(old: %02x %02x %02x %02x, new: %02x %02x %02x %02x)",
                 PRINTADDR(a_stream, g_tsg_para.level),
+                *tamper_count,
+                p_trans_payload,
+                trans_layload_len,
+                raw_pkt,
                 tamper_index,
                 (uint8_t)p_trans_payload[tamper_index-1], (uint8_t)p_trans_payload[tamper_index], (uint8_t)p_trans_payload[tamper_index+1], (uint8_t)p_trans_payload[tamper_index+2],
                 (uint8_t)tamper_buf[tamper_index-1], (uint8_t)tamper_buf[tamper_index], (uint8_t)tamper_buf[tamper_index+1], (uint8_t)tamper_buf[tamper_index+2]);
@@ -97,8 +112,12 @@ int send_tamper_xxx(const struct streaminfo *a_stream, const void *raw_pkt)
         MESA_handle_runtime_log(g_tsg_para.logger,
                 RLOG_LV_DEBUG,
                 __FUNCTION__,
-                "Addr: %s num , payload tamper failed because payload data same",
-                PRINTADDR(a_stream, g_tsg_para.level));
+                "Addr: %s, try send num %ld ptcpdetail->pdata %p, ptcpdetail->datalen %d rawpkt %p, payload tamper failed because payload data same",
+                PRINTADDR(a_stream, g_tsg_para.level),
+                *tamper_count,
+                p_trans_payload,
+                trans_layload_len,
+                raw_pkt);
     }
 
     return ret;
