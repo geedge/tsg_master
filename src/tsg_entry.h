@@ -142,6 +142,16 @@ enum HTTP_RESPONSE_FORMAT
 	HTTP_RESPONSE_FORMAT_HTML
 };
 
+enum BRIDGE_TYPE
+{
+	BRIDGE_TYPE_SEND_CONN_SKETCH_DATA=0,
+	BRIDGE_TYPE_RECV_CONN_SKETCH_DATA,
+	BRIDGE_TYPE_CONN_SKETCH_EXEC_RESULT,
+	BRIDGE_TYPE_APP_IDENTIFY_RESULT,
+	BRIDGE_TYPE_APP_BEHAVIOR_RESULT,
+	BRIDGE_TYPE_MAX
+};
+
 struct _str2index
 {
 	int index;
@@ -241,10 +251,7 @@ typedef	struct tsg_para
 	int context_project_id;
 	int tcpall_project_id;
 	int gather_app_project_id;	
-	int notify_execution_result_bridge_id;
-	int send_notification_data_bridge_id;
-	int recv_notification_data_bridge_id;
-	int app_bridge_id;
+	int bridge_id[BRIDGE_TYPE_MAX];
 	int proto_flag; //tsg_protocol_t
 	int fs2_field_id[TSG_FS2_MAX];
 	char device_sn[MAX_DOMAIN_LEN/8];
@@ -253,6 +260,7 @@ typedef	struct tsg_para
 	char data_center[_MAX_TABLE_NAME_LEN];
 	char device_tag[MAX_DOMAIN_LEN/2];
 	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
+	char bridge_name[BRIDGE_TYPE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;
 	void *maat_logger;
 	struct reset_argv reset;

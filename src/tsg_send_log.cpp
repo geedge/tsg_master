@@ -1240,11 +1240,25 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 	return 0;
 }
 
-int set_notification_execution_result(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, struct Maat_rule_t *p_result)
+int set_application_behavior(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	struct application_behavior *behavior_result=NULL;
+	behavior_result=(struct application_behavior *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_APP_BEHAVIOR_RESULT]);
+	if(behavior_result==NULL)
+	{
+		return 0;
+	}
+
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_APPLICATION_BEHAVIOR].name, (void *)(behavior_result->stream_behavior), TLD_TYPE_STRING);			
+
+	return 1;
+}
+
+int set_notify_execution_result(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, struct Maat_rule_t *p_result)
 {
 	int i=0;
 	struct tsg_notify_execution_result *execution_result=NULL;
-	execution_result=(struct tsg_notify_execution_result *)stream_bridge_async_data_get(a_stream, g_tsg_para.notify_execution_result_bridge_id);
+	execution_result=(struct tsg_notify_execution_result *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_CONN_SKETCH_EXEC_RESULT]);
 	if(execution_result==NULL)
 	{
 		return 0;
@@ -1638,6 +1652,8 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_TAG].name, (void *)(g_tsg_para.device_tag), TLD_TYPE_STRING);
 	}
+	
+	set_application_behavior(_instance, _handle, log_msg->a_stream);
 		
 	for(i=0;i<log_msg->result_num; i++)
 	{
@@ -1695,7 +1711,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
 
-		set_notification_execution_result(_instance, _handle, log_msg->a_stream, &(log_msg->result[i]));
+		set_notify_execution_result(_instance, _handle, log_msg->a_stream, &(log_msg->result[i]));
 		
 		if(_instance->send_user_region==1)
 		{

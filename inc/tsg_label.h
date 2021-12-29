@@ -144,4 +144,9 @@ struct tsg_notify_execution_result
 	struct mirrored_stat stat_mirrored[MAX_RESULT_NUM];
 };
 
+struct application_behavior
+{
+	char *stream_behavior;
+};
+
 #endif

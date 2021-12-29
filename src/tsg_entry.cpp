@@ -476,9 +476,9 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	log_msg.result=p_result;
 	log_msg.result_num=result_num;
 
-	if(proto==PROTO_SSH && p_result[0].action==TSG_ACTION_MONITOR && g_tsg_para.recv_notification_data_bridge_id>=0)
+	if(proto==PROTO_SSH && p_result[0].action==TSG_ACTION_MONITOR && g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]>=0)
 	{
-		notify=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.recv_notification_data_bridge_id);
+		notify=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]);
 		if (notify != NULL && notify->protocol== PROTO_SSH && notify->pdata.TLD_handle!=NULL)
 		{
 			TLD_handle = TLD_duplicate(notify->pdata.TLD_handle);
@@ -1951,39 +1951,31 @@ extern "C" int TSG_MASTER_INIT()
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
 	}
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "APP_BRIDGE_NAME", label_buff, sizeof(label_buff), "APP_BRIDGE");
-	g_tsg_para.app_bridge_id=stream_bridge_build(label_buff, "w");
-	if(g_tsg_para.app_bridge_id<0)
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "APP_IDENTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_APP_IDENTIFY_RESULT],_MAX_TABLE_NAME_LEN, "APP_BRIDGE");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "SKETCH_NOTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA],_MAX_TABLE_NAME_LEN, "TSG_CONN_SKETCH_NOTIFY_DATA");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "MASTER_NOTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_SEND_CONN_SKETCH_DATA],_MAX_TABLE_NAME_LEN, "TSG_MASTER_NOTIFY_DATA");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "NOTIFY_EXEC_RESULT_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_CONN_SKETCH_EXEC_RESULT],_MAX_TABLE_NAME_LEN, "TSG_NOTIFICATION_EXECUTION_RESULT");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "APP_BEHAVIOR_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_APP_IDENTIFY_RESULT],_MAX_TABLE_NAME_LEN, "TSG_APPLICATION_BEHAVIOR");
+
+	for(i=0; i<BRIDGE_TYPE_MAX; i++)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_BRIDGE", "stream_bridge_build is error, app_bridge_name: %s", label_buff);	
+		g_tsg_para.bridge_id[i]=stream_bridge_build(g_tsg_para.bridge_name[i], "w");
+		if(g_tsg_para.bridge_id[i]<0)
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_BRIDGE", "stream_bridge_build is error, bridge_name: %s", g_tsg_para.bridge_name[i]);	
+		}
 	}
 
-	ret=stream_bridge_register_data_sync_cb(g_tsg_para.app_bridge_id, app_identify_result_cb);
+	ret=stream_bridge_register_data_sync_cb(g_tsg_para.bridge_id[BRIDGE_TYPE_APP_IDENTIFY_RESULT], app_identify_result_cb);
 	if(ret<0)
 	{		
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_BRIDGE", "Register callback failed, app_bridge_id: %d", g_tsg_para.app_bridge_id);	
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_FATAL,
+									"APP_BRIDGE",
+									"Register callback failed, bridge_name: %d",
+									g_tsg_para.bridge_name[BRIDGE_TYPE_APP_IDENTIFY_RESULT]
+								);	
 		return -1;
-	}
-	
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_CONN_SKETCH_NOTIFY_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_CONN_SKETCH_NOTIFY_DATA");
-	g_tsg_para.send_notification_data_bridge_id=stream_bridge_build(label_buff,  "w");
-	if(g_tsg_para.send_notification_data_bridge_id<0)
-	{
-        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "TSG_BRIDGE", "stream_bridge_build failed, bridge_name: %s", label_buff);
-	}
-
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_NOTIFY_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_MASTER_NOTIFY_DATA");
-	g_tsg_para.recv_notification_data_bridge_id=stream_bridge_build(label_buff,  "w");
-	if(g_tsg_para.recv_notification_data_bridge_id<0)
-	{
-        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "TSG_BRIDGE", "stream_bridge_build failed, bridge_name: %s", label_buff);
-	}
-
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_NOTIFICATION_EXECUTION_RESULT_BRIDGE_NAME", label_buff, sizeof(label_buff), "TSG_NOTIFICATION_EXECUTION_RESULT");
-	g_tsg_para.notify_execution_result_bridge_id=stream_bridge_build(label_buff,  "w");
-	if(g_tsg_para.notify_execution_result_bridge_id<0)
-	{
-        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "TSG_BRIDGE", "stream_bridge_build failed, bridge_name: %s", label_buff);
 	}
 
 	g_tsg_para.context_project_id=project_producer_register("TSG_MASTER_CONTEXT", PROJECT_VAL_TYPE_STRUCT, free_context_label);

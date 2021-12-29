@@ -2677,7 +2677,7 @@ int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Ma
 				notify_data.type=NOTIFY_TYPE_MIRRORED;
 				notify_data.vlan=&(mirror_profile->vlan);
 				
-				stream_bridge_sync_data_put(a_stream, g_tsg_para.send_notification_data_bridge_id, (void *)&(notify_data));
+				stream_bridge_sync_data_put(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_SEND_CONN_SKETCH_DATA], (void *)&(notify_data));
 				mirrored_profile_free(0, (MAAT_PLUGIN_EX_DATA *)&mirror_profile, 0, NULL);
 			}
 		}
@@ -2687,7 +2687,7 @@ int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Ma
 			notify_data.compile_id=result[i].config_id;
 			notify_data.type=NOTIFY_TYPE_CAPTURE;
 			notify_data.capture_depth=user_region->capture.depth;
-			stream_bridge_sync_data_put(a_stream, g_tsg_para.send_notification_data_bridge_id, (void *)&(notify_data));
+			stream_bridge_sync_data_put(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_SEND_CONN_SKETCH_DATA], (void *)&(notify_data));
 		}
 		
 		tsg_free_compile_user_region(&(result[i]), user_region);
