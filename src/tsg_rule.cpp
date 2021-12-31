@@ -42,7 +42,8 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
 													{TSG_METHOD_TYPE_ALERT, 5, (char *)"alert"},
 													{TSG_METHOD_TYPE_RATE_LIMIT, 10, (char *)"rate_limit"}, 
                                                     {TSG_METHOD_TYPE_MIRRORED, 8, (char *)"mirrored"},
-                                                    {TSG_METHOD_TYPE_TAMPER, 6, (char *)"tamper"}
+                                                    {TSG_METHOD_TYPE_TAMPER, 6, (char *)"tamper"},
+                                                    {TSG_METHOD_TYPE_DEFAULT, 7, (char *)"default"}
 	};
 
 
@@ -860,6 +861,67 @@ static struct dns_user_region *parse_dns_user_region(cJSON *resolution_array, in
 	return records;
 }
 
+static int parse_default_para(cJSON *deny_user_region_object, struct compile_user_region *user_region)
+{	
+	cJSON *method_item=NULL;
+	cJSON *tcp_session_item=cJSON_GetObjectItem(deny_user_region_object, "tcp_session");
+	cJSON *udp_session_item=cJSON_GetObjectItem(deny_user_region_object, "udp_session");
+	if(tcp_session_item==NULL || udp_session_item==NULL)
+	{
+		return 0;
+	}
+
+	user_region->method_type=TSG_METHOD_TYPE_DEFAULT;
+	user_region->session_para=(struct default_session_para *)calloc(1, sizeof(struct default_session_para));
+	
+	method_item=cJSON_GetObjectItem(tcp_session_item, "method");
+	if(method_item!=NULL)
+	{		
+		int method_type=tsg_get_method_id(method_item->valuestring);
+		switch(method_type)
+		{
+			case	TSG_METHOD_TYPE_RST:
+			case	TSG_METHOD_TYPE_RESET:
+				user_region->session_para->tcp.type=TSG_DENY_TYPE_DEFAULT_RST;
+				get_integer_from_json(tcp_session_item, "after_n_packets", &(user_region->session_para->tcp.after_n_packets));
+				break;
+			case	TSG_METHOD_TYPE_DROP:
+				get_integer_from_json(tcp_session_item, "after_n_packets", &(user_region->session_para->tcp.after_n_packets));
+				get_integer_from_json(tcp_session_item, "send_icmp_unreachable", &(user_region->session_para->tcp.send_icmp_enable));
+				if(user_region->session_para->tcp.send_icmp_enable==1)
+				{
+					user_region->session_para->tcp.type=TSG_DENY_TYPE_SEND_ICMP;
+				}
+				else
+				{					
+					user_region->session_para->tcp.type=TSG_DENY_TYPE_DEFAULT_DROP;
+				}
+				break;
+			default:
+				break;
+		}
+
+	}
+
+	method_item=cJSON_GetObjectItem(udp_session_item, "method");
+	if(method_item!=NULL)
+	{
+		user_region->session_para->udp.type=TSG_DENY_TYPE_DEFAULT_DROP;
+		get_integer_from_json(udp_session_item, "after_n_packets", &(user_region->session_para->udp.after_n_packets));
+		get_integer_from_json(udp_session_item, "send_icmp_unreachable", &(user_region->session_para->udp.send_icmp_enable));
+		if(user_region->session_para->udp.send_icmp_enable==1)
+		{
+			user_region->session_para->udp.type=TSG_DENY_TYPE_SEND_ICMP;
+		}
+		else
+		{					
+			user_region->session_para->udp.type=TSG_DENY_TYPE_DEFAULT_DROP;
+		}
+	}
+
+	return 1;
+}
+
 static int parse_packet_capture(cJSON *packet_capture_object, struct compile_user_region *user_region)
 {
 	if(packet_capture_object==NULL || user_region==NULL)
@@ -957,7 +1019,7 @@ static struct compile_user_region *parse_deny_user_region(cJSON *deny_user_regio
 			break;
 		case	TSG_METHOD_TYPE_DROP:
 			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
-			ret=get_integer_from_json(deny_user_region_object, "send_icmp_unreachable", &(user_region->deny->send_icmp_unreachable_enable));
+			ret=get_integer_from_json(deny_user_region_object, "send_icmp_unreachable", &(user_region->deny->send_icmp_enable));
 			if(ret==1)
 			{
 				user_region->deny->type=TSG_DENY_TYPE_SEND_ICMP;
@@ -969,7 +1031,8 @@ static struct compile_user_region *parse_deny_user_region(cJSON *deny_user_regio
 			break;
         case    TSG_METHOD_TYPE_TAMPER:
             break;
-		default:
+		default:			
+			parse_default_para(deny_user_region_object, user_region);
 			break;
 	}
 	
@@ -1015,16 +1078,12 @@ void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* s
 		}
 	}
 
-	if(g_tsg_para.default_compile_switch==1 && g_tsg_para.default_compile_id==rule->config_id)
+	if(g_tsg_para.default_compile_id==rule->config_id && user_region!=NULL)
 	{
-		if(user_region==NULL)
+		if(user_region->method_type==TSG_METHOD_TYPE_DEFAULT && user_region->session_para!=NULL)
 		{
-			user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));				
-			atomic_inc(&user_region->ref_cnt);
+			memcpy(&(user_region->session_para->result), rule, sizeof(struct Maat_rule_t));
 		}
-		
-		user_region->result=(struct Maat_rule_t *)calloc(1, sizeof(struct Maat_rule_t));
-		memcpy(user_region->result, rule, sizeof(struct Maat_rule_t));
 	}
 
 	*ad=(MAAT_RULE_EX_DATA)user_region;
@@ -2697,6 +2756,29 @@ int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Ma
 	return 1;
 }
 
+int tsg_set_method_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, enum TSG_METHOD_TYPE method_type, int thread_seq)
+{
+	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	if(_context==NULL)
+	{
+		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
+		memset(_context, 0, sizeof(struct tcpall_context));
+		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+	}
+
+	switch(_context->method_type)
+	{
+		case	TSG_METHOD_TYPE_DEFAULT:
+		case	TSG_METHOD_TYPE_MIRRORED:			
+			_context->method_type=method_type;
+			break;
+		default:
+			break;
+	}
+
+	return 1;
+}
+
 int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct leaky_bucket *bucket, int thread_seq)
 {
 	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
@@ -2706,18 +2788,19 @@ int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 		memset(_context, 0, sizeof(struct tcpall_context));
 		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
 	}
-	else
+
+	switch(_context->method_type)
 	{
-		if(_context->method_type==TSG_METHOD_TYPE_RATE_LIMIT)
-		{
+		case	TSG_METHOD_TYPE_RATE_LIMIT:
 			return 1;	
-		}
-		else
-		{
+			break;
+		case	TSG_METHOD_TYPE_DEFAULT:
+			break;
+		default:
 			return 0;
-		}
+			break;
 	}
-	
+
 	_context->method_type=TSG_METHOD_TYPE_RATE_LIMIT;
 	_context->bucket=bucket;
 	

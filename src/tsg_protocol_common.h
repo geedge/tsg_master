@@ -21,6 +21,8 @@ enum TSG_DENY_TYPE
 	TSG_DENY_TYPE_REDIRECT_URL,
 	TSG_DENY_TYPE_REDIRECT_RECORD,
 	TSG_DENY_TYPE_SEND_ICMP,
+	TSG_DENY_TYPE_DEFAULT_RST,
+	TSG_DENY_TYPE_DEFAULT_DROP,
 	TSG_DENY_TYPE_MAX
 };
 
@@ -52,7 +54,6 @@ struct dns_answer_records
 	struct dns_record_val record_val;
 };
 
-
 struct dns_profile_records
 {
 	int ref_cnt;
@@ -83,6 +84,7 @@ struct deny_user_region
 	{
 		int code;
 		int records_num;
+		int after_n_packets;
 	};
 	union
 	{
@@ -91,7 +93,7 @@ struct deny_user_region
 		struct dns_user_region *records;
 		int profile_id;
 		int bps;
-		int send_icmp_unreachable_enable;
+		int send_icmp_enable;		
 		void *para;
 	};
 };
@@ -109,6 +111,13 @@ struct monitor_user_region
 	int profile_id;
 };
 
+struct default_session_para
+{
+	struct Maat_rule_t result; 			//XJ default policy
+	struct deny_user_region tcp;
+	struct deny_user_region udp;
+};
+
 struct compile_user_region
 {	
 	int ref_cnt;
@@ -117,8 +126,8 @@ struct compile_user_region
 	{
 		struct deny_user_region *deny;		
 		struct monitor_user_region *mirror;		
-		struct Maat_rule_t *result;				//XJ default policy
-		void *user_region_para;
+		struct default_session_para *session_para;		
+		void *user_region_para;		
 	};	
 	struct packet_capture capture;
 };

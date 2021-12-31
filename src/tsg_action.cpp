@@ -573,6 +573,85 @@ static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
+static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
+{
+	if(user_region==NULL)
+	{
+        return do_action_drop(a_stream, p_result, user_region, protocol, user_data);
+    }
+
+    struct tcpall_context * _context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+    if(_context==NULL)
+    {
+        _context=(struct tcpall_context *)dictator_malloc(a_stream->threadnum, sizeof(struct tcpall_context));
+        memset(_context, 0, sizeof(struct tcpall_context));
+        set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+        _context->method_type=TSG_METHOD_TYPE_TAMPER;
+        _context->tamper_count = 1;
+    }else{
+        if(_context->method_type != TSG_METHOD_TYPE_TAMPER)
+        {
+            _context->method_type=TSG_METHOD_TYPE_TAMPER;
+            _context->tamper_count = 1;
+        }
+        else
+        {
+            //to do error log 
+            //_context->method_type                                                                                            
+			MESA_handle_runtime_log(g_tsg_para.logger,
+                                    RLOG_LV_DEBUG,
+                                    __FUNCTION__,
+                                    "_context->method_type : %d",
+                                    _context->method_type);
+	
+            return STATE_GIVEME;
+        }
+    }
+
+    if(0 == send_tamper_xxx(a_stream, &_context->tamper_count, user_data)){
+        return STATE_DROPPKT;
+    }
+    return STATE_GIVEME;
+}
+
+static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
+{
+	struct deny_user_region *deny_region=NULL;
+	
+	switch(a_stream->type)
+	{
+		case	STREAM_TYPE_TCP:
+			deny_region=&(user_region->session_para->tcp);
+			break;
+		case	STREAM_TYPE_UDP:			
+			deny_region=&(user_region->session_para->udp);
+			break;
+		default:
+			return STATE_DROPME|STATE_DROPPKT;
+			break;
+	}
+
+	switch(deny_region->type)
+	{
+		case	TSG_DENY_TYPE_DEFAULT_RST:
+			do_action_reset(a_stream, p_result, protocol);
+			break;
+		case	TSG_DENY_TYPE_SEND_ICMP:
+		case	TSG_DENY_TYPE_DEFAULT_DROP:	
+			struct compile_user_region tmp_user_region;
+			tmp_user_region.deny=deny_region;
+			tmp_user_region.capture.enabled=0;			
+			tmp_user_region.capture.depth=0;
+			tmp_user_region.method_type=TSG_METHOD_TYPE_DROP;
+			do_action_drop(a_stream, p_result, &tmp_user_region, protocol, user_data);
+			break;
+		default:
+			break;
+	}
+	
+	return STATE_DROPME|STATE_DROPPKT;
+}
+
 static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, enum ACTION_RETURN_TYPE type)
 {
 	struct tcpall_context *context=NULL;
@@ -725,42 +804,6 @@ static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, M
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
-{
-	if(user_region==NULL){
-        return do_action_drop(a_stream, p_result, user_region, protocol, user_data);
-    }
-
-    struct tcpall_context * _context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
-    if(_context==NULL){
-        _context=(struct tcpall_context *)dictator_malloc(a_stream->threadnum, sizeof(struct tcpall_context));
-        memset(_context, 0, sizeof(struct tcpall_context));
-        set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
-        _context->method_type=TSG_METHOD_TYPE_TAMPER;
-        _context->tamper_count = -1;
-    }else{
-        if(_context->method_type == TSG_METHOD_TYPE_UNKNOWN){
-            _context->method_type=TSG_METHOD_TYPE_TAMPER;
-            _context->tamper_count = -1;
-        }else if (_context->method_type == TSG_METHOD_TYPE_TAMPER){
-			MESA_handle_runtime_log(g_tsg_para.logger,
-                                    RLOG_LV_DEBUG,
-                                    __FUNCTION__,
-                                    "Tamper is been processed, _context->method_type : %d",
-                                    _context->method_type);
-            return STATE_GIVEME;
-        }
-    }
-   
-    if(a_stream->type != STREAM_TYPE_TCP){
-        if(0 == send_tamper_xxx(a_stream, &_context->tamper_count, user_data)){
-            return STATE_DROPPKT;
-        }
-    }
-
-    return STATE_GIVEME;
-}
-
 unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
 {
 	unsigned char local_state=STATE_GIVEME;
@@ -805,8 +848,18 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
         case TSG_METHOD_TYPE_TAMPER:
             local_state=do_action_tamper(a_stream, p_result, user_region, protocol, user_data);
             break;
+		case	TSG_METHOD_TYPE_DEFAULT:
+			local_state=do_action_default_xxx(a_stream, p_result, user_region, protocol, user_data);
+			break;
 		default:
 			break;
+	}
+
+	
+	if(method_type!=TSG_METHOD_TYPE_DEFAULT)
+	{
+		struct tcpall_context *context=NULL;
+		tsg_set_method_to_tcpall(a_stream, &context, (enum TSG_METHOD_TYPE)method_type, a_stream->threadnum);
 	}
 
 	security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);

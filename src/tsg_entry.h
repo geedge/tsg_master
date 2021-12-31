@@ -207,12 +207,12 @@ struct master_context
 struct tcpall_context
 {
 	int set_latency_flag;
-	int vlan_num;
 	enum TSG_METHOD_TYPE method_type; 
 	union
 	{
 		struct leaky_bucket *bucket;
-        long   tamper_count;
+		long tamper_count;		
+		int after_n_packets;
 		void *para;
 	};
 };
@@ -242,7 +242,6 @@ typedef	struct tsg_para
 	enum DEPLOY_MODE deploy_mode;
 	int scan_time_interval;
 	int hit_path_switch;
-	int default_compile_switch;
 	int default_compile_id;
 	int table_id[TABLE_MAX];
 	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
@@ -376,7 +375,7 @@ void app_id_dict_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* ar
 void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void dns_profile_records_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp);
 void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int value_len, int thread_seq);
-
+int tsg_set_method_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, enum TSG_METHOD_TYPE method_type, int thread_seq);
 int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct leaky_bucket *bucket, int thread_seq);
 void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp);
 
