@@ -103,7 +103,7 @@ unsigned short get_redis_port(char *redis_port_range)
 		if(pchr == NULL)
 		{
 			s_port=(unsigned short)atoi(buf);
-			e_port=s_port;
+			e_port=s_port;
 		}
 		else
 		{
