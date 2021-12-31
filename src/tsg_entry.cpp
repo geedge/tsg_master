@@ -1842,7 +1842,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
                                     "Addr: %s, send_tamper_xxx num %ld",
                                     PRINTADDR(a_stream, g_tsg_para.level),
                                     context->tamper_count);
-            break;
+            break;
 		case	TSG_METHOD_TYPE_DEFAULT:
 			if(!is_do_default_policy(a_stream, context->after_n_packets) || stream_state==OP_STATE_CLOSE)
 			{
@@ -2176,4 +2176,3 @@ extern "C" int TSG_MASTER_UNLOAD()
 	
 	return 0;
 }
-
