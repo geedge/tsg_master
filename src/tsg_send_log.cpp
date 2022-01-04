@@ -1242,6 +1242,11 @@ static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, 
 
 int set_application_behavior(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
+	if(a_stream==NULL)
+	{
+		return 0;
+	}
+	
 	struct application_behavior *behavior_result=NULL;
 	behavior_result=(struct application_behavior *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_APP_BEHAVIOR_RESULT]);
 	if(behavior_result==NULL)
@@ -1256,6 +1261,11 @@ int set_application_behavior(struct tsg_log_instance_t *_instance, struct TLD_ha
 
 int set_notify_execution_result(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, struct Maat_rule_t *p_result)
 {
+	if(a_stream==NULL)
+	{
+		return 0;
+	}
+	
 	int i=0;
 	struct tsg_notify_execution_result *execution_result=NULL;
 	execution_result=(struct tsg_notify_execution_result *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_CONN_SKETCH_EXEC_RESULT]);
@@ -1268,6 +1278,8 @@ int set_notify_execution_result(struct tsg_log_instance_t *_instance, struct TLD
 	{
 		if(execution_result->stat_mirrored[i].compile_id==p_result->config_id)
 		{
+			TLD_delete(_handle, _instance->id2field[LOG_COMMON_MIRRORED_PKTS].name);
+			TLD_delete(_handle, _instance->id2field[LOG_COMMON_MIRRORED_BYTES].name);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_PKTS].name, (void *)(execution_result->stat_mirrored[i].packets), TLD_TYPE_LONG);			
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_BYTES].name, (void *)(execution_result->stat_mirrored[i].bytes), TLD_TYPE_LONG);
 			break;
