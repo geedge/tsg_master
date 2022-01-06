@@ -693,8 +693,11 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 		
 		if(app_id_flag==1)
 		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
-
+			if(!(TLD_search(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name)))
+			{
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
+			}
+			
 			Value app_id_object(kObjectType);
 			get_app_id_list(&app_id_object, _handle, "USER_DEFINE", &(label->result[ORIGIN_USER_DEFINE]));
 			get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(label->result[ORIGIN_BUILT_IN]));
@@ -885,6 +888,20 @@ int TLD_cancel(struct TLD_handle_t *handle)
 		handle = NULL;		
 	}
 	
+	return 0;
+}
+
+int TLD_search(struct TLD_handle_t *handle, char *key)
+{
+	if (handle != NULL && handle->document != NULL && key != NULL)
+	{
+		Value::ConstMemberIterator itr = handle->document->FindMember(key);
+		if (itr!=handle->document->MemberEnd())
+		{
+			return 1;
+		}
+	}
+
 	return 0;
 }
 

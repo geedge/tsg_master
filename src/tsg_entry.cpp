@@ -559,7 +559,7 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 			TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[proto].name, TLD_TYPE_STRING);
 		}
 
-		if(context->domain!=NULL)
+		if(context!=NULL && context->domain!=NULL)
 		{
 			switch(proto)
 			{
@@ -580,7 +580,7 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 			}
 		}
 		
-		if(context->quic_version>0)
+		if(context!=NULL && context->quic_version>0)
 		{
 			if(quic_version_int2string(context->quic_version, quic_version, sizeof(quic_version)))
 			{
@@ -598,6 +598,14 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	else
 	{
 		TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[PROTO_APP].name, TLD_TYPE_STRING);
+	}
+
+	if(context!=NULL && context->hited_app_id>0)
+	{
+		char app_label_name[512]={0};
+		tsg_app_id2name(context->hited_app_id, app_label_name, sizeof(app_label_name), 0);
+		char *app_label_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_APP_LABEL);
+		TLD_append(TLD_handle, app_label_field_name, (void *)app_label_name, TLD_TYPE_STRING);
 	}
 	
 	tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);
@@ -1460,6 +1468,10 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->app_name, identify_result->app_id[i], thread_seq);
 			//hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->parent_app_name, dict->parent_app_id, thread_seq);
 
+			if(context->hited_app_id==0 && hit_num>0 && identify_result->origin!=ORIGIN_BASIC_PROTOCOL)
+			{
+				context->hited_app_id=identify_result->app_id[i];
+			}
 			set_app_timeout(a_stream, dict, &(context->timeout));
 			app_id_dict_free(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
 		}

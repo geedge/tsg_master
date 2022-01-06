@@ -195,6 +195,7 @@ struct master_context
 	int is_esni;
 	int is_log;
 	int is_ratelimit;
+	int hited_app_id;
 	unsigned int quic_version;
 	unsigned short timeout;
 	char *domain;

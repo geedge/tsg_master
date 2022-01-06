@@ -33,6 +33,7 @@ extern struct tsg_log_instance_t *g_tsg_log_instance;
 
 struct TLD_handle_t *TLD_create(int thread_id);
 
+int TLD_search(struct TLD_handle_t *handle, char *key);
 int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE type);
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream);
 int TLD_cancel(struct TLD_handle_t *handle);
