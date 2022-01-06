@@ -1287,7 +1287,8 @@ int set_notify_execution_result(struct tsg_log_instance_t *_instance, struct TLD
 	}
 
 	if(execution_result->capture_packet_path!=NULL)
-	{
+	{		
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_PACKET_CAPTURE_FILE].name);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_PACKET_CAPTURE_FILE].name, (void *)(execution_result->capture_packet_path), TLD_TYPE_STRING);
 	}
 	

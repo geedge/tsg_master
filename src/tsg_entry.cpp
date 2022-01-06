@@ -1966,6 +1966,9 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","DEFAULT_POLICY_ID", &g_tsg_para.default_compile_id, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","HIT_PATH_SWITCH", &g_tsg_para.hit_path_switch, 0);
 
+	g_tsg_para.default_vlan.num=1;
+	MESA_load_profile_int_def(tsg_conffile, "TRAFFIC_MIRROR","DEFAULT_VLAN_ID", &(g_tsg_para.default_vlan.id[0]), 2);
+
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;SIP;MAIL;STREAMING_MEDIA;QUIC;SIP;SSH;");
 	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);
 

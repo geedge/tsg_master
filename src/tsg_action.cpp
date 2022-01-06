@@ -862,6 +862,8 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 		tsg_set_method_to_tcpall(a_stream, &context, (enum TSG_METHOD_TYPE)method_type, a_stream->threadnum);
 	}
 
+	tsg_notify_hited_monitor_result(a_stream, p_result, 1, a_stream->threadnum);
+
 	security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
 	
 	state=((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_GIVEME : APP_STATE_GIVEME);

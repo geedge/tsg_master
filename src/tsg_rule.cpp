@@ -654,33 +654,6 @@ static int get_integer_from_json(cJSON *object, const char *key, int *value)
 	return 0;
 }
 
-static struct compile_user_region *parse_monitor_user_region(cJSON *monitor_user_region_object)
-{
-	int ret=0;
-	cJSON *mirror_item=NULL;
-	struct compile_user_region *user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
-	mirror_item=cJSON_GetObjectItem(monitor_user_region_object, "traffic_mirror");
-	if(mirror_item==NULL)
-	{		
-		return user_region;
-	}
-
-	user_region->mirror=(struct monitor_user_region *)calloc(1, sizeof(struct monitor_user_region));
-	ret=get_integer_from_json(mirror_item, "enable", &(user_region->mirror->enabled));		
-	if(ret!=1)
-	{
-		return user_region;
-	}
-	
-	ret=get_integer_from_json(mirror_item, "mirror_profile", &(user_region->mirror->profile_id));
-	if(ret==1)
-	{
-		user_region->method_type=TSG_METHOD_TYPE_MIRRORED;
-	}
-
-	return user_region;
-}
-
 static int parse_answer_ttl(struct dns_user_region *user_region_records, cJSON *one_record, int answer_type)
 {
 	if(one_record==NULL || user_region_records==NULL)
@@ -922,6 +895,7 @@ static int parse_default_para(cJSON *deny_user_region_object, struct compile_use
 	return 1;
 }
 
+
 static int parse_packet_capture(cJSON *packet_capture_object, struct compile_user_region *user_region)
 {
 	if(packet_capture_object==NULL || user_region==NULL)
@@ -942,6 +916,33 @@ static int parse_packet_capture(cJSON *packet_capture_object, struct compile_use
 	}
 	
 	return 0;
+}
+
+static int parse_packet_mirrored(cJSON *user_region_object, struct compile_user_region *user_region)
+{
+	if(user_region_object==NULL || user_region==NULL)
+	{
+		return 0;
+	}
+		
+	cJSON *mirror_item=NULL;
+	mirror_item=cJSON_GetObjectItem(user_region_object, "traffic_mirror");
+	if(mirror_item==NULL)
+	{		
+		return 0;
+	}
+	
+	user_region->mirror=(struct monitor_user_region *)calloc(1, sizeof(struct monitor_user_region));
+	int ret=get_integer_from_json(mirror_item, "enable", &(user_region->mirror->enabled));		
+	if(ret!=1)
+	{
+		return 0;
+	}
+	
+	user_region->method_type=TSG_METHOD_TYPE_MIRRORED;
+	get_integer_from_json(mirror_item, "mirror_profile", &(user_region->mirror->profile_id));	
+
+	return 1;
 }
 
 static struct compile_user_region *parse_deny_user_region(cJSON *deny_user_region_object)
@@ -1062,11 +1063,13 @@ void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* s
 				case	TSG_ACTION_DENY:
 					user_region=parse_deny_user_region(user_region_object);					
 					parse_packet_capture(packet_capture_object, user_region);
+					parse_packet_mirrored(user_region_object,user_region);
 					atomic_inc(&user_region->ref_cnt);
 					break;
 				case	TSG_ACTION_MONITOR:
-					user_region=parse_monitor_user_region(user_region_object);
-					parse_packet_capture(packet_capture_object, user_region);
+					user_region=(struct compile_user_region *)calloc(1, sizeof(struct compile_user_region));
+					parse_packet_capture(packet_capture_object, user_region);					
+					parse_packet_mirrored(user_region_object,user_region);
 					atomic_inc(&user_region->ref_cnt);
 					break; 
 				default:
@@ -2715,7 +2718,7 @@ int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Ma
 
 	for(i=0; i<result_num; i++)
 	{
-		if(result[i].action!=TSG_ACTION_MONITOR)
+		if(result[i].action!=TSG_ACTION_MONITOR && result[i].action!=TSG_ACTION_DENY)
 		{
 			continue;
 		}
@@ -2738,6 +2741,13 @@ int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Ma
 				
 				stream_bridge_sync_data_put(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_SEND_CONN_SKETCH_DATA], (void *)&(notify_data));
 				mirrored_profile_free(0, (MAAT_PLUGIN_EX_DATA *)&mirror_profile, 0, NULL);
+			}
+			else
+			{
+				notify_data.compile_id=result[i].config_id;
+				notify_data.type=NOTIFY_TYPE_MIRRORED;
+				notify_data.vlan=&(g_tsg_para.default_vlan);				
+				stream_bridge_sync_data_put(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_SEND_CONN_SKETCH_DATA], (void *)&(notify_data));
 			}
 		}
 

@@ -263,6 +263,7 @@ typedef	struct tsg_para
 	void *logger;
 	void *maat_logger;
 	struct reset_argv reset;
+	struct mirrored_vlan default_vlan;
 	screen_stat_handle_t fs2_handle;
 	struct l7_protocol *name_by_id;
 	struct l7_protocol *id_by_name;
