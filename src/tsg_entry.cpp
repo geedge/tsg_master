@@ -1899,6 +1899,7 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 		
 		context->all_entry=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
 		memset(context->all_entry, 0, sizeof(struct tcpall_context));
+		set_struct_project(a_udp, g_tsg_para.tcpall_project_id, (void *)(context->all_entry));
 	}
 	
 	state1=tsg_master_all_entry(a_udp, a_udp->opstate, (void **)&(context->all_entry), thread_seq, a_packet);
