@@ -587,29 +587,28 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
         memset(_context, 0, sizeof(struct tcpall_context));
         set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
         _context->method_type=TSG_METHOD_TYPE_TAMPER;
-        _context->tamper_count = 1;
+        _context->tamper_count = -1;
     }else{
         if(_context->method_type != TSG_METHOD_TYPE_TAMPER)
         {
             _context->method_type=TSG_METHOD_TYPE_TAMPER;
-            _context->tamper_count = 1;
+            _context->tamper_count = -1;
         }
         else
         {
-            //to do error log 
-            //_context->method_type                                                                                            
 			MESA_handle_runtime_log(g_tsg_para.logger,
                                     RLOG_LV_DEBUG,
                                     __FUNCTION__,
-                                    "_context->method_type : %d",
+                                    "Tamper is been processed, _context->method_type : %d",
                                     _context->method_type);
-	
             return STATE_GIVEME;
         }
     }
 
-    if(0 == send_tamper_xxx(a_stream, &_context->tamper_count, user_data)){
-        return STATE_DROPPKT;
+    if(a_stream->type != STREAM_TYPE_TCP){
+        if(0 == send_tamper_xxx(a_stream, &_context->tamper_count, user_data)){
+            return STATE_DROPPKT;
+        }
     }
     return STATE_GIVEME;
 }
