@@ -554,7 +554,7 @@ static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule
 {
     if(user_region!=NULL && user_region->deny!=NULL && user_region->deny->type==TSG_DENY_TYPE_SEND_ICMP)
 	{
-		send_icmp_unreachable(a_stream, a_packet);
+		send_icmp_unreachable(a_stream);
     }
 
 	switch(protocol)

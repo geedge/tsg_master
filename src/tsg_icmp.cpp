@@ -25,6 +25,7 @@
 //icmp
 #define ICMP_HEADR_BYTE_LEN   8
 #define ICMP_MAX_LEN   2048
+#define ETHERNET_BYTE_LEN 14
 
 //icmpv4
 #define IPV4_HEADR_BYTE_LEN 20
@@ -90,7 +91,7 @@ static short in_checksum(void *pkg, int size)
 }
 
 
-static void four_byte_alignment(short *icmp_len, short *icmp_checksum_len){
+static void four_byte_alignment(unsigned short *icmp_len, unsigned short *icmp_checksum_len){
     short temp = 0;
 
     temp = *icmp_len % 4;
@@ -121,13 +122,13 @@ static void four_byte_alignment(short *icmp_len, short *icmp_checksum_len){
 static void format_icmpv4(const char *raw_pkt, char *ret_icmpv4, int *ret_len){
     icmp_st icmp = {0};
     char ipv4_headr[IPV4_HEADR_BYTE_LEN] = {0};
-    short raw_ipv4_total_len = 0;
-    short icmpv4_len = 0;
-    short ipv4_total_len = 0;
-    short ipv4_checksum = 0;             
-    short icmp_len = 0;
-    short icmp_original_data_len = 0;
-    short icmp_start_len = IPV4_HEADR_BYTE_LEN;
+    unsigned short raw_ipv4_total_len = 0;
+    unsigned short icmpv4_len = 0;
+    unsigned short ipv4_total_len = 0;
+    unsigned short ipv4_checksum = 0;
+    unsigned short icmp_len = 0;
+    unsigned short icmp_original_data_len = 0;
+    unsigned short icmp_start_len = IPV4_HEADR_BYTE_LEN;
 
     memcpy(&raw_ipv4_total_len, &raw_pkt[IPV4_TOTAL_LEN_INDEX], IPV4_TOTAL_BYTE_LEN);
     raw_ipv4_total_len = htons(raw_ipv4_total_len);
@@ -229,14 +230,14 @@ static void format_icmpv6(const char *raw_pkt, char *ret_icmpv6, int *ret_len){
     icmp_st icmp = {0};
     char icmp_checksum_buf[ICMPV6_MTU] = {0};
     char ipv6_headr[IPV6_HEADR_BYTE_LEN] = {0};
-    short ipv6_payload_len = 0;
-    short raw_ipv6_payload_len = 0;
-    short raw_pkt_len = 0;
-    short icmpv6_len = 0;
-    short icmp_len = 0;
-    short icmp_original_data_len = 0;
-    short icmp_checksum_len = 0;
-    int upper_layer_packet_len = 0;
+    unsigned short ipv6_payload_len = 0;
+    unsigned short raw_ipv6_payload_len = 0;
+    unsigned short raw_pkt_len = 0;
+    unsigned short icmpv6_len = 0;
+    unsigned short icmp_len = 0;
+    unsigned short icmp_original_data_len = 0;
+    unsigned short icmp_checksum_len = 0;
+    unsigned int upper_layer_packet_len = 0;
 
     memcpy(&raw_ipv6_payload_len, &raw_pkt[IPV6_PAYLOAD_INDEX], IPV6_PAYLOAD_BYTE_LEN);  //get ipv6_payload_len
     raw_pkt_len = ntohs(raw_ipv6_payload_len) + IPV6_HEADR_BYTE_LEN;
@@ -292,21 +293,42 @@ static void format_icmp(const char *raw_pkt, char *icmp_buf, int *icmp_len, int 
     return;
 }
 
-unsigned char send_icmp_unreachable(const struct streaminfo *a_stream, const void *raw_pkt)
+/*   get option from raw packet.
+ *   example:
+ *   void *raw_pkt_data;
+ *   ret = get_opt_from_rawpkt(voidpkt, RAW_PKT_GET_DATA, &raw_pkt_data);
+ *   if(0 == ret){
+ *           (struct mesa_ethernet_hdr *)raw_pkt_data;
+ *   }else if(1 == ret){
+ *           (raw_ipfrag_list_t *)raw_pkt_data;
+ *   }else{
+ *           error!
+ *   }
+ */
+
+unsigned char send_icmp_unreachable(const struct streaminfo *a_stream)
 {
     char icmp_buf[ICMP_MAX_LEN] = {0}; 
     char debug_buf[512] = {0};
     int  icmp_len = 0;
+    int  get_rawpkt_ret = 0;
+    void *raw_pkt;
 
-    if((a_stream==NULL)||(raw_pkt==NULL)){
+    if(a_stream==NULL){
+        MESA_handle_runtime_log(g_tsg_para.logger,
+                RLOG_LV_DEBUG,
+                __FUNCTION__,
+                "a_stream is NULL");
         return STATE_DROPPKT;
     }                                                                                                                        
 
-    format_icmp((char *)raw_pkt, icmp_buf, &icmp_len, a_stream->addr.addrtype);
+    get_rawpkt_ret = get_rawpkt_opt_from_streaminfo(a_stream, RAW_PKT_GET_DATA, &raw_pkt);
+
+    format_icmp((char *)raw_pkt+ETHERNET_BYTE_LEN, icmp_buf, &icmp_len, a_stream->addr.addrtype);
     if (0 == tsg_send_inject_packet(a_stream, SIO_EXCLUDE_THIS_LAYER_HDR, icmp_buf, icmp_len, MESA_dir_reverse(a_stream->routedir))){
-        sprintf(debug_buf, "Addr: %s, send_icmp_unreachable sucess, raw_pkt %p, icmp_buf %p, icmp_len %d", PRINTADDR(a_stream, g_tsg_para.level), raw_pkt, icmp_buf, icmp_len);
+        sprintf(debug_buf, "Addr: %s, send sucess, get_rawpkt_ret %d, icmp_buf %p, icmp_len %d", PRINTADDR(a_stream, g_tsg_para.level), get_rawpkt_ret, icmp_buf, icmp_len);
     }else{
-        sprintf(debug_buf, "Addr: %s, send_icmp_unreachable failed, raw_pkt %p, icmp_buf %p, icmp_len %d", PRINTADDR(a_stream, g_tsg_para.level), raw_pkt, icmp_buf, icmp_len);
+        sprintf(debug_buf, "Addr: %s, send failed, get_rawpkt_ret %d, icmp_buf %p, icmp_len %d", PRINTADDR(a_stream, g_tsg_para.level), get_rawpkt_ret, icmp_buf, icmp_len);
     }
 
     MESA_handle_runtime_log(g_tsg_para.logger,
