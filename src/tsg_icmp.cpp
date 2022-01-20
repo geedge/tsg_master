@@ -312,7 +312,7 @@ unsigned char send_icmp_unreachable(const struct streaminfo *a_stream)
     char debug_buf[512] = {0};
     int  icmp_len = 0;
     int  get_rawpkt_ret = 0;
-    void *raw_pkt;
+    void *raw_pkt = NULL;
 
     if(a_stream==NULL){
         MESA_handle_runtime_log(g_tsg_para.logger,
@@ -323,9 +323,23 @@ unsigned char send_icmp_unreachable(const struct streaminfo *a_stream)
     }                                                                                                                        
 
     get_rawpkt_ret = get_rawpkt_opt_from_streaminfo(a_stream, RAW_PKT_GET_DATA, &raw_pkt);
+    MESA_handle_runtime_log(g_tsg_para.logger,
+                RLOG_LV_DEBUG,
+                __FUNCTION__,
+                "get_raw_opt_from_streaminfo()  get_rawpkt_ret = %d", get_rawpkt_ret);
+    if(0==get_rawpkt_ret && NULL!=raw_pkt){
+        //(struct mesa_ethernet_hdr *)raw_pkt_data;
+        format_icmp((char *)raw_pkt+ETHERNET_BYTE_LEN, icmp_buf, &icmp_len, a_stream->addr.addrtype);
+    }else if(1==get_rawpkt_ret && NULL!=raw_pkt){
+        //(raw_ipfrag_list_t *)raw_pkt_data;
+        //format_icmp((char *)(((raw_ipfrag_list_t *)raw_pkt)->frag_packet)+ETHERNET_BYTE_LEN, icmp_buf, &icmp_len, a_stream->addr.addrtype);
+        return STATE_DROPPKT;
+    }else{
+        //error
+        return STATE_DROPPKT;
+    }
 
-    format_icmp((char *)raw_pkt+ETHERNET_BYTE_LEN, icmp_buf, &icmp_len, a_stream->addr.addrtype);
-    if (0 == tsg_send_inject_packet(a_stream, SIO_EXCLUDE_THIS_LAYER_HDR, icmp_buf, icmp_len, MESA_dir_reverse(a_stream->routedir))){
+    if(0 == tsg_send_inject_packet(a_stream, SIO_EXCLUDE_THIS_LAYER_HDR, icmp_buf, icmp_len, MESA_dir_reverse(a_stream->routedir))){
         sprintf(debug_buf, "Addr: %s, send sucess, get_rawpkt_ret %d, icmp_buf %p, icmp_len %d", PRINTADDR(a_stream, g_tsg_para.level), get_rawpkt_ret, icmp_buf, icmp_len);
     }else{
         sprintf(debug_buf, "Addr: %s, send failed, get_rawpkt_ret %d, icmp_buf %p, icmp_len %d", PRINTADDR(a_stream, g_tsg_para.level), get_rawpkt_ret, icmp_buf, icmp_len);
