@@ -591,7 +591,7 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
     }else{
         if(_context->method_type != TSG_METHOD_TYPE_TAMPER)
         {
-            _context->method_type=TSG_METHOD_TYPE_TAMPER;
+            _context->method_type = TSG_METHOD_TYPE_TAMPER;
             _context->tamper_count = -1;
         }
         else
@@ -607,7 +607,7 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
 
     if(a_stream->type != STREAM_TYPE_TCP){
         if(0 == send_tamper_xxx(a_stream, &_context->tamper_count, user_data)){
-            return STATE_DROPPKT;
+            return STATE_GIVEME|STATE_DROPPKT;
         }
     }
     return STATE_GIVEME;

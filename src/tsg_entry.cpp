@@ -728,6 +728,45 @@ void free_gather_app_result(int thread_seq, void *project_req_value)
 	}
 }
 
+static int is_tamper_action(struct Maat_rule_t *p_result){
+    struct compile_user_region *user_region=NULL;
+    user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
+    if(user_region == NULL){
+        return 0;
+    }else if(user_region->method_type != TSG_METHOD_TYPE_TAMPER){
+        return 0 ;
+    }
+    return 1;
+}
+
+static void copy_tamper_result(const struct streaminfo *a_stream, struct master_context *context,  struct Maat_rule_t *p_result, struct Maat_rule_t *result, int result_num, int thread_seq)
+{
+    int i=0;
+
+    if(!is_tamper_action(p_result)){
+        return;
+    }
+
+    if(context->result==NULL){
+        context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t)*MAX_RESULT_NUM);
+    }
+
+    for(i=0; i<result_num && context->hit_cnt<MAX_RESULT_NUM; i++){
+        memcpy(context->result+context->hit_cnt, &result[i], sizeof(struct Maat_rule_t));
+        context->hit_cnt+=1;
+    }
+
+    MESA_handle_runtime_log(g_tsg_para.logger,
+                                RLOG_LV_DEBUG,
+                                "TAMPER",
+                                "Hit tamper policy, policy_id: %d service: %d action: %d addr: %s",
+                                result[0].config_id,
+                                result[0].service_id,
+                                (unsigned char)result[0].action,
+                                PRINTADDR(a_stream, g_tsg_para.level));
+    return;
+}
+
 static void copy_monitor_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int result_num, int thread_seq)
 {
 	int i=0;
@@ -1499,10 +1538,11 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 		{
 			case	TSG_ACTION_DENY:
 				state=tsg_deal_deny_action(a_stream, p_result, context->proto, ACTION_RETURN_TYPE_APP, a_packet);
-				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT || (state&APP_STATE_KILL_OTHER))
+				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT || (state&APP_STATE_KILL_OTHER) || is_tamper_action(p_result))
 				{
 					context->hit_cnt=0;
 					master_send_log(a_stream, p_result, 1, context, a_stream->threadnum);					
+                    copy_tamper_result(a_stream, context, p_result, result, hit_num, a_stream->threadnum);
 					copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_FW_RESULT, a_stream->threadnum);
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
