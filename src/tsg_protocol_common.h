@@ -23,6 +23,8 @@ enum TSG_DENY_TYPE
 	TSG_DENY_TYPE_SEND_ICMP,
 	TSG_DENY_TYPE_DEFAULT_RST,
 	TSG_DENY_TYPE_DEFAULT_DROP,
+	TSG_DENY_TYPE_APP_DROP,
+	TSG_DENY_TYPE_APP_RATELIMIT,
 	TSG_DENY_TYPE_MAX
 };
 
@@ -77,6 +79,12 @@ struct packet_capture
 	int depth;
 };
 
+struct app_action_para
+{
+	int send_reset_enable;
+	int send_icmp_enable;
+};
+
 struct deny_user_region
 {
 	enum TSG_DENY_TYPE type;
@@ -93,7 +101,8 @@ struct deny_user_region
 		struct dns_user_region *records;
 		int profile_id;
 		int bps;
-		int send_icmp_enable;		
+		int send_icmp_enable;
+		struct app_action_para app_para;
 		void *para;
 	};
 };
@@ -137,5 +146,6 @@ unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, Maat_rul
 
 unsigned char send_icmp_unreachable(const struct streaminfo *a_stream);
 int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count, const void *raw_pkt);
+unsigned char tsg_deny_application(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, int app_id, enum ACTION_RETURN_TYPE type, const void *user_data);
 
 #endif

@@ -1488,9 +1488,12 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 int scan_application_id_and_properties(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, struct master_context *context, struct app_identify_result *identify_result, int thread_seq)
 {
 	int i=0,hit_num=0;
+	int hited_app_id=0;
+	int after_n_packets=0;
 	char *name=NULL;
 	char app_id_buff[32]={0};
 	struct app_id_dict *dict=NULL;
+	struct Maat_rule_t *p_result, *d_result=NULL;
 
 	for(i=0; i< identify_result->app_id_num; i++)
 	{
@@ -1505,12 +1508,8 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->characteristics, (char *)"characteristics", thread_seq);
 
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->app_name, identify_result->app_id[i], thread_seq);
-			//hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, dict->parent_app_name, dict->parent_app_id, thread_seq);
-
-			if(context->hited_app_id==0 && hit_num>0 && identify_result->origin!=ORIGIN_BASIC_PROTOCOL)
-			{
-				context->hited_app_id=identify_result->app_id[i];
-			}
+			after_n_packets=dict->deny_app_para.after_n_packets;
+			
 			set_app_timeout(a_stream, dict, &(context->timeout));
 			app_id_dict_free(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
 		}
@@ -1519,15 +1518,47 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 			name=tsg_l7_protocol_id2name(identify_result->app_id[i]);
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), ((name==NULL) ? (char *)"" : name), identify_result->app_id[i], thread_seq);
 		}
+
+		p_result=tsg_fetch_deny_rule(result, hit_num);
+		if(d_result==NULL)
+		{
+			d_result=p_result;
+			hited_app_id=identify_result->app_id[i];
+			continue;
+		}
+		
+		if(d_result->config_id!=p_result->config_id)
+		{
+			d_result=p_result;
+			hited_app_id=identify_result->app_id[i];
+		}
 	}	
 
+	if(hit_num>0)
+	{
+		if(identify_result->origin!=ORIGIN_BASIC_PROTOCOL)
+		{
+			context->hited_app_id=hited_app_id;			
+		}
+		
+		context->hited_para.hited_app_id=hited_app_id;
+		context->hited_para.after_n_packets=after_n_packets;
+	}
+
+	if(d_result!=NULL && d_result->action==TSG_ACTION_DENY)
+	{
+		copy_result_to_project(a_stream, context, d_result, NULL, context->proto, PULL_FW_RESULT, thread_seq);
+	}
+		
 	return hit_num;
 }
 
 static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int hit_num, const void *a_packet)
 {
-	Maat_rule_t *p_result=NULL;
-	unsigned char state=APP_STATE_GIVEME;
+	int ret=0;
+	unsigned char state=APP_STATE_GIVEME;	
+	struct identify_info tmp_identify_info;	
+	Maat_rule_t *p_result=NULL, app_result={0};
 	struct tcpall_context *tmp_tcpall_context=NULL;
 
 	p_result=tsg_policy_decision_criteria(result, hit_num);
@@ -1537,7 +1568,29 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
-				state=tsg_deal_deny_action(a_stream, p_result, context->proto, ACTION_RETURN_TYPE_APP, a_packet);
+				ret=tsg_pull_policy_result((struct streaminfo* )a_stream, PULL_FW_RESULT, &app_result, 1, &tmp_identify_info);
+				if(ret>0 && app_result.action==TSG_ACTION_DENY && app_result.config_id==p_result->config_id)
+				{
+					if(context->hited_para.after_n_packets>0)
+					{
+						ret=tsg_set_method_to_tcpall(a_stream, &tmp_tcpall_context, TSG_METHOD_TYPE_APP_DROP, a_stream->threadnum);
+						if(ret>0)
+						{
+							tmp_tcpall_context->hited_para=context->hited_para;
+						}
+						state=APP_STATE_KILL_OTHER|APP_STATE_DROPME;
+						break;
+					}
+					else
+					{
+						state=tsg_deny_application(a_stream, p_result, context->proto, context->hited_para.hited_app_id, ACTION_RETURN_TYPE_APP, a_packet);
+					}
+				}
+				else
+				{
+					state=tsg_deal_deny_action(a_stream, p_result, context->proto, ACTION_RETURN_TYPE_APP, a_packet);
+				}
+				
 				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT || (state&APP_STATE_KILL_OTHER) || is_tamper_action(p_result))
 				{
 					context->hit_cnt=0;
@@ -1835,14 +1888,16 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 	int eth_rawpkt_len=0;
 	scan_status_t scan_mid=NULL;
 	struct Maat_rule_t *p_result=NULL;	
-	unsigned char state=APP_STATE_GIVEME;
+	unsigned char state=APP_STATE_GIVEME;	
+	struct identify_info tmp_identify_info; 
 	struct Maat_rule_t result[MAX_RESULT_NUM]={0};	
-	struct tcpall_context *context=(struct tcpall_context *)(*pme);
+	struct master_context *data_context=NULL;
+	struct tcpall_context *all_context=(struct tcpall_context *)(*pme);
 		
 	if(stream_state==OP_STATE_PENDING)
 	{
-		context->method_type=TSG_METHOD_TYPE_DEFAULT;
-		context->after_n_packets=get_default_para(a_stream, g_tsg_para.default_compile_id);
+		all_context->method_type=TSG_METHOD_TYPE_DEFAULT;
+		all_context->after_n_packets=get_default_para(a_stream, g_tsg_para.default_compile_id);
 		
 		hit_num=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, PROTO_UNKONWN, &scan_mid, result, MAX_RESULT_NUM);
 		if(hit_num>0)
@@ -1866,7 +1921,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 		scan_mid=NULL;
 	}
 
-	switch(context->method_type)
+	switch(all_context->method_type)
 	{
 		case	TSG_METHOD_TYPE_RATE_LIMIT:
 			eth_rawpkt_len=get_raw_packet_len(a_stream);
@@ -1875,7 +1930,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 				break;
 			}
 	
-			ret=is_permit_pass(eth_rawpkt_len*8, context->bucket, thread_seq);
+			ret=is_permit_pass(eth_rawpkt_len*8, all_context->bucket, thread_seq);
 			if(ret==0)
 			{
 				state|=APP_STATE_GIVEME|APP_STATE_DROPPKT;
@@ -1883,13 +1938,13 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			break;
         case    TSG_METHOD_TYPE_TAMPER:
             if(a_stream->opstate != OP_STATE_PENDING){
-                if(0 == send_tamper_xxx(a_stream, &context->tamper_count, a_packet)){
+                if(0 == send_tamper_xxx(a_stream, &all_context->tamper_count, a_packet)){
                     state|=APP_STATE_GIVEME|APP_STATE_DROPPKT;
                 }
             }
             break;
 		case	TSG_METHOD_TYPE_DEFAULT:
-			if(!is_do_default_policy(a_stream, context->after_n_packets) || stream_state==OP_STATE_CLOSE)
+			if(!is_do_default_policy(a_stream, all_context->after_n_packets) || stream_state==OP_STATE_CLOSE)
 			{
 				break;
 			}
@@ -1898,6 +1953,26 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			{
 				state=tsg_deal_deny_action(a_stream, &result[0], PROTO_UNKONWN, ACTION_RETURN_TYPE_APP, a_packet);				
 				master_send_log(a_stream, &result[0], 1, NULL, thread_seq);
+			}
+			break;
+		case	TSG_METHOD_TYPE_APP_DROP:
+			if((all_context->hited_para.after_n_packets-- > 0) || stream_state==OP_STATE_CLOSE)
+			{
+				break;
+			}
+
+			ret=tsg_pull_policy_result((struct streaminfo *)a_stream,PULL_FW_RESULT, &result[0], 1, &tmp_identify_info);
+			if(ret>0)
+			{
+				data_context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
+				state=tsg_deny_application(a_stream, 
+											&result[0],
+											(data_context==NULL ? PROTO_UNKONWN : data_context->proto),
+											all_context->hited_para.hited_app_id,
+											ACTION_RETURN_TYPE_APP,
+											a_packet
+										);
+				master_send_log(a_stream, &result[0], 1, data_context, thread_seq);
 			}
 			break;
 		default:

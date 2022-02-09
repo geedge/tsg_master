@@ -317,6 +317,45 @@ static char *_malloc_field(const char *field_start, size_t field_len)
 	return field;
 }
 
+static int get_string_from_json(cJSON *object, const char *key, char **value)
+{
+	if(object==NULL || key==NULL)
+	{
+		return 0;
+	}
+	int len=0;
+	cJSON *item=cJSON_GetObjectItem(object, key);
+	if(item!=NULL)
+	{
+		len=strlen(item->valuestring);
+		(*value)=(char *)malloc(len+1);
+		memcpy((*value), item->valuestring, len);
+		(*value)[len]='\0';
+
+		return 1;
+	}
+
+	return 0;
+}
+
+static int get_integer_from_json(cJSON *object, const char *key, int *value)
+{
+	if(object==NULL || key==NULL || (value)==NULL)
+	{
+		return 0;
+	}
+	
+	cJSON *item=cJSON_GetObjectItem(object, key);
+	if(item!=NULL)
+	{
+		(*value)=item->valueint;
+		return 1;
+	}
+
+	return 0;
+}
+
+
 void ASN_number_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
 	if((*from)!=NULL)
@@ -521,6 +560,49 @@ void subscriber_id_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 	return;
 }
 
+static int parse_deny_action(char *deny_action_str, struct deny_user_region *deny_app_para)
+{
+	if(deny_action_str==NULL)
+	{
+		return 0;
+	}
+
+	cJSON *app_para=cJSON_Parse(deny_action_str);
+	if(app_para==NULL)
+	{
+		return 0;
+	}
+
+	char *method=NULL;	
+	int ret=get_string_from_json(app_para, "method", &method);	
+	if(ret==1)
+	{
+		int method_type=tsg_get_method_id(method);
+		switch(method_type)
+		{
+			case	TSG_METHOD_TYPE_DROP:
+				deny_app_para->type=TSG_DENY_TYPE_APP_DROP;
+				get_integer_from_json(app_para, "send_tcp_reset", &(deny_app_para->app_para.send_reset_enable));	
+				get_integer_from_json(app_para, "after_n_packets", &(deny_app_para->after_n_packets));	
+				get_integer_from_json(app_para, "send_icmp_unreachable", &(deny_app_para->app_para.send_icmp_enable));
+				break;
+			case	TSG_METHOD_TYPE_RATE_LIMIT:
+				deny_app_para->type=TSG_DENY_TYPE_APP_RATELIMIT;
+				get_integer_from_json(app_para, "bps", &(deny_app_para->bps)); 
+				break;
+			default:
+				break;
+		}
+
+		free(method);
+		method=NULL;
+	}
+	cJSON_Delete(app_para);
+	app_para=NULL;
+
+	return 1;
+}
+
 static void app_id_dict_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
 	if((*from)!=NULL)
@@ -535,9 +617,9 @@ static void app_id_dict_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_E
 
 static void app_id_dict_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
+	char *deny_action_str=NULL;
 	struct app_id_dict *dict=NULL;
 
-	
 	switch(g_tsg_para.app_dict_field_num)
 	{
 		case	16:
@@ -550,12 +632,13 @@ static void app_id_dict_new(int table_id, const char* key, const char* table_lin
 			dict->technology=tsg_get_column_string_value(table_line, 5);
 			dict->risk=tsg_get_column_string_value(table_line, 6); 
 			dict->characteristics=tsg_get_column_string_value(table_line, 7);
-			dict->deny_action=tsg_get_column_integer_value(table_line, 10);
 			dict->continue_scanning=tsg_get_column_integer_value(table_line, 11); 
 			dict->tcp_timeout=(unsigned short)tsg_get_column_integer_value(table_line, 12);
 			dict->udp_timeout=(unsigned short)tsg_get_column_integer_value(table_line, 13); 
 			dict->tcp_half_close=tsg_get_column_integer_value(table_line, 14);
 			dict->tcp_time_wait=tsg_get_column_integer_value(table_line, 15);
+			
+			deny_action_str=tsg_get_column_string_value(table_line, 10);
 			break;
 		case	18:
 			dict=(struct app_id_dict *)calloc(1, sizeof(struct app_id_dict));
@@ -569,18 +652,23 @@ static void app_id_dict_new(int table_id, const char* key, const char* table_lin
 			dict->technology=tsg_get_column_string_value(table_line, 7);
 			dict->risk=tsg_get_column_string_value(table_line, 8); 
 			dict->characteristics=tsg_get_column_string_value(table_line, 9);
-			dict->deny_action=tsg_get_column_integer_value(table_line, 12);
 			dict->continue_scanning=tsg_get_column_integer_value(table_line, 13); 
 			dict->tcp_timeout=tsg_get_column_integer_value(table_line, 14);
 			dict->udp_timeout=tsg_get_column_integer_value(table_line, 15); 
 			dict->tcp_half_close=tsg_get_column_integer_value(table_line, 16);
 			dict->tcp_time_wait=tsg_get_column_integer_value(table_line, 17);
+
+			deny_action_str=tsg_get_column_string_value(table_line, 12);
 			break;
 		default:
 			return ;
 			break;
 	}
 
+	parse_deny_action(deny_action_str, &(dict->deny_app_para));
+	_free_field(deny_action_str);
+	deny_action_str=NULL;
+	
 	str_unescape(dict->risk);
 	str_unescape(dict->app_name);
 	str_unescape(dict->parent_app_name);
@@ -614,44 +702,6 @@ void app_id_dict_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* ar
 		}
 	}
 	return;
-}
-
-static int get_string_from_json(cJSON *object, const char *key, char **value)
-{
-	if(object==NULL || key==NULL)
-	{
-		return 0;
-	}
-	int len=0;
-	cJSON *item=cJSON_GetObjectItem(object, key);
-	if(item!=NULL)
-	{
-		len=strlen(item->valuestring);
-		(*value)=(char *)malloc(len+1);
-		memcpy((*value), item->valuestring, len);
-		(*value)[len]='\0';
-
-		return 1;
-	}
-
-	return 0;
-}
-
-static int get_integer_from_json(cJSON *object, const char *key, int *value)
-{
-	if(object==NULL || key==NULL || (value)==NULL)
-	{
-		return 0;
-	}
-	
-	cJSON *item=cJSON_GetObjectItem(object, key);
-	if(item!=NULL)
-	{
-		(*value)=item->valueint;
-		return 1;
-	}
-
-	return 0;
 }
 
 static int parse_answer_ttl(struct dns_user_region *user_region_records, cJSON *one_record, int answer_type)
@@ -2781,8 +2831,10 @@ int tsg_set_method_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 		case	TSG_METHOD_TYPE_DEFAULT:
 		case	TSG_METHOD_TYPE_MIRRORED:			
 			_context->method_type=method_type;
+			*context=_context;
 			break;
 		default:
+			return 0;
 			break;
 	}
 
@@ -2802,6 +2854,7 @@ int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 	switch(_context->method_type)
 	{
 		case	TSG_METHOD_TYPE_RATE_LIMIT:
+			*context=_context;
 			return 1;	
 			break;
 		case	TSG_METHOD_TYPE_DEFAULT:
@@ -2813,6 +2866,7 @@ int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 
 	_context->method_type=TSG_METHOD_TYPE_RATE_LIMIT;
 	_context->bucket=bucket;
+	*context=_context;
 	
 	return 1;
 }

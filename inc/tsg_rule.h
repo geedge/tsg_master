@@ -29,6 +29,7 @@ enum TSG_METHOD_TYPE
 	TSG_METHOD_TYPE_MIRRORED,
     TSG_METHOD_TYPE_TAMPER,
     TSG_METHOD_TYPE_DEFAULT,
+    TSG_METHOD_TYPE_APP_DROP,
 	TSG_METHOD_TYPE_MAX
 };
 
@@ -45,26 +46,6 @@ typedef	enum _PULL_RESULT_TYPE
 	PULL_FW_RESULT,
 	PULL_ALL_RESULT
 }PULL_RESULT_TYPE;
-
-struct app_id_dict
-{
-	int ref_cnt;
-	int app_id;
-	int parent_app_id;
-	int deny_action;
-	int continue_scanning;
-	unsigned short tcp_timeout;
-	unsigned short udp_timeout;
-	int tcp_time_wait;
-	int tcp_half_close;
-	char *risk;
-	char *app_name;
-	char *parent_app_name;
-	char *category;
-	char *subcategroy;
-	char *technology;
-	char *characteristics;
-};
 
 extern Maat_feather_t g_tsg_maat_feather;
 

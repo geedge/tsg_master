@@ -17,6 +17,7 @@
 #include "tsg_label.h"
 #include "tsg_statistic.h"
 #include "tsg_leaky_bucket.h"
+#include "tsg_protocol_common.h"
 
 #if(__GNUC__ * 100 + __GNUC_MINOR__ * 10 + __GNUC_PATCHLEVEL__ >= 411)
 #define atomic_inc(x) __sync_add_and_fetch((x),1)
@@ -187,6 +188,31 @@ struct http_response_pages
 	char *content;
 };
 
+struct app_id_dict
+{
+	int ref_cnt;
+	int app_id;
+	int parent_app_id;
+	int continue_scanning;
+	unsigned short tcp_timeout;
+	unsigned short udp_timeout;
+	int tcp_time_wait;
+	int tcp_half_close;
+	char *risk;
+	char *app_name;
+	char *parent_app_name;
+	char *category;
+	char *subcategroy;
+	char *technology;
+	char *characteristics;
+	struct deny_user_region deny_app_para;
+};
+
+struct hited_app_para
+{
+	int hited_app_id;
+	int after_n_packets;
+};
 
 struct master_context
 {
@@ -202,6 +228,7 @@ struct master_context
 	char *quic_ua;
 	scan_status_t mid;	
 	struct Maat_rule_t *result;
+	struct hited_app_para hited_para;
 	struct timespec last_scan_time;
 };
 
@@ -213,7 +240,8 @@ struct tcpall_context
 	{
 		struct leaky_bucket *bucket;
 		long tamper_count;		
-		int after_n_packets;
+		int after_n_packets;		
+		struct hited_app_para hited_para;
 		void *para;
 	};
 };

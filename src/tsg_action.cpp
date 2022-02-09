@@ -803,24 +803,16 @@ static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, M
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
+static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struct compile_user_region *user_region, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
 {
 	unsigned char local_state=STATE_GIVEME;
 	unsigned char state=0;
 	int method_type=TSG_METHOD_TYPE_RESET;
-	struct compile_user_region *user_region=NULL;
-
-	if(p_result->action==TSG_ACTION_BYPASS)
-	{
-		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPME : APP_STATE_GIVEME);
-	}
-
-	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 	if(user_region!=NULL)
 	{
 		method_type=user_region->method_type;
 	}
-	
+
 	switch(method_type)
 	{
 		case	TSG_METHOD_TYPE_DROP:
@@ -850,20 +842,34 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 		case	TSG_METHOD_TYPE_DEFAULT:
 			local_state=do_action_default_xxx(a_stream, p_result, user_region, protocol, user_data);
 			break;
+		case	TSG_METHOD_TYPE_APP_DROP:
+			if(user_region->deny->type!=TSG_DENY_TYPE_APP_DROP)
+			{
+				break;
+			}
+			
+			local_state=0;
+			if(user_region->deny->app_para.send_icmp_enable==1)
+			{
+				 local_state|=do_action_tamper(a_stream, p_result, user_region, protocol, user_data);
+			}
+
+			if(user_region->deny->app_para.send_reset_enable==1)
+			{
+				 local_state|=do_action_reset(a_stream, p_result, protocol);
+			}
+			break;
 		default:
 			break;
 	}
-
 	
+	tsg_notify_hited_monitor_result(a_stream, p_result, 1, a_stream->threadnum);
+
 	if(method_type!=TSG_METHOD_TYPE_DEFAULT)
 	{
 		struct tcpall_context *context=NULL;
 		tsg_set_method_to_tcpall(a_stream, &context, (enum TSG_METHOD_TYPE)method_type, a_stream->threadnum);
 	}
-
-	tsg_notify_hited_monitor_result(a_stream, p_result, 1, a_stream->threadnum);
-
-	security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
 	
 	state=((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_GIVEME : APP_STATE_GIVEME);
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_DROPME ? PROT_STATE_DROPME : 0) : (local_state&STATE_DROPME ? APP_STATE_DROPME : 0));	
@@ -871,6 +877,64 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_DROPPKT ? PROT_STATE_DROPPKT : 0) : (local_state&STATE_DROPPKT ? APP_STATE_DROPPKT: 0));
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (0) : (local_state&STATE_KILL_OTHER ? APP_STATE_KILL_OTHER : 0));
 	
+	return state;
+}
+
+unsigned char tsg_deny_application(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, int app_id, enum ACTION_RETURN_TYPE type, const void *user_data)
+{
+	unsigned char state=0;
+	char app_id_buff[32]={0};
+	struct app_id_dict *dict=NULL;	
+	struct compile_user_region app_user_region={0}, *user_region=NULL;
+	
+	snprintf(app_id_buff, sizeof(app_id_buff), "%d", app_id);
+	dict=(struct app_id_dict *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
+	if(dict==NULL)
+	{
+		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_GIVEME : APP_STATE_GIVEME);
+	}
+	
+	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
+	if(user_region!=NULL)
+	{
+		app_user_region.capture=user_region->capture;		
+		security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+	}
+
+	switch(dict->deny_app_para.type)
+	{
+		case	TSG_DENY_TYPE_APP_DROP:
+			app_user_region.method_type=TSG_METHOD_TYPE_APP_DROP;
+			app_user_region.deny=&(dict->deny_app_para);
+			break;
+		case	TSG_DENY_TYPE_APP_RATELIMIT:
+			app_user_region.method_type=TSG_METHOD_TYPE_RATE_LIMIT;
+			app_user_region.deny=&(dict->deny_app_para);
+			break;
+		default:
+			break;
+	}
+	
+	state=tsg_do_deny_action(a_stream, &app_user_region, p_result, protocol, type, user_data);
+	app_id_dict_free(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
+	
+	return state;
+}
+
+unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
+{
+	unsigned char state=0;
+	struct compile_user_region *user_region=NULL;
+
+	if(p_result->action==TSG_ACTION_BYPASS)
+	{
+		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPME : APP_STATE_GIVEME);
+	}
+
+	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
+	state=tsg_do_deny_action(a_stream, user_region, p_result, protocol, type, user_data);
+	security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+
 	return state;
 }
 
