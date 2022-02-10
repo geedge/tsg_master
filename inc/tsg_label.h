@@ -50,6 +50,7 @@ struct location_info
 	char *country_full;
 	char *province_full;
 	char *city_full;
+	char *subdivision_addr;
 };
 
 struct subscribe_id_info

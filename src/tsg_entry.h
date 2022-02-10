@@ -263,6 +263,7 @@ typedef	struct tsg_para
 	short mirror_switch;
 	unsigned short timeout;
 	int dynamic_maat_switch;
+	int location_field_num;
 	int app_dict_field_num;
 	int device_seq_in_dc;
 	int datacenter_id;

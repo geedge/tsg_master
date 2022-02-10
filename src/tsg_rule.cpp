@@ -425,23 +425,21 @@ void location_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DAT
 
 void location_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
 {
-	int country_full=13,province_full=15,city_full=16;
+	int country_full=13,province_full=15,city_full=16,subdivision_addr=17;
 	struct location_info *location=(struct location_info *)calloc(1, sizeof(struct location_info));
-	
+
 	location->country_full=tsg_get_column_string_value(table_line, country_full);	
 	location->province_full=tsg_get_column_string_value(table_line, province_full);
 	location->city_full=tsg_get_column_string_value(table_line, city_full);
-
-	if(location->country_full==NULL && location->province_full==NULL && location->city_full==NULL)
-	{
-		_free_field((char *)location);
-		location=NULL;
-		return ;
-	}
-
 	str_unescape(location->country_full);
 	str_unescape(location->province_full);
 	str_unescape(location->city_full);
+			
+	if(g_tsg_para.location_field_num==19)
+	{
+		location->subdivision_addr=tsg_get_column_string_value(table_line, subdivision_addr);
+		str_unescape(location->subdivision_addr);
+	}
 	
 	atomic_inc(&location->ref_cnt);
 	*ad=(MAAT_PLUGIN_EX_DATA)location;
@@ -459,6 +457,8 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 			_free_field(location->country_full);
 			_free_field(location->province_full);
 			_free_field(location->city_full);
+			_free_field(location->subdivision_addr);
+
 			_free_field((char *)(*ad));
 			*ad=NULL;
 		}
@@ -1694,6 +1694,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	char cb_subscriber_ip_table[32]={0};
 	
 	MESA_load_profile_int_def(conffile, "MAAT","APP_ID_TABLE_TYPE", &g_tsg_para.app_dict_field_num, 18);
+	MESA_load_profile_int_def(conffile, "MAAT","LOCATION_TABLE_TYPE", &g_tsg_para.location_field_num, 18);
 
 	MESA_load_profile_string_def(conffile, "MAAT", "PROFILE", maat_conffile, sizeof(maat_conffile), "./tsgconf/maat.conf");		
 	MESA_load_profile_string_def(conffile, "MAAT", "SECURITY_COMPILE", g_tsg_para.table_name[TABLE_SECURITY_COMPILE], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_COMPILE");
@@ -2143,22 +2144,36 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct location_info *location, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
-	char buff[1024]={0};
-	
-	if(location==NULL || location->country_full==NULL || location->city_full==NULL || result==NULL || result_num==0)
+	char full_address[1024]={0};
+
+	if(location==NULL || result==NULL || result_num==0)
 	{
 		return 0;
 	}
+
+	if(g_tsg_para.location_field_num==19)
+	{
+		snprintf(full_address, 
+					sizeof(full_address),
+					"%s.%s.%s.%s.", 
+					location->country_full,
+					location->province_full,
+					location->city_full,
+					location->subdivision_addr==NULL ? "" : location->subdivision_addr);
+	}
+	else
+	{
+		snprintf(full_address, sizeof(full_address), "%s.%s.", location->country_full, location->city_full);
+	}
 	
-	snprintf(buff, sizeof(buff), "%s.%s.", location->country_full, location->city_full);
-	ret=Maat_full_scan_string(maat_feather, g_tsg_para.table_id[idx], CHARSET_GBK, buff, strlen(buff), result, NULL, result_num, mid, a_stream->threadnum);
+	ret=Maat_full_scan_string(maat_feather, g_tsg_para.table_id[idx], CHARSET_GBK, full_address, strlen(full_address), result, NULL, result_num, mid, a_stream->threadnum);
 	if(ret > 0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger,
 									RLOG_LV_DEBUG,
 									"SCAN_IP_LOCATION",
 									"Hit IP_LOCATION: %s scan ret: %d table_name: %s policy_id: %d service: %d action: %d addr: %s",
-									buff,
+									full_address,
 									ret,
 									g_tsg_para.table_name[idx],
 									result[0].config_id,
@@ -2173,7 +2188,7 @@ int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a
 								RLOG_LV_DEBUG,
 								"SCAN_IP_LOCATION",
 								"No hit IP_LOCATION: %s scan ret: %d table_name: %s addr: %s",
-								buff,
+								full_address,
 								ret,
 								g_tsg_para.table_name[idx],
 								PRINTADDR(a_stream, g_tsg_para.level)
