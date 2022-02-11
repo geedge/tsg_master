@@ -865,7 +865,7 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 	
 	tsg_notify_hited_monitor_result(a_stream, p_result, 1, a_stream->threadnum);
 
-	if(method_type!=TSG_METHOD_TYPE_DEFAULT)
+	if(method_type!=TSG_METHOD_TYPE_DEFAULT && method_type!=TSG_METHOD_TYPE_APP_DROP)
 	{
 		struct tcpall_context *context=NULL;
 		tsg_set_method_to_tcpall(a_stream, &context, (enum TSG_METHOD_TYPE)method_type, a_stream->threadnum);

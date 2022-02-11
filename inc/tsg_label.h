@@ -33,6 +33,7 @@ typedef enum _tsg_protocol
    PROTO_APP,
    PROTO_L2TP,
    PROTO_PPTP,
+   PROTO_STRATUM,
    PROTO_MAX
 }tsg_protocol_t;
 

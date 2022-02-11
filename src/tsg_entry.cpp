@@ -10,7 +10,8 @@
 #include <MESA/ssl.h>
 #include <MESA/mail.h>
 #include <MESA/quic.h>
-#include "MESA/sip.h"
+#include <MESA/sip.h>
+#include <MESA/stratum.h>
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
@@ -115,7 +116,8 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"},
 										 {PROTO_RTP, 	0, 	"RTP"},
 										 {PROTO_APP, 	0,	"APP"},
 										 {PROTO_L2TP, 	0,	"L2TP"},
-										 {PROTO_PPTP, 	0,	"PPTP"}
+										 {PROTO_PPTP, 	0,	"PPTP"},
+										 {PROTO_STRATUM, 	0,	"Stratum"}
 										};
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
@@ -530,17 +532,26 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	log_msg.result=p_result;
 	log_msg.result_num=result_num;
 
-	if(proto==PROTO_SSH && p_result[0].action==TSG_ACTION_MONITOR && g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]>=0)
+	if(p_result[0].action==TSG_ACTION_MONITOR && g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]>=0)
 	{
-		notify=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]);
-		if (notify != NULL && notify->protocol== PROTO_SSH && notify->pdata.TLD_handle!=NULL)
+		switch(proto)
 		{
-			TLD_handle = TLD_duplicate(notify->pdata.TLD_handle);
-			if (TLD_handle!=NULL)
-			{
-				tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);
-				return 1;
-			}
+			case	PROTO_SSH:
+			case	PROTO_STRATUM:
+					notify=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]);
+					if (notify != NULL && notify->pdata.TLD_handle!=NULL && (notify->protocol== PROTO_SSH || notify->protocol== PROTO_STRATUM))
+					{
+						TLD_handle = TLD_duplicate(notify->pdata.TLD_handle);
+						if (TLD_handle!=NULL)
+						{
+							tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);							
+							tsg_set_policy_flow((struct streaminfo *)a_stream, p_result, thread_seq);
+							return 1;
+						}
+					}
+				break;
+			default:
+				break;
 		}
 	}
 
@@ -1422,6 +1433,16 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 				}
 			}
 
+			if(g_tsg_para.proto_flag&(1<<PROTO_STRATUM))  //Stratum
+			{
+				ret=stratum_identify((struct streaminfo *)a_stream, NULL, a_stream->threadnum, a_packet);
+				if(ret==IS_STRATUM)
+				{
+					context->proto=PROTO_STRATUM;
+					return 1;
+				}
+			}
+
 			break;
 		case	STREAM_TYPE_UDP:
 			if(g_tsg_para.proto_flag&(1<<PROTO_DNS))  //dns
@@ -1703,7 +1724,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 			)
 			{
 				is_parent_ssl=1;
-			}
+			}			
 			break;
 		default:
 			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_BRIDGE_CB", "Unknown type: %d addr: %s", identify_result->origin, PRINTADDR(a_stream, g_tsg_para.level));
@@ -1736,7 +1757,7 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 	int i=0,table_id=0;
 	int ret=0,hit_num=0;
 	unsigned int protocol_id=0;
-	struct gather_app_result *identify_result=NULL;
+	struct gather_app_result *gather_result=NULL;
 	
 	ret=identify_application_protocol(a_stream, context, a_packet);
 	if(ret==1)
@@ -1766,14 +1787,18 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 	}
 
-	identify_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
-	for(i=0; i<ORIGIN_MAX && identify_result!=NULL; i++)
+	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
+	for(i=0; i<ORIGIN_MAX && gather_result!=NULL; i++)
 	{
-		hit_num+=scan_application_id_and_properties(a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, context, &(identify_result->result[i]), a_stream->threadnum);
+		hit_num+=scan_application_id_and_properties(a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result->result[i]), a_stream->threadnum);
 	}
 			
 	
-	if((is_only_monitor(result, hit_num)) && context->proto!=PROTO_UNKONWN && context->proto!=PROTO_APP && context->proto!=PROTO_SSH)	// business deal action of monitor 
+	if((is_only_monitor(result, hit_num)) && 
+		context->proto!=PROTO_UNKONWN &&
+		context->proto!=PROTO_APP &&
+		context->proto!=PROTO_SSH &&
+		context->proto!=PROTO_STRATUM)	// business deal action of monitor 
 	{
 		hit_num=0;
 	}
@@ -1788,7 +1813,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 	unsigned char state=APP_STATE_GIVEME;
 	Maat_rule_t scan_result[MAX_RESULT_NUM];
 	Maat_rule_t *p_result=NULL;
-	struct gather_app_result *identify_result=NULL;
+	struct gather_app_result *gather_result=NULL;
 	struct master_context *context=(struct master_context *)*pme;
 
 	if(*pme==NULL)
@@ -1848,10 +1873,10 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 				hit_num+=ret;
 			}
 			
-			identify_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
-			for(i=0; i<ORIGIN_MAX && identify_result!=NULL; i++)
+			gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
+			for(i=0; i<ORIGIN_MAX && gather_result!=NULL; i++)
 			{
-				hit_num+=scan_application_id_and_properties(a_stream, scan_result+hit_num, MAX_RESULT_NUM-hit_num, context, &(identify_result->result[i]), thread_seq);
+				hit_num+=scan_application_id_and_properties(a_stream, scan_result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result->result[i]), thread_seq);
 			}
 
 			p_result=tsg_policy_decision_criteria(scan_result, hit_num);
@@ -2090,7 +2115,7 @@ extern "C" int TSG_MASTER_INIT()
 	g_tsg_para.default_vlan.num=1;
 	MESA_load_profile_int_def(tsg_conffile, "TRAFFIC_MIRROR","DEFAULT_VLAN_ID", &(g_tsg_para.default_vlan.id[0]), 2);
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;SIP;MAIL;STREAMING_MEDIA;QUIC;SIP;SSH;");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;MAIL;STREAMING_MEDIA;QUIC;SIP;SSH;Stratum;");
 	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DATACENTER_ID", &g_tsg_para.datacenter_id, 0);
