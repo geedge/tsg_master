@@ -851,7 +851,7 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 			local_state=0;
 			if(user_region->deny->app_para.send_icmp_enable==1)
 			{
-				 local_state|=do_action_tamper(a_stream, p_result, user_region, protocol, user_data);
+				 local_state|=send_icmp_unreachable(a_stream);
 			}
 
 			if(user_region->deny->app_para.send_reset_enable==1)

@@ -350,6 +350,6 @@ unsigned char send_icmp_unreachable(const struct streaminfo *a_stream)
             __FUNCTION__,
             debug_buf);
 
-    return STATE_DROPPKT;
+    return STATE_DROPME|STATE_DROPPKT;;
 }
 
