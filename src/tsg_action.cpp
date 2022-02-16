@@ -848,7 +848,12 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 				break;
 			}
 			
-			local_state=0;
+			local_state=do_action_drop(a_stream, p_result, user_region, protocol, user_data);
+			if(protocol==PROTO_DNS && type==ACTION_RETURN_TYPE_APP)
+			{
+				local_state=set_drop_stream(a_stream, protocol);
+			}
+			
 			if(user_region->deny->app_para.send_icmp_enable==1)
 			{
 				 local_state|=send_icmp_unreachable(a_stream);
