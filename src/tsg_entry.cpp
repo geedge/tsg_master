@@ -1396,6 +1396,13 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 					context->proto=PROTO_FTP;
 					return 1;
 				}
+
+				ret=ftp_data_identify((struct streaminfo *)a_stream);
+				if(ret>0)
+				{
+					context->proto=PROTO_FTP;
+					return 1;
+				}
 			}
 			
 			if(g_tsg_para.proto_flag&(1<<PROTO_MAIL))  //mail
