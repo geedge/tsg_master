@@ -2035,10 +2035,10 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 		set_struct_project(a_udp, g_tsg_para.tcpall_project_id, (void *)(context->all_entry));
 	}
 	
-	state1=tsg_master_all_entry(a_udp, a_udp->opstate, (void **)&(context->all_entry), thread_seq, a_packet);
-	if(context->all_entry==NULL || context->all_entry->method_type!=TSG_METHOD_TYPE_RATE_LIMIT)
+	state2=tsg_master_data_entry(a_udp, (void **)&(context->data_entry), thread_seq, a_packet);	
+	if(state2==APP_STATE_GIVEME)
 	{
-		state2=tsg_master_data_entry(a_udp, (void **)&(context->data_entry), thread_seq, a_packet);		
+		state1=tsg_master_all_entry(a_udp, a_udp->opstate, (void **)&(context->all_entry), thread_seq, a_packet);
 	}
 
 	if(state1&APP_STATE_DROPME || state2&APP_STATE_DROPME || a_udp->opstate==OP_STATE_CLOSE)
