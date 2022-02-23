@@ -1648,6 +1648,48 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	
 	return _instance;
 }
+void tsg_sendlog_destroy(struct tsg_log_instance_t * instance)
+{
+	for(int i=0; i<instance->max_service; i++)
+	{
+		if(instance->topic_rkt[i]==NULL)
+		{
+			continue;
+		}
+
+		rd_kafka_topic_destroy(instance->topic_rkt[i]);
+	}
+	
+	rd_kafka_destroy_flags(instance->kafka_handle, 4);
+	rd_kafka_destroy(instance->kafka_handle);
+
+	MESA_destroy_runtime_log_handle(instance->logger);
+	instance->logger=NULL;
+
+	free(instance->topic_rkt);
+	instance->topic_rkt=NULL;
+
+	free(instance->service2topic);
+	instance->service2topic=NULL;
+	
+	free(instance);
+	instance=NULL;
+/*
+	int ret=0,count=0;
+	
+	while(1)
+	{
+		ret=rd_kafka_wait_destroyed(1000);
+		if(ret==0)
+		{
+			break;
+		}
+		count++;
+	}
+*/
+
+	return ;
+}
 
 int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, tsg_log_t *log_msg, int thread_id)
 {

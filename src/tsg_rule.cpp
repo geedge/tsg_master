@@ -820,7 +820,7 @@ static int parse_answer_records(struct dns_user_region *user_region_records, cJS
 		}
 
 		answer_type=get_dns_qtype(a_item->valuestring, strlen(a_item->valuestring));
-		switch(answer_type==-1)
+		if(answer_type==-1)
 		{
 			continue;
 		}

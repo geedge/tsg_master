@@ -213,7 +213,7 @@ static void *tsg_statistic_thread(void *arg)
 
 	FS_start(g_tsg_statis_para.fs2_handle);
 
-	while(1)
+	while(g_tsg_statis_para.thread_alive)
 	{
 		memset(&policy_traffic_info, 0, sizeof(policy_traffic_info));
 		memset(&total_traffic_info, 0, sizeof(total_traffic_info));
@@ -370,6 +370,7 @@ int tsg_statistic_init(const char *conffile, void *logger)
 	MESA_load_profile_int_def(conffile, "STATISTIC", "PROMETHEUS", &output_prometheus, 1);
 
 	g_tsg_statis_para.fs2_handle=FS_create_handle();
+	g_tsg_statis_para.thread_alive=1;
 
 	value=1;//Rewrite
 	FS_set_para(g_tsg_statis_para.fs2_handle, PRINT_MODE, &value, sizeof(value));
@@ -460,9 +461,18 @@ int tsg_statistic_init(const char *conffile, void *logger)
 
 	g_tsg_statis_para.fs_line_id=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_LINE, FS_CALC_CURRENT, (const char *)"TRAFFIC");
 
-	pthread_t stat_thread_t;
-	pthread_create(&stat_thread_t, NULL, tsg_statistic_thread, NULL);
+	pthread_create(&g_tsg_statis_para.stat_thread_id, NULL, tsg_statistic_thread, NULL);
 	
-
 	return 0;
 }
+
+void tsg_statistic_destroy(void)
+{
+	pthread_cancel(g_tsg_statis_para.stat_thread_id);
+	g_tsg_statis_para.thread_alive=0;
+	sleep(g_tsg_statis_para.cycle);
+	FS_stop(&(g_tsg_statis_para.fs2_handle));
+
+	return ;
+}
+

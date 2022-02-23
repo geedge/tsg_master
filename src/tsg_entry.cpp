@@ -2317,10 +2317,11 @@ extern "C" int TSG_MASTER_INIT()
 	return 0;
 }
 
-
-
 extern "C" int TSG_MASTER_UNLOAD()
 {
+	tsg_sendlog_destroy(g_tsg_log_instance);
+	tsg_statistic_destroy();
+
 	Maat_burn_feather(g_tsg_maat_feather);
 	g_tsg_maat_feather=NULL;
 
@@ -2329,6 +2330,11 @@ extern "C" int TSG_MASTER_UNLOAD()
 		Maat_burn_feather(g_tsg_dynamic_maat_feather);
 		g_tsg_dynamic_maat_feather=NULL;
 	}
-	
+
+	FS_stop(&(g_tsg_para.fs2_handle));
+
+	MESA_destroy_runtime_log_handle(g_tsg_para.logger);
+	g_tsg_para.logger=NULL;
+
 	return 0;
 }

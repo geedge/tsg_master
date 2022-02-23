@@ -176,6 +176,7 @@ struct tsg_log_instance_t
 
 char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t id);
 struct tsg_log_instance_t *tsg_sendlog_init(const char *filename);
+void tsg_sendlog_destroy(struct tsg_log_instance_t * instance);
 
 #endif
 

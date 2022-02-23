@@ -382,6 +382,8 @@ typedef	struct tsg_statistic
 {
 	int cycle;
 	int fs_line_id;
+	int thread_alive;
+	pthread_t stat_thread_id;
 	int fs_field_id[STATIS_MAX];
 	long long statistic_opt[_OPT_TYPE_MAX];
 	struct _traffic_info *traffic_info[TSG_ACTION_MAX+1];
@@ -390,6 +392,8 @@ typedef	struct tsg_statistic
 }tsg_statis_para_t;
 
 int tsg_statistic_init(const char *conffile, void *logger);
+void tsg_statistic_destroy(void);
+
 int tsg_gtp_signaling_hash_init(const char* conffile, void *logger);
 
 int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data);
