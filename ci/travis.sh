@@ -39,7 +39,7 @@ if [ -n "${INSTALL_DEPENDENCY_LIBRARY}" ]; then
   source /etc/profile.d/mrzcpd.sh
 fi
 
-if [ $ASAN_OPTION ];then
+if [ $ASAN_OPTION ] && [ -f "/opt/rh/devtoolset-7/enable" ] ;then
 	source /opt/rh/devtoolset-7/enable
 fi
 
