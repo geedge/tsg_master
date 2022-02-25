@@ -1655,7 +1655,7 @@ void tsg_sendlog_destroy(struct tsg_log_instance_t * instance)
 		return ;
 	}
 	
-	if(instance->mode==CLOSE)
+	if(instance->mode!=CLOSE)
 	{
 		for(int i=0; i<instance->max_service; i++)
 		{
@@ -1667,8 +1667,8 @@ void tsg_sendlog_destroy(struct tsg_log_instance_t * instance)
 			rd_kafka_topic_destroy(instance->topic_rkt[i]);
 		}
 		
-		//rd_kafka_destroy_flags(instance->kafka_handle, 4);
-		//rd_kafka_destroy(instance->kafka_handle);
+		rd_kafka_destroy_flags(instance->kafka_handle, 4);
+		rd_kafka_destroy(instance->kafka_handle);
 
 		free(instance->topic_rkt);
 		instance->topic_rkt=NULL;
