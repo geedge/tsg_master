@@ -114,7 +114,7 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"},
 										 {PROTO_IMAP, 	0, 	"IMAP"},
 										 {PROTO_POP3, 	0, 	"POP3"},
 										 {PROTO_RTP, 	0, 	"RTP"},
-										 {PROTO_APP, 	0,	"APP"},
+										 {PROTO_APP, 	0,	"BASE"},
 										 {PROTO_L2TP, 	0,	"L2TP"},
 										 {PROTO_PPTP, 	0,	"PPTP"},
 										 {PROTO_STRATUM, 	0,	"Stratum"}
