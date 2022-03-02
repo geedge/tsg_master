@@ -21,6 +21,7 @@
 #include "tsg_rule.h"
 #include "tsg_entry.h"
 #include "tsg_statistic.h"
+#include "tsg_send_log.h"
 #include "tsg_protocol_common.h"
 
 extern "C" int sendpacket_do_checksum(unsigned char *buf, int protocol, int len);
@@ -616,6 +617,11 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
 static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
 {
 	struct deny_user_region *deny_region=NULL;
+
+	if(user_region->session_para==NULL)
+	{
+		return STATE_DROPME|STATE_DROPPKT;
+	}
 	
 	switch(a_stream->type)
 	{
@@ -843,7 +849,7 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 			local_state=do_action_default_xxx(a_stream, p_result, user_region, protocol, user_data);
 			break;
 		case	TSG_METHOD_TYPE_APP_DROP:
-			if(user_region->deny->type!=TSG_DENY_TYPE_APP_DROP)
+			if((user_region->deny==NULL) || (user_region->deny->type!=TSG_DENY_TYPE_APP_DROP))
 			{
 				break;
 			}
@@ -896,7 +902,7 @@ unsigned char tsg_deny_application(const struct streaminfo *a_stream, Maat_rule_
 	dict=(struct app_id_dict *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
 	if(dict==NULL)
 	{
-		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_GIVEME : APP_STATE_GIVEME);
+		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPPKT|PROT_STATE_DROPME: APP_STATE_DROPME|APP_STATE_DROPPKT);
 	}
 	
 	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
@@ -937,7 +943,30 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 	}
 
 	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
-	state=tsg_do_deny_action(a_stream, user_region, p_result, protocol, type, user_data);
+	if(user_region==NULL)
+	{
+		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPPKT|PROT_STATE_DROPME: APP_STATE_DROPME|APP_STATE_DROPPKT);
+	}
+
+	if(user_region->method_type==TSG_METHOD_TYPE_APP_DROP)
+	{
+		unsigned int app_id=0;
+		
+		if(protocol==PROTO_MAIL)
+		{
+			app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_SMTP].name);
+		}
+		else
+		{
+			app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[protocol].name);
+		}
+		state=tsg_deny_application(a_stream, p_result, protocol, app_id, ACTION_RETURN_TYPE_APP, user_data);
+	}
+	else
+	{
+		state=tsg_do_deny_action(a_stream, user_region, p_result, protocol, type, user_data);
+	}
+	
 	security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
 
 	return state;

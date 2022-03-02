@@ -43,7 +43,8 @@ const struct _str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNK
 													{TSG_METHOD_TYPE_RATE_LIMIT, 10, (char *)"rate_limit"}, 
                                                     {TSG_METHOD_TYPE_MIRRORED, 8, (char *)"mirrored"},
                                                     {TSG_METHOD_TYPE_TAMPER, 6, (char *)"tamper"},
-                                                    {TSG_METHOD_TYPE_DEFAULT, 7, (char *)"default"}
+                                                    {TSG_METHOD_TYPE_DEFAULT, 14, (char *)"default_policy"}, // policy id=0, default policy 
+                                                    {TSG_METHOD_TYPE_APP_DROP, 7, (char *)"default"}	 // use action of app_id_dict 
 	};
 
 
@@ -1077,6 +1078,8 @@ static struct compile_user_region *parse_deny_user_region(cJSON *deny_user_regio
 				break;
 			}
             break;
+		case	TSG_METHOD_TYPE_APP_DROP:
+			break;
 		case	TSG_METHOD_TYPE_RST:
 		case	TSG_METHOD_TYPE_RESET:
 			break;

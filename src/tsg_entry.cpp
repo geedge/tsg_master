@@ -362,6 +362,27 @@ static int is_dns_protocol(const struct streaminfo *a_stream)
 	return 0;
 }
 
+static int is_deny_application(Maat_rule_t *p_result)
+{
+	int ret=0;
+	struct compile_user_region *user_region=NULL;
+
+	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
+	if(user_region==NULL)
+	{
+		return 0;
+	}
+
+	if(user_region->method_type==TSG_METHOD_TYPE_APP_DROP)
+	{
+		ret=1;
+	}
+	
+	security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+	
+	return ret;
+}
+
 int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data)
 {
 	if(a_stream==NULL || project_id<0)
@@ -1572,11 +1593,6 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 		context->hited_para.hited_app_id=hited_app_id;
 		context->hited_para.after_n_packets=after_n_packets;
 	}
-
-	if(d_result!=NULL && d_result->action==TSG_ACTION_DENY)
-	{
-		copy_result_to_project(a_stream, context, d_result, NULL, context->proto, PULL_FW_RESULT, thread_seq);
-	}
 		
 	return hit_num;
 }
@@ -1584,9 +1600,8 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int hit_num, const void *a_packet)
 {
 	int ret=0;
+	Maat_rule_t *p_result=NULL;
 	unsigned char state=APP_STATE_GIVEME;	
-	struct identify_info tmp_identify_info;	
-	Maat_rule_t *p_result=NULL, app_result={0};
 	struct tcpall_context *tmp_tcpall_context=NULL;
 
 	p_result=tsg_policy_decision_criteria(result, hit_num);
@@ -1596,9 +1611,13 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
-				ret=tsg_pull_policy_result((struct streaminfo* )a_stream, PULL_FW_RESULT, &app_result, 1, &tmp_identify_info);
-				if(ret>0 && app_result.action==TSG_ACTION_DENY && app_result.config_id==p_result->config_id)
+				if(is_deny_application(p_result))
 				{
+					if(context->hited_para.hited_app_id==0)
+					{
+						context->hited_para.hited_app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[context->proto].name);
+					}
+					
 					if(context->hited_para.after_n_packets>0)
 					{
 						ret=tsg_set_method_to_tcpall(a_stream, &tmp_tcpall_context, TSG_METHOD_TYPE_APP_DROP, a_stream->threadnum);
@@ -1606,6 +1625,8 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 						{
 							tmp_tcpall_context->hited_para=context->hited_para;
 						}
+						
+						copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_FW_RESULT, a_stream->threadnum);
 						state=APP_STATE_KILL_OTHER|APP_STATE_DROPME;
 						break;
 					}

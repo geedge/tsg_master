@@ -18,6 +18,7 @@
 #include "tsg_statistic.h"
 #include "tsg_leaky_bucket.h"
 #include "tsg_protocol_common.h"
+#include "tsg_send_log_internal.h"
 
 #if(__GNUC__ * 100 + __GNUC_MINOR__ * 10 + __GNUC_PATCHLEVEL__ >= 411)
 #define atomic_inc(x) __sync_add_and_fetch((x),1)
@@ -305,6 +306,7 @@ typedef	struct tsg_para
 
 extern g_tsg_para_t g_tsg_para;
 extern Maat_feather_t g_tsg_dynamic_maat_feather;
+extern id2field_t g_tsg_proto_name2id[PROTO_MAX];
 
 typedef enum tsg_statis_field_id
 {
