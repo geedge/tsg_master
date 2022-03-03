@@ -902,6 +902,7 @@ unsigned char tsg_deny_application(const struct streaminfo *a_stream, Maat_rule_
 	dict=(struct app_id_dict *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
 	if(dict==NULL)
 	{
+		set_drop_stream(a_stream, protocol);
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPPKT|PROT_STATE_DROPME: APP_STATE_DROPME|APP_STATE_DROPPKT);
 	}
 	
@@ -945,6 +946,7 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 	if(user_region==NULL)
 	{
+		set_drop_stream(a_stream, protocol);
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPPKT|PROT_STATE_DROPME: APP_STATE_DROPME|APP_STATE_DROPPKT);
 	}
 
