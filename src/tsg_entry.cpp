@@ -1721,20 +1721,25 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 		gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result));
 		memset(gather_result, 0, sizeof(struct gather_app_result));
 		set_struct_project(a_stream, g_tsg_para.gather_app_project_id, (void *)gather_result);
+		gather_result->origin=ORIGIN_MAX;
 	}
 	
 	switch(identify_result->origin)
 	{
-		case	ORIGIN_DKPT:			
+		case	ORIGIN_DKPT:
+			context->is_app_link=FLAG_TRUE;
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DPKT_RESULT], 0, FS_OP_ADD, 1);
 			break;
-		case	ORIGIN_QM_ENGINE:			
+		case	ORIGIN_QM_ENGINE:
+			context->is_app_link=FLAG_TRUE;
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_Q_RESULT], 0, FS_OP_ADD, 1);
 			break;
-		case	ORIGIN_USER_DEFINE:			
+		case	ORIGIN_USER_DEFINE:
+			context->is_app_link=FLAG_TRUE;
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_USER_RESULT], 0, FS_OP_ADD, 1);
 			break;
-		case	ORIGIN_BUILT_IN:			
+		case	ORIGIN_BUILT_IN:
+			context->is_app_link=FLAG_TRUE;
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_BUILT_IN_RESULT], 0, FS_OP_ADD, 1);
 			break;
 		case	ORIGIN_BASIC_PROTOCOL:
@@ -1754,10 +1759,15 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 				is_parent_ssl=1;
 			}			
 			break;
+		case	ORIGIN_UNKNOWN:
+			context->is_app_link=FLAG_TRUE;
+			break;
 		default:
 			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_BRIDGE_CB", "Unknown type: %d addr: %s", identify_result->origin, PRINTADDR(a_stream, g_tsg_para.level));
 			return 0;
 	}
+
+	gather_result->origin=identify_result->origin;
 	
 	memcpy(&(gather_result->result[identify_result->origin]), identify_result, sizeof(struct app_identify_result));
 
@@ -1843,6 +1853,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 	Maat_rule_t *p_result=NULL;
 	struct gather_app_result *gather_result=NULL;
 	struct master_context *context=(struct master_context *)*pme;
+	struct app_identify_result unknown_result;
 
 	if(*pme==NULL)
 	{
@@ -1875,9 +1886,19 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			hit_num+=deal_pending_state(a_stream, context, scan_result+hit_num, MAX_RESULT_NUM-hit_num, a_packet);
 			p_result=tsg_policy_decision_criteria(scan_result, hit_num);
 			state=master_deal_scan_result(a_stream, context, scan_result, hit_num, a_packet);
+			context->deal_pkt_num++;
 			break;
 		case	OP_STATE_DATA:
-		//case	OP_STATE_CLOSE:
+			if(context->is_app_link==FLAG_FALSE && (context->deal_pkt_num++) == (g_tsg_para.identify_app_max_pkt_num+1))
+			{
+				unknown_result.app_id_num=1;
+				unknown_result.surrogate_id[0]=0;
+				unknown_result.origin=ORIGIN_UNKNOWN;
+				unknown_result.app_id[0]=g_tsg_para.unknown_app_id;				
+
+				app_identify_result_cb(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_APP_IDENTIFY_RESULT], (void *)&unknown_result);
+			}
+		
 			if(is_hited_allow(context->result, context->hit_cnt))
 			{
 				break;
@@ -2139,6 +2160,7 @@ extern "C" int TSG_MASTER_INIT()
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","DEFAULT_POLICY_ID", &g_tsg_para.default_compile_id, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","HIT_PATH_SWITCH", &g_tsg_para.hit_path_switch, 0);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","UNKNOWN_APP_ID", &g_tsg_para.unknown_app_id, 4);
 
 	g_tsg_para.default_vlan.num=1;
 	MESA_load_profile_int_def(tsg_conffile, "TRAFFIC_MIRROR","DEFAULT_VLAN_ID", &(g_tsg_para.default_vlan.id[0]), 2);
@@ -2149,6 +2171,7 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DATACENTER_ID", &g_tsg_para.datacenter_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_TIME_INTERVAL", &g_tsg_para.scan_time_interval, 120);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "IENTIFY_APP_MAX_PKT_NUM", &g_tsg_para.identify_app_max_pkt_num, 20);
 
 	ret=MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_SEQ_IN_DATA_CENTER", &g_tsg_para.device_seq_in_dc, 0);
 	if(ret<0)

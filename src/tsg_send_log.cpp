@@ -698,7 +698,12 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 		{
 			get_app_name_list(label->result[ORIGIN_QM_ENGINE].app_id, label->result[ORIGIN_QM_ENGINE].app_id_num, app_name, sizeof(app_name), &app_id_flag, 0);
 		}
-		
+
+		if(app_id_flag!=1)
+		{
+			get_app_name_list(label->result[ORIGIN_UNKNOWN].app_id, label->result[ORIGIN_UNKNOWN].app_id_num, app_name, sizeof(app_name), &app_id_flag, 0);
+		}
+				
 		if(app_id_flag==1)
 		{
 			if(!(TLD_search(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name)))
@@ -711,6 +716,7 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 			get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(label->result[ORIGIN_BUILT_IN]));
 			get_app_id_list(&app_id_object, _handle, "DKPT", &(label->result[ORIGIN_DKPT]));
 			get_app_id_list(&app_id_object, _handle, "THIRD", &(label->result[ORIGIN_QM_ENGINE]));
+			get_app_id_list(&app_id_object, _handle, "UNKNOWN", &(label->result[ORIGIN_UNKNOWN]));
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, &app_id_object, TLD_TYPE_OBJECT);
 		}
 	}
@@ -1667,7 +1673,7 @@ void tsg_sendlog_destroy(struct tsg_log_instance_t * instance)
 			rd_kafka_topic_destroy(instance->topic_rkt[i]);
 		}
 		
-		rd_kafka_destroy_flags(instance->kafka_handle, 4);
+		//rd_kafka_destroy_flags(instance->kafka_handle, 4);
 		rd_kafka_destroy(instance->kafka_handle);
 
 		free(instance->topic_rkt);

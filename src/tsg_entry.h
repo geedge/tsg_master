@@ -41,6 +41,14 @@ typedef int atomic_t;
 #define	PRINTADDR(a, b)	((b)<RLOG_LV_FATAL ? printaddr(&(a->addr), a->threadnum) : "")
 #endif
 
+#ifndef	FLAG_FALSE
+#define	FLAG_FALSE	0
+#endif
+
+#ifndef	FLAG_TRUE
+#define FLAG_TRUE	1
+#endif
+
 #define	APP_SCAN_FLAG_STOP	0
 #define	APP_SCAN_FLAG_CONTINUE	1
 
@@ -163,6 +171,7 @@ struct _str2index
 
 struct gather_app_result
 {
+	enum APP_IDENTIFY_ORIGIN origin;	
 	struct app_identify_result result[ORIGIN_MAX];
 };
 
@@ -217,14 +226,17 @@ struct hited_app_para
 
 struct master_context
 {
+	unsigned char is_esni;
+	unsigned char is_log;
+	unsigned char is_ratelimit;
+	unsigned char deal_pkt_num;
+	unsigned char is_app_link;
+	unsigned char pad;
+	unsigned short timeout;
 	tsg_protocol_t proto;
 	int hit_cnt;
-	int is_esni;
-	int is_log;
-	int is_ratelimit;
 	int hited_app_id;
 	unsigned int quic_version;
-	unsigned short timeout;
 	char *domain;
 	char *quic_ua;
 	scan_status_t mid;	
@@ -272,6 +284,8 @@ typedef	struct tsg_para
 	int hash_slot_size;
 	enum DEPLOY_MODE deploy_mode;
 	int scan_time_interval;
+	int identify_app_max_pkt_num;
+	int unknown_app_id;
 	int hit_path_switch;
 	int default_compile_id;
 	int table_id[TABLE_MAX];
