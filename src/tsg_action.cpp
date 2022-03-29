@@ -576,6 +576,12 @@ static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule
 
 static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
 {
+	if(g_tsg_para.feature_tamper==0)
+	{
+		do_action_drop(a_stream, p_result, user_region, protocol, user_data);
+		return STATE_DROPME|STATE_DROPPKT;
+	}
+	
 	if(user_region==NULL)
 	{
         return do_action_drop(a_stream, p_result, user_region, protocol, user_data);

@@ -270,6 +270,7 @@ typedef	struct tsg_para
 	int datacenter_id;
 	int hash_timeout;
 	int hash_slot_size;
+	int feature_tamper;
 	enum DEPLOY_MODE deploy_mode;
 	int scan_time_interval;
 	int hit_path_switch;

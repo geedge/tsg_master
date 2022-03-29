@@ -2149,6 +2149,9 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DATACENTER_ID", &g_tsg_para.datacenter_id, 0);
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_TIME_INTERVAL", &g_tsg_para.scan_time_interval, 120);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "IENTIFY_APP_MAX_PKT_NUM", &g_tsg_para.identify_app_max_pkt_num, 20);
+	
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "FEATURE_TAMPER", &g_tsg_para.feature_tamper, 0);
 
 	ret=MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_SEQ_IN_DATA_CENTER", &g_tsg_para.device_seq_in_dc, 0);
 	if(ret<0)
