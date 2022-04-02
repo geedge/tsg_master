@@ -228,7 +228,7 @@ struct master_context
 {
 	unsigned char is_esni;
 	unsigned char is_log;
-	unsigned char is_ratelimit;
+	unsigned char is_dropme;
 	unsigned char deal_pkt_num;
 	unsigned char is_app_link;
 	unsigned char pad;

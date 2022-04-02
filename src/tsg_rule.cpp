@@ -2846,6 +2846,7 @@ int tsg_set_method_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 
 	switch(_context->method_type)
 	{
+		case	TSG_METHOD_TYPE_UNKNOWN:
 		case	TSG_METHOD_TYPE_DEFAULT:
 		case	TSG_METHOD_TYPE_MIRRORED:			
 			_context->method_type=method_type;
@@ -2876,6 +2877,7 @@ int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 			return 1;	
 			break;
 		case	TSG_METHOD_TYPE_DEFAULT:
+		case	TSG_METHOD_TYPE_UNKNOWN:
 			break;
 		default:
 			return 0;

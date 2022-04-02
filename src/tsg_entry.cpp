@@ -1593,6 +1593,13 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 		context->hited_para.hited_app_id=hited_app_id;
 		context->hited_para.after_n_packets=after_n_packets;
 	}
+	else
+	{
+		if(identify_result->origin==ORIGIN_BASIC_PROTOCOL && after_n_packets>0) //for tsg_protocol_t
+		{
+			context->hited_para.after_n_packets=after_n_packets;			
+		}
+	}
 		
 	return hit_num;
 }
@@ -1627,7 +1634,8 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 						}
 						
 						copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_FW_RESULT, a_stream->threadnum);
-						state=APP_STATE_KILL_OTHER|APP_STATE_DROPME;
+						context->is_dropme=1;  //only tcp
+						state=APP_STATE_KILL_OTHER|APP_STATE_GIVEME;
 						break;
 					}
 					else
@@ -1671,7 +1679,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 				state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 
-				tsg_set_method_to_tcpall(a_stream, &tmp_tcpall_context, TSG_METHOD_TYPE_UNKNOWN, a_stream->threadnum);
+				tsg_set_method_to_tcpall(a_stream, &tmp_tcpall_context, TSG_METHOD_TYPE_ALLOW, a_stream->threadnum);
 				break;
 			case	TSG_ACTION_INTERCEPT:
 				if(is_intercept_exclusion(a_stream, p_result, context->domain, a_stream->threadnum))
@@ -1938,7 +1946,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			break;
 	}
 
-	if(context->is_ratelimit==1 && a_stream->type==STREAM_TYPE_TCP)
+	if(context->is_dropme==1 && a_stream->type==STREAM_TYPE_TCP)
 	{
 		state=APP_STATE_KILL_OTHER|APP_STATE_DROPME;
 	}
@@ -1968,10 +1976,13 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 	struct master_context *data_context=NULL;
 	struct tcpall_context *all_context=(struct tcpall_context *)(*pme);
 		
-	if(stream_state==OP_STATE_PENDING)
+	if(stream_state==OP_STATE_PENDING && all_context->method_type!=TSG_METHOD_TYPE_ALLOW)
 	{
-		all_context->method_type=TSG_METHOD_TYPE_DEFAULT;
-		all_context->after_n_packets=get_default_para(a_stream, g_tsg_para.default_compile_id);
+		if(all_context->method_type==TSG_METHOD_TYPE_UNKNOWN)
+		{			
+			all_context->method_type=TSG_METHOD_TYPE_DEFAULT;
+			all_context->after_n_packets=get_default_para(a_stream, g_tsg_para.default_compile_id);
+		}
 		
 		hit_num=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, PROTO_UNKONWN, &scan_mid, result, MAX_RESULT_NUM);
 		if(hit_num>0)
@@ -2085,7 +2096,7 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 	}
 	
 	state2=tsg_master_data_entry(a_udp, (void **)&(context->data_entry), thread_seq, a_packet);	
-	if(state2==APP_STATE_GIVEME)
+	if(!(state2&APP_STATE_DROPME))
 	{
 		state1=tsg_master_all_entry(a_udp, a_udp->opstate, (void **)&(context->all_entry), thread_seq, a_packet);
 	}
@@ -2107,7 +2118,7 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 		if(*pme==NULL)
 		{
 			*pme=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
-			memset(*pme, 0, sizeof(struct tcpall_context));		
+			memset(*pme, 0, sizeof(struct tcpall_context));	
 			set_struct_project(a_tcp, g_tsg_para.tcpall_project_id, (void *)(*pme));
 		}
 	}

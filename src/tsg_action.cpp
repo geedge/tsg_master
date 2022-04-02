@@ -56,12 +56,12 @@ static int set_drop_stream(const struct streaminfo *a_stream, tsg_protocol_t pro
 	return STATE_DROPME|STATE_DROPPKT;				
 }
 
-static int set_ratelimit_flag(const struct streaminfo *a_stream)
+static int set_dropme_flag(const struct streaminfo *a_stream)
 {	
 	struct master_context *_context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
 	if(_context!=NULL)
 	{
-		_context->is_ratelimit=1;
+		_context->is_dropme=1;
 	}
 
 	return 0;
@@ -675,7 +675,7 @@ static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat
 		bucket=NULL;
 	}
 	
-	set_ratelimit_flag(a_stream);
+	set_dropme_flag(a_stream);
 
 	context=NULL;
 
