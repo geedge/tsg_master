@@ -574,18 +574,13 @@ static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
+static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data, enum ACTION_RETURN_TYPE type)
 {
 	if(g_tsg_para.feature_tamper==0)
 	{
 		do_action_drop(a_stream, p_result, user_region, protocol, user_data);
 		return STATE_DROPME|STATE_DROPPKT;
 	}
-	
-	if(user_region==NULL)
-	{
-        return do_action_drop(a_stream, p_result, user_region, protocol, user_data);
-    }
 
     struct tcpall_context * _context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
     if(_context==NULL)
@@ -594,30 +589,26 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
         memset(_context, 0, sizeof(struct tcpall_context));
         set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
         _context->method_type=TSG_METHOD_TYPE_TAMPER;
-        _context->tamper_count = -1;
-    }else{
-        if(_context->method_type != TSG_METHOD_TYPE_TAMPER)
-        {
-            _context->method_type = TSG_METHOD_TYPE_TAMPER;
-            _context->tamper_count = -1;
-        }
-        else
-        {
-			MESA_handle_runtime_log(g_tsg_para.logger,
-                                    RLOG_LV_DEBUG,
-                                    __FUNCTION__,
-                                    "Tamper is been processed, _context->method_type : %d",
-                                    _context->method_type);
-            return STATE_GIVEME;
-        }
+        _context->tamper_count = 0;
+    }
+    else
+    {
+        _context->method_type = TSG_METHOD_TYPE_TAMPER;
+        _context->tamper_count = 0;
     }
 
-    if(a_stream->type != STREAM_TYPE_TCP){
-        if(0 == send_tamper_xxx(a_stream, &_context->tamper_count, user_data)){
-            return STATE_GIVEME|STATE_DROPPKT;
-        }
+    //当前为tsg_master_plug暂时不处理在tsg_master_all_entry处理,防止命中发两次
+    if(ACTION_RETURN_TYPE_APP == type)
+    {
+        return STATE_GIVEME|STATE_DROPPKT|STATE_KILL_OTHER;
     }
-    return STATE_GIVEME;
+
+    //TCP这里发送的话，tsg_master_all_entry仍会处理发送,UDP没有这个情况,所以加该判断
+    if(a_stream->type == STREAM_TYPE_UDP) 
+    {
+        send_tamper_xxx(a_stream, &_context->tamper_count, user_data);
+    }
+    return STATE_DROPME|STATE_DROPPKT;
 }
 
 static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
@@ -849,7 +840,7 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 			local_state=do_action_ratelimit(a_stream, p_result, user_region, type);
 			break;
         case TSG_METHOD_TYPE_TAMPER:
-            local_state=do_action_tamper(a_stream, p_result, user_region, protocol, user_data);
+            local_state = do_action_tamper(a_stream, p_result, user_region, protocol, user_data, type);
             break;
 		case	TSG_METHOD_TYPE_DEFAULT:
 			local_state=do_action_default_xxx(a_stream, p_result, user_region, protocol, user_data);

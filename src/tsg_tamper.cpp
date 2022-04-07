@@ -32,7 +32,7 @@
 #define IPV6_UDP_PALYLOAD_START_INDEX 48  //ipv6_len(40) + udp_len(8)
 #define IPV6_IP_PAYLOAD_INDEX  4         //ipv6_payload_index(4)
 
-int tamper_calc(char *str, int endlen)
+int  swop_payload2byte(char *str, int endlen)
 {
     int i = 0;
     int j = 0;
@@ -42,6 +42,7 @@ int tamper_calc(char *str, int endlen)
         return 0;
     }
 
+    //这样交换是别面校验和不对的问题
     for(i=1; i<endlen; i=i+2){
         for (j=i+2; j<endlen; j=j+2){
             if(str[i] != str[j]){
@@ -61,22 +62,18 @@ int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count, const
     int trans_layload_len = 0;
     char tamper_buf[MTU_LEN] = {0}; 
     int  tamper_index = 0;
-    int  ret = -1;
     
     if(a_stream==NULL || raw_pkt==NULL){
         return -1;
     }
 
-    if(*tamper_count == -1){
-        *tamper_count = 1; 
-    }else{
-        *tamper_count = *tamper_count + 1;
-    }
-
+    *tamper_count = *tamper_count + 1;
     p_trans_payload = (char *)a_stream->ptcpdetail->pdata;
     trans_layload_len = a_stream->ptcpdetail->datalen;
 
+
     if((p_trans_payload==NULL)||(trans_layload_len<=4)){
+        FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TAMPER_FAILED_PLOAD_LESS_4], 0, FS_OP_ADD, 1);
         MESA_handle_runtime_log(g_tsg_para.logger,
                 RLOG_LV_DEBUG,
                 __FUNCTION__,
@@ -86,30 +83,33 @@ int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count, const
                 p_trans_payload,
                 trans_layload_len,
                 raw_pkt);
+
         return -1;
     }
 
     memcpy(tamper_buf, p_trans_payload, trans_layload_len);
-    tamper_index = tamper_calc(tamper_buf, trans_layload_len);
-    if(tamper_index > 0){
-        MESA_handle_runtime_log(g_tsg_para.logger,
-                RLOG_LV_DEBUG,
-                __FUNCTION__,
-                "Addr: %s, try send num %ld ptcpdetail->pdata %p, ptcpdetail->datalen %d rawpkt %p, modify the index(%d) position of the payload:(old: %02x %02x %02x %02x, new: %02x %02x %02x %02x)",
-                PRINTADDR(a_stream, g_tsg_para.level),
-                *tamper_count,
-                p_trans_payload,
-                trans_layload_len,
-                raw_pkt,
-                tamper_index,
-                (uint8_t)p_trans_payload[tamper_index-1], (uint8_t)p_trans_payload[tamper_index], (uint8_t)p_trans_payload[tamper_index+1], (uint8_t)p_trans_payload[tamper_index+2],
-                (uint8_t)tamper_buf[tamper_index-1], (uint8_t)tamper_buf[tamper_index], (uint8_t)tamper_buf[tamper_index+1], (uint8_t)tamper_buf[tamper_index+2]);
-
+    tamper_index =  swop_payload2byte(tamper_buf, trans_layload_len);
+    if(tamper_index > 0 ){
         if(0 == tsg_send_inject_packet(a_stream, SIO_DEFAULT, tamper_buf, trans_layload_len, a_stream->routedir)){
-            ret = 0;
+            FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUCESS_TAMPER], 0, FS_OP_ADD, 1);
+            MESA_handle_runtime_log(g_tsg_para.logger,
+                    RLOG_LV_DEBUG,
+                    __FUNCTION__,
+                    "Addr: %s, try send num %ld ptcpdetail->pdata %p, ptcpdetail->datalen %d rawpkt %p, modify the index(%d) position of the payload:(old: %02x %02x %02x %02x, new: %02x %02x %02x %02x)",
+                    PRINTADDR(a_stream, g_tsg_para.level),
+                    *tamper_count,
+                    p_trans_payload,
+                    trans_layload_len,
+                    raw_pkt,
+                    tamper_index,
+                    (uint8_t)p_trans_payload[tamper_index-1], (uint8_t)p_trans_payload[tamper_index], (uint8_t)p_trans_payload[tamper_index+1], (uint8_t)p_trans_payload[tamper_index+2],
+                    (uint8_t)tamper_buf[tamper_index-1], (uint8_t)tamper_buf[tamper_index], (uint8_t)tamper_buf[tamper_index+1], (uint8_t)tamper_buf[tamper_index+2]);
+            return 0;
         }
-    }else{
-        MESA_handle_runtime_log(g_tsg_para.logger,
+    }
+
+    FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TAMPER_FAILED_NOSWOP], 0, FS_OP_ADD, 1);
+    MESA_handle_runtime_log(g_tsg_para.logger,
                 RLOG_LV_DEBUG,
                 __FUNCTION__,
                 "Addr: %s, try send num %ld ptcpdetail->pdata %p, ptcpdetail->datalen %d rawpkt %p, payload tamper failed because payload data same",
@@ -118,7 +118,6 @@ int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count, const
                 p_trans_payload,
                 trans_layload_len,
                 raw_pkt);
-    }
 
-    return ret;
+    return -1;
 }
