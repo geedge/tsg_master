@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <MESA/rdp.h>
 #include <MESA/http.h>
 #include <MESA/ftp.h>
 #include <MESA/ssl.h>
@@ -120,7 +121,8 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"},
 										 {PROTO_APP, 	0,	"BASE"},
 										 {PROTO_L2TP, 	0,	"L2TP"},
 										 {PROTO_PPTP, 	0,	"PPTP"},
-										 {PROTO_STRATUM, 	0,	"Stratum"}
+										 {PROTO_STRATUM, 	0,	"Stratum"},
+										 {PROTO_RDP, 	0,	"RDP"}
 										};
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
@@ -561,9 +563,10 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 		switch(proto)
 		{
 			case	PROTO_SSH:
+			case	PROTO_RDP:
 			case	PROTO_STRATUM:
 					notify=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]);
-					if (notify != NULL && notify->pdata.TLD_handle!=NULL && (notify->protocol== PROTO_SSH || notify->protocol== PROTO_STRATUM))
+					if (notify != NULL && notify->pdata.TLD_handle!=NULL && (notify->protocol== PROTO_SSH || notify->protocol== PROTO_STRATUM  || notify->protocol== PROTO_RDP))
 					{
 						TLD_handle = TLD_duplicate(notify->pdata.TLD_handle);
 						if (TLD_handle!=NULL)
@@ -1435,6 +1438,16 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 				}
 			}
 
+			if(g_tsg_para.proto_flag&(1<<PROTO_RDP))  //RDP
+			{
+				ret=rdp_protocol_identify((const char *)a_stream->ptcpdetail->pdata, a_stream->ptcpdetail->datalen, (unsigned int)a_stream->threadnum);
+				if(ret==1)
+				{
+					context->proto=PROTO_RDP;
+					return 1;
+				}
+			}
+
 			break;
 		case	STREAM_TYPE_UDP:
 			if(g_tsg_para.proto_flag&(1<<PROTO_DNS))  //dns
@@ -1477,7 +1490,7 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 				unsigned char sip_ret=0;
 				char *from=NULL, *to=NULL;
 				unsigned int from_len=0, to_len=0;
-				sip_ret=sip_identify_from_to((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, &from, &from_len, &to, &to_len);
+				sip_ret=sip_identify_from_to((char *)a_stream->pudpdetail->pdata, (unsigned int)a_stream->pudpdetail->datalen, &from, &from_len, &to, &to_len);
 				if(sip_ret==SIP_TRUE)
 				{
 					context->proto=PROTO_SIP;
@@ -1485,6 +1498,17 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 				
 				return 1;
 			}
+
+			if(g_tsg_para.proto_flag&(1<<PROTO_RDP))  //RDP
+			{
+				ret=rdp_protocol_identify((const char *)a_stream->pudpdetail->pdata, a_stream->pudpdetail->datalen, (unsigned int)a_stream->threadnum);
+				if(ret==1)
+				{
+					context->proto=PROTO_RDP;
+					return 1;
+				}
+			}
+						
 			break;
 		default:
 			break;
@@ -1807,7 +1831,8 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 		context->proto!=PROTO_UNKONWN &&
 		context->proto!=PROTO_APP &&
 		context->proto!=PROTO_SSH &&
-		context->proto!=PROTO_STRATUM)	// business deal action of monitor 
+		context->proto!=PROTO_STRATUM &&
+		context->proto!=PROTO_RDP)	// business deal action of monitor 
 	{
 		hit_num=0;
 	}
@@ -2137,7 +2162,7 @@ extern "C" int TSG_MASTER_INIT()
 	g_tsg_para.default_vlan.num=1;
 	MESA_load_profile_int_def(tsg_conffile, "TRAFFIC_MIRROR","DEFAULT_VLAN_ID", &(g_tsg_para.default_vlan.id[0]), 2);
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;MAIL;STREAMING_MEDIA;QUIC;SIP;SSH;Stratum;");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;MAIL;STREAMING_MEDIA;QUIC;SIP;SSH;Stratum;RDP;");
 	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DATACENTER_ID", &g_tsg_para.datacenter_id, 0);
