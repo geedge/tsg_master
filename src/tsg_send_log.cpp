@@ -966,6 +966,40 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 	return 0;	
 }
 
+int TLD_array_append(struct TLD_handle_t *handle, char *key, void **array, int array_num, TLD_TYPE type)
+{
+        if(handle==NULL || key==NULL ||  array_num<=0 || array==NULL || type!=TLD_TYPE_LONG || type!=TLD_TYPE_STRING)
+        {
+                return -1;
+        }
+
+        int i=0;
+        Value obj_array(kArrayType);
+
+        switch(type)
+        {
+                case    TLD_TYPE_LONG:
+                        for(i=0; i<array_num; i++)
+                        {
+                                obj_array.PushBack((long)(array[i]), handle->document->GetAllocator());
+                        }
+                        break;
+                case    TLD_TYPE_STRING:
+                        for(i=0; i<array_num; i++)
+                        {
+                                Value str_value(StringRef((char *)(array[i]), strlen((char *)array[i])));
+                                obj_array.PushBack(str_value, handle->document->GetAllocator());
+                        }
+                        break;
+                default:
+                        return -1;
+        }
+
+        add_object_member(handle, handle->document, key, obj_array);
+
+        return 1;
+}
+
 struct TLD_handle_t *TLD_duplicate(struct TLD_handle_t *handle)
 {
 	if (handle == NULL)

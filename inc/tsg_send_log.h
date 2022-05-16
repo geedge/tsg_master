@@ -38,6 +38,9 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream);
 int TLD_cancel(struct TLD_handle_t *handle);
 struct TLD_handle_t *TLD_duplicate(struct TLD_handle_t *handle);
+//type only TLD_TYPE_LONG/TLD_TYPE_STRING
+int TLD_array_append(struct TLD_handle_t *handle, char *key, void **array, int array_num, TLD_TYPE type);
+
 
 int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, tsg_log_t *log_msg, int thread_id);
 
