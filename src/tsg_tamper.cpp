@@ -32,7 +32,7 @@
 #define IPV6_UDP_PALYLOAD_START_INDEX 48  //ipv6_len(40) + udp_len(8)
 #define IPV6_IP_PAYLOAD_INDEX  4         //ipv6_payload_index(4)
 
-int  swop_payload2byte(char *str, int endlen)
+int  swap_payload2byte(char *str, int endlen)
 {
     int i = 0;
     int j = 0;
@@ -88,7 +88,7 @@ int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count, const
     }
 
     memcpy(tamper_buf, p_trans_payload, trans_layload_len);
-    tamper_index =  swop_payload2byte(tamper_buf, trans_layload_len);
+    tamper_index =  swap_payload2byte(tamper_buf, trans_layload_len);
     if(tamper_index > 0 ){
         if(0 == tsg_send_inject_packet(a_stream, SIO_DEFAULT, tamper_buf, trans_layload_len, a_stream->routedir)){
             FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUCESS_TAMPER], 0, FS_OP_ADD, 1);
@@ -108,7 +108,7 @@ int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count, const
         }
     }
 
-    FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TAMPER_FAILED_NOSWOP], 0, FS_OP_ADD, 1);
+    FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TAMPER_FAILED_NOSWAP], 0, FS_OP_ADD, 1);
     MESA_handle_runtime_log(g_tsg_para.logger,
                 RLOG_LV_DEBUG,
                 __FUNCTION__,

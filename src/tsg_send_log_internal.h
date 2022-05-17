@@ -128,12 +128,50 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
+enum LOG_COLUMN_STATUS
+{
+	LOG_COLUMN_STATUS_SUCCESS=0,		
+	LOG_COLUMN_STATUS_SUCCESS_S,
+	LOG_COLUMN_STATUS_FAIL,
+	LOG_COLUMN_STATUS_FAIL_S,
+	LOG_COLUMN_STATUS_DROP,
+	LOG_COLUMN_STATUS_DROP_S,
+	LOG_COLUMN_STATUS_MAX
+};
+
+enum LOG_FS2_TYPE{
+	LOG_FS2_ABORT_ALLOW,
+	LOG_FS2_ABORT_DENY,
+	LOG_FS2_ABORT_MONITOR,
+	LOG_FS2_ABORT_INTERCEPT,
+	LOG_FS2_ABORT_UNKNOWN,
+	LOG_FS2_CREATE_LOG_HANDLE,
+	LOG_FS2_DUP_LOG_HANDLE,
+	LOG_FS2_APPEND_LOG_HANDLE,
+	LOG_FS2_FREE_LOG_HANDLE,
+	LOG_FS2_FREE_RAPID_SIZE,
+	LOG_FS2_FREE_RAPID_CAPACITY,	
+	LOG_FS2_TYPE_MAX
+};
+
+	
 typedef	struct _id2field
 {
 	int type;
 	int id;
 	char name[MAX_STRING_LEN];
 }id2field_t;
+
+struct topic_stat
+{
+	int status;
+	int type;
+	int fs2_line_id;
+	int *send_log_percent;
+	char name[MAX_STRING_LEN];	
+	struct timespec *drop_start;
+	rd_kafka_topic_t *topic_rkt;
+};
 
 struct tsg_log_instance_t
 {
@@ -151,9 +189,9 @@ struct tsg_log_instance_t
 	int mac_linkinfo_project_id;
 	int nat_c2s_linkinfo_project_id;	
 	int nat_s2c_linkinfo_project_id;
-	int *send_log_percent;
-	int *fs_status_ids;
-	struct timespec *drop_start;
+	int sum_line_id;
+	int fs2_column_id[LOG_COLUMN_STATUS_MAX];
+	int fs2_field_id[LOG_FS2_TYPE_MAX];
 	char l7_unknown_name[MAX_STRING_LEN];
 	char log_path[MAX_STRING_LEN*2];
 	char tcp_label[MAX_STRING_LEN];
@@ -168,14 +206,14 @@ struct tsg_log_instance_t
 	char local_ip_str[MAX_IPV4_LEN];
 	char l7_proto_id_file[MAX_STRING_LEN*4];
 	id2field_t id2field[LOG_COMMON_MAX];
-	rd_kafka_topic_t **topic_rkt;
 	rd_kafka_t *kafka_handle;
-	id2field_t *service2topic;	
+	struct topic_stat *service2topic;
+	screen_stat_handle_t fs2_handle;
 	void *logger;
 };
 
 char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t id);
-struct tsg_log_instance_t *tsg_sendlog_init(const char *filename);
+struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_handle_t fs2_handle);
 void tsg_sendlog_destroy(struct tsg_log_instance_t * instance);
 
 #endif

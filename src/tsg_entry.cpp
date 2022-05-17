@@ -66,14 +66,6 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_HIT_SHARE, "hit_share"},
 										 {0, TSG_FS2_INTERCEPT, "intercept"},
 										 {0, TSG_FS2_EXCLUSION, "exclusion"},
-										 {0, TSG_FS2_SUCCESS_LOG, "success_log"},
-										 {0, TSG_FS2_FAILED_LOG, "failed_log"},
-										 {0, TSG_FS2_DROP_LOG, "drop_log"},
-										 {0, TSG_FS2_ABORT_ALLOW, "abort_allow"},
-										 {0, TSG_FS2_ABORT_DENY, "abort_deny"},
-										 {0, TSG_FS2_ABORT_MONITOR, "abort_monitor"},
-										 {0, TSG_FS2_ABORT_INTERCEPT, "abort_intercept"},
-										 {0, TSG_FS2_ABORT_UNKNOWN, "abort_unknown"},
 										 {0, TSG_FS2_APP_DPKT_RESULT, "D_result"},
 										 {0, TSG_FS2_APP_Q_RESULT, "Q_result"},
 										 {0, TSG_FS2_APP_USER_RESULT, "U_result"},
@@ -84,19 +76,11 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_MIRRORED_BYTE_SUCCESS, "mirror_byte_suc"},
 										 {0, TSG_FS2_MIRRORED_PKT_FAILED, "mirror_pkt_fai"},
 										 {0, TSG_FS2_MIRRORED_BYTE_FAILED, "mirror_byte_fai"},
-										 {0, TSG_FS2_DDOS_SUCCESS_LOG, "ddos_suc_log"},
-										 {0, TSG_FS2_DDOS_FAILED_LOG, "ddos_fai_log"},
 										 {0, TSG_FS2_SET_TIMOUT_SUCCESS, "set_timeout_suc"},
 										 {0, TSG_FS2_SET_TIMOUT_FAILED, "set_timeout_fai"},
-										 {0, TSG_FS2_CREATE_LOG_HANDLE, "create_log_cnt"},
-										 {0, TSG_FS2_DUP_LOG_HANDLE, "dup_log_cnt"},
-										 {0, TSG_FS2_APPEND_LOG_HANDLE, "append_log_cnt"},
-										 {0, TSG_FS2_FREE_LOG_HANDLE, "free_log_cnt"},
-										 {0, TSG_FS2_FREE_RAPID_SIZE, "free_rapid_size"},
-										 {0, TSG_FS2_FREE_RAPID_CAPACITY, "free_rapid_capacity"},
                                          {0, TSG_FS2_SUCESS_TAMPER, "tamper_sucess"},
                                          {0, TSG_FS2_TAMPER_FAILED_PLOAD_LESS_4, "tamper_nopload"},
-                                         {0, TSG_FS2_TAMPER_FAILED_NOSWOP, "tamper_noswop"}
+                                         {0, TSG_FS2_TAMPER_FAILED_NOSWAP, "tamper_noswap"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
@@ -2283,14 +2267,6 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 
-	g_tsg_log_instance=tsg_sendlog_init(tsg_conffile);
-	if(g_tsg_log_instance==NULL)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_SENDLOG", "tsg_sendlog_init failed ...");
-		return -1;
-	}
-	g_tsg_log_instance->session_attribute_project_id=g_tsg_para.session_attribute_project_id;
-
 	MESA_load_profile_int_def(tsg_conffile, "FIELD_STAT", "CYCLE", &cycle, 30);
 	MESA_load_profile_short_nodef(tsg_conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));
 	MESA_load_profile_string_nodef(tsg_conffile,"FIELD_STAT","TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
@@ -2325,20 +2301,16 @@ extern "C" int TSG_MASTER_INIT()
 	{
 		g_tsg_para.fs2_field_id[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, g_tsg_fs2_field[i].name);
 	}
-
-	int thread_num=get_thread_count();
-	for(i=0; i<thread_num && g_tsg_log_instance!=NULL; i++)
-	{
-		snprintf(buff, sizeof(buff), "send_log_percent_%02d", i);
-		g_tsg_log_instance->fs_status_ids[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_STATUS, FS_CALC_CURRENT, buff);
-	}
 	
-	FS_start(g_tsg_para.fs2_handle);
-
-	for(i=0; i<thread_num; i++)
+	g_tsg_log_instance=tsg_sendlog_init(tsg_conffile, g_tsg_para.fs2_handle);
+	if(g_tsg_log_instance==NULL)
 	{
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_log_instance->fs_status_ids[i], 0, FS_OP_SET, g_tsg_log_instance->send_log_percent[i]);
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_SENDLOG", "tsg_sendlog_init failed ...");
+		return -1;
 	}
+	g_tsg_log_instance->session_attribute_project_id=g_tsg_para.session_attribute_project_id;
+
+	FS_start(g_tsg_para.fs2_handle);
 	
 	ret=tsg_statistic_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
