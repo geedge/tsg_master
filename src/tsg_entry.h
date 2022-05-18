@@ -406,6 +406,8 @@ const void *get_struct_project(const struct streaminfo *a_stream, int project_id
 //parent_app_name.app_name
 int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_parent);
 
+//return 18 or 19: subdivision_addr
+int tsg_get_location_type(void);
 void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void ASN_number_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void subscriber_id_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);

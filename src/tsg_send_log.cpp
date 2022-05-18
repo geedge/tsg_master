@@ -348,16 +348,31 @@ static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_strea
 		return 0;
 	}
 
-	len+=string_cat(buff+len, buff_len-len, location_info->country_full);
-	buff[len++]='.';
-	len+=string_cat(buff+len, buff_len-len, location_info->province_full);
-	buff[len++]='.';
-	len+=string_cat(buff+len, buff_len-len, location_info->city_full);
-	
-	if(location_info->subdivision_addr!=NULL)
+	int location_type=tsg_get_location_type();
+	switch(location_type)
 	{
-		buff[len++]='.';
-		len+=string_cat(buff+len, buff_len-len, location_info->subdivision_addr);
+		case	18:			
+			len+=string_cat(buff+len, buff_len-len, location_info->city_full);
+			buff[len++]=',';
+			len+=string_cat(buff+len, buff_len-len, location_info->province_full);
+			buff[len++]=',';
+			len+=string_cat(buff+len, buff_len-len, location_info->country_full);
+			break;
+		case	19:
+			len+=string_cat(buff+len, buff_len-len, location_info->country_full);
+			buff[len++]='.';
+			len+=string_cat(buff+len, buff_len-len, location_info->province_full);
+			buff[len++]='.';
+			len+=string_cat(buff+len, buff_len-len, location_info->city_full);
+			
+			if(location_info->subdivision_addr!=NULL)
+			{
+				buff[len++]='.';
+				len+=string_cat(buff+len, buff_len-len, location_info->subdivision_addr);
+			}
+			break;
+		default:
+			return 0;
 	}
 	
 	TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
@@ -2074,8 +2089,21 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 								);
 		return -1;
 	}
+	else
+	{
+		update_percent(_instance, topic_id, LOG_COLUMN_STATUS_SUCCESS, thread_id);
+		MESA_handle_runtime_log(_instance->logger,
+								RLOG_LV_DEBUG,
+								"TSG_SEND_LOG", 
+								"log send successfully %s: %s",
+								_instance->service2topic[topic_id].name,
+								payload
+							);
+	}
+
+	
+
 		
-	update_percent(_instance, topic_id, LOG_COLUMN_STATUS_SUCCESS, thread_id);
 	update_percent(_instance, topic_id, LOG_COLUMN_STATUS_MAX, thread_id); 
 
 	return 0;

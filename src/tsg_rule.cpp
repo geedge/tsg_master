@@ -2930,3 +2930,8 @@ int tsg_set_fqdn_category_id(const struct streaminfo *a_stream, unsigned int *ca
 	
 	return 0;
 }
+
+int tsg_get_location_type(void)
+{
+	return g_tsg_para.location_field_num;
+}
