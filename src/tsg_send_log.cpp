@@ -2034,7 +2034,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 int tsg_register_topic(struct tsg_log_instance_t *instance, char *topic_name)
 {
 	struct tsg_log_instance_t *_instance=(struct tsg_log_instance_t *)instance;
-	if(_instance==NULL || _instance->mode==CLOSE || topic_name==NULL || _instance->kafka_handle!=NULL)
+	if(_instance==NULL || _instance->mode==CLOSE || topic_name==NULL || _instance->kafka_handle==NULL)
 	{
 		return -1;
 	}
