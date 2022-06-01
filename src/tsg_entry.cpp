@@ -1485,7 +1485,7 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 
 			if(g_tsg_para.proto_flag&(1<<PROTO_RDP))  //RDP
 			{
-				ret=rdp_protocol_identify((const char *)a_stream->pudpdetail->pdata, a_stream->pudpdetail->datalen, (unsigned int)a_stream->threadnum);
+				ret=rdpudp_protocol_identify((const char *)a_stream->pudpdetail->pdata, a_stream->pudpdetail->datalen, (unsigned int)a_stream->threadnum);
 				if(ret==1)
 				{
 					context->proto=PROTO_RDP;
