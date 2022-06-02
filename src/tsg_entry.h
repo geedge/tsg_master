@@ -156,10 +156,18 @@ struct _str2index
 	char *type;
 };
 
+struct app_attributes
+{
+	unsigned int app_id;
+	unsigned int surrogate_id;
+	unsigned int packet_sequence;
+};
+
 struct gather_app_result
 {
-	enum APP_IDENTIFY_ORIGIN origin;	
-	struct app_identify_result result[ORIGIN_MAX];
+	int app_num;
+	enum APP_IDENTIFY_ORIGIN origin;
+	struct app_attributes attributes[MAX_APP_ID_NUM];
 };
 
 struct l7_protocol 

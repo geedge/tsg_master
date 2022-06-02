@@ -617,9 +617,75 @@ static int set_packet_bytes(struct tsg_log_instance_t *_instance, struct TLD_han
 	return 1;
 }
 
-static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, struct app_identify_result *result, TLD_TYPE type)
+static int set_app_identify_info(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result)
+{	
+	int i=0,j=0,ret=0;
+	char app_name[512]={0};
+	Value array(kArrayType);
+
+	for(i=ORIGIN_USER_DEFINE; i<ORIGIN_MAX; i++)
+	{
+		if(result[i].app_num<=0)
+		{
+			continue;
+		}
+		
+		Value object(kObjectType);
+		for(j=0; j<result[i].app_num; j++)
+		{			
+			ret=tsg_app_id2name(result[i].attributes[j].app_id, app_name, sizeof(app_name), 0);
+			if(ret>0)
+			{
+				add_str_member(_handle, &object, "app_name", app_name);
+			}
+			else
+			{
+				object.AddMember("app_name", result[i].attributes[j].app_id, _handle->document->GetAllocator());
+			}
+			object.AddMember("packet_sequence",result[i].attributes[j].packet_sequence, _handle->document->GetAllocator());
+		}
+		
+		array.PushBack(object, _handle->document->GetAllocator());
+	}
+	
+	TLD_append(_handle, field_name, &array, TLD_TYPE_OBJECT);
+
+	return 1;
+}
+
+static int get_app_id_list(Value *app_id_object, struct TLD_handle_t *_handle, const char *field_name, struct gather_app_result *result)
 {
-	if(result==NULL || result->app_id_num<=0)
+	int i=0,ret=0;
+	char app_name[512]={0};
+	
+	if(result->app_num==0)
+	{
+		return 0;
+	}
+	
+	Value array(kArrayType);
+	for(i=0; i<result->app_num; i++)
+	{
+		Value object(kObjectType);		
+		ret=tsg_app_id2name(result->attributes[i].app_id, app_name, sizeof(app_name), 1);
+		if(ret>0)
+		{		
+			add_str_member(_handle, &object, "app_name", app_name);
+		}
+		object.AddMember("app_id", result->attributes[i].app_id, _handle->document->GetAllocator());
+		object.AddMember("surrogate_id", result->attributes[i].surrogate_id, _handle->document->GetAllocator());
+		object.AddMember("packet_sequence",result->attributes[i].packet_sequence, _handle->document->GetAllocator());
+		array.PushBack(object, _handle->document->GetAllocator());
+	}
+	add_object_member(_handle, app_id_object, field_name, array);
+
+	return 1;
+}
+
+
+static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result, TLD_TYPE type)
+{
+	if(result==NULL || result->app_num<=0)
 	{
 		return 0;
 	}
@@ -628,10 +694,10 @@ static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, st
 	char app_name[256]={0};
 	
 	Value array(kArrayType);
-	for(i=0; i<result->app_id_num; i++)
+	for(i=0; i<result->app_num; i++)
 	{
 		memset(app_name, 0, sizeof(app_name));
-		tsg_app_id2name(result->app_id[i], app_name, sizeof(app_name), 1);
+		tsg_app_id2name(result->attributes[i].app_id, app_name, sizeof(app_name), 1);
 		if(strnlen(app_name, sizeof(app_name)) > 0)
 		{
 			Value app_name_str;
@@ -645,7 +711,7 @@ static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, st
 	return 1;
 }
 
-static int get_l7_protocol(struct app_identify_result *result, char *protocol_list, int protocol_list_len,  int *flag)
+static int get_l7_protocol(struct gather_app_result *result, char *protocol_list, int protocol_list_len,  int *flag)
 {
 	int i=0,offset=0;
 	char *name=NULL;
@@ -655,10 +721,10 @@ static int get_l7_protocol(struct app_identify_result *result, char *protocol_li
 		return 0;
 	}
 	
-	for(i=0; i<result->app_id_num; i++)
+	for(i=0; i<result->app_num; i++)
 	{
 		(*flag)=1;
-		name=tsg_l7_protocol_id2name(result->app_id[i]);
+		name=tsg_l7_protocol_id2name(result->attributes[i].app_id);
 		if(name!=NULL)
 		{
 			if(i>0 && offset>0 && (protocol_list_len-offset)>0)
@@ -673,35 +739,38 @@ static int get_l7_protocol(struct app_identify_result *result, char *protocol_li
 	return 1;
 }
 
-static unsigned int get_max_app_id(unsigned int *app_id_array, int app_id_num)
+static unsigned int get_userdefine_name(struct gather_app_result *result, char *app_name, int app_name_len, int *flag, int is_joint_parent)
 {
-	if(app_id_num<=0)
+	if((*flag)==1 || result->app_num<=0)
 	{
 		return 0;
 	}
+
 	
 	int i=0;
-	unsigned int max_app_id=app_id_array[0]; 
+	unsigned int max_app_id=0; 
 
-	for(i=1; i< app_id_num; i++)
+	for(i=0; i< result->app_num; i++)
 	{
-		if(max_app_id<app_id_array[i])
+		if(max_app_id < result->attributes[i].app_id)
 		{
-			max_app_id=app_id_array[i];
+			max_app_id=result->attributes[i].app_id;
 		}
 	}
 
+	(*flag)=1;
+	tsg_app_id2name(max_app_id, app_name, app_name_len, is_joint_parent);
 
 	return max_app_id;
 }
 
-static int get_app_id(struct app_identify_result *result, unsigned int *app_id, unsigned int *surrogate_id, int *flag)
+static int get_app_id(struct gather_app_result *result, unsigned int *app_id, unsigned int *surrogate_id, int *flag)
 {
-	if(result->app_id_num>0 && (*flag)==0)
+	if(result->app_num>0 && (*flag)==0)
 	{
 		(*flag)=1;
-		(*app_id)=result->app_id[result->app_id_num-1];
-		(*surrogate_id)=result->surrogate_id[result->app_id_num-1];
+		(*app_id)=result->attributes[result->app_num-1].app_id;
+		(*surrogate_id)=result->attributes[result->app_num-1].surrogate_id;
 
 		return 1;
 	}
@@ -709,40 +778,17 @@ static int get_app_id(struct app_identify_result *result, unsigned int *app_id, 
 	return 0;
 }
 
-static int get_app_id_list(Value *app_id_object, struct TLD_handle_t *_handle, const char *field_name, struct app_identify_result *result)
-{
-	int i=0;
-
-	if(result->app_id_num==0)
-	{
-		return 0;
-	}
-	
-	Value array(kArrayType);
-	for(i=0; i<result->app_id_num; i++)
-	{
-		Value object(kObjectType);
-		object.AddMember("app_id", result->app_id[i], _handle->document->GetAllocator());
-		object.AddMember("surrogate_id", result->surrogate_id[i], _handle->document->GetAllocator());
-		array.PushBack(object, _handle->document->GetAllocator());
-	}
-	add_object_member(_handle, app_id_object, field_name, array);
-
-	return 1;
-}
-
-static int get_app_name_list(unsigned int *app_id_array, int app_id_num, char *app_name, int app_name_len, int *flag, int is_joint_parent)
+static int get_app_name_list(struct gather_app_result *result, char *app_name, int app_name_len, int *flag, int is_joint_parent)
 {
 	int i=0;
 	int offset=0;
 
-	if((*flag)==1 || app_id_num<=0)
+	if((*flag)==1 || result->app_num<=0)
 	{
 		return 0;
 	}
 	
-	//for(i=0; i<app_id_num; i++)
-	for(i=app_id_num-1; i<app_id_num; i++)
+	for(i=result->app_num-1; i<result->app_num; i++)
 	{
 		(*flag)=1;
 
@@ -752,7 +798,7 @@ static int get_app_name_list(unsigned int *app_id_array, int app_id_num, char *a
 			offset++;
 		}
 		
-		offset+=tsg_app_id2name(app_id_array[i], app_name+offset, app_name_len-offset, is_joint_parent);
+		offset+=tsg_app_id2name(result->attributes[i].app_id, app_name+offset, app_name_len-offset, is_joint_parent);
 	}
 
 	return 1;
@@ -763,21 +809,20 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	int app_id_flag=0;
 	int l7_protocol_flag=0;
 	char app_name[512]={0};
-	unsigned int max_app_id=0;
 	char protocol_list[256]={0};
 
 	unsigned int one_app_id=0;
 	unsigned int one_surrogate_id=0;
-	struct gather_app_result *label=NULL;
+	struct gather_app_result *gather_result=NULL;
 	
-	label=(struct gather_app_result *)project_req_get_struct(a_stream, g_tsg_para.gather_app_project_id);
-	if(label==NULL)
+	gather_result=(struct gather_app_result *)project_req_get_struct(a_stream, g_tsg_para.gather_app_project_id);
+	if(gather_result==NULL)
 	{		
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)_instance->l7_unknown_name, TLD_TYPE_STRING);
 		return 0;
 	}
 	
-	get_l7_protocol(&(label->result[ORIGIN_BASIC_PROTOCOL]), protocol_list, sizeof(protocol_list), &l7_protocol_flag);
+	get_l7_protocol(&(gather_result[ORIGIN_BASIC_PROTOCOL]), protocol_list, sizeof(protocol_list), &l7_protocol_flag);
 	if(l7_protocol_flag==1)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)protocol_list, TLD_TYPE_STRING);
@@ -789,9 +834,9 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 
 	if(_instance->app_id_type==0) // int
 	{
-		get_app_id(&(label->result[ORIGIN_USER_DEFINE]), &one_app_id, &one_surrogate_id, &app_id_flag);
-		get_app_id(&(label->result[ORIGIN_DKPT]), &one_app_id, &one_surrogate_id, &app_id_flag);
-		get_app_id(&(label->result[ORIGIN_QM_ENGINE]), &one_app_id, &one_surrogate_id, &app_id_flag);
+		get_app_id(&(gather_result[ORIGIN_USER_DEFINE]), &one_app_id, &one_surrogate_id, &app_id_flag);
+		get_app_id(&(gather_result[ORIGIN_DKPT]), &one_app_id, &one_surrogate_id, &app_id_flag);
+		get_app_id(&(gather_result[ORIGIN_QM_ENGINE]), &one_app_id, &one_surrogate_id, &app_id_flag);
 		
 		if(app_id_flag==1)
 		{
@@ -801,32 +846,28 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	}
 	else //string
 	{
-		set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(label->result[ORIGIN_USER_DEFINE]), TLD_TYPE_LONG);
-		
-		max_app_id=get_max_app_id(label->result[ORIGIN_USER_DEFINE].app_id, label->result[ORIGIN_USER_DEFINE].app_id_num);
-		if(max_app_id>0)
-		{
-			get_app_name_list(&max_app_id, 1, app_name, sizeof(app_name), &app_id_flag, 0);
-		}
+		set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(gather_result[ORIGIN_USER_DEFINE]), TLD_TYPE_LONG);
+
+		get_userdefine_name(&(gather_result[ORIGIN_USER_DEFINE]), app_name, sizeof(app_name), &app_id_flag, 0);
 		
 		if(app_id_flag!=1)
 		{
-			get_app_name_list(label->result[ORIGIN_BUILT_IN].app_id, label->result[ORIGIN_BUILT_IN].app_id_num, app_name, sizeof(app_name), &app_id_flag, 0);
+			get_app_name_list(&(gather_result[ORIGIN_BUILT_IN]), app_name, sizeof(app_name), &app_id_flag, 0);
 		}
 
 		if(app_id_flag!=1)
-		{
-			get_app_name_list(label->result[ORIGIN_DKPT].app_id, label->result[ORIGIN_DKPT].app_id_num, app_name, sizeof(app_name), &app_id_flag, 0);
+		{		
+			get_app_name_list(&(gather_result[ORIGIN_DKPT]), app_name, sizeof(app_name), &app_id_flag, 0);
 		}
 
 		if(app_id_flag!=1)
-		{
-			get_app_name_list(label->result[ORIGIN_QM_ENGINE].app_id, label->result[ORIGIN_QM_ENGINE].app_id_num, app_name, sizeof(app_name), &app_id_flag, 0);
+		{		
+			get_app_name_list(&(gather_result[ORIGIN_QM_ENGINE]), app_name, sizeof(app_name), &app_id_flag, 0);
 		}
 
 		if(app_id_flag!=1)
-		{
-			get_app_name_list(label->result[ORIGIN_UNKNOWN].app_id, label->result[ORIGIN_UNKNOWN].app_id_num, app_name, sizeof(app_name), &app_id_flag, 0);
+		{			
+			get_app_name_list(&(gather_result[ORIGIN_UNKNOWN]), app_name, sizeof(app_name), &app_id_flag, 0);
 		}
 				
 		if(app_id_flag==1)
@@ -837,12 +878,14 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 			}
 			
 			Value app_id_object(kObjectType);
-			get_app_id_list(&app_id_object, _handle, "USER_DEFINE", &(label->result[ORIGIN_USER_DEFINE]));
-			get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(label->result[ORIGIN_BUILT_IN]));
-			get_app_id_list(&app_id_object, _handle, "DKPT", &(label->result[ORIGIN_DKPT]));
-			get_app_id_list(&app_id_object, _handle, "THIRD", &(label->result[ORIGIN_QM_ENGINE]));
-			get_app_id_list(&app_id_object, _handle, "UNKNOWN", &(label->result[ORIGIN_UNKNOWN]));
+			get_app_id_list(&app_id_object, _handle, "USER_DEFINE", &(gather_result[ORIGIN_USER_DEFINE]));
+			get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(gather_result[ORIGIN_BUILT_IN]));
+			get_app_id_list(&app_id_object, _handle, "DKPT", &(gather_result[ORIGIN_DKPT]));
+			get_app_id_list(&app_id_object, _handle, "THIRD", &(gather_result[ORIGIN_QM_ENGINE]));
+			get_app_id_list(&app_id_object, _handle, "UNKNOWN", &(gather_result[ORIGIN_UNKNOWN]));
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, &app_id_object, TLD_TYPE_OBJECT);
+
+			set_app_identify_info(_handle, _instance->id2field[LOG_COMMON_APP_IDENTIFY_INFO].name, gather_result);
 		}
 	}
 

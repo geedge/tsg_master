@@ -494,6 +494,23 @@ static int get_default_policy(int compile_id, struct Maat_rule_t *result)
 	return 0;
 }
 
+static int get_packet_sequence(const struct streaminfo *a_stream)
+{
+	unsigned int packet_sequence=0;
+	unsigned long long value=0;
+	int value_len=sizeof(unsigned long long);
+
+	value=0;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_PKT, (void *)&value, &value_len);
+	packet_sequence+=(unsigned int)value;
+
+	value=0;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_PKT, (void *)&value, &value_len);
+	packet_sequence+=(unsigned int)value;
+
+	return packet_sequence;
+}
+
 static int is_do_default_policy(const struct streaminfo *a_stream, int after_n_packets)
 {
 	if(after_n_packets<=0 || a_stream->pdetail==NULL)
@@ -935,6 +952,26 @@ static void copy_bypass_result(const struct streaminfo *a_stream, struct master_
 	return ;
 }
 
+int copy_app_result(struct gather_app_result *gather_result, struct app_identify_result *identify_result, int packet_sequence)
+{
+	int i=0;
+	for(i=0; (i < identify_result->app_id_num) && i<MAX_APP_ID_NUM && (gather_result->app_num < MAX_APP_ID_NUM); i++)
+	{
+		if(gather_result->attributes[i].app_id==identify_result->app_id[i] && gather_result->attributes[i].surrogate_id==identify_result->surrogate_id[i])
+		{
+			continue;
+		}
+		
+		gather_result->origin=identify_result->origin;
+		gather_result->attributes[i].app_id=identify_result->app_id[i];
+		gather_result->attributes[i].surrogate_id=identify_result->surrogate_id[i];
+		gather_result->attributes[i].packet_sequence=packet_sequence;
+		gather_result->app_num++;
+	}
+
+	return 0;
+}
+
 static int l7_protocol_mapper(const char *filename)
 {
 	int ret=0;
@@ -1095,16 +1132,18 @@ static int set_l7_protocol_label(const struct streaminfo *a_stream, tsg_protocol
 		return 0;
 	}
 	
-	gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result));
-	memset(gather_result, 0, sizeof(struct gather_app_result));
+	gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result)*ORIGIN_MAX);
+	memset(gather_result, 0, sizeof(struct gather_app_result)*ORIGIN_MAX);
 	set_struct_project(a_stream, g_tsg_para.gather_app_project_id, (void *)gather_result);
 	
 	int app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[protocol].name);
 	if(app_id>0)
 	{
-		gather_result->result[ORIGIN_BASIC_PROTOCOL].app_id_num=1;		
-		gather_result->result[ORIGIN_BASIC_PROTOCOL].app_id[0]=app_id;
-		gather_result->result[ORIGIN_BASIC_PROTOCOL].origin=ORIGIN_BASIC_PROTOCOL;
+		gather_result[ORIGIN_BASIC_PROTOCOL].app_num=1;		
+		gather_result[ORIGIN_BASIC_PROTOCOL].origin=ORIGIN_BASIC_PROTOCOL;
+		gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].app_id=app_id;
+		gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].surrogate_id=0;
+		gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].packet_sequence=get_packet_sequence(a_stream);
 	}
 
 	return 0;
@@ -1509,9 +1548,8 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 				if(sip_ret==SIP_TRUE)
 				{
 					context->proto=PROTO_SIP;
-				}
-				
-				return 1;
+					return 1;
+				}				
 			}
 
 			if(g_tsg_para.proto_flag&(1<<PROTO_RDP))  //RDP
@@ -1537,7 +1575,7 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 	return ret;
 }
 
-int scan_application_id_and_properties(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, struct master_context *context, struct app_identify_result *identify_result, int thread_seq)
+int scan_application_id_and_properties(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, struct master_context *context, struct gather_app_result *identify_result, int thread_seq)
 {
 	int i=0,hit_num=0;
 	int hited_app_id=0;
@@ -1547,9 +1585,9 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 	struct app_id_dict *dict=NULL;
 	struct Maat_rule_t *p_result, *d_result=NULL;
 
-	for(i=0; i< identify_result->app_id_num; i++)
+	for(i=0; i< identify_result->app_num; i++)
 	{
-		snprintf(app_id_buff, sizeof(app_id_buff), "%d", identify_result->app_id[i]);
+		snprintf(app_id_buff, sizeof(app_id_buff), "%d", identify_result->attributes[i].app_id);
 		dict=(struct app_id_dict *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
 		if(dict!=NULL)
 		{
@@ -1559,7 +1597,7 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->subcategroy, (char *)"subcategory", thread_seq);	
 			hit_num+=tsg_scan_app_properties_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->characteristics, (char *)"characteristics", thread_seq);
 
-			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->app_name, identify_result->app_id[i], thread_seq);
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), dict->app_name, identify_result->attributes[i].app_id, thread_seq);
 			after_n_packets=dict->deny_app_para.after_n_packets;
 			
 			set_app_timeout(a_stream, dict, &(context->timeout));
@@ -1567,22 +1605,22 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 		}
 		else
 		{
-			name=tsg_l7_protocol_id2name(identify_result->app_id[i]);
-			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), ((name==NULL) ? (char *)"" : name), identify_result->app_id[i], thread_seq);
+			name=tsg_l7_protocol_id2name(identify_result->attributes[i].app_id);
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &(context->mid), ((name==NULL) ? (char *)"" : name), identify_result->attributes[i].app_id, thread_seq);
 		}
 
 		p_result=tsg_fetch_deny_rule(result, hit_num);
 		if(d_result==NULL)
 		{
 			d_result=p_result;
-			hited_app_id=identify_result->app_id[i];
+			hited_app_id=identify_result->attributes[i].app_id;
 			continue;
 		}
 		
 		if(d_result->config_id!=p_result->config_id)
 		{
 			d_result=p_result;
-			hited_app_id=identify_result->app_id[i];
+			hited_app_id=identify_result->attributes[i].app_id;
 		}
 	}	
 
@@ -1590,7 +1628,7 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 	{
 		if(identify_result->origin!=ORIGIN_BASIC_PROTOCOL)
 		{
-			context->hited_app_id=hited_app_id;			
+			context->hited_app_id=hited_app_id;
 		}
 		
 		context->hited_para.hited_app_id=hited_app_id;
@@ -1728,10 +1766,9 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
 	if(gather_result==NULL)
 	{
-		gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result));
-		memset(gather_result, 0, sizeof(struct gather_app_result));
+		gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result)*ORIGIN_MAX);
+		memset(gather_result, 0, sizeof(struct gather_app_result)*ORIGIN_MAX);
 		set_struct_project(a_stream, g_tsg_para.gather_app_project_id, (void *)gather_result);
-		gather_result->origin=ORIGIN_MAX;
 	}
 	
 	switch(identify_result->origin)
@@ -1777,9 +1814,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 			return 0;
 	}
 
-	gather_result->origin=identify_result->origin;
-	
-	memcpy(&(gather_result->result[identify_result->origin]), identify_result, sizeof(struct app_identify_result));
+	copy_app_result(&(gather_result[identify_result->origin]), identify_result, get_packet_sequence(a_stream));
 
 	if(context->mid==NULL)
 	{
@@ -1787,7 +1822,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	}
 	
 	record_time_start(&(context->last_scan_time));	
-	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, context, identify_result, a_stream->threadnum);
+	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, context, &(gather_result[identify_result->origin]), a_stream->threadnum);
 	p_result=tsg_policy_decision_criteria(scan_result, hit_num);
 	if(p_result==NULL || (p_result->action==TSG_ACTION_MONITOR && is_parent_ssl==1))
 	{
@@ -1843,7 +1878,7 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
 	for(i=0; i<ORIGIN_MAX && gather_result!=NULL; i++)
 	{
-		hit_num+=scan_application_id_and_properties(a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result->result[i]), a_stream->threadnum);
+		hit_num+=scan_application_id_and_properties(a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result[i]), a_stream->threadnum);
 	}
 			
 	
@@ -1941,7 +1976,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
 			for(i=0; i<ORIGIN_MAX && gather_result!=NULL; i++)
 			{
-				hit_num+=scan_application_id_and_properties(a_stream, scan_result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result->result[i]), thread_seq);
+				hit_num+=scan_application_id_and_properties(a_stream, scan_result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result[i]), thread_seq);
 			}
 
 			p_result=tsg_policy_decision_criteria(scan_result, hit_num);
