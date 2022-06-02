@@ -1704,7 +1704,8 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "IP_ADDR_TABLE", g_tsg_para.table_name[TABLE_IP_ADDR], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_ADDR");
 	MESA_load_profile_string_def(conffile, "MAAT", "SUBSCRIBER_ID_TABLE", g_tsg_para.table_name[TABLE_SUBSCRIBER_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_SUBSCRIBER_ID");
 	MESA_load_profile_string_def(conffile, "MAAT", "APP_ID_TABLE", g_tsg_para.table_name[TABLE_APP_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_APP_ID");
-	MESA_load_profile_string_def(conffile, "MAAT", "HTTP_HOST_TABLE", g_tsg_para.table_name[TABLE_HTTP_HOST], _MAX_TABLE_NAME_LEN, "TSG_FIELD_HTTP_HOST");
+	MESA_load_profile_string_def(conffile, "MAAT", "HTTP_HOST_TABLE", g_tsg_para.table_name[TABLE_HTTP_HOST], _MAX_TABLE_NAME_LEN, "TSG_FIELD_HTTP_HOST");	
+	MESA_load_profile_string_def(conffile, "MAAT", "HTTP_URL_TABLE", g_tsg_para.table_name[TABLE_HTTP_URL], _MAX_TABLE_NAME_LEN, "TSG_FIELD_HTTP_URL");
 	MESA_load_profile_string_def(conffile, "MAAT", "SSL_SNI_TABLE", g_tsg_para.table_name[TABLE_SSL_SNI], _MAX_TABLE_NAME_LEN, "TSG_FIELD_SSL_SNI");
 	MESA_load_profile_string_def(conffile, "MAAT", "DECYPTION_EXCLUSION_SSL_SNI", g_tsg_para.table_name[TABLE_EXCLUSION_SSL_SNI], _MAX_TABLE_NAME_LEN, "TSG_DECYPTION_EXCLUSION_SSL_SNI");
 
@@ -1989,6 +1990,28 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 	}
 
 	return 0;
+}
+
+char *tsg_pull_quic_ua(struct streaminfo *a_stream)
+{
+	struct policy_priority_label *label=(struct policy_priority_label *)project_req_get_struct(a_stream, g_tsg_para.priority_project_id);
+	if(label!=NULL)
+	{
+		return label->quic_ua;
+	}
+
+	return NULL;
+}
+
+char *tsg_pull_http_url(struct streaminfo *a_stream)
+{
+	struct policy_priority_label *label=(struct policy_priority_label *)project_req_get_struct(a_stream, g_tsg_para.priority_project_id);
+	if(label!=NULL)
+	{
+		return label->http_url;
+	}
+
+	return NULL;
 }
 
 int tsg_get_ip_asn(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_EX_DATA* client_asn, MAAT_PLUGIN_EX_DATA* server_asn)

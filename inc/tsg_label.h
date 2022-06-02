@@ -92,6 +92,12 @@ struct policy_priority_label
 	int domain_len;
 	int result_type;	//enum _PULL_RESULT_TYPE (tsg_rule.h)
 	int result_num;
+	union
+	{
+		char *http_url;
+		char *quic_ua;
+		void *para;
+	};
 	char domain[MAX_DOMAIN_LEN];
 	Maat_rule_t result[MAX_RESULT_NUM];
 };

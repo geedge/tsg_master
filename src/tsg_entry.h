@@ -89,6 +89,7 @@ enum MASTER_TABLE{
 	TABLE_RESPONSE_PAGES,
 	TABLE_DNS_PROFILE_RECORD,
 	TABLE_PROFILE_MIRROR,
+	TABLE_HTTP_URL,
 	TABLE_MAX
 };
 
@@ -224,7 +225,12 @@ struct master_context
 	int hited_app_id;
 	unsigned int quic_version;
 	char *domain;
-	char *quic_ua;
+	union
+	{
+		char *http_url;
+		char *quic_ua;
+		void *para;
+	};
 	scan_status_t mid;	
 	struct Maat_rule_t *result;
 	struct hited_app_para hited_para;

@@ -54,6 +54,9 @@ int tsg_rule_init(const char *conffile, void *logger);
 
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num);
 int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t*result, int result_num, struct identify_info *identify_info);
+char *tsg_pull_quic_ua(struct streaminfo *a_stream);
+char *tsg_pull_http_url(struct streaminfo *a_stream);
+
 
 //return NULL if none exists, otherwise return one deny rule;
 struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);

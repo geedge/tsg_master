@@ -581,6 +581,13 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 			TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[proto].name, TLD_TYPE_STRING);
 		}
 
+		
+		if(proto==PROTO_HTTP)
+		{
+			TLD_append(TLD_handle, (char *)"http_version", (void *)"http1", TLD_TYPE_STRING);
+			TLD_append(TLD_handle, (char *)"http_sequence", (void *)1, TLD_TYPE_LONG);
+		}
+
 		if(context!=NULL && context->domain!=NULL)
 		{
 			switch(proto)
@@ -588,6 +595,12 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 				case	PROTO_HTTP:
 					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_HTTP_HOST);
 					TLD_append(TLD_handle, domain_field_name, (void *)context->domain, TLD_TYPE_STRING);
+
+					if(context->http_url!=NULL)
+					{
+						domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_HTTP_URL);
+						TLD_append(TLD_handle, domain_field_name, (void *)context->http_url, TLD_TYPE_STRING);
+					}
 					break;
 				case	PROTO_SSL:
 					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_SSL_SNI);
@@ -735,7 +748,13 @@ static void free_tcpall_label(int thread_seq, void *project_req_value)
 static void free_policy_label(int thread_seq, void *project_req_value)
 {
 	if(project_req_value!=NULL)
-	{
+	{		
+		struct policy_priority_label *priority_label=(struct policy_priority_label *)project_req_value;
+		if(priority_label->para!=NULL)
+		{
+			dictator_free(thread_seq, priority_label->para);
+			priority_label->para=NULL;
+		}
 		dictator_free(thread_seq, project_req_value);
 		project_req_value=NULL;
 	}
@@ -748,6 +767,20 @@ void free_gather_app_result(int thread_seq, void *project_req_value)
 		dictator_free(thread_seq, project_req_value);
 		project_req_value=NULL;
 	}
+}
+
+static char *malloc_copy_string(char *origin, int length, int thread_seq)
+{
+	if(length<=0 && origin==NULL)
+	{
+		return NULL;
+	}
+	
+	char *dest=(char *)dictator_malloc(thread_seq, length+1);
+	memcpy(dest, origin, length);
+	dest[length]='\0';
+
+	return dest;
 }
 
 static void copy_monitor_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int result_num, int thread_seq)
@@ -788,7 +821,7 @@ static void copy_monitor_result(const struct streaminfo *a_stream, struct master
 
 }
 
-static void copy_result_to_project(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, char *domain, tsg_protocol_t proto, PULL_RESULT_TYPE result_type, int thread_seq)
+static void copy_result_to_project(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, PULL_RESULT_TYPE result_type, int thread_seq)
 {
 	int ret=0;
 	struct policy_priority_label *priority_label=NULL;	
@@ -804,7 +837,7 @@ static void copy_result_to_project(const struct streaminfo *a_stream, struct mas
 										RLOG_LV_DEBUG,
 										"DUP_HIT_POLICY",
 										"Hit policy, domain: %s policy_id: %d action: %d addr: %s",
-										(domain!=NULL ? domain : ""),
+										(context->domain!=NULL ? context->domain : ""),
 										p_result->config_id,
 										(unsigned char)p_result->action,
 										PRINTADDR(a_stream, g_tsg_para.level)
@@ -813,13 +846,21 @@ static void copy_result_to_project(const struct streaminfo *a_stream, struct mas
 	
 	memset(priority_label, 0, sizeof(struct policy_priority_label));
 
-	priority_label->proto=proto;
-	if(domain!=NULL)
+	priority_label->proto=context->proto;
+	if(context->domain!=NULL)
 	{
-		priority_label->domain_len=MIN(sizeof(priority_label->domain)-1 ,strlen(domain));
-		memcpy(priority_label->domain, domain, priority_label->domain_len);
+		priority_label->domain_len=MIN(sizeof(priority_label->domain)-1 ,strlen(context->domain));
+		memcpy(priority_label->domain, context->domain, priority_label->domain_len);
 	}
-	
+
+	if(context->para!=NULL)
+	{
+		int length=strlen(context->http_url);
+		priority_label->para=dictator_malloc(thread_seq,length+1);
+		memcpy(priority_label->para, context->para, length);
+		((char *)priority_label->para)[length]='\0';
+	}
+		
 	priority_label->result_num=1;
 	priority_label->result_type=result_type;
 	memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
@@ -831,19 +872,22 @@ static void copy_result_to_project(const struct streaminfo *a_stream, struct mas
 		MESA_handle_runtime_log(g_tsg_para.logger,
 										RLOG_LV_FATAL,
 										"PROJECT_ADD",
-										"Add policy_priority_label failed, policy, domain: %s policy_id: %d action: %d addr: %s",
-										(domain!=NULL ? domain : ""),
+										"Add policy_priority_label failed, policy, domain: %s para(url/ua): %s policy_id: %d action: %d addr: %s",
+										(context->domain!=NULL ? context->domain : ""),
+										(context->para!=NULL ? context->http_url : ""),
 										priority_label->result[0].config_id,
 										(unsigned char)priority_label->result[0].action,
 										PRINTADDR(a_stream, g_tsg_para.level)
 									);
-			}
+		return ;
+	}
 	
 	MESA_handle_runtime_log(g_tsg_para.logger, 
 									RLOG_LV_DEBUG,
 									"COPY_RESULT",
-									"Hit policy, domain: %s policy_id: %d action: %d addr: %s",
-									(domain!=NULL ? domain : ""),
+									"Hit policy, domain: %s para(url/ua): %s policy_id: %d action: %d addr: %s",
+									(context->domain!=NULL ? context->domain : ""),
+									(context->para!=NULL ? context->http_url : ""),
 									priority_label->result[0].config_id,
 									(unsigned char)priority_label->result[0].action,
 									PRINTADDR(a_stream, g_tsg_para.level)
@@ -1319,17 +1363,18 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 		case	STREAM_TYPE_TCP:
 			if(g_tsg_para.proto_flag&(1<<PROTO_HTTP))  //http
 			{
-				char *host=NULL;
-				length=http_host_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->curdir, &host);
-				if(length>=0)
+				char *host=NULL, *url=NULL;
+				void *parser_result=http_field_parser((char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->curdir);
+				if(parser_result!=NULL)
 				{
 					context->proto=PROTO_HTTP;
-					if(length>0 && host!=NULL)
-					{
-						context->domain=(char *)dictator_malloc(a_stream->threadnum, length+1);
-						memset(context->domain, 0, length+1);
-						memcpy(context->domain, host, length);
-					}
+					
+					length=http_get_filed_result(parser_result, HTTP_HOST, &host);
+					context->domain=malloc_copy_string(host, length, a_stream->threadnum);
+					length=http_get_filed_result(parser_result, HTTP_MESSAGE_URL, &url);
+					context->http_url=malloc_copy_string(url, length, a_stream->threadnum);
+
+					http_free_filed_result(parser_result);
 					return 1;
 				}
 			}
@@ -1345,10 +1390,7 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 					context->proto=PROTO_SSL;
 					if(chello->sni!=NULL)
 					{
-						length=strlen(chello->sni);
-						context->domain=(char *)dictator_malloc(a_stream->threadnum, length+1);
-						memset(context->domain, 0, length+1);
-						memcpy(context->domain, chello->sni, length);
+						context->domain=malloc_copy_string(chello->sni, strlen(chello->sni), a_stream->threadnum);
 					}
 
 					context->is_esni=(int)chello->is_encrypt_sni;
@@ -1452,19 +1494,8 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 				if(context->quic_version > 0)
 				{
 					context->proto=PROTO_QUIC;
-					if(sni_len>0)
-					{
-						context->domain=(char *)dictator_malloc(a_stream->threadnum, sni_len+1);
-						memcpy(context->domain, sni_buff, sni_len);
-						context->domain[sni_len]='\0';
-					}
-
-					if(ua_len>0)
-					{
-						context->quic_ua=(char *)dictator_malloc(a_stream->threadnum, ua_len+1);
-						memcpy(context->quic_ua, ua_buff, ua_len);
-						context->quic_ua[ua_len]='\0';
-					}
+					context->domain=malloc_copy_string(sni_buff, sni_len, a_stream->threadnum);
+					context->quic_ua=malloc_copy_string(ua_buff, ua_len, a_stream->threadnum);
 					return 1;
 				}
 			}
@@ -1605,7 +1636,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 							tmp_tcpall_context->hited_para=context->hited_para;
 						}
 						
-						copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_FW_RESULT, a_stream->threadnum);
+						copy_result_to_project(a_stream, context, p_result, PULL_FW_RESULT, a_stream->threadnum);
 						context->is_dropme=1;  //only tcp
 						state=APP_STATE_KILL_OTHER|APP_STATE_GIVEME;
 						break;
@@ -1624,7 +1655,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				{
 					context->hit_cnt=0;
 					master_send_log(a_stream, p_result, 1, context, a_stream->threadnum);					
-					copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_FW_RESULT, a_stream->threadnum);
+					copy_result_to_project(a_stream, context, p_result, PULL_FW_RESULT, a_stream->threadnum);
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
 												"DENY",
@@ -1646,7 +1677,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				break;
 			case	TSG_ACTION_BYPASS:
 				copy_bypass_result(a_stream, context, p_result, a_stream->threadnum);				
-				copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_FW_RESULT, a_stream->threadnum);
+				copy_result_to_project(a_stream, context, p_result, PULL_FW_RESULT, a_stream->threadnum);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 				state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 
@@ -1659,7 +1690,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 					break;
 				}
 				
-				copy_result_to_project(a_stream, context, p_result, context->domain, context->proto, PULL_KNI_RESULT, a_stream->threadnum);
+				copy_result_to_project(a_stream, context, p_result, PULL_KNI_RESULT, a_stream->threadnum);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
 				state=APP_STATE_DROPME|APP_STATE_KILL_OTHER;
 
@@ -1794,6 +1825,11 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 		{
 			protocol_id=tsg_l7_protocol_name2id("ESNI");
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, (char *)"ESNI", protocol_id, a_stream->threadnum);
+		}
+
+		if(context->proto==PROTO_HTTP && context->http_url!=NULL)
+		{
+			hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_stream, context->http_url, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, g_tsg_para.table_id[TABLE_HTTP_URL], a_stream->threadnum);
 		}
 	}
 
