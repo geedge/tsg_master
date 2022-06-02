@@ -26,6 +26,42 @@
 
 extern "C" int sendpacket_do_checksum(unsigned char *buf, int protocol, int len);
 
+static int replace_policy_variable(const struct streaminfo *a_stream, ctemplate::TemplateDictionary *tpl_dict, int policy_id)
+{
+	char ip_str[128]={0};
+	struct session_attribute_label *attr_label=NULL;
+	
+	tpl_dict->SetIntValue("tsg_policy_id", policy_id);
+
+	attr_label=(struct session_attribute_label *)project_req_get_struct(a_stream, g_tsg_para.session_attribute_project_id);
+	if(attr_label!=NULL && attr_label->client_subscribe_id!=NULL)
+	{
+		tpl_dict->SetFormattedValue("tsg_subscriber_id", "%s", attr_label->client_subscribe_id->subscribe_id);
+	}
+	else
+	{
+		tpl_dict->SetFormattedValue("tsg_subscriber_id", "%s", "");
+	}
+
+
+	switch(a_stream->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4: 			
+			inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->saddr), ip_str, sizeof(ip_str));
+			tpl_dict->SetFormattedValue("tsg_client_ip", "%s", ip_str);
+			break;
+		case	ADDR_TYPE_IPV6: 			
+			inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->saddr), ip_str, sizeof(ip_str));
+			tpl_dict->SetFormattedValue("tsg_client_ip", "%s", ip_str);
+			break;
+		default:
+			tpl_dict->SetFormattedValue("tsg_client_ip", "%s", "");
+			break;
+	}
+
+	return 0;
+}
+
 static int set_drop_stream(const struct streaminfo *a_stream, tsg_protocol_t protocol)
 {
 	int ret=0, opt_value=1;
@@ -129,59 +165,72 @@ static int get_tcp_mss_option(const struct streaminfo *a_stream, int type, void 
 	return 0;
 }
 
-static void template_generate(int status_code, int cfg_id, const char* msg, char **page_buff, size_t *page_size, int thread_seq)
+static void template_generate(const struct streaminfo *a_stream, int status_code, int policy_id, const char* message, char **page_buff, size_t *page_size, int thread_seq)
 {
+	int used_len=0;
+	char *tmp_buff=NULL;
+	std::string page_output, msg_output;
+	ctemplate::Template *tpl=NULL;
 	ctemplate::TemplateDictionary dict("pg_page_dict");	//dict is automatically finalized after function returned.
-	dict.SetIntValue("cfg_id", cfg_id);
 
-	if (NULL == msg)
-	{
-		dict.SetValue("msg", "NULL");
+	if(message!=NULL)
+	{		
+		ctemplate::Template *tpl_message=ctemplate::Template::StringToTemplate(message, strlen(message), ctemplate::DO_NOT_STRIP);
+		ctemplate::TemplateDictionary dict_msg("msg_dict");	//dict is automatically finalized after function returned.
+
+		replace_policy_variable(a_stream, &dict_msg, policy_id);
+		
+		tpl_message->Expand(&msg_output, &dict_msg);
+
+		used_len=msg_output.length();
+		tmp_buff=(char *)dictator_malloc(a_stream->threadnum, (used_len+1)*sizeof(char));
+		memcpy(tmp_buff, msg_output.c_str(), used_len);
+		tmp_buff[used_len]='\0';
+
+		dict.SetValue("msg", tmp_buff);
+
+		dictator_free(thread_seq, tmp_buff);
+		tmp_buff=NULL;
 	}
 	else
 	{
-		dict.SetValue("msg", msg);
-	}
-	std::string output;
-	ctemplate::Template * tpl = NULL;
+		dict.SetValue("msg", "NULL");
+	}	
 
 	switch (status_code)
 	{
 		case 403:
 			tpl = g_tsg_para.tpl_403;
-			tpl->Expand(&output, &dict);
+			tpl->Expand(&page_output, &dict);
 			break;
 		case 404: 
 			tpl = g_tsg_para.tpl_404;
-			tpl->Expand(&output, &dict);
+			tpl->Expand(&page_output, &dict);
 			break;
 		case 200: 
 			tpl = g_tsg_para.tpl_200;
-			tpl->Expand(&output, &dict);
+			tpl->Expand(&page_output, &dict);
 			break;
 		case 204: 
 			tpl = g_tsg_para.tpl_204;
-			tpl->Expand(&output, &dict);
+			tpl->Expand(&page_output, &dict);
 			break;
 		case 303:
 			tpl = g_tsg_para.tpl_303;
-			tpl->Expand(&output, &dict);
+			tpl->Expand(&page_output, &dict);
 			break;
 		default: return;
 	}
-
 	
-	*page_size=output.length()+1;
-	
+	*page_size=page_output.length()+1;
 	char *_page_buff=(char *)dictator_malloc(thread_seq, (*page_size)*sizeof(char));
-	memcpy(_page_buff, output.c_str(), *page_size);
-
+	memcpy(_page_buff, page_output.c_str(), *page_size);
 	*page_buff=_page_buff;
 	
 	return ;
 }
 
-static int get_response_pages(struct Maat_rule_t *p_result, struct compile_user_region *user_region, char **payload, int thread_seq)
+static int get_response_pages(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, struct compile_user_region *user_region, char **payload, int thread_seq)
 {
 	char key[16]={0};
 	int payload_len=0;
@@ -190,7 +239,7 @@ static int get_response_pages(struct Maat_rule_t *p_result, struct compile_user_
 	switch(user_region->deny->type)
 	{
 		case	TSG_DENY_TYPE_MESSAGE:
-			template_generate(user_region->deny->code, p_result->config_id, user_region->deny->message, payload, (size_t *)&payload_len, thread_seq);
+			template_generate(a_stream, user_region->deny->code, p_result->config_id, user_region->deny->message, payload, (size_t *)&payload_len, thread_seq);
 			return payload_len;
 			break;
 		case	TSG_DENY_TYPE_PROFILE:
@@ -211,7 +260,7 @@ static int get_response_pages(struct Maat_rule_t *p_result, struct compile_user_
 				payload_len=res_pages->content_len;
 				break;
 			case	HTTP_RESPONSE_FORMAT_TEMPLATE:
-				template_generate(user_region->deny->code, p_result->config_id, res_pages->content, payload, (size_t *)&payload_len, thread_seq);
+				template_generate(a_stream, user_region->deny->code, p_result->config_id, res_pages->content, payload, (size_t *)&payload_len, thread_seq);
 				break;
 			default:
 				break;
@@ -421,7 +470,7 @@ static int http_build_response_packet(const struct streaminfo *a_stream, struct 
 	}
 
 	http_hdr_len=get_http_header(message+ip_tcp_hdr_len, sizeof(message)-ip_tcp_hdr_len, user_region->deny->code, NULL);
-	payload_len=get_response_pages(p_result, user_region, &payload, a_stream->threadnum);
+	payload_len=get_response_pages(a_stream, p_result, user_region, &payload, a_stream->threadnum);
 
 	set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_HTTP_ACTION_FILESIZE, (void *)&payload_len, sizeof(int), a_stream->threadnum);
 	
@@ -457,45 +506,17 @@ static int http_build_response_packet(const struct streaminfo *a_stream, struct 
 	return send_pkt_len;
 }
 
-static int http_get_content_303(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, char *url, char *http_hdr, int http_hdr_len)
+static int http_get_redirect_url(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, char *url, int code, char *http_hdr, int http_hdr_len)
 {
 	int used_len=0;
 	char *tmp_buff=NULL;
-	char ip_str[128]={0};
 	std::string output;
-	struct session_attribute_label *attr_label=NULL;
 
 	ctemplate::Template *tpl_303=ctemplate::Template::StringToTemplate(url, strlen(url), ctemplate::DO_NOT_STRIP);
 	ctemplate::TemplateDictionary dict_303("url_dict");	//dict is automatically finalized after function returned.
+
+	replace_policy_variable(a_stream, &dict_303, p_result->config_id);
 	
-	dict_303.SetIntValue("tsg_policy_id", p_result->config_id);
-
-	attr_label=(struct session_attribute_label *)project_req_get_struct(a_stream, g_tsg_para.session_attribute_project_id);
-	if(attr_label!=NULL && attr_label->client_subscribe_id!=NULL)
-	{
-		dict_303.SetFormattedValue("tsg_subscriber_id", "%s", attr_label->client_subscribe_id->subscribe_id);
-	}
-	else
-	{
-		dict_303.SetFormattedValue("tsg_subscriber_id", "%s", "");
-	}
-
-
-	switch(a_stream->addr.addrtype)
-	{
-		case	ADDR_TYPE_IPV4: 			
-			inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->saddr), ip_str, sizeof(ip_str));
-			dict_303.SetFormattedValue("tsg_client_ip", "%s", ip_str);
-			break;
-		case	ADDR_TYPE_IPV6: 			
-			inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->saddr), ip_str, sizeof(ip_str));
-			dict_303.SetFormattedValue("tsg_client_ip", "%s", ip_str);
-			break;
-		default:
-			dict_303.SetFormattedValue("tsg_client_ip", "%s", "");
-			break;
-	}
-
 	tpl_303->Expand(&output, &dict_303);
 
 	used_len=output.length();
@@ -503,7 +524,7 @@ static int http_get_content_303(const struct streaminfo *a_stream, struct Maat_r
 	memcpy(tmp_buff, output.c_str(), used_len);
 	tmp_buff[used_len]='\0';
 
-	used_len=get_http_header(http_hdr, http_hdr_len, 303, tmp_buff);
+	used_len=get_http_header(http_hdr, http_hdr_len, code, tmp_buff);
 
 	dictator_free(a_stream->threadnum, tmp_buff);
 	tmp_buff=NULL;
@@ -767,10 +788,8 @@ static unsigned char do_action_redirect_http(const struct streaminfo *a_stream, 
 	switch(user_region->deny->code)
 	{
 		case	302:
-			used_http_hdr_len=get_http_header(http_hdr, sizeof(http_hdr), user_region->deny->code, user_region->deny->redirect_url_to);				
-			break;
 		case	303:			
-			used_http_hdr_len=http_get_content_303(a_stream, p_result, user_region->deny->redirect_url_to, http_hdr, sizeof(http_hdr));
+			used_http_hdr_len=http_get_redirect_url(a_stream, p_result, user_region->deny->redirect_url_to, user_region->deny->code, http_hdr, sizeof(http_hdr));
 			break;
 		default:
 			return STATE_DROPME|STATE_DROPPKT;

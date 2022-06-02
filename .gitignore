@@ -2,3 +2,4 @@ SI/*
 .vscode/*
 build/
 cmake-build-*
+*.si4project
