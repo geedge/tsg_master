@@ -135,6 +135,12 @@ struct mirrored_stat
 	int compile_id;
 };
 
+struct policy_capture_result
+{
+	int compile_id;
+	char *packet_path;
+};
+
 struct tsg_notify_data
 {
 	int compile_id;
@@ -149,7 +155,8 @@ struct tsg_notify_data
 struct tsg_notify_execution_result
 {	
 	int stat_mirrored_cnt;
-	char *capture_packet_path;
+	int capture_result_cnt;
+	struct policy_capture_result capture_result[MAX_RESULT_NUM];
 	struct mirrored_stat stat_mirrored[MAX_RESULT_NUM];
 };
 

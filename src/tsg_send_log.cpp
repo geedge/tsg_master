@@ -1512,23 +1512,28 @@ int set_notify_execution_result(struct tsg_log_instance_t *_instance, struct TLD
 	{
 		return 0;
 	}
+
+	TLD_delete(_handle, _instance->id2field[LOG_COMMON_MIRRORED_PKTS].name);
+	TLD_delete(_handle, _instance->id2field[LOG_COMMON_MIRRORED_BYTES].name);
+	TLD_delete(_handle, _instance->id2field[LOG_COMMON_PACKET_CAPTURE_FILE].name);
 	
 	for(i=0; i<execution_result->stat_mirrored_cnt; i++)
 	{
 		if(execution_result->stat_mirrored[i].compile_id==p_result->config_id)
 		{
-			TLD_delete(_handle, _instance->id2field[LOG_COMMON_MIRRORED_PKTS].name);
-			TLD_delete(_handle, _instance->id2field[LOG_COMMON_MIRRORED_BYTES].name);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_PKTS].name, (void *)(execution_result->stat_mirrored[i].packets), TLD_TYPE_LONG);			
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_BYTES].name, (void *)(execution_result->stat_mirrored[i].bytes), TLD_TYPE_LONG);
 			break;
 		}
 	}
 
-	if(execution_result->capture_packet_path!=NULL)
+	for(i=0; i<execution_result->capture_result_cnt; i++)
 	{		
-		TLD_delete(_handle, _instance->id2field[LOG_COMMON_PACKET_CAPTURE_FILE].name);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_PACKET_CAPTURE_FILE].name, (void *)(execution_result->capture_packet_path), TLD_TYPE_STRING);
+		if(execution_result->capture_result[i].compile_id==p_result->config_id)
+		{	
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_PACKET_CAPTURE_FILE].name, (void *)(execution_result->capture_result[i].packet_path), TLD_TYPE_STRING);
+			break;
+		}
 	}
 	
 	return 1;
