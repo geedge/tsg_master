@@ -1140,36 +1140,36 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 
 int TLD_array_append(struct TLD_handle_t *handle, char *key, void **array, int array_num, TLD_TYPE type)
 {
-        if(handle==NULL || key==NULL ||  array_num<=0 || array==NULL || type!=TLD_TYPE_LONG || type!=TLD_TYPE_STRING)
-        {
-                return -1;
-        }
+    if(handle==NULL || key==NULL ||  array_num<=0 || array==NULL || type!=TLD_TYPE_LONG || type!=TLD_TYPE_STRING)
+    {
+            return -1;
+    }
 
-        int i=0;
-        Value obj_array(kArrayType);
+    int i=0;
+    Value obj_array(kArrayType);
 
-        switch(type)
-        {
-                case    TLD_TYPE_LONG:
-                        for(i=0; i<array_num; i++)
-                        {
-                                obj_array.PushBack((long)(array[i]), handle->document->GetAllocator());
-                        }
-                        break;
-                case    TLD_TYPE_STRING:
-                        for(i=0; i<array_num; i++)
-                        {
-                                Value str_value(StringRef((char *)(array[i]), strlen((char *)array[i])));
-                                obj_array.PushBack(str_value, handle->document->GetAllocator());
-                        }
-                        break;
-                default:
-                        return -1;
-        }
+    switch(type)
+    {
+            case    TLD_TYPE_LONG:
+                    for(i=0; i<array_num; i++)
+                    {
+                            obj_array.PushBack((long)(array[i]), handle->document->GetAllocator());
+                    }
+                    break;
+            case    TLD_TYPE_STRING:
+                    for(i=0; i<array_num; i++)
+                    {
+                            Value str_value(StringRef((char *)(array[i]), strlen((char *)array[i])));
+                            obj_array.PushBack(str_value, handle->document->GetAllocator());
+                    }
+                    break;
+            default:
+                    return -1;
+    }
 
-        add_object_member(handle, handle->document, key, obj_array);
+    add_object_member(handle, handle->document, key, obj_array);
 
-        return 1;
+    return 1;
 }
 
 struct TLD_handle_t *TLD_duplicate(struct TLD_handle_t *handle)
@@ -1193,7 +1193,11 @@ struct TLD_handle_t *TLD_duplicate(struct TLD_handle_t *handle)
 
 struct TLD_handle_t *TLD_create(int thread_id)
 {
-	//struct _tld_handle *_handle=(struct _tld_handle *)dictator_malloc(thread_id, sizeof(struct _tld_handle));
+	struct tsg_log_instance_t *_instance=get_log_instance();
+	if(_instance->mode==CLOSE)
+	{
+		return NULL;
+	}
 	
 	struct TLD_handle_t *_handle=(struct TLD_handle_t *)calloc(1, sizeof(struct TLD_handle_t));
 	_handle->thread_id = thread_id;
@@ -1202,7 +1206,6 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	_handle->document = new Document(_handle->valueAllocator);
 	_handle->document->SetObject();
 	
-	struct tsg_log_instance_t *_instance=get_log_instance();
 	FS_operate(_instance->fs2_handle, _instance->fs2_field_id[LOG_FS2_CREATE_LOG_HANDLE], 0, FS_OP_ADD, 1);
 
 	return _handle;
@@ -2002,24 +2005,10 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 			continue;
 		}
 
-		ret=update_percent(_instance, log_msg->result[i].service_id, LOG_COLUMN_STATUS_DROP, thread_id);
-		if(ret==1)
-		{
-			MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO,
-										"TSG_SEND_LOG",
-										"tsg drop log:cfg_id=%d service=%d send_log_percent: %d addr=%s",
-										log_msg->result[i].config_id,
-										log_msg->result[i].service_id,
-										_instance->service2topic[log_msg->result[i].service_id].send_log_percent[thread_id],
-										(log_msg->a_stream==NULL ? "" : PRINTADDR(log_msg->a_stream,_instance->level))
-									);
-			continue;	
-		}
-		
 		switch(log_msg->result[i].do_log)
 		{
 			case	LOG_ABORT:
-				MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO,
+				MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
 											"TSG_SEND_LOG",
 											"tsg abort log:cfg_id=%d service=%d addr=%s",
 											log_msg->result[i].config_id,
@@ -2037,6 +2026,20 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 				break;
 			default:
 				break;
+		}
+
+		ret=update_percent(_instance, log_msg->result[i].service_id, LOG_COLUMN_STATUS_DROP, thread_id);
+		if(ret==1)
+		{
+			MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
+										"TSG_SEND_LOG",
+										"tsg drop log:cfg_id=%d service=%d send_log_percent: %d addr=%s",
+										log_msg->result[i].config_id,
+										log_msg->result[i].service_id,
+										_instance->service2topic[log_msg->result[i].service_id].send_log_percent[thread_id],
+										(log_msg->a_stream==NULL ? "" : PRINTADDR(log_msg->a_stream,_instance->level))
+									);
+			continue;	
 		}
 
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(log_msg->result[i].config_id), TLD_TYPE_LONG);
