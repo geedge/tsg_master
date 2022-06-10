@@ -1548,34 +1548,43 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 	struct session_attribute_label *attribute_label=NULL;
 
 	attribute_label=(struct session_attribute_label *)project_req_get_struct(a_stream, _instance->session_attribute_project_id);
-	if(attribute_label!=NULL)
+	if(attribute_label==NULL)
+	{
+		return 0;
+	}
+
+	if(attribute_label->establish_latency_ms>0)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)attribute_label->establish_latency_ms, TLD_TYPE_LONG);
+	}
+
+	if(attribute_label->http_action_file_size>0)
+	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_HTTP_ACTION_FILESIZE].name, (void *)(long)attribute_label->http_action_file_size, TLD_TYPE_LONG);
-
-		set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_ASN].name, attribute_label->client_asn);		
-		set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_ASN].name, attribute_label->server_asn);
-		
-		set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, attribute_label->client_location);
-		set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, attribute_label->server_location);
-
-		ret=set_subscriber_id(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, attribute_label->client_subscribe_id);
-		if(ret==0)
-		{
-			set_subscriber_id(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, attribute_label->server_subscribe_id);
-		}
-		
-		set_fqdn_category(_instance, _handle, a_stream, attribute_label->fqdn_category_id, attribute_label->fqdn_category_id_num);
-
-		if(attribute_label->ja3_fingerprint!=NULL)
-		{
-			TLD_append(_handle, _instance->id2field[LOG_SSL_JA3_FINGERPRINT].name, (void *)attribute_label->ja3_fingerprint, TLD_TYPE_STRING);
-		}
-
-		set_umts_user_info(_instance, _handle, a_stream, attribute_label->user_info);
 	}
 	
-	return 0;
+	set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_ASN].name, attribute_label->client_asn);		
+	set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_ASN].name, attribute_label->server_asn);
+	
+	set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, attribute_label->client_location);
+	set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, attribute_label->server_location);
+
+	ret=set_subscriber_id(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, attribute_label->client_subscribe_id);
+	if(ret==0)
+	{
+		set_subscriber_id(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, attribute_label->server_subscribe_id);
+	}
+	
+	set_fqdn_category(_instance, _handle, a_stream, attribute_label->fqdn_category_id, attribute_label->fqdn_category_id_num);
+
+	if(attribute_label->ja3_fingerprint!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_SSL_JA3_FINGERPRINT].name, (void *)attribute_label->ja3_fingerprint, TLD_TYPE_STRING);
+	}
+
+	set_umts_user_info(_instance, _handle, a_stream, attribute_label->user_info);
+
+	return 1;
 }
 
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
