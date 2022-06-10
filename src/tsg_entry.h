@@ -280,6 +280,7 @@ typedef	struct tsg_para
 	int app_dict_field_num;
 	int device_seq_in_dc;
 	int datacenter_id;
+	int hash_switch;
 	int hash_timeout;
 	int hash_slot_size;
 	int feature_tamper;

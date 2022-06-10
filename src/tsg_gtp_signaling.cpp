@@ -8,7 +8,7 @@
 #include "tsg_entry.h"
 #include "tsg_gtp_signaling.h"
 
-MESA_htable_handle g_gtp_signaling_hash_handle;
+MESA_htable_handle g_gtp_signaling_hash_handle=NULL;
 
 
 static int is_gtp_tunnel(const struct streaminfo *a_stream)
@@ -136,6 +136,11 @@ int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_i
 	int ret=0;
 	unsigned int uplink=0,downlink=0;
 
+	if(g_tsg_para.hash_switch==0)
+	{
+		return 0;
+	}
+
 	if(*user_info!=NULL)
 	{
 		return 1;
@@ -170,6 +175,13 @@ int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_i
 
 int tsg_gtp_signaling_hash_init(const char* conffile, void *logger)
 {
+	int hash_switch=0;
+	MESA_load_profile_int_def(conffile, "GTP_SIGNALING", "HASH_SWITCH", &g_tsg_para.hash_switch, 1);
+	if(g_tsg_para.hash_switch==0)
+	{
+		return 0;
+	}
+
 	MESA_htable_create_args_t args;
 
 	MESA_load_profile_int_def(conffile, "GTP_SIGNALING", "HASH_TIMEOUT", &g_tsg_para.hash_timeout, 300);
