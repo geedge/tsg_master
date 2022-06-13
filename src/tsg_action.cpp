@@ -176,21 +176,28 @@ static void template_generate(const struct streaminfo *a_stream, int status_code
 	if(message!=NULL)
 	{		
 		ctemplate::Template *tpl_message=ctemplate::Template::StringToTemplate(message, strlen(message), ctemplate::DO_NOT_STRIP);
-		ctemplate::TemplateDictionary dict_msg("msg_dict");	//dict is automatically finalized after function returned.
+		if(tpl_message!=NULL)
+		{
+			ctemplate::TemplateDictionary dict_msg("msg_dict");	//dict is automatically finalized after function returned.
 
-		replace_policy_variable(a_stream, &dict_msg, policy_id);
-		
-		tpl_message->Expand(&msg_output, &dict_msg);
+			replace_policy_variable(a_stream, &dict_msg, policy_id);
+			
+			tpl_message->Expand(&msg_output, &dict_msg);
 
-		used_len=msg_output.length();
-		tmp_buff=(char *)dictator_malloc(a_stream->threadnum, (used_len+1)*sizeof(char));
-		memcpy(tmp_buff, msg_output.c_str(), used_len);
-		tmp_buff[used_len]='\0';
+			used_len=msg_output.length();
+			tmp_buff=(char *)dictator_malloc(a_stream->threadnum, (used_len+1)*sizeof(char));
+			memcpy(tmp_buff, msg_output.c_str(), used_len);
+			tmp_buff[used_len]='\0';
 
-		dict.SetValue("msg", tmp_buff);
+			dict.SetValue("msg", tmp_buff);
 
-		dictator_free(thread_seq, tmp_buff);
-		tmp_buff=NULL;
+			dictator_free(thread_seq, tmp_buff);
+			tmp_buff=NULL;
+		}
+		else
+		{
+			dict.SetValue("msg", message);
+		}
 	}
 	else
 	{
@@ -513,22 +520,29 @@ static int http_get_redirect_url(const struct streaminfo *a_stream, struct Maat_
 	std::string output;
 
 	ctemplate::Template *tpl_303=ctemplate::Template::StringToTemplate(url, strlen(url), ctemplate::DO_NOT_STRIP);
-	ctemplate::TemplateDictionary dict_303("url_dict");	//dict is automatically finalized after function returned.
+	if(tpl_303!=NULL)
+	{
+		ctemplate::TemplateDictionary dict_303("url_dict");	//dict is automatically finalized after function returned.
 
-	replace_policy_variable(a_stream, &dict_303, p_result->config_id);
+		replace_policy_variable(a_stream, &dict_303, p_result->config_id);
+		
+		tpl_303->Expand(&output, &dict_303);
+
+		used_len=output.length();
+		tmp_buff=(char *)dictator_malloc(a_stream->threadnum, (used_len+1)*sizeof(char));
+		memcpy(tmp_buff, output.c_str(), used_len);
+		tmp_buff[used_len]='\0';
+
+		used_len=get_http_header(http_hdr, http_hdr_len, code, tmp_buff);
+
+		dictator_free(a_stream->threadnum, tmp_buff);
+		tmp_buff=NULL;
+	}
+	else
+	{
+		used_len=get_http_header(http_hdr, http_hdr_len, code, url);
+	}
 	
-	tpl_303->Expand(&output, &dict_303);
-
-	used_len=output.length();
-	tmp_buff=(char *)dictator_malloc(a_stream->threadnum, (used_len+1)*sizeof(char));
-	memcpy(tmp_buff, output.c_str(), used_len);
-	tmp_buff[used_len]='\0';
-
-	used_len=get_http_header(http_hdr, http_hdr_len, code, tmp_buff);
-
-	dictator_free(a_stream->threadnum, tmp_buff);
-	tmp_buff=NULL;
-
 	return used_len;
 }
 
