@@ -490,9 +490,8 @@ static int set_tuple4(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	int ret=0;
-	struct timespec tv;
 	long common_con_duration_ms=0;
-	unsigned long long create_time=0;
+	unsigned long long create_time=0,last_time=0;
 	int size=sizeof(unsigned long long);
 
 	if(a_stream->ptcpdetail!=NULL)
@@ -503,13 +502,12 @@ static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle
 		ret=MESA_get_stream_opt(a_stream, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time, &size);
 		if(ret>=0)
 		{
-			clock_gettime(CLOCK_REALTIME, &tv);
-			common_con_duration_ms=tv.tv_sec*1000+tv.tv_nsec/1000/1000 - create_time;
-		}
-		
-		if(common_con_duration_ms>0)
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+			ret=MESA_get_stream_opt(a_stream, MSO_STREAM_LASTUPDATE_TIMESTAMP_MS, (void *)&last_time, &size);
+			if(ret>=0 && last_time>create_time)
+			{
+				common_con_duration_ms=last_time-create_time;			
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+			}
 		}
 	}
 	else

@@ -175,7 +175,6 @@ int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_i
 
 int tsg_gtp_signaling_hash_init(const char* conffile, void *logger)
 {
-	int hash_switch=0;
 	MESA_load_profile_int_def(conffile, "GTP_SIGNALING", "HASH_SWITCH", &g_tsg_para.hash_switch, 1);
 	if(g_tsg_para.hash_switch==0)
 	{
