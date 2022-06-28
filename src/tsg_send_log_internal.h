@@ -127,6 +127,7 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_APPLICATION_BEHAVIOR,
 	LOG_HTTP_URL,
 	LOG_COMMON_APP_IDENTIFY_INFO,
+	LOG_COMMON_APP_EXTRACT_INFO,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
@@ -154,6 +155,15 @@ enum LOG_FS2_TYPE{
 	LOG_FS2_FREE_RAPID_SIZE,
 	LOG_FS2_FREE_RAPID_CAPACITY,	
 	LOG_FS2_TYPE_MAX
+};
+
+enum LOG_BRIDGE
+{
+	LOG_BRIDGE_MAC_LINKINFO=0,
+	LOG_BRIDGE_NAT_C2S_LINKINFO,
+	LOG_BRIDGE_NAT_S2C_LINKINFO,
+	LOG_BRIDGE_APP_LUA_RESULT,
+	LOG_BRIDGE_MAX
 };
 
 	
@@ -188,10 +198,8 @@ struct tsg_log_instance_t
 	int session_attribute_project_id;
 	int tcp_flow_project_id;
 	int udp_flow_project_id;
-	int mac_linkinfo_project_id;
-	int nat_c2s_linkinfo_project_id;	
-	int nat_s2c_linkinfo_project_id;
 	int sum_line_id;
+	int bridge_id[LOG_BRIDGE_MAX];
 	int fs2_column_id[LOG_COLUMN_STATUS_MAX];
 	int fs2_field_id[LOG_FS2_TYPE_MAX];
 	char l7_unknown_name[MAX_STRING_LEN];

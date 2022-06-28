@@ -53,7 +53,13 @@ struct attribute_kv
 {
 	enum _ATTRIBUTE_TYPE type;
 	char *name;
-	void *value;
+	union
+	{
+		unsigned int number;
+		char *ip;
+		char *string;
+		void *value;
+	};
 };
 
 struct user_defined_attribute_label

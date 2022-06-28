@@ -282,7 +282,7 @@ static int set_tcp_isn(struct tsg_log_instance_t *_instance, struct TLD_handle_t
 
 static int set_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
-	const char *linkinfo=(const char *)stream_bridge_async_data_get(a_stream, _instance->mac_linkinfo_project_id);
+	const char *linkinfo=(const char *)stream_bridge_async_data_get(a_stream, _instance->bridge_id[LOG_BRIDGE_MAC_LINKINFO]);
 	if(linkinfo==NULL)
 	{
 		return 0;
@@ -1585,6 +1585,41 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 	return 1;
 }
 
+int set_lua_scripts_result(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	int i=0;
+	struct user_defined_attribute_label *uda_label=(struct user_defined_attribute_label *)stream_bridge_async_data_get(a_stream, _instance->bridge_id[LOG_BRIDGE_APP_LUA_RESULT]);
+	if(uda_label!=NULL)
+	{
+		Value array(kArrayType);
+
+		for(i=0; i<uda_label->attribute_num; i++)
+		{
+			Value object(kObjectType);		
+			switch(uda_label->attribute[i].type)
+			{
+				case	ATTRIBUTE_TYPE_BOOL:
+				case	ATTRIBUTE_TYPE_NUMERIC:					
+					add_number_member(_handle, &object, uda_label->attribute[i].name, uda_label->attribute[i].number);	
+					break;
+				case	ATTRIBUTE_TYPE_IP:
+				case	ATTRIBUTE_TYPE_STRING:	
+					add_str_member(_handle, &object, uda_label->attribute[i].name, uda_label->attribute[i].string);
+					break;
+				default:
+					continue;
+			}
+
+			array.PushBack(object, _handle->document->GetAllocator());
+		}
+
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_EXTRACT_INFO].name, &array, TLD_TYPE_OBJECT);
+	}
+
+	return 0;
+}
+
+
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
 	int ret=0;
@@ -1613,6 +1648,7 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	set_duraction(_instance, _handle, a_stream);
 	set_packet_bytes(_instance, _handle, a_stream);	
 	set_session_attributes(_instance, _handle, a_stream);
+	set_lua_scripts_result(_instance, _handle, a_stream);
 		
 	if(is_tunnels(a_stream))
 	{
@@ -1732,10 +1768,10 @@ int load_log_common_field(const char *filename, id2field_t *id2field, struct top
 struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_handle_t fs2_handle)
 {
 	int i=0,ret=0;
-	char label_buff[128]={0};
 	char nic_name[32]={0};
 	char kafka_errstr[1024]={0};
 	unsigned int local_ip_nr=0;
+	char bridge_name[LOG_BRIDGE_MAX][128]={0};
 	rd_kafka_conf_t *rdkafka_conf = NULL;
 	struct tsg_log_instance_t *_instance=NULL;
 	
@@ -1766,26 +1802,19 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "APP_ID_TYPE", &(_instance->app_id_type), 1);	//0: int, 1: string	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_UNKNOWN_NAME", _instance->l7_unknown_name, sizeof(_instance->l7_unknown_name), "UNCATEGORIZED");
 
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "LINKINFO_FROM_MAC", label_buff, sizeof(label_buff), "mirror_linkinfo_from_mac");
-	_instance->mac_linkinfo_project_id=stream_bridge_build(label_buff, "w");
-	if(_instance->mac_linkinfo_project_id<0)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "LINKINFO_FROM_MAC", "stream_bridge_build is error, app_bridge_name: %s", label_buff);	
-	}
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "LINKINFO_FROM_MAC", bridge_name[LOG_BRIDGE_MAC_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_MAC_LINKINFO]), "mirror_linkinfo_from_mac");
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_C2S_LINKINFO", bridge_name[LOG_BRIDGE_NAT_C2S_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_NAT_C2S_LINKINFO]), "common_link_info_c2s");
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_S2C_LINKINFO", bridge_name[LOG_BRIDGE_NAT_S2C_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_NAT_S2C_LINKINFO]), "common_link_info_s2c");
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "APP_LUA_SCRIPTS_BRIDGE_NAME", bridge_name[LOG_BRIDGE_APP_LUA_RESULT], sizeof(bridge_name[LOG_BRIDGE_APP_LUA_RESULT]), "LUA_USER_DEFINED_ATTRIBUTE");
 
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_C2S_LINKINFO", label_buff, sizeof(label_buff), "common_link_info_c2s");
-	_instance->nat_c2s_linkinfo_project_id=stream_bridge_build(label_buff, "w");
-	if(_instance->nat_c2s_linkinfo_project_id<0)
+	for(i=0; i<LOG_BRIDGE_MAX; i++)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "NAT_C2S_LINKINFO", "stream_bridge_build is error, app_bridge_name: %s", label_buff);	
-	}
-	
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_S2C_LINKINFO", label_buff, sizeof(label_buff), "common_link_info_s2c");
-	_instance->nat_s2c_linkinfo_project_id=stream_bridge_build(label_buff, "w");
-	if(_instance->nat_s2c_linkinfo_project_id<0)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "NAT_S2C_LINKINFO", "stream_bridge_build is error, app_bridge_name: %s", label_buff);	
-	}
+		_instance->bridge_id[i]=stream_bridge_build(bridge_name[i], "w");
+		if(_instance->bridge_id[i]<0)
+		{
+			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "LINKINFO_FROM_MAC", "stream_bridge_build is error, bridge_name: %s", bridge_name[i]);	
+		}
+	}	
 
 	_instance->logger=MESA_create_runtime_log_handle(_instance->log_path, _instance->level);
 	if(_instance->logger==NULL)
@@ -2062,8 +2091,8 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 
 		if(log_msg->result[i].config_id==0 && log_msg->a_stream!=NULL)
 		{			
-			set_nat_linkinfo(_instance, _handle, log_msg->a_stream, _instance->id2field[LOG_COMMON_LINK_INFO_C2S].name, _instance->nat_c2s_linkinfo_project_id);
-			set_nat_linkinfo(_instance, _handle, log_msg->a_stream, _instance->id2field[LOG_COMMON_LINK_INFO_S2C].name, _instance->nat_s2c_linkinfo_project_id);
+			set_nat_linkinfo(_instance, _handle, log_msg->a_stream, _instance->id2field[LOG_COMMON_LINK_INFO_C2S].name, _instance->bridge_id[LOG_BRIDGE_NAT_C2S_LINKINFO]);
+			set_nat_linkinfo(_instance, _handle, log_msg->a_stream, _instance->id2field[LOG_COMMON_LINK_INFO_S2C].name, _instance->bridge_id[LOG_BRIDGE_NAT_S2C_LINKINFO]);
 		}
 		
 		if(log_msg->result[i].action==TSG_ACTION_DENY)
