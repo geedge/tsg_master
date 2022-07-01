@@ -1234,7 +1234,7 @@ static int set_user_region(struct tsg_log_instance_t *_instance, struct TLD_hand
 static int set_mail_eml(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	struct tsg_conn_sketch_notify_data *notify_mail=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]);
-	if(notify_mail!=NULL && notify_mail->pdata.mail_eml_filename!=NULL)
+	if(notify_mail!=NULL && notify_mail->pdata.mail_eml_filename!=NULL && notify_mail->protocol==PROTO_MAIL)
 	{
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_MAIL_EML_FILE].name);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_MAIL_EML_FILE].name, (void *)notify_mail->pdata.mail_eml_filename, TLD_TYPE_STRING);
