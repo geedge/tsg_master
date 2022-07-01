@@ -165,4 +165,20 @@ struct application_behavior
 	char *stream_behavior;
 };
 
+struct http_s3_file
+{
+	char *request_filename;
+	char *response_filename;
+};
+
+struct business_notify_data
+{
+	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
+	union
+	{		
+		struct http_s3_file *s3_http;
+		void *pdata;
+	};
+};
+
 #endif

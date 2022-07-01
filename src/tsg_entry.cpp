@@ -2269,8 +2269,6 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "APP_IDENTIFY_RESULT_BRIDGE", g_tsg_para.bridge_name[BRIDGE_TYPE_APP_IDENTIFY_RESULT],_MAX_TABLE_NAME_LEN, "APP_IDENTIFY_RESULT_BRIDGE");
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "SKETCH_NOTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA],_MAX_TABLE_NAME_LEN, "TSG_CONN_SKETCH_NOTIFY_DATA");
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "MASTER_NOTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_SEND_CONN_SKETCH_DATA],_MAX_TABLE_NAME_LEN, "TSG_MASTER_NOTIFY_DATA");
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "NOTIFY_EXEC_RESULT_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_CONN_SKETCH_EXEC_RESULT],_MAX_TABLE_NAME_LEN, "TSG_NOTIFICATION_EXECUTION_RESULT");
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "APP_BEHAVIOR_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_APP_BEHAVIOR_RESULT],_MAX_TABLE_NAME_LEN, "TSG_APPLICATION_BEHAVIOR");
 
 	for(i=0; i<BRIDGE_TYPE_MAX; i++)
 	{

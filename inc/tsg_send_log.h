@@ -7,6 +7,14 @@
 #define	PRINTADDR(a, b)	((b)<RLOG_LV_FATAL ? printaddr(&(a->addr), a->threadnum) : "")
 #endif
 
+enum DO_LOG
+{
+	LOG_ABORT=0,
+	LOG_ALL=1,	
+	LOG_NOFILE=2,
+};
+
+
 typedef	struct _tsg_log
 {
 	int result_num;

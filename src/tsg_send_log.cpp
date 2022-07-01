@@ -1231,6 +1231,49 @@ static int set_user_region(struct tsg_log_instance_t *_instance, struct TLD_hand
 	return 0;
 }
 
+static int set_mail_eml(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	struct tsg_conn_sketch_notify_data *notify_mail=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]);
+	if(notify_mail!=NULL && notify_mail->pdata.mail_eml_filename!=NULL)
+	{
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_MAIL_EML_FILE].name);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_MAIL_EML_FILE].name, (void *)notify_mail->pdata.mail_eml_filename, TLD_TYPE_STRING);
+		return 1;
+	}
+
+	return 0;
+}
+
+
+static int set_s3_filename(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	struct business_notify_data *bnd_label=(struct business_notify_data *)stream_bridge_async_data_get(a_stream, _instance->bridge_id[LOG_BRIDGE_BUSINESS_S3_FILENAME]);
+	if(bnd_label==NULL || bnd_label->pdata==NULL)
+	{
+		return 0;
+	}
+	
+	switch(bnd_label->proto)
+	{
+		case	PROTO_HTTP:
+			TLD_delete(_handle, _instance->id2field[LOG_COMMON_HTTP_REQUEST_S3_FILE].name);				
+			TLD_delete(_handle, _instance->id2field[LOG_COMMON_HTTP_RESPONSE_S3_FILE].name);
+
+			if(bnd_label->s3_http==NULL)
+			{
+				break;
+			}
+
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_HTTP_REQUEST_S3_FILE].name, bnd_label->s3_http->request_filename, TLD_TYPE_STRING);				
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_HTTP_RESPONSE_S3_FILE].name, bnd_label->s3_http->response_filename, TLD_TYPE_STRING);
+			break;
+		default:
+			break;
+	}
+
+	return 1;
+}
+
 int set_nat_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, int project_id)
 {
 	const char *nat_linkinfo=(const char *)stream_bridge_async_data_get(a_stream, project_id);
@@ -1488,7 +1531,7 @@ int set_application_behavior(struct tsg_log_instance_t *_instance, struct TLD_ha
 	}
 	
 	struct application_behavior *behavior_result=NULL;
-	behavior_result=(struct application_behavior *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_APP_BEHAVIOR_RESULT]);
+	behavior_result=(struct application_behavior *)stream_bridge_async_data_get(a_stream, _instance->bridge_id[LOG_BRIDGE_APP_BEHAVIOR_RESULT]);
 	if(behavior_result==NULL)
 	{
 		return 0;
@@ -1508,7 +1551,7 @@ int set_notify_execution_result(struct tsg_log_instance_t *_instance, struct TLD
 	
 	int i=0;
 	struct tsg_notify_execution_result *execution_result=NULL;
-	execution_result=(struct tsg_notify_execution_result *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_CONN_SKETCH_EXEC_RESULT]);
+	execution_result=(struct tsg_notify_execution_result *)stream_bridge_async_data_get(a_stream, _instance->bridge_id[LOG_BRIDGE_CONN_SKETCH_EXEC_RESULT]);
 	if(execution_result==NULL)
 	{
 		return 0;
@@ -1619,7 +1662,6 @@ int set_lua_scripts_result(struct tsg_log_instance_t *_instance, struct TLD_hand
 	return 0;
 }
 
-
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
 {
 	int ret=0;
@@ -1649,7 +1691,7 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	set_packet_bytes(_instance, _handle, a_stream);	
 	set_session_attributes(_instance, _handle, a_stream);
 	set_lua_scripts_result(_instance, _handle, a_stream);
-		
+	
 	if(is_tunnels(a_stream))
 	{
 		set_common_tunnels(_instance, _handle, a_stream);
@@ -1805,7 +1847,10 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LINKINFO_FROM_MAC", bridge_name[LOG_BRIDGE_MAC_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_MAC_LINKINFO]), "mirror_linkinfo_from_mac");
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_C2S_LINKINFO", bridge_name[LOG_BRIDGE_NAT_C2S_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_NAT_C2S_LINKINFO]), "common_link_info_c2s");
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_S2C_LINKINFO", bridge_name[LOG_BRIDGE_NAT_S2C_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_NAT_S2C_LINKINFO]), "common_link_info_s2c");
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "APP_LUA_SCRIPTS_BRIDGE_NAME", bridge_name[LOG_BRIDGE_APP_LUA_RESULT], sizeof(bridge_name[LOG_BRIDGE_APP_LUA_RESULT]), "LUA_USER_DEFINED_ATTRIBUTE");
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "APP_LUA_SCRIPTS_BRIDGE_NAME", bridge_name[LOG_BRIDGE_APP_LUA_RESULT], sizeof(bridge_name[LOG_BRIDGE_APP_LUA_RESULT]), "LUA_USER_DEFINED_ATTRIBUTE");	
+	MESA_load_profile_string_def(conffile, "TSG_LOG", "BUSINESS_S3_FILENAME", bridge_name[LOG_BRIDGE_BUSINESS_S3_FILENAME], sizeof(bridge_name[LOG_BRIDGE_BUSINESS_S3_FILENAME]), "TSG_BUSINESS_S3_FILENAME");
+	MESA_load_profile_string_def(conffile, "SYSTEM", "APP_BEHAVIOR_BRIDGE_NAME", bridge_name[LOG_BRIDGE_APP_BEHAVIOR_RESULT], sizeof(bridge_name[LOG_BRIDGE_APP_BEHAVIOR_RESULT]), "TSG_APPLICATION_BEHAVIOR");
+	MESA_load_profile_string_def(conffile, "SYSTEM", "NOTIFY_EXEC_RESULT_BRIDGE_NAME", bridge_name[LOG_BRIDGE_CONN_SKETCH_EXEC_RESULT], sizeof(bridge_name[LOG_BRIDGE_CONN_SKETCH_EXEC_RESULT]), "TSG_NOTIFICATION_EXECUTION_RESULT");
 
 	for(i=0; i<LOG_BRIDGE_MAX; i++)
 	{
@@ -2057,8 +2102,19 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 				continue;
 				break;
 			case	LOG_ALL:
+				if(log_msg->result[i].action==TSG_ACTION_MONITOR)
+				{
+					set_s3_filename(_instance, _handle, log_msg->a_stream);
+					set_mail_eml(_instance, _handle, log_msg->a_stream);
+				}
 				break;
 			case	LOG_NOFILE:
+				if(log_msg->result[i].action==TSG_ACTION_MONITOR)
+				{					
+					TLD_delete(_handle, _instance->id2field[LOG_COMMON_MAIL_EML_FILE].name);
+					TLD_delete(_handle, _instance->id2field[LOG_COMMON_HTTP_REQUEST_S3_FILE].name);				
+					TLD_delete(_handle, _instance->id2field[LOG_COMMON_HTTP_RESPONSE_S3_FILE].name);
+				}
 				break;
 			default:
 				break;
