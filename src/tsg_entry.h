@@ -240,7 +240,7 @@ struct master_context
 	scan_status_t mid;	
 	struct Maat_rule_t *result;
 	struct hited_app_para hited_para;
-	struct timespec last_scan_time;
+	long long last_scan_time;
 };
 
 struct tcpall_context
@@ -415,6 +415,7 @@ int tsg_gtp_signaling_hash_init(const char* conffile, void *logger);
 int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data);
 const void *get_struct_project(const struct streaminfo *a_stream, int project_id);
 
+long long get_current_time_ms(void);
 
 //parent_app_name.app_name
 int tsg_app_id2name(int app_id, char *app_name, int app_name_len, int is_joint_parent);

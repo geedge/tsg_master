@@ -372,6 +372,15 @@ static int is_deny_application(Maat_rule_t *p_result)
 	return ret;
 }
 
+long long get_current_time_ms(void)
+{
+	int size=sizeof(long long); 	
+	long long current_time_ms=0;		
+	sapp_get_platform_opt(SPO_CURTIME_TIMET_MS, &current_time_ms, &size);
+
+	return current_time_ms;
+}
+
 int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data)
 {
 	if(a_stream==NULL || project_id<0)
@@ -1821,7 +1830,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 		return 0;
 	}
 	
-	record_time_start(&(context->last_scan_time));	
+	context->last_scan_time=get_current_time_ms();
 	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, context, &(gather_result[identify_result->origin]), a_stream->threadnum);
 	p_result=tsg_policy_decision_criteria(scan_result, hit_num);
 	if(p_result==NULL || (p_result->action==TSG_ACTION_MONITOR && is_parent_ssl==1))
@@ -1919,7 +1928,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		{
 			*pme=(void *)context;
 		}
-		record_time_start(&context->last_scan_time);
+		context->last_scan_time=get_current_time_ms();
 	}
 	
 	switch(a_stream->opstate)
@@ -1955,7 +1964,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 				break;
 			}
 			
-			if(record_time_elapse_us(&context->last_scan_time) < (g_tsg_para.scan_time_interval*1000000))
+			if(get_current_time_ms()-context->last_scan_time < (g_tsg_para.scan_time_interval*1000))
 			{
 				break;
 			}
@@ -1966,7 +1975,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 				context->mid=NULL;
 			}
 			
-			record_time_start(&context->last_scan_time);
+			context->last_scan_time=get_current_time_ms();
 			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, scan_result+hit_num, MAX_RESULT_NUM-hit_num);
 			if(ret>0)
 			{

@@ -119,13 +119,13 @@ static int register_topic(struct tsg_log_instance_t *instance, struct topic_stat
 	topic->topic_rkt=rd_kafka_topic_new(_instance->kafka_handle, topic->name, topic_conf);
 
 	int thread_num=get_thread_count();
-	topic->drop_start=(struct timespec *)calloc(thread_num, sizeof(struct timespec));
+	topic->drop_start=(long long *)calloc(thread_num, sizeof(long long));
 	topic->send_log_percent=(int *)calloc(thread_num, sizeof(int));
 	
 	for(int i=0; i<thread_num; i++)
 	{
 		topic->send_log_percent[i]=100;
-		clock_gettime(CLOCK_REALTIME, &(topic->drop_start[i]));
+		topic->drop_start[i]=get_current_time_ms();
 	}
 
 	topic->fs2_line_id=FS_register(_instance->fs2_handle, FS_STYLE_LINE, FS_CALC_SPEED, topic->name);
@@ -136,10 +136,8 @@ static int register_topic(struct tsg_log_instance_t *instance, struct topic_stat
 
 static int update_percent(struct tsg_log_instance_t *_instance, int service_id, enum LOG_COLUMN_STATUS column, int thread_id)
 {
-	struct timespec cur_time;
+	long long current_time_ms=get_current_time_ms();
 	struct topic_stat *topic=(struct topic_stat *)&(_instance->service2topic[service_id]);
-
-	clock_gettime(CLOCK_REALTIME, &cur_time);
 
 	switch(column)
 	{
@@ -156,14 +154,14 @@ static int update_percent(struct tsg_log_instance_t *_instance, int service_id, 
 
 			FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_column_id[column], FS_OP_ADD, 1);
 			FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_column_id[column+1], FS_OP_ADD, 1);
-			if(cur_time.tv_sec - topic->drop_start[thread_id].tv_sec>=1)
+			if(current_time_ms - topic->drop_start[thread_id]>=1000)
 			{	
 				topic->send_log_percent[thread_id]/=2;
-				topic->drop_start[thread_id]=cur_time;
+				topic->drop_start[thread_id]=current_time_ms;
 			}
 			break;
 		case	LOG_COLUMN_STATUS_DROP:			
-			if((cur_time.tv_nsec%100) > topic->send_log_percent[thread_id])
+			if((current_time_ms%100) > topic->send_log_percent[thread_id])
 			{				
 				FS_operate(_instance->fs2_handle, topic->fs2_line_id, _instance->fs2_column_id[column], FS_OP_ADD, 1);
 				FS_operate(_instance->fs2_handle, topic->fs2_line_id, _instance->fs2_column_id[column+1], FS_OP_ADD, 1);				
@@ -179,10 +177,10 @@ static int update_percent(struct tsg_log_instance_t *_instance, int service_id, 
 				break;
 			}
 			
-			if((cur_time.tv_sec - topic->drop_start[thread_id].tv_sec) >= _instance->recovery_interval)
+			if((current_time_ms - topic->drop_start[thread_id]) >= _instance->recovery_interval*1000)
 			{
 				topic->send_log_percent[thread_id]++;
-				topic->drop_start[thread_id]=cur_time;						
+				topic->drop_start[thread_id]=current_time_ms;						
 			}
 			break;
 		default:
@@ -419,13 +417,11 @@ static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle
 
 static int set_address_list(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
-	int ret=0;
 	unsigned short tunnel_type=0;
 	char nest_addr_buf[1024];
 	int tunnel_type_size=sizeof(tunnel_type);
 	
-	ret=MESA_get_stream_opt(a_stream, MSO_STREAM_TUNNEL_TYPE, &tunnel_type, &tunnel_type_size);
-	assert(ret==0);
+	MESA_get_stream_opt(a_stream, MSO_STREAM_TUNNEL_TYPE, &tunnel_type, &tunnel_type_size);
 	if(tunnel_type==STREAM_TUNNLE_NON)
 	{	
 		layer_addr_ntop_r(a_stream,nest_addr_buf, sizeof(nest_addr_buf));

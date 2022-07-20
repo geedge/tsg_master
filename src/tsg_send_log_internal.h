@@ -181,7 +181,7 @@ struct topic_stat
 	int fs2_line_id;
 	int *send_log_percent;
 	char name[MAX_STRING_LEN];	
-	struct timespec *drop_start;
+	long long *drop_start;
 	rd_kafka_topic_t *topic_rkt;
 };
 
