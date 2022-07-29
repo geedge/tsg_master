@@ -125,6 +125,8 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_HTTP_REQUEST_S3_FILE,
 	LOG_COMMON_HTTP_RESPONSE_S3_FILE,
 	LOG_COMMON_MAIL_EML_FILE,
+	LOG_COMMON_VSYSTEM_ID,
+	LOG_COMMON_NAMESPACE_ID,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
@@ -191,6 +193,8 @@ struct tsg_log_instance_t
 	int level;
 	int max_service;
 	int app_id_type;
+	int vsystem_id;
+	int namespace_id;
 	int send_user_region;
 	int send_data_center;
 	int recovery_interval;

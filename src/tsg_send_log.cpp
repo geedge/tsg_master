@@ -1205,28 +1205,6 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	return _handle;
 }
 
-static int set_user_region(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct Maat_rule_t *p_result, int thread_seq)
-{
-	int ret=0;
-	char *user_region=NULL;
-
-	if(p_result->action!=TSG_ACTION_NONE && p_result->serv_def_len>0)
-	{
-		user_region=(char *)dictator_malloc(thread_seq, p_result->serv_def_len+1);
-		ret=Maat_read_rule(g_tsg_maat_feather, p_result, MAAT_RULE_SERV_DEFINE, user_region, p_result->serv_def_len+1);
-		if(ret==p_result->serv_def_len)
-		{
-			user_region[p_result->serv_def_len]='\0';
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)user_region, TLD_TYPE_STRING);
-		}
-
-		dictator_free(thread_seq, user_region);
-		user_region=NULL;	
-	}
-	
-	return 0;
-}
-
 static int set_mail_eml(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	struct tsg_conn_sketch_notify_data *notify_mail=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]);
@@ -1484,37 +1462,59 @@ int is_multi_hit_same_policy(struct Maat_rule_t *result, int *policy_id, int *po
 	return 0;
 }
 
-static int set_common_sub_action(struct TLD_handle_t *handle, char *field_name, struct Maat_rule_t *p_result)
+static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_log_instance_t *_instance, struct Maat_rule_t *p_result, int thread_seq)
 {
+	int ret=0;
 	cJSON *item=NULL;
 	cJSON *object=NULL;
-	char *tmp_buff=NULL;
+	char *user_region=NULL;
+
+	if(p_result->action!=TSG_ACTION_NONE && p_result->serv_def_len>0)
+	{
+		user_region=(char *)dictator_malloc(thread_seq, p_result->serv_def_len+1);
+		ret=Maat_read_rule(g_tsg_maat_feather, p_result, MAAT_RULE_SERV_DEFINE, user_region, p_result->serv_def_len+1);
+		if(ret==p_result->serv_def_len)
+		{
+			user_region[p_result->serv_def_len]='\0';
+
+			object=cJSON_Parse(user_region);
+
+			if(_instance->send_user_region==1)
+			{
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)user_region, TLD_TYPE_STRING);
+			}			
+		}
+
+		dictator_free(thread_seq, user_region);
+		user_region=NULL;
+	}
+
+	if(object==NULL)
+	{
+		return 0;
+	}
 	
-	if(p_result->serv_def_len<128)
-	{
-		object=cJSON_Parse(p_result->service_defined);
-	}
-	else
-	{
-		tmp_buff=(char *)calloc(1, p_result->serv_def_len+1);
-		Maat_read_rule(g_tsg_maat_feather, p_result, MAAT_RULE_SERV_DEFINE, tmp_buff, p_result->serv_def_len);
-		object=cJSON_Parse(tmp_buff);
-
-		free(tmp_buff);
-		tmp_buff=NULL;
-	}
-
-	if(object!=NULL)
+	if(p_result->action==TSG_ACTION_DENY)
 	{
 		item=cJSON_GetObjectItem(object, "method");
 		if(item!=NULL && item->valuestring!=NULL)
 		{
-			TLD_append(handle, field_name, (void *)item->valuestring, TLD_TYPE_STRING);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name, (void *)item->valuestring, TLD_TYPE_STRING);
 		}
-		
-		cJSON_Delete(object);
-		object=NULL;
 	}
+	
+	item=cJSON_GetObjectItem(object, "namespace_id");
+	if(item!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_NAMESPACE_ID].name, (void *)(long)item->valueint, TLD_TYPE_LONG);
+	}
+	else
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_NAMESPACE_ID].name, (void *)(long)_instance->namespace_id, TLD_TYPE_LONG);
+	}
+	
+	cJSON_Delete(object);
+	object=NULL;
 
 	return 0;
 }
@@ -1837,6 +1837,9 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_DATA_CENTER_SWITCH", &(_instance->send_data_center), 0);	
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "RAPIDJSON_CHUNK_CAPACITY", &(_instance->rapidjson_chunk_capacity), 8096);
 
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "VSYSTEM_ID", &(_instance->vsystem_id), 1);
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "NAMESPACE_ID", &(_instance->namespace_id), 1);	
+
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "APP_ID_TYPE", &(_instance->app_id_type), 1);	//0: int, 1: string	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_UNKNOWN_NAME", _instance->l7_unknown_name, sizeof(_instance->l7_unknown_name), "UNCATEGORIZED");
 
@@ -2066,6 +2069,8 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_TAG].name, (void *)(g_tsg_para.device_tag), TLD_TYPE_STRING);
 	}
 	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)(_instance->vsystem_id), TLD_TYPE_LONG);
+	
 	set_application_behavior(_instance, _handle, log_msg->a_stream);
 		
 	for(i=0;i<log_msg->result_num; i++)
@@ -2135,11 +2140,6 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);
 
 		set_notify_execution_result(_instance, _handle, log_msg->a_stream, &(log_msg->result[i]));
-		
-		if(_instance->send_user_region==1)
-		{
-			set_user_region(_instance, _handle, &log_msg->result[i], thread_id);
-		}
 
 		if(log_msg->result[i].config_id==0 && log_msg->a_stream!=NULL)
 		{			
@@ -2147,10 +2147,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 			set_nat_linkinfo(_instance, _handle, log_msg->a_stream, _instance->id2field[LOG_COMMON_LINK_INFO_S2C].name, _instance->bridge_id[LOG_BRIDGE_NAT_S2C_LINKINFO]);
 		}
 		
-		if(log_msg->result[i].action==TSG_ACTION_DENY)
-		{
-			set_common_sub_action(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name, &(log_msg->result[i]));
-		}
+		set_xxxx_from_user_region(_handle, _instance, &(log_msg->result[i]), thread_id);
 		
 		StringBuffer sb(0, 2048);
 		Writer<StringBuffer> writer(sb);
@@ -2163,6 +2160,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name);
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_NAMESPACE_ID].name);
 	}
 
 	TLD_cancel(handle);
