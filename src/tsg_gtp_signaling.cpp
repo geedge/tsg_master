@@ -10,6 +10,13 @@
 
 MESA_htable_handle g_gtp_signaling_hash_handle=NULL;
 
+enum SIGNALING_ORIGIN
+{
+	SIGNALING_ORIGIN_NO=0,
+	SIGNALING_ORIGIN_HASH=1,
+	SIGNALING_ORIGIN_REDIS=2,
+	
+};
 
 static int is_gtp_tunnel(const struct streaminfo *a_stream)
 {
@@ -114,7 +121,7 @@ void tsg_free_gtp_signaling_field(void *data)
 }
 
 
-static int get_umts_user_info(struct umts_user_info **user_info, unsigned int teid, int thread_seq)
+static int get_umts_user_info_form_hash(struct umts_user_info **user_info, unsigned int teid, int thread_seq)
 {
 	long cb_ret=0;
 	struct umts_user_info tmp_user_info={0};
@@ -122,7 +129,8 @@ static int get_umts_user_info(struct umts_user_info **user_info, unsigned int te
 	MESA_htable_search_cb(g_gtp_signaling_hash_handle, (unsigned char *)&(teid), sizeof(unsigned int), copy_user_info, (void *)&tmp_user_info, &cb_ret);
 	if(cb_ret>0)
 	{
-		*user_info=(struct umts_user_info *)dictator_malloc(thread_seq, sizeof(struct umts_user_info));
+		tmp_user_info.ref_cnt=1;
+		*user_info=(struct umts_user_info *)calloc(1, sizeof(struct umts_user_info));
 		memcpy(*user_info, &tmp_user_info, sizeof(struct umts_user_info));
 		
 		return 1;
@@ -131,12 +139,24 @@ static int get_umts_user_info(struct umts_user_info **user_info, unsigned int te
 	return 0;
 }
 
+static int get_umts_user_info_form_redis(struct umts_user_info **user_info, unsigned int teid, int thread_seq)
+{
+	(*user_info)=tsg_get_umts_user_info_form_redis(teid);
+	if((*user_info)!=NULL)
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
+
 int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info)
 {
 	int ret=0;
 	unsigned int uplink=0,downlink=0;
 
-	if(g_tsg_para.hash_switch==0)
+	if(g_tsg_para.scan_signaling_switch==SIGNALING_ORIGIN_NO)
 	{
 		return 0;
 	}
@@ -158,16 +178,36 @@ int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_i
 		return 0;
 	}
 
-	ret=get_umts_user_info(user_info, uplink, a_stream->threadnum);
-	if(ret==1)
+	switch(g_tsg_para.scan_signaling_switch)
 	{
-		return 1;
-	}
+		case	SIGNALING_ORIGIN_HASH:
+			ret=get_umts_user_info_form_hash(user_info, uplink, a_stream->threadnum);
+			if(ret==1)
+			{
+				return 1;
+			}
 
-	ret=get_umts_user_info(user_info, downlink, a_stream->threadnum);
-	if(ret==1)
-	{
-		return 1;
+			ret=get_umts_user_info_form_hash(user_info, downlink, a_stream->threadnum);
+			if(ret==1)
+			{
+				return 1;
+			}
+			break;
+		case	SIGNALING_ORIGIN_REDIS:
+			ret=get_umts_user_info_form_redis(user_info, uplink, a_stream->threadnum);
+			if(ret==1)
+			{
+				return 1;
+			}
+			
+			ret=get_umts_user_info_form_redis(user_info, downlink, a_stream->threadnum);
+			if(ret==1)
+			{
+				return 1;
+			}
+			break;
+		default:
+			break;
 	}
 		
 	return 0;
@@ -175,17 +215,11 @@ int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_i
 
 int tsg_gtp_signaling_hash_init(const char* conffile, void *logger)
 {
-	MESA_load_profile_int_def(conffile, "GTP_SIGNALING", "HASH_SWITCH", &g_tsg_para.hash_switch, 1);
-	if(g_tsg_para.hash_switch==0)
-	{
-		return 0;
-	}
-
-	MESA_htable_create_args_t args;
 
 	MESA_load_profile_int_def(conffile, "GTP_SIGNALING", "HASH_TIMEOUT", &g_tsg_para.hash_timeout, 300);
 	MESA_load_profile_int_def(conffile, "GTP_SIGNALING", "HASH_SLOT_SIZE", &g_tsg_para.hash_slot_size, 1024*1024*32);
 
+	MESA_htable_create_args_t args;
 	memset(&args, 0, sizeof(args));
 	args.thread_safe=128;
 	args.recursive=1;
@@ -200,6 +234,23 @@ int tsg_gtp_signaling_hash_init(const char* conffile, void *logger)
 	{
 		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "GTP_SIGNALING", "MESA_htable_create failed");
 		return -1;
+	}
+
+	char signaling_origin[32]={0};
+	MESA_load_profile_string_def(conffile, "GTP_SIGNALING", "SIGNALING_ORIGIN", signaling_origin, sizeof(signaling_origin), "HASH");
+	
+	int length=strlen(signaling_origin);
+	if(length==2 && (strncasecmp("NO", signaling_origin, 2)==0))
+	{
+		g_tsg_para.scan_signaling_switch=SIGNALING_ORIGIN_NO;
+	}
+	else if(length==4 && (strncasecmp("HASH", signaling_origin, 4)==0))
+	{	
+		g_tsg_para.scan_signaling_switch=SIGNALING_ORIGIN_HASH;
+	}
+	else if(length==5 && (strncasecmp("REDIS", signaling_origin, 5)==0))
+	{
+		g_tsg_para.scan_signaling_switch=SIGNALING_ORIGIN_REDIS;
 	}
 
 	return 0;

@@ -63,6 +63,7 @@ struct subscribe_id_info
 
 struct umts_user_info
 {
+	int ref_cnt;
 	char *apn;
 	char *imsi;
 	char *imei;

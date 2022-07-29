@@ -60,7 +60,7 @@ enum DEPLOY_MODE
 	DEPLOY_MODE_MAX
 };
 
-enum MASTER_TABLE{
+enum MASTER_STATIC_TABLE{
 	TABLE_SECURITY_COMPILE=0,
 	TABLE_IP_ADDR,
 	TABLE_SUBSCRIBER_ID,
@@ -91,6 +91,12 @@ enum MASTER_TABLE{
 	TABLE_PROFILE_MIRROR,
 	TABLE_HTTP_URL,
 	TABLE_MAX
+};
+
+enum MASTER_DYNAMIC_TABLE{
+	DYN_TABLE_SUBSCRIBER_IP=0,		
+	DYN_TABLE_GTP_SIGNALING,
+	DYN_TABLE_MAX
 };
 
 enum TSG_FS2_TYPE{
@@ -278,7 +284,7 @@ typedef	struct tsg_para
 	int app_dict_field_num;
 	int device_seq_in_dc;
 	int datacenter_id;
-	int hash_switch;
+	int scan_signaling_switch;
 	int hash_timeout;
 	int hash_slot_size;
 	int feature_tamper;
@@ -288,8 +294,8 @@ typedef	struct tsg_para
 	int unknown_app_id;
 	int hit_path_switch;
 	int default_compile_id;
-	int table_id[TABLE_MAX];
-	int dyn_subscribe_ip_table_id; //TSG_DYN_SUBSCRIBER_IP
+	int table_id[TABLE_MAX];	
+	int dyn_table_id[DYN_TABLE_MAX];
 	int priority_project_id;
 	int session_attribute_project_id;
 	int context_project_id;
@@ -303,7 +309,8 @@ typedef	struct tsg_para
 	char device_id_command[MAX_DOMAIN_LEN/8];
 	char data_center[_MAX_TABLE_NAME_LEN];
 	char device_tag[MAX_DOMAIN_LEN/2];
-	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];
+	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];	
+	char dyn_table_name[DYN_TABLE_MAX][_MAX_TABLE_NAME_LEN];
 	char bridge_name[BRIDGE_TYPE_MAX][_MAX_TABLE_NAME_LEN];
 	void *logger;
 	void *maat_logger;
@@ -426,6 +433,8 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 void ASN_number_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void subscriber_id_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void app_id_dict_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void gtp_c_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+
 void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void dns_profile_records_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp);
 void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int value_len, int thread_seq);
@@ -438,7 +447,10 @@ int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream
 int tsg_scan_shared_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, char *domain, Maat_rule_t *result, int result_num,  scan_status_t *mid, int table_id, int thread_seq);
 int tsg_scan_app_properties_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *property, char *district, int thread_seq);
 int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, struct subscribe_id_info *user_info, int thread_seq);
+
 int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info);
+struct umts_user_info *tsg_get_umts_user_info_form_redis(unsigned int teid);
+
 int tsg_scan_gtp_apn_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *apn, int thread_seq);
 int tsg_scan_gtp_imsi_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *imsi, int thread_seq);
 int tsg_scan_gtp_phone_number_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *phone_number, int thread_seq);

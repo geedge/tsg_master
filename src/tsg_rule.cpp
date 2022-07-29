@@ -356,6 +356,59 @@ static int get_integer_from_json(cJSON *object, const char *key, int *value)
 	return 0;
 }
 
+void gtp_c_dup_data(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
+{
+	if((*from)!=NULL)
+	{
+		struct umts_user_info *user_info=(struct umts_user_info *)(*from);
+		atomic_inc(&user_info->ref_cnt);
+		*to=*from;
+	}
+	
+	return;
+}
+
+void gtp_c_new_data(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	int imsi=3,msisdn=4,apn=5,imei=6;
+	struct umts_user_info *user_info=(struct umts_user_info *)calloc(1, sizeof(struct umts_user_info));
+
+	user_info->imsi=tsg_get_column_string_value(table_line, imsi);
+	user_info->msisdn=tsg_get_column_string_value(table_line, msisdn);	
+	user_info->apn=tsg_get_column_string_value(table_line, apn);
+	user_info->imei=tsg_get_column_string_value(table_line, imei);
+	
+	str_unescape(user_info->imsi);
+	str_unescape(user_info->msisdn);
+	str_unescape(user_info->apn);
+	str_unescape(user_info->imei);	
+	
+	atomic_inc(&user_info->ref_cnt);
+	*ad=(MAAT_PLUGIN_EX_DATA)user_info;
+	
+	return;
+}
+
+void gtp_c_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
+{
+	if(*ad!=NULL)
+	{
+		struct umts_user_info *user_info=(struct umts_user_info *)(*ad);
+		if((__sync_sub_and_fetch(&user_info->ref_cnt, 1) == 0))	
+		{
+			_free_field(user_info->imsi);
+			_free_field(user_info->msisdn);
+			_free_field(user_info->apn);
+			_free_field(user_info->imei);	
+
+			_free_field((char *)(*ad));
+			*ad=NULL;
+		}
+	}
+	
+	return;
+}
+
 
 void ASN_number_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void* argp)
 {
@@ -1694,7 +1747,6 @@ int tsg_rule_init(const char* conffile, void *logger)
 	int log_level=30;
 	char log_path[128]={0};
 	char maat_conffile[256]={0};
-	char cb_subscriber_ip_table[32]={0};
 	
 	MESA_load_profile_int_def(conffile, "MAAT","APP_ID_TABLE_TYPE", &g_tsg_para.app_dict_field_num, 18);
 	MESA_load_profile_int_def(conffile, "MAAT","LOCATION_TABLE_TYPE", &g_tsg_para.location_field_num, 18);
@@ -1733,10 +1785,11 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "GTP_APN", g_tsg_para.table_name[TABLE_GTP_APN], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_APN");
 	MESA_load_profile_string_def(conffile, "MAAT", "GTP_IMSI", g_tsg_para.table_name[TABLE_GTP_IMSI], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_IMSI");
 	MESA_load_profile_string_def(conffile, "MAAT", "GTP_PHONE_NUMBER", g_tsg_para.table_name[TABLE_GTP_PHONE_NUMBER], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_PHONE_NUMBER");
-	MESA_load_profile_string_def(conffile, "MAAT", "GTP_PHONE_NUMBER", g_tsg_para.table_name[TABLE_GTP_PHONE_NUMBER], _MAX_TABLE_NAME_LEN, "TSG_FILED_GTP_PHONE_NUMBER");
+	
 	MESA_load_profile_string_def(conffile, "MAAT", "RESPONSE_PAGES_TABLE", g_tsg_para.table_name[TABLE_RESPONSE_PAGES], _MAX_TABLE_NAME_LEN, "TSG_PROFILE_RESPONSE_PAGES");
 	MESA_load_profile_string_def(conffile, "MAAT", "DNS_PROFILE_RECORDS", g_tsg_para.table_name[TABLE_DNS_PROFILE_RECORD], _MAX_TABLE_NAME_LEN, (char *)"TSG_PROFILE_DNS_RECORDS");
 	MESA_load_profile_string_def(conffile, "MAAT", "TRAFFIC_MIRROR_PROFILE", g_tsg_para.table_name[TABLE_PROFILE_MIRROR], _MAX_TABLE_NAME_LEN, (char *)"TSG_PROFILE_TRAFFIC_MIRROR");
+
 
 	MESA_load_profile_int_def(conffile, "MAAT","LOG_LEVEL", &log_level, 30);
 	MESA_load_profile_string_def(conffile, "MAAT", "LOG_PATH", log_path, sizeof(log_path), "./tsglog/maat/tsg_maat.log");
@@ -1934,21 +1987,26 @@ int tsg_rule_init(const char* conffile, void *logger)
 		g_tsg_dynamic_maat_feather=g_tsg_maat_feather;
 	}
 	
-	MESA_load_profile_string_def(conffile, "MAAT", "CB_SUBSCRIBER_IP_TABLE", cb_subscriber_ip_table, sizeof(cb_subscriber_ip_table), "TSG_DYN_SUBSCRIBER_IP");
+	MESA_load_profile_string_def(conffile, "MAAT", "CB_SUBSCRIBER_IP_TABLE", g_tsg_para.dyn_table_name[DYN_TABLE_SUBSCRIBER_IP], sizeof(g_tsg_para.dyn_table_name[DYN_TABLE_SUBSCRIBER_IP]), "TSG_DYN_SUBSCRIBER_IP");
+	MESA_load_profile_string_def(conffile, "MAAT", "GTP_SIGNALING_TABLE", g_tsg_para.dyn_table_name[DYN_TABLE_GTP_SIGNALING], sizeof(g_tsg_para.dyn_table_name[DYN_TABLE_SUBSCRIBER_IP]), (char *)"TSG_DYN_MOBILE_IDENTITY_APN_TEID");
 
-	g_tsg_para.dyn_subscribe_ip_table_id=Maat_table_register(g_tsg_dynamic_maat_feather, cb_subscriber_ip_table);
-	if(g_tsg_para.dyn_subscribe_ip_table_id<0)
+	for(i=0; i<DYN_TABLE_MAX; i++)
 	{
-		MESA_handle_runtime_log(g_tsg_para.maat_logger,
-								RLOG_LV_FATAL,
-								"RULE_INIT",
-								"Maat_table_register %s failed, Please check tsgconf/tsg_static_tableinfo.conf",
-								cb_subscriber_ip_table
-								); 
-		return -1;
+		g_tsg_para.dyn_table_id[i]=Maat_table_register(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_table_name[i]);
+		if(g_tsg_para.dyn_table_id[i]<0)
+		{
+			MESA_handle_runtime_log(g_tsg_para.maat_logger,
+									RLOG_LV_FATAL,
+									"RULE_INIT",
+									"Maat_table_register %s failed, Please check tsgconf/tsg_static_tableinfo.conf",
+									g_tsg_para.dyn_table_name[i]
+									); 
+			return -1;
+		}
 	}
+	
 	ret=Maat_plugin_EX_register(g_tsg_dynamic_maat_feather,
-							g_tsg_para.dyn_subscribe_ip_table_id,
+							g_tsg_para.dyn_table_id[DYN_TABLE_SUBSCRIBER_IP],
 							subscriber_id_new,
 							subscriber_id_free,
 							subscriber_id_dup,
@@ -1957,8 +2015,35 @@ int tsg_rule_init(const char* conffile, void *logger)
 							g_tsg_para.maat_logger);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "RULE_INIT", "Maat_plugin_EX_register failed, table_name: %s table_id: %d", cb_subscriber_ip_table, g_tsg_para.dyn_subscribe_ip_table_id); 
+		MESA_handle_runtime_log(g_tsg_para.maat_logger,
+							RLOG_LV_FATAL, 
+							"RULE_INIT",
+							"Maat_plugin_EX_register failed, table_name: %s table_id: %d",
+							g_tsg_para.dyn_table_name[DYN_TABLE_SUBSCRIBER_IP],
+							g_tsg_para.dyn_table_id[DYN_TABLE_SUBSCRIBER_IP]
+						); 
 		return -1;		
+	}
+
+	ret=Maat_plugin_EX_register(g_tsg_dynamic_maat_feather,
+								g_tsg_para.dyn_table_id[DYN_TABLE_GTP_SIGNALING],
+								gtp_c_new_data,								
+								gtp_c_free_data,
+								gtp_c_dup_data,
+								NULL,
+								0, 
+								NULL);
+
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.maat_logger,
+					RLOG_LV_FATAL, 
+					"RULE_INIT",
+					"Maat_plugin_EX_register failed, table_name: %s table_id: %d",
+					g_tsg_para.dyn_table_name[DYN_TABLE_GTP_SIGNALING],
+					g_tsg_para.dyn_table_id[DYN_TABLE_GTP_SIGNALING]
+				); 
+		return -1;
 	}
 
 	return 0;
@@ -2115,18 +2200,18 @@ int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct subscribe_id_
 
 	if(strlen(dest_ip)>0 && *dest_subscribe_id==NULL)
 	{
-		*dest_subscribe_id = (struct subscribe_id_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, dest_ip);
+		*dest_subscribe_id = (struct subscribe_id_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_table_id[DYN_TABLE_SUBSCRIBER_IP], dest_ip);
 	}
 
 	if(strlen(source_ip)>0 && *source_subscribe_id==NULL)
 	{
-		*source_subscribe_id = (struct subscribe_id_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_subscribe_ip_table_id, source_ip);
+		*source_subscribe_id = (struct subscribe_id_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_table_id[DYN_TABLE_SUBSCRIBER_IP], source_ip);
 	}
 
 	return 0;
 }
 
-int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct asn_info *asn, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct asn_info *asn, enum MASTER_STATIC_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
 
@@ -2167,7 +2252,7 @@ int tsg_scan_ip_asn(Maat_feather_t maat_feather, const struct streaminfo *a_stre
 }
 
 
-int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct location_info *location, enum MASTER_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_scan_ip_location(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct location_info *location, enum MASTER_STATIC_TABLE idx, scan_status_t *mid, Maat_rule_t*result, int result_num)
 {
 	int ret=0;
 	char full_address[1024]={0};
@@ -2958,3 +3043,11 @@ int tsg_get_location_type(void)
 {
 	return g_tsg_para.location_field_num;
 }
+
+struct umts_user_info *tsg_get_umts_user_info_form_redis(unsigned int teid)
+{
+	char teid_str[32]={0};
+	snprintf(teid_str, sizeof(teid_str), "%d", teid);
+	return (struct umts_user_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_table_id[DYN_TABLE_GTP_SIGNALING], (const char *)teid_str);
+}
+

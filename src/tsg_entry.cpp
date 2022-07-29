@@ -272,15 +272,6 @@ static int print_hit_path(const struct streaminfo *a_stream, struct master_conte
 	return 1;
 }
 
-static void free_user_item(char *item)
-{
-	if(item!=NULL)
-	{
-		free(item);
-		item=NULL;
-	}
-}
-
 static int is_only_monitor(struct Maat_rule_t *result, int hit_cnt)
 {
 	int i=0;
@@ -1357,12 +1348,7 @@ static void free_session_attribute_label(int thread_seq, void *project_req_value
 
 		if(label->user_info!=NULL)
 		{
-			free_user_item(label->user_info->apn);
-			free_user_item(label->user_info->imsi);
-			free_user_item(label->user_info->imei);
-			free_user_item(label->user_info->msisdn);
-
-			dictator_free(thread_seq, (void *)label->user_info);
+			gtp_c_free_data(0, (MAAT_PLUGIN_EX_DATA *)&label->user_info, 0, g_tsg_para.logger);
 			label->user_info=NULL;
 		}
 		
