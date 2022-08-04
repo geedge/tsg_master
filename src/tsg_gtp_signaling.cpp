@@ -85,6 +85,16 @@ static long copy_user_info(void *data, const uchar *key, uint size, void *user_a
 	return num;
 }
 
+unsigned int gtp_c_key2index(const MESA_htable_handle table, const uchar * key, uint size)
+{
+	if(size==sizeof(unsigned int))
+	{
+		return *(unsigned int *)key;
+	}
+
+	return 0;
+}
+
 void free_gtp_signaling_field(void *data)
 {
 	int i=0;
@@ -215,19 +225,20 @@ int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_i
 
 int tsg_gtp_signaling_hash_init(const char* conffile, void *logger)
 {
-
 	MESA_load_profile_int_def(conffile, "GTP_SIGNALING", "HASH_TIMEOUT", &g_tsg_para.hash_timeout, 300);
+	MESA_load_profile_int_def(conffile, "GTP_SIGNALING", "HASH_THREAD_SAFE", &g_tsg_para.hash_thread_safe, 128);
 	MESA_load_profile_int_def(conffile, "GTP_SIGNALING", "HASH_SLOT_SIZE", &g_tsg_para.hash_slot_size, 1024*1024*32);
 
 	MESA_htable_create_args_t args;
 	memset(&args, 0, sizeof(args));
-	args.thread_safe=128;
+	args.thread_safe=g_tsg_para.hash_thread_safe;
 	args.recursive=1;
 	args.max_elem_num=0;		
 	args.data_free=free_gtp_signaling_field;
 	args.eliminate_type=HASH_ELIMINATE_ALGO_LRU;
 	args.expire_time=g_tsg_para.hash_timeout;
 	args.hash_slot_size=g_tsg_para.hash_slot_size;
+	args.key2index=gtp_c_key2index;
 	
 	g_gtp_signaling_hash_handle=MESA_htable_create(&args, sizeof(MESA_htable_create_args_t));
 	if(g_gtp_signaling_hash_handle==NULL)

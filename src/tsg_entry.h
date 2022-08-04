@@ -287,6 +287,7 @@ typedef	struct tsg_para
 	int scan_signaling_switch;
 	int hash_timeout;
 	int hash_slot_size;
+	int hash_thread_safe;
 	int feature_tamper;
 	enum DEPLOY_MODE deploy_mode;
 	int scan_time_interval;
