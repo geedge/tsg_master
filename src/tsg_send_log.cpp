@@ -1503,16 +1503,6 @@ static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_lo
 		}
 	}
 	
-	item=cJSON_GetObjectItem(object, "namespace_id");
-	if(item!=NULL)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_NAMESPACE_ID].name, (void *)(long)item->valueint, TLD_TYPE_LONG);
-	}
-	else
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_NAMESPACE_ID].name, (void *)(long)_instance->namespace_id, TLD_TYPE_LONG);
-	}
-	
 	cJSON_Delete(object);
 	object=NULL;
 
@@ -1838,7 +1828,6 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "RAPIDJSON_CHUNK_CAPACITY", &(_instance->rapidjson_chunk_capacity), 8096);
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "VSYSTEM_ID", &(_instance->vsystem_id), 1);
-	MESA_load_profile_int_def(conffile, "TSG_LOG", "NAMESPACE_ID", &(_instance->namespace_id), 1);	
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "APP_ID_TYPE", &(_instance->app_id_type), 1);	//0: int, 1: string	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_UNKNOWN_NAME", _instance->l7_unknown_name, sizeof(_instance->l7_unknown_name), "UNCATEGORIZED");
@@ -2160,7 +2149,6 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name);
-		TLD_delete(_handle, _instance->id2field[LOG_COMMON_NAMESPACE_ID].name);
 	}
 
 	TLD_cancel(handle);
