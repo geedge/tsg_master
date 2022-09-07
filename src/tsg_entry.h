@@ -90,6 +90,7 @@ enum MASTER_STATIC_TABLE{
 	TABLE_DNS_PROFILE_RECORD,
 	TABLE_PROFILE_MIRROR,
 	TABLE_HTTP_URL,
+	TABLE_DTLS_SNI,
 	TABLE_MAX
 };
 
@@ -171,7 +172,8 @@ struct gather_app_result
 {
 	int app_num;
 	enum APP_IDENTIFY_ORIGIN origin;
-	struct app_attributes attributes[MAX_APP_ID_NUM];
+	struct app_attributes
+ attributes[MAX_APP_ID_NUM];
 };
 
 struct l7_protocol 

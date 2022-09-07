@@ -1790,6 +1790,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "DNS_PROFILE_RECORDS", g_tsg_para.table_name[TABLE_DNS_PROFILE_RECORD], _MAX_TABLE_NAME_LEN, (char *)"TSG_PROFILE_DNS_RECORDS");
 	MESA_load_profile_string_def(conffile, "MAAT", "TRAFFIC_MIRROR_PROFILE", g_tsg_para.table_name[TABLE_PROFILE_MIRROR], _MAX_TABLE_NAME_LEN, (char *)"TSG_PROFILE_TRAFFIC_MIRROR");
 
+	MESA_load_profile_string_def(conffile, "MAAT", "DTLS_SNI_TABLE", g_tsg_para.table_name[TABLE_DTLS_SNI], _MAX_TABLE_NAME_LEN, "TSG_FIELD_DTLS_SNI");
 
 	MESA_load_profile_int_def(conffile, "MAAT","LOG_LEVEL", &log_level, 30);
 	MESA_load_profile_string_def(conffile, "MAAT", "LOG_PATH", log_path, sizeof(log_path), "./tsglog/maat/tsg_maat.log");

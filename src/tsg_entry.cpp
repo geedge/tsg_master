@@ -13,6 +13,7 @@
 #include <MESA/quic.h>
 #include <MESA/sip.h>
 #include <MESA/stratum.h>
+#include <MESA/dtls.h>
 #include <MESA/stream.h>
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
@@ -106,7 +107,8 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"},
 										 {PROTO_L2TP, 	0,	"L2TP"},
 										 {PROTO_PPTP, 	0,	"PPTP"},
 										 {PROTO_STRATUM, 	0,	"Stratum"},
-										 {PROTO_RDP, 	0,	"RDP"}
+										 {PROTO_RDP, 	0,	"RDP"},
+										 {PROTO_DTLS, 	0,	"DTLS"}
 										};
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
@@ -414,6 +416,8 @@ static int get_table_id(tsg_protocol_t protocol)
 			return g_tsg_para.table_id[TABLE_SSL_SNI];
 		case	PROTO_QUIC:
 			return g_tsg_para.table_id[TABLE_QUIC_SNI];
+		case	PROTO_DTLS:
+			return g_tsg_para.table_id[TABLE_DTLS_SNI];
 		default:
 			break;
 	}
@@ -625,6 +629,10 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 					break;
 				case	PROTO_QUIC:
 					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_QUIC_SNI);
+					TLD_append(TLD_handle, domain_field_name, (void *)context->domain, TLD_TYPE_STRING);
+					break;
+				case	PROTO_DTLS:
+					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_DTLS_SNI);
 					TLD_append(TLD_handle, domain_field_name, (void *)context->domain, TLD_TYPE_STRING);
 					break;
 				default:
@@ -1556,6 +1564,23 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 					return 1;
 				}
 			}
+
+			if (g_tsg_para.proto_flag&(1<<PROTO_DTLS)) //DTLS
+			{
+				char sni_buff[512] = {0};
+				int sni_len = 512;
+				bool is_dtls = dtls_identifyStream((streaminfo *)a_stream);
+				if (is_dtls)
+				{
+					context->proto = PROTO_DTLS;
+					ret = dtls_parse_sni((const char *)a_stream->pudpdetail->pdata, a_stream->pudpdetail->datalen, sni_buff, sni_len);
+					if (ret == 0 && strlen(sni_buff) > 0)
+					{
+						context->domain = malloc_copy_string(sni_buff, sni_len, a_stream->threadnum);
+						return 1;
+					}
+				}
+			}
 						
 			break;
 		default:
@@ -2212,7 +2237,7 @@ extern "C" int TSG_MASTER_INIT()
 	g_tsg_para.default_vlan.num=1;
 	MESA_load_profile_int_def(tsg_conffile, "TRAFFIC_MIRROR","DEFAULT_VLAN_ID", &(g_tsg_para.default_vlan.id[0]), 2);
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;MAIL;STREAMING_MEDIA;QUIC;SIP;SSH;Stratum;RDP;");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "IDENTIFY_PROTO_NAME", identify_proto_name, sizeof(identify_proto_name), "HTTP;SSL;DNS;FTP;BGP;MAIL;STREAMING_MEDIA;QUIC;SIP;SSH;Stratum;RDP;DTLS;");
 	tsg_proto_name2flag(identify_proto_name, &g_tsg_para.proto_flag);
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DATACENTER_ID", &g_tsg_para.datacenter_id, 0);

@@ -126,6 +126,7 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_HTTP_RESPONSE_S3_FILE,
 	LOG_COMMON_MAIL_EML_FILE,
 	LOG_COMMON_VSYSTEM_ID,
+	LOG_DTLS_SNI,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
