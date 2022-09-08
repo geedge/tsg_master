@@ -386,6 +386,7 @@ void gtp_c_new_data(int table_id, const char* key, const char* table_line, MAAT_
 	atomic_inc(&user_info->ref_cnt);
 	*ad=(MAAT_PLUGIN_EX_DATA)user_info;
 	
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_GTPC_ADD], 0, FS_OP_ADD, 1);
 	return;
 }
 
@@ -403,6 +404,8 @@ void gtp_c_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* arg
 
 			_free_field((char *)(*ad));
 			*ad=NULL;
+			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_GTPC_DEL], 0, FS_OP_ADD, 1);
 		}
 	}
 	
@@ -445,6 +448,7 @@ void ASN_number_new(int table_id, const char* key, const char* table_line, MAAT_
 	atomic_inc(&asn->ref_cnt);
 	*ad=(MAAT_PLUGIN_EX_DATA)asn;
 	
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_ASN_ADD], 0, FS_OP_ADD, 1);
 	return;
 }
 
@@ -459,6 +463,8 @@ void ASN_number_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* arg
 			_free_field(asn->organization);
 			_free_field((char *)(*ad));
 			*ad=NULL;
+			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_ASN_DEL], 0, FS_OP_ADD, 1);
 		}
 	}
 	
@@ -498,6 +504,7 @@ void location_new_data(int table_id, const char* key, const char* table_line, MA
 	atomic_inc(&location->ref_cnt);
 	*ad=(MAAT_PLUGIN_EX_DATA)location;
 	
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LOCATION_ADD], 0, FS_OP_ADD, 1);
 	return;
 }
 
@@ -515,6 +522,8 @@ void location_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 
 			_free_field((char *)(*ad));
 			*ad=NULL;
+			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LOCATION_DEL], 0, FS_OP_ADD, 1);
 		}
 	}
 	
@@ -548,6 +557,7 @@ void fqdn_category_new(int table_id, const char* key, const char* table_line, MA
 	atomic_inc(&fqdn_cat->ref_cnt);
 	*ad=(MAAT_PLUGIN_EX_DATA)fqdn_cat;
 	
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_FQDN_ADD], 0, FS_OP_ADD, 1);
 	return;
 }
 
@@ -559,7 +569,8 @@ void fqdn_category_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 		if((__sync_sub_and_fetch(&fqdn_cat->ref_cnt, 1) == 0))	
 		{
 			_free_field((char *)(*ad));
-			*ad=NULL;
+			*ad=NULL;		
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_FQDN_DEL], 0, FS_OP_ADD, 1);
 		}
 	}
 	
@@ -595,6 +606,7 @@ void subscriber_id_new(int table_id, const char* key, const char* table_line, MA
 	atomic_inc(&subscriber->ref_cnt);
 	*ad=(MAAT_PLUGIN_EX_DATA)subscriber;
 	
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUBSCRIBER_ADD], 0, FS_OP_ADD, 1);
 	return;
 }
 
@@ -608,6 +620,8 @@ void subscriber_id_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 			_free_field(subscriber->subscribe_id);
 			_free_field((char *)(*ad));
 			*ad=NULL;
+				
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUBSCRIBER_DEL], 0, FS_OP_ADD, 1);
 		}
 	}
 	
@@ -734,6 +748,7 @@ static void app_id_dict_new(int table_id, const char* key, const char* table_lin
 	atomic_inc(&dict->ref_cnt);
 	*ad=(MAAT_PLUGIN_EX_DATA)dict;
 	
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_ID_ADD], 0, FS_OP_ADD, 1);
 	return;
 }
 
@@ -753,6 +768,8 @@ void app_id_dict_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* ar
 			_free_field(dict->characteristics);
 			_free_field((char *)(*ad));
 			*ad=NULL;
+			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_ID_DEL], 0, FS_OP_ADD, 1);
 		}
 	}
 	return;
@@ -1196,6 +1213,7 @@ void security_compile_new(int idx, const struct Maat_rule_t* rule, const char* s
 	}
 
 	*ad=(MAAT_RULE_EX_DATA)user_region;
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SECURIRY_ADD], 0, FS_OP_ADD, 1);
 
 	return ;
 }
@@ -1292,6 +1310,8 @@ void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* 
 		
 		_free_field((char *)(*ad));
 		*ad=NULL;
+		
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SECURIRY_DEL], 0, FS_OP_ADD, 1);
 	}
 		
 }
@@ -1397,6 +1417,8 @@ void http_response_pages_new(int table_id, const char* key, const char* table_li
 		_free_field((char *)res_pages);
 		res_pages=NULL;
 	}
+
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HTTP_RES_ADD], 0, FS_OP_ADD, 1);
 }
 
 void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp)
@@ -1408,7 +1430,9 @@ void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, 
 		{
 			_free_field(res_pages->content);
 			_free_field((char *)(*ad));
-			*ad=NULL;	
+			*ad=NULL;
+			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HTTP_RES_DEL], 0, FS_OP_ADD, 1);
 		}
 	}
 }
@@ -1484,6 +1508,8 @@ void dns_profile_records_new(int table_id, const char* key, const char* table_li
 		profile_records=NULL;
 	}
 
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DNS_RES_ADD], 0, FS_OP_ADD, 1);
+
 	return ;
 }
 
@@ -1516,6 +1542,8 @@ void dns_profile_records_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, 
 			
 			_free_field((char *)(*ad));
 			*ad=NULL;
+			
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DNS_RES_DEL], 0, FS_OP_ADD, 1);
 		}
 	}
 }
@@ -1555,6 +1583,8 @@ void mirrored_profile_new(int table_id, const char* key, const char* table_line,
 	_free_field(vlan_ids_str);
 	vlan_ids_str=NULL;
 
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_MIRRORED_ADD], 0, FS_OP_ADD, 1);
+
 	return ;
 }
 
@@ -1578,7 +1608,8 @@ void mirrored_profile_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, voi
 		if((__sync_sub_and_fetch(&mirror_profile->ref_cnt, 1) == 0))
 		{	
 			_free_field((char *)(*ad));
-			*ad=NULL;
+			*ad=NULL;		
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_MIRRORED_DEL], 0, FS_OP_ADD, 1);
 		}
 	}
 }

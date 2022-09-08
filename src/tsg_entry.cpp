@@ -81,7 +81,27 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_SET_TIMOUT_FAILED, "set_timeout_fai"},
                                          {0, TSG_FS2_SUCESS_TAMPER, "tamper_sucess"},
                                          {0, TSG_FS2_TAMPER_FAILED_PLOAD_LESS_4, "tamper_nopload"},
-                                         {0, TSG_FS2_TAMPER_FAILED_NOSWAP, "tamper_noswap"}
+                                         {0, TSG_FS2_TAMPER_FAILED_NOSWAP, "tamper_noswap"},
+										 {0, TSG_FS2_ASN_ADD, "asn_add"},
+										 {0, TSG_FS2_ASN_DEL, "asn_del"},
+										 {0, TSG_FS2_GTPC_ADD, "gtpc_add"},
+										 {0, TSG_FS2_GTPC_DEL, "gtpc_del"},
+										 {0, TSG_FS2_LOCATION_ADD, "location_add"},
+										 {0, TSG_FS2_LOCATION_DEL, "location_del"},
+										 {0, TSG_FS2_FQDN_ADD, "fqdn_add"},
+										 {0, TSG_FS2_FQDN_DEL, "fqdn_del"},
+										 {0, TSG_FS2_SUBSCRIBER_ADD, "subscriber_add"},
+										 {0, TSG_FS2_SUBSCRIBER_DEL, "subscriber_del"},
+										 {0, TSG_FS2_SECURIRY_ADD, "security_add"},
+										 {0, TSG_FS2_SECURIRY_DEL, "security_del"},
+										 {0, TSG_FS2_MIRRORED_ADD, "mirrored_add"},
+										 {0, TSG_FS2_MIRRORED_DEL, "mirrored_del"},
+										 {0, TSG_FS2_HTTP_RES_ADD, "http_res_add"},
+										 {0, TSG_FS2_HTTP_RES_DEL, "http_res_del"},
+										 {0, TSG_FS2_DNS_RES_ADD, "dns_profile_add"},
+										 {0, TSG_FS2_DNS_RES_DEL, "dns_profile_del"},
+										 {0, TSG_FS2_APP_ID_ADD, "app_id_add"},
+										 {0, TSG_FS2_APP_ID_DEL, "app_id_del"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
@@ -2349,13 +2369,6 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_string_def(tsg_conffile, "HTTP_PLUG", "PAGE204", page_path, sizeof(page_path), "./tsgconf/HTTP204.html");
 	g_tsg_para.tpl_204 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
 
-	ret=tsg_rule_init(tsg_conffile, g_tsg_para.logger);
-	if(ret<0)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_MAAT", "tsg_rule_init failed ...");
-		return -1;
-	}
-
 	MESA_load_profile_int_def(tsg_conffile, "FIELD_STAT", "CYCLE", &cycle, 30);
 	MESA_load_profile_short_nodef(tsg_conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));
 	MESA_load_profile_string_nodef(tsg_conffile,"FIELD_STAT","TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
@@ -2389,6 +2402,13 @@ extern "C" int TSG_MASTER_INIT()
 	for(i=0; i<TSG_FS2_MAX; i++)
 	{
 		g_tsg_para.fs2_field_id[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, g_tsg_fs2_field[i].name);
+	}
+
+	ret=tsg_rule_init(tsg_conffile, g_tsg_para.logger);
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_MAAT", "tsg_rule_init failed ...");
+		return -1;
 	}
 	
 	g_tsg_log_instance=tsg_sendlog_init(tsg_conffile, g_tsg_para.fs2_handle);
