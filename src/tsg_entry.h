@@ -91,6 +91,10 @@ enum MASTER_STATIC_TABLE{
 	TABLE_PROFILE_MIRROR,
 	TABLE_HTTP_URL,
 	TABLE_DTLS_SNI,
+	TABLE_TUNNEL_ID,
+	TABLE_TUNNEL_CATALOG,
+	TABLE_TUNNEL_ENDPOINT,
+	TABLE_TUNNEL_LABEL,
 	TABLE_MAX
 };
 
@@ -143,6 +147,12 @@ enum TSG_FS2_TYPE{
 	TSG_FS2_DNS_RES_DEL,
 	TSG_FS2_APP_ID_ADD,
 	TSG_FS2_APP_ID_DEL,
+	TSG_FS2_TUNNEL_CATALOG_ADD,
+	TSG_FS2_TUNNEL_CATALOG_DEL,
+	TSG_FS2_TUNNEL_ENDPOINT_ADD,
+	TSG_FS2_TUNNEL_ENDPOINT_DEL,
+	TSG_FS2_TUNNEL_LABEL_ADD,
+	TSG_FS2_TUNNEL_LABEL_DEL,
 	TSG_FS2_MAX
 };
 
@@ -457,6 +467,7 @@ void ASN_number_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* arg
 void subscriber_id_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void app_id_dict_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void gtp_c_free_data(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
+void tunnel_endpoint_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp);
 
 void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void dns_profile_records_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp);

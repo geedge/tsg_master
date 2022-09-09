@@ -1611,6 +1611,16 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 
 	set_umts_user_info(_instance, _handle, a_stream, attribute_label->user_info);
 
+	if(attribute_label->client_endpoint!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS_ENDPOINT_A_DESC].name, (void *)attribute_label->client_endpoint->description, TLD_TYPE_STRING);
+	}
+
+	if(attribute_label->server_endpoint!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS_ENDPOINT_B_DESC].name, (void *)attribute_label->server_endpoint->description, TLD_TYPE_STRING);
+	}
+
 	return 1;
 }
 

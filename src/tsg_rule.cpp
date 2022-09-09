@@ -1614,37 +1614,113 @@ void mirrored_profile_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, voi
 	}
 }
 
-static int get_fqdn_category_id(Maat_feather_t maat_feather, int table_id, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq)
+void tunnel_catalog_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
 {
-	int i=0,j=0,ret=0;	
-	struct fqdn_category *ex_data_array[8]={0};
+	struct tunnel_catalog *t_catalog=(struct tunnel_catalog *)calloc(sizeof(struct tunnel_catalog), 1);
 
-	ret=Maat_fqdn_plugin_get_EX_data(maat_feather, table_id, fqdn, (MAAT_PLUGIN_EX_DATA *)ex_data_array, 8);
-	if(ret>0)
+	t_catalog->id=tsg_get_column_integer_value(table_line, 1);
+	t_catalog->name=tsg_get_column_string_value(table_line, 2);	
+	t_catalog->type=tsg_get_column_string_value(table_line, 3);
+	t_catalog->composition=tsg_get_column_string_value(table_line, 4);
+
+	atomic_inc(&t_catalog->ref_cnt);
+	*ad=(MAAT_PLUGIN_EX_DATA)t_catalog;
+	
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_CATALOG_ADD], 0, FS_OP_ADD, 1);
+	return;
+}
+void tunnel_catalog_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{
+	if(*ad==NULL)
 	{
-		qsort(ex_data_array, ret, sizeof(struct fqdn_category *), sort_category_id);
-		
-		for(i=0; i<ret; i++)
-		{
-			if(j==0)
-			{
-				category_id[j++]=ex_data_array[i]->category_id;
-			}
-			else
-			{
-				if(j<category_id_num && ex_data_array[i]->category_id!=category_id[j-1])
-				{
-					category_id[j++]=ex_data_array[i]->category_id;
-				}
-			}
-			
-			fqdn_category_free(table_id, (MAAT_PLUGIN_EX_DATA *)&(ex_data_array[i]), 0, logger);
-		}
+		return ;
+	}
+	
+	struct tunnel_catalog *t_catalog=(struct tunnel_catalog *)(*ad);
+	if ((__sync_sub_and_fetch(&t_catalog->ref_cnt, 1) == 0))
+	{
+		_free_field(t_catalog->name);
+		_free_field(t_catalog->type);		
+		_free_field(t_catalog->composition);
+		_free_field((char *)(*ad));
+		*ad=NULL;
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_CATALOG_DEL], 0, FS_OP_ADD, 1);
+	}
+}
+void tunnel_catalog_dup(int table_id,	MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void *argp)
+{
+	if((*from)!=NULL)
+	{
+		struct tunnel_catalog *t_catalog=(struct tunnel_catalog *)(*from);
+		__sync_add_and_fetch(&(t_catalog->ref_cnt), 1);
+		*to=*from;
+	}
+}
 
-		return j;
+void tunnel_endpoint_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{
+	struct tunnel_endpoint *t_endpoint=(struct tunnel_endpoint *)calloc(1, sizeof(struct tunnel_endpoint));
+	
+	t_endpoint->id=tsg_get_column_integer_value(table_line, 1);
+	t_endpoint->description=tsg_get_column_string_value(table_line, 3);
+	
+	atomic_inc(&t_endpoint->ref_cnt);
+	*ad=(MAAT_PLUGIN_EX_DATA)t_endpoint;
+	
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_ENDPOINT_ADD], 0, FS_OP_ADD, 1);
+
+	return ;
+}
+
+void tunnel_endpoint_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void *argp)
+{
+	if((*from)!=NULL)
+	{
+		struct tunnel_endpoint *t_endpoint=(struct tunnel_endpoint *)(*from);
+		atomic_inc(&t_endpoint->ref_cnt);
+		(*to)=(*from);
 	}
 
-	return 0;
+	return ;
+}
+
+void tunnel_endpoint_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{
+	if((*ad)!=NULL)
+	{
+		struct tunnel_endpoint *t_endpoint=(struct tunnel_endpoint *)*ad;
+		if((__sync_sub_and_fetch(&t_endpoint->ref_cnt, 1) == 0))
+		{
+			_free_field(t_endpoint->description);
+			_free_field((char *)(*ad));
+			*ad=NULL;		
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_ENDPOINT_DEL], 0, FS_OP_ADD, 1);
+		}
+	}
+}
+
+void tunnel_label_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{	
+	int label_id=tsg_get_column_integer_value(table_line, 1);
+	*ad=(MAAT_PLUGIN_EX_DATA)(long)label_id;
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_LABEL_ADD], 0, FS_OP_ADD, 1);
+
+	return ;
+}
+
+void tunnel_label_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void *argp)
+{
+	if((*from)!=NULL)
+	{
+		(*to)=(*from);
+	}
+
+	return ;
+}
+
+void tunnel_label_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_LABEL_DEL], 0, FS_OP_ADD, 1);
 }
 
 static Maat_feather_t init_maat_feather(const char* conffile, char* instance_name, char *module, void *maat_logger)
@@ -1822,6 +1898,11 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "TRAFFIC_MIRROR_PROFILE", g_tsg_para.table_name[TABLE_PROFILE_MIRROR], _MAX_TABLE_NAME_LEN, (char *)"TSG_PROFILE_TRAFFIC_MIRROR");
 
 	MESA_load_profile_string_def(conffile, "MAAT", "DTLS_SNI_TABLE", g_tsg_para.table_name[TABLE_DTLS_SNI], _MAX_TABLE_NAME_LEN, "TSG_FIELD_DTLS_SNI");
+	
+	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_ID_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_TUNNEL_ID");
+	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_CATALOG_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_CATALOG], _MAX_TABLE_NAME_LEN, "TSG_TUNNEL_CATALOG");
+	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_ENDPOINT_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_ENDPOINT], _MAX_TABLE_NAME_LEN, "TSG_TUNNEL_ENDPOINT");	
+	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_LABEL_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_LABEL], _MAX_TABLE_NAME_LEN, "TSG_TUNNEL_LABEL");
 
 	MESA_load_profile_int_def(conffile, "MAAT","LOG_LEVEL", &log_level, 30);
 	MESA_load_profile_string_def(conffile, "MAAT", "LOG_PATH", log_path, sizeof(log_path), "./tsglog/maat/tsg_maat.log");
@@ -2003,6 +2084,49 @@ int tsg_rule_init(const char* conffile, void *logger)
 		return -1;
 	}
 
+	ret=Maat_bool_plugin_EX_register(g_tsg_maat_feather,
+										g_tsg_para.table_id[TABLE_TUNNEL_CATALOG],
+										tunnel_catalog_new,
+										tunnel_catalog_free,
+										tunnel_catalog_dup,
+										0, 
+										NULL);
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "REGISTER_TABLE", "Maat_bool_plugin_EX_register failed, table_name: %s", g_tsg_para.table_name[TABLE_TUNNEL_CATALOG]);
+		return -1;
+	}
+
+	ret=Maat_plugin_EX_register(g_tsg_maat_feather,
+								g_tsg_para.table_id[TABLE_TUNNEL_ENDPOINT],
+								tunnel_endpoint_new,
+								tunnel_endpoint_free,
+								tunnel_endpoint_dup,
+								NULL,
+								0, 
+								NULL);
+
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "REGISTER_TABLE", "Maat_plugin_EX_register failed, table_name: %s", g_tsg_para.table_name[TABLE_TUNNEL_ENDPOINT]);
+		return -1;
+	}
+
+	ret=Maat_plugin_EX_register(g_tsg_maat_feather,
+								g_tsg_para.table_id[TABLE_TUNNEL_LABEL],
+								tunnel_label_new,
+								tunnel_label_free,
+								tunnel_label_dup,
+								NULL,
+								0, 
+								NULL);
+
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "REGISTER_TABLE", "Maat_plugin_EX_register failed, table_name: %s", g_tsg_para.table_name[TABLE_TUNNEL_LABEL]);
+		return -1;
+	}
+
 	//init dynamic maat feather	
 	MESA_load_profile_int_def(conffile, "MAAT", "DYNAMIC_MAAT_SWITCH", &g_tsg_para.dynamic_maat_switch, 0);
 	if(g_tsg_para.dynamic_maat_switch==1)
@@ -2076,6 +2200,39 @@ int tsg_rule_init(const char* conffile, void *logger)
 					g_tsg_para.dyn_table_id[DYN_TABLE_GTP_SIGNALING]
 				); 
 		return -1;
+	}
+
+	return 0;
+}
+
+static int get_fqdn_category_id(Maat_feather_t maat_feather, int table_id, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq)
+{
+	int i=0,j=0,ret=0;	
+	struct fqdn_category *ex_data_array[8]={0};
+
+	ret=Maat_fqdn_plugin_get_EX_data(maat_feather, table_id, fqdn, (MAAT_PLUGIN_EX_DATA *)ex_data_array, 8);
+	if(ret>0)
+	{
+		qsort(ex_data_array, ret, sizeof(struct fqdn_category *), sort_category_id);
+		
+		for(i=0; i<ret; i++)
+		{
+			if(j==0)
+			{
+				category_id[j++]=ex_data_array[i]->category_id;
+			}
+			else
+			{
+				if(j<category_id_num && ex_data_array[i]->category_id!=category_id[j-1])
+				{
+					category_id[j++]=ex_data_array[i]->category_id;
+				}
+			}
+			
+			fqdn_category_free(table_id, (MAAT_PLUGIN_EX_DATA *)&(ex_data_array[i]), 0, logger);
+		}
+
+		return j;
 	}
 
 	return 0;
@@ -2363,15 +2520,115 @@ static unsigned short get_trans_protocol(const struct streaminfo *a_stream)
 	return 255;
 }
 
-
-int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
+int tsg_get_endpoint_id(const struct streaminfo *a_stream, int table_id, struct tunnel_endpoint **client_endpoint, struct tunnel_endpoint **server_endpoint)
 {
-	int hit_num=0,maat_ret=0;
-	unsigned short tans_proto=0;
+	char dest_ip[128]={0}, source_ip[128]={0};
+	
+	switch(a_stream->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4:
+			inet_ntop(AF_INET, &(a_stream->addr.tuple4_v4->saddr), source_ip, sizeof(source_ip));
+			inet_ntop(AF_INET, &(a_stream->addr.tuple4_v4->daddr), dest_ip, sizeof(dest_ip));
+			break;
+		case	ADDR_TYPE_IPV6:
+			inet_ntop(AF_INET6, (a_stream->addr.tuple4_v6->saddr), source_ip, sizeof(source_ip));
+			inet_ntop(AF_INET6, (a_stream->addr.tuple4_v6->daddr), dest_ip, sizeof(dest_ip));
+			break;
+		default:
+			return 0;
+			break;
+	}
+
+	if(*client_endpoint==NULL)
+	{
+		*client_endpoint=(struct tunnel_endpoint *)Maat_plugin_get_EX_data(g_tsg_maat_feather, table_id, source_ip);
+	}
+	
+	if(*server_endpoint==NULL)
+	{
+		*server_endpoint=(struct tunnel_endpoint *)Maat_plugin_get_EX_data(g_tsg_maat_feather, table_id, dest_ip);
+	}
+	
+	return 0;
+}
+
+int tsg_get_vlan_label_id(struct single_layer_vlan_addr *vlan_array, int vlan_array_num, unsigned long long *label_id_array, int label_id_array_num)
+{
+	int i=0,idx=0;
+	char label[32]={0}; 
+	MAAT_PLUGIN_EX_DATA label_id=NULL;
+
+	if(vlan_array_num<=0 || label_id_array_num<=0 || vlan_array==NULL || label_id_array==NULL)
+	{
+		return 0;
+	}
+	
+	for(i=0; i<vlan_array_num; i++)
+	{
+		snprintf(label, sizeof(label), "%d", vlan_array[i].VID);
+		label_id=Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_TUNNEL_LABEL], label);
+		if(label_id==NULL)
+		{
+			continue;
+		}
+
+		if(idx>=label_id_array_num)
+		{
+			break;
+		}
+
+		label_id_array[idx++]=(long long)(label_id);
+	}
+
+	return idx;
+}
+
+#define	TUNNEL_BOOL_ID_MAX	16
+#define	TUNNEL_CATALOG_MAX	16
+int tsg_scan_tunnel_id(Maat_feather_t maat_feather, struct Maat_rule_t *result, int result_num, scan_status_t *mid, unsigned long long *bool_id_array, int bool_id_array_idx, int thread_seq)
+{
+	int i=0,ret=0;
+	int maat_ret=0, hit_num=0;
+	struct tunnel_catalog *t_catalog[TUNNEL_CATALOG_MAX];
+	ret=Maat_bool_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_TUNNEL_CATALOG], bool_id_array, bool_id_array_idx, (void**)(&t_catalog), TUNNEL_CATALOG_MAX);
+	for(i=0; i<ret; i++)
+	{
+		maat_ret=Maat_scan_intval(maat_feather, g_tsg_para.table_id[TABLE_TUNNEL_ID], t_catalog[i]->id, result, result_num-hit_num, mid, thread_seq);
+		if(maat_ret>0)
+		{
+			hit_num+=maat_ret;
+		}
+		
+		tunnel_catalog_free(g_tsg_para.table_id[TABLE_TUNNEL_CATALOG], (MAAT_PLUGIN_EX_DATA *)&(t_catalog[i]), 0, NULL);
+	}
+
+	return hit_num;
+}
+
+int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, struct Maat_rule_t *result, int result_num)
+{
+	int ret=0,hit_num=0;
 	unsigned int proto_id=0;
 	struct ipaddr t_addr;
 	struct ipaddr* p_addr=NULL;	
 	const struct streaminfo *cur_stream = a_stream;
+	unsigned short tans_proto=0;
+	int bool_id_array_idx=0;
+	unsigned long long bool_id_array[TUNNEL_BOOL_ID_MAX]={0};
+	struct session_attribute_label *attribute_label=NULL;
+
+	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_NESTING_ADDR", "result==NULL || result_num<=0 || maat_feather==NULL || a_stream==NULL");
+		return -1;
+	}
+
+	attribute_label=(struct session_attribute_label *)project_req_get_struct(a_stream, g_tsg_para.session_attribute_project_id);
+	if(attribute_label==NULL)
+	{
+		attribute_label=(struct session_attribute_label *)dictator_malloc(a_stream->threadnum, sizeof(struct session_attribute_label));
+		memset(attribute_label, 0, sizeof(struct session_attribute_label));
+	}
 
 	do
 	{
@@ -2393,11 +2650,11 @@ int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream
 					{
 						t_addr.addrtype = ADDR_TYPE_IPV6;
 					}
-					p_addr = &t_addr;
+					p_addr=&t_addr;
 				}
 				else
 				{
-					p_addr = (struct ipaddr *)&cur_stream->addr;
+					p_addr=(struct ipaddr *)&cur_stream->addr;
 				}
 
 				if(p_addr==NULL)
@@ -2406,25 +2663,25 @@ int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream
 				}
 
 				tans_proto=get_trans_protocol(cur_stream);
-	 			maat_ret=Maat_scan_proto_addr(maat_feather, g_tsg_para.table_id[TABLE_IP_ADDR], p_addr, tans_proto, result+hit_num, result_num-hit_num, mid, (int)cur_stream->threadnum);
-				if(maat_ret>0)
+	 			ret=Maat_scan_proto_addr(maat_feather, g_tsg_para.table_id[TABLE_IP_ADDR], p_addr, tans_proto, result+hit_num, result_num-hit_num, mid, (int)cur_stream->threadnum);
+				if(ret>0)
 				{
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
 												"SCAN_IP",
 												"Hit addr: %s scan ret: %d policy_id: %d service: %d action: %d",
 												PRINTADDR(a_stream, g_tsg_para.level),
-												maat_ret,
+												ret,
 												result[hit_num].config_id,
 												result[hit_num].service_id,
 												(unsigned char)result[hit_num].action
 											);
 
-					hit_num+=maat_ret;
+					hit_num+=ret;
 				}
 				else
 				{
-					MESA_handle_runtime_log(g_tsg_para.logger,RLOG_LV_DEBUG, "SCAN_IP", "No hit addr: %s scan ret: %d", PRINTADDR(a_stream, g_tsg_para.level), maat_ret);	
+					MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_IP", "No hit addr: %s scan ret: %d", PRINTADDR(a_stream, g_tsg_para.level), ret);	
 				}
 				break;
 			case	ADDR_TYPE_L2TP:
@@ -2435,31 +2692,34 @@ int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream
 				proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_PPTP].name);
 				hit_num+=tsg_scan_app_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, g_tsg_proto_name2id[PROTO_PPTP].name, proto_id, (int)a_stream->threadnum);
 				break;
+			case	ADDR_TYPE_VLAN:
+				bool_id_array_idx+=tsg_get_vlan_label_id(cur_stream->addr.vlan->c2s_addr_array, cur_stream->addr.vlan->c2s_layer_num, bool_id_array, TUNNEL_BOOL_ID_MAX-bool_id_array_idx);
+				bool_id_array_idx+=tsg_get_vlan_label_id(cur_stream->addr.vlan->s2c_addr_array, cur_stream->addr.vlan->s2c_layer_num, bool_id_array, TUNNEL_BOOL_ID_MAX-bool_id_array_idx);				
+				break;
+			case	ADDR_TYPE_GPRS_TUNNEL:
+				tsg_get_endpoint_id(cur_stream->pfather, g_tsg_para.table_id[TABLE_TUNNEL_ENDPOINT], &(attribute_label->client_endpoint), &(attribute_label->server_endpoint));
+				if(attribute_label->client_endpoint!=NULL && bool_id_array_idx<TUNNEL_BOOL_ID_MAX)
+				{
+					bool_id_array[bool_id_array_idx++]=(long long)attribute_label->client_endpoint->id;
+				}
+				
+				if(attribute_label->server_endpoint!=NULL && bool_id_array_idx<TUNNEL_BOOL_ID_MAX)
+				{
+					bool_id_array[bool_id_array_idx++]=(long long)attribute_label->server_endpoint->id;
+				}
+				cur_stream=cur_stream->pfather;  // skip gtp tuple4
+				break;
 			default:
 				break;
 		}
 		
-		cur_stream = cur_stream->pfather;
-		
-	}while(cur_stream != NULL && hit_num < result_num);
+		cur_stream=cur_stream->pfather;
+	}while(cur_stream!=NULL && hit_num<result_num);
 
-	return hit_num;
-}
-
-int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num)
-{
-	int ret=0;
-	unsigned int proto_id=0;
-	int hit_num=0;
-	struct session_attribute_label *attribute_label=NULL;
-
-	if(result==NULL || result_num<=0 || a_stream==NULL || maat_feather==NULL)
+	if(hit_num<result_num)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_NESTING_ADDR", "result==NULL || result_num<=0 || maat_feather==NULL || a_stream==NULL");
-		return -1;
+		tsg_scan_tunnel_id(maat_feather, result+hit_num, result_num-hit_num, mid, bool_id_array, bool_id_array_idx, (int)a_stream->threadnum);
 	}
-
-	hit_num+=tsg_scan_addr(maat_feather, a_stream, proto, mid, result+hit_num, result_num-hit_num);
 
 	if(hit_num<result_num && proto>PROTO_UNKONWN && proto<PROTO_MAX)
 	{
@@ -2470,13 +2730,6 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 			proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_MAIL].name);
 			hit_num+=tsg_scan_app_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, g_tsg_proto_name2id[PROTO_MAIL].name, proto_id, (int)a_stream->threadnum);
 		}
-	}
-
-	attribute_label=(struct session_attribute_label *)project_req_get_struct(a_stream, g_tsg_para.session_attribute_project_id);
-	if(attribute_label==NULL)
-	{
-		attribute_label=(struct session_attribute_label *)dictator_malloc(a_stream->threadnum, sizeof(struct session_attribute_label));
-		memset(attribute_label, 0, sizeof(struct session_attribute_label));
 	}
 
 	if(hit_num<result_num)
@@ -2514,7 +2767,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 			hit_num+=tsg_scan_gtp_phone_number_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid,attribute_label->user_info->msisdn, (int)a_stream->threadnum);
 		}
 	}
-	
+
 	ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.session_attribute_project_id, (void *)attribute_label);
 	if(ret<0)
 	{

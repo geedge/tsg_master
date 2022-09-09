@@ -71,6 +71,22 @@ struct umts_user_info
 	char *msisdn; //MSISDN: phone number
 };
 
+struct tunnel_catalog
+{
+	int id;
+	int ref_cnt;
+	char *name;
+	char *type;
+	char *composition;
+};
+
+struct tunnel_endpoint
+{
+	int id;
+	int ref_cnt;
+	char *description;
+};
+
 struct session_attribute_label
 {
 	int http_action_file_size;
@@ -85,7 +101,9 @@ struct session_attribute_label
 	struct subscribe_id_info *server_subscribe_id;
 	char *ja3_fingerprint;
 	unsigned int fqdn_category_id[MAX_CATEGORY_ID_NUM];
-	struct umts_user_info *user_info;
+	struct umts_user_info *user_info;	
+	struct tunnel_endpoint *client_endpoint;	
+	struct tunnel_endpoint *server_endpoint;
 };
 
 struct policy_priority_label

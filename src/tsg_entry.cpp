@@ -101,7 +101,13 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_DNS_RES_ADD, "dns_profile_add"},
 										 {0, TSG_FS2_DNS_RES_DEL, "dns_profile_del"},
 										 {0, TSG_FS2_APP_ID_ADD, "app_id_add"},
-										 {0, TSG_FS2_APP_ID_DEL, "app_id_del"}
+										 {0, TSG_FS2_APP_ID_DEL, "app_id_del"},
+										 {0, TSG_FS2_TUNNEL_CATALOG_ADD, "t_catalog_add"},
+										 {0, TSG_FS2_TUNNEL_CATALOG_DEL, "t_catalog_del"},
+										 {0, TSG_FS2_TUNNEL_ENDPOINT_ADD, "t_endpoint_add"},
+										 {0, TSG_FS2_TUNNEL_ENDPOINT_DEL, "t_endpoint_del"},
+										 {0, TSG_FS2_TUNNEL_LABEL_ADD, "t_label_add"},
+										 {0, TSG_FS2_TUNNEL_LABEL_DEL, "t_label_del"}
 										};
 
 id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
@@ -1379,7 +1385,18 @@ static void free_session_attribute_label(int thread_seq, void *project_req_value
 			gtp_c_free_data(0, (MAAT_PLUGIN_EX_DATA *)&label->user_info, 0, g_tsg_para.logger);
 			label->user_info=NULL;
 		}
-		
+
+		if(label->client_endpoint!=NULL)
+		{
+			tunnel_endpoint_free(0, (MAAT_PLUGIN_EX_DATA *)&label->client_endpoint, 0, g_tsg_para.logger);
+			label->client_endpoint=NULL;
+		}
+
+		if(label->server_endpoint!=NULL)
+		{
+			tunnel_endpoint_free(0, (MAAT_PLUGIN_EX_DATA *)&label->server_endpoint, 0, g_tsg_para.logger);
+			label->server_endpoint=NULL;
+		}
 		dictator_free(thread_seq, project_req_value);
 		project_req_value=NULL;
 	}
@@ -2167,6 +2184,14 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 
 	if(*pme==NULL)
 	{
+		unsigned short tunnel_type=0;
+		int tunnel_type_len=sizeof(tunnel_type);
+		int ret=MESA_get_stream_opt(a_udp, MSO_STREAM_UP_LAYER_TUNNEL_TYPE, (void *)&tunnel_type, &tunnel_type_len);
+		if(ret==0 && tunnel_type&STREAM_TUNNEL_GPRS_TUNNEL)
+		{
+			return APP_STATE_DROPME;
+		}
+		
 		*pme=dictator_malloc(thread_seq, sizeof(struct udp_context));
 		memset(*pme, 0, sizeof(struct udp_context));
 		context=(struct udp_context *)(*pme);
