@@ -26,10 +26,12 @@
 #include "rapidjson/prettywriter.h" // for stringify JSON
 #include "rapidjson/stringbuffer.h"
 
+#ifndef MIN
+#define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
+#endif
 
 using namespace rapidjson;
 using namespace std;
-
 
 char TSG_SEND_LOG_VERSION_20200729=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
@@ -1807,6 +1809,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 {
 	int i=0,ret=0;
 	char nic_name[32]={0};
+	char override_sled_ip[32]={0};
 	char kafka_errstr[1024]={0};
 	unsigned int local_ip_nr=0;
 	char bridge_name[LOG_BRIDGE_MAX][128]={0};
@@ -1899,20 +1902,29 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 									_instance->udp_label
 								);
 	}
-	
-	MESA_load_profile_string_def(conffile, "SYSTEM", "NIC_NAME", nic_name, sizeof(nic_name), "lo");	
-	ret=MESA_get_dev_ipv4(nic_name, (int *)&local_ip_nr);
-	if(ret<0)
+
+	MESA_load_profile_string_def(conffile, "SYSTEM", "OVERRIDE_SLED_IP", override_sled_ip, sizeof(override_sled_ip), "OVERRIDE_SLED_IP");
+	char *sled_ip=getenv(override_sled_ip);
+	if(sled_ip==NULL)
 	{
-		MESA_handle_runtime_log(_instance->logger,
-									RLOG_LV_FATAL,
-									"GET_LOCAL_IP",
-									"MESA_get_dev_ipv4 is error, nic_name: %s, please check tsgconf/main.conf",
-									nic_name
-								);
-		return NULL;
+		MESA_load_profile_string_def(conffile, "SYSTEM", "NIC_NAME", nic_name, sizeof(nic_name), "lo");	
+		ret=MESA_get_dev_ipv4(nic_name, (int *)&local_ip_nr);
+		if(ret<0)
+		{
+			MESA_handle_runtime_log(_instance->logger,
+										RLOG_LV_FATAL,
+										"GET_LOCAL_IP",
+										"MESA_get_dev_ipv4 is error, nic_name: %s, please check tsgconf/main.conf",
+										nic_name
+									);
+			return NULL;
+		}
+		inet_ntop(AF_INET,&(local_ip_nr),_instance->local_ip_str,sizeof(_instance->local_ip_str));
 	}
-	inet_ntop(AF_INET,&(local_ip_nr),_instance->local_ip_str,sizeof(_instance->local_ip_str));
+	else
+	{
+		memcpy(_instance->local_ip_str, sled_ip, MIN(sizeof(_instance->local_ip_str)-1, strlen(sled_ip)));
+	}
 	
 	rdkafka_conf = rd_kafka_conf_new();	
 	rd_kafka_conf_set(rdkafka_conf, "queue.buffering.max.messages", _instance->send_queue_max_msg, kafka_errstr, sizeof(kafka_errstr));
