@@ -1899,7 +1899,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 
 	MESA_load_profile_string_def(conffile, "MAAT", "DTLS_SNI_TABLE", g_tsg_para.table_name[TABLE_DTLS_SNI], _MAX_TABLE_NAME_LEN, "TSG_FIELD_DTLS_SNI");
 	
-	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_ID_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_ID], _MAX_TABLE_NAME_LEN, "TSG_OBJ_TUNNEL_ID");
+	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_ID_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_ID], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_TUNNEL");
 	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_CATALOG_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_CATALOG], _MAX_TABLE_NAME_LEN, "TSG_TUNNEL_CATALOG");
 	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_ENDPOINT_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_ENDPOINT], _MAX_TABLE_NAME_LEN, "TSG_TUNNEL_ENDPOINT");	
 	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_LABEL_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_LABEL], _MAX_TABLE_NAME_LEN, "TSG_TUNNEL_LABEL");
@@ -2593,12 +2593,13 @@ int tsg_scan_tunnel_id(Maat_feather_t maat_feather, struct Maat_rule_t *result, 
 	ret=Maat_bool_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_TUNNEL_CATALOG], bool_id_array, bool_id_array_idx, (void**)(&t_catalog), TUNNEL_CATALOG_MAX);
 	for(i=0; i<ret; i++)
 	{
-		maat_ret=Maat_scan_intval(maat_feather, g_tsg_para.table_id[TABLE_TUNNEL_ID], t_catalog[i]->id, result, result_num-hit_num, mid, thread_seq);
+		maat_ret=Maat_scan_intval(maat_feather, g_tsg_para.table_id[TABLE_TUNNEL_ID], t_catalog[i]->id, result+hit_num, result_num-hit_num, mid, thread_seq);
 		if(maat_ret>0)
 		{
 			hit_num+=maat_ret;
 		}
 		
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_TUNNEL_ID", "Scan tunnel name: %s id: %d, ret: %d", t_catalog[i]->name, t_catalog[i]->id, maat_ret);
 		tunnel_catalog_free(g_tsg_para.table_id[TABLE_TUNNEL_CATALOG], (MAAT_PLUGIN_EX_DATA *)&(t_catalog[i]), 0, NULL);
 	}
 
@@ -2670,7 +2671,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 												RLOG_LV_DEBUG,
 												"SCAN_IP",
 												"Hit addr: %s scan ret: %d policy_id: %d service: %d action: %d",
-												PRINTADDR(a_stream, g_tsg_para.level),
+												PRINTADDR(cur_stream, g_tsg_para.level),
 												ret,
 												result[hit_num].config_id,
 												result[hit_num].service_id,
@@ -2701,11 +2702,13 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 				if(attribute_label->client_endpoint!=NULL && bool_id_array_idx<TUNNEL_BOOL_ID_MAX)
 				{
 					bool_id_array[bool_id_array_idx++]=(long long)attribute_label->client_endpoint->id;
+					MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "client_endpoint", "addr: %s Get client endpoint id: %d", PRINTADDR(cur_stream->pfather, g_tsg_para.level), attribute_label->client_endpoint->id);
 				}
 				
 				if(attribute_label->server_endpoint!=NULL && bool_id_array_idx<TUNNEL_BOOL_ID_MAX)
 				{
 					bool_id_array[bool_id_array_idx++]=(long long)attribute_label->server_endpoint->id;
+					MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "server_endpoint", "addr: %s Get server endpoint id: %d", PRINTADDR(cur_stream->pfather, g_tsg_para.level), attribute_label->server_endpoint->id);
 				}
 				cur_stream=cur_stream->pfather;  // skip gtp tuple4
 				break;
@@ -2718,7 +2721,7 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 
 	if(hit_num<result_num)
 	{
-		tsg_scan_tunnel_id(maat_feather, result+hit_num, result_num-hit_num, mid, bool_id_array, bool_id_array_idx, (int)a_stream->threadnum);
+		hit_num+=tsg_scan_tunnel_id(maat_feather, result+hit_num, result_num-hit_num, mid, bool_id_array, bool_id_array_idx, (int)a_stream->threadnum);
 	}
 
 	if(hit_num<result_num && proto>PROTO_UNKONWN && proto<PROTO_MAX)
