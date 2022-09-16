@@ -1662,7 +1662,7 @@ void tunnel_endpoint_new(int table_id, const char* key, const char* table_line, 
 	struct tunnel_endpoint *t_endpoint=(struct tunnel_endpoint *)calloc(1, sizeof(struct tunnel_endpoint));
 	
 	t_endpoint->id=tsg_get_column_integer_value(table_line, 1);
-	t_endpoint->description=tsg_get_column_string_value(table_line, 3);
+	t_endpoint->description=tsg_get_column_string_value(table_line, 5);
 	
 	atomic_inc(&t_endpoint->ref_cnt);
 	*ad=(MAAT_PLUGIN_EX_DATA)t_endpoint;
@@ -2520,36 +2520,85 @@ static unsigned short get_trans_protocol(const struct streaminfo *a_stream)
 	return 255;
 }
 
-int tsg_get_endpoint_id(const struct streaminfo *a_stream, int table_id, struct tunnel_endpoint **client_endpoint, struct tunnel_endpoint **server_endpoint)
+#define	TUNNEL_BOOL_ID_MAX	128
+#define	TUNNEL_CATALOG_MAX	128
+
+static int get_one_endpoint_ids(const struct streaminfo *a_stream, int table_id, struct ip_address *ip, struct tunnel_endpoint **endpoint, unsigned long long *id_array, int id_array_num)
 {
-	char dest_ip[128]={0}, source_ip[128]={0};
+	int i=0,ret=0,offset=0,free_flag=0;
+	struct tunnel_endpoint *all_endpoint[TUNNEL_BOOL_ID_MAX];
+
+	if(id_array_num<=0)
+	{
+		return 0;
+	}
 	
+	ret=Maat_ip_plugin_get_EX_data(g_tsg_maat_feather, table_id, ip, (MAAT_PLUGIN_EX_DATA *)all_endpoint, TUNNEL_BOOL_ID_MAX);
+	for(i=0; i<ret; i++)
+	{
+		if(offset>=id_array_num)
+		{		
+			tunnel_endpoint_free(table_id, (MAAT_PLUGIN_EX_DATA *)&(all_endpoint[i]), 0, NULL);
+			continue;
+		}
+		
+		if(*endpoint==NULL)
+		{
+			*endpoint=all_endpoint[i];
+		}
+		else if((*endpoint)->id < all_endpoint[i]->id)
+		{
+			tunnel_endpoint_free(table_id, (MAAT_PLUGIN_EX_DATA *)endpoint, 0, NULL);
+			*endpoint=all_endpoint[i];
+		}
+		else
+		{
+			free_flag=1;
+		}
+		
+		id_array[offset++]=all_endpoint[i]->id;
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "endpoint", "addr: %s Get endpoint id: %d", PRINTADDR(a_stream, g_tsg_para.level), all_endpoint[i]->id);
+
+		if(free_flag==1)
+		{
+			free_flag=0;
+			tunnel_endpoint_free(table_id, (MAAT_PLUGIN_EX_DATA *)&(all_endpoint[i]), 0, NULL);
+		}
+	}
+
+	return offset;
+}
+
+int tsg_get_endpoint_id(const struct streaminfo *a_stream, int table_id, struct tunnel_endpoint **client_endpoint, struct tunnel_endpoint **server_endpoint, unsigned long long *endpoint_id_array, int endpoint_id_array_num)
+{
+	int offset=0;
+	struct ip_address dest_ip={0}, source_ip={0};
+
 	switch(a_stream->addr.addrtype)
 	{
 		case	ADDR_TYPE_IPV4:
-			inet_ntop(AF_INET, &(a_stream->addr.tuple4_v4->saddr), source_ip, sizeof(source_ip));
-			inet_ntop(AF_INET, &(a_stream->addr.tuple4_v4->daddr), dest_ip, sizeof(dest_ip));
+			source_ip.ip_type=4;
+			source_ip.ipv4=a_stream->addr.tuple4_v4->saddr;
+			
+			dest_ip.ip_type=4;
+			dest_ip.ipv4=a_stream->addr.tuple4_v4->daddr;
 			break;
 		case	ADDR_TYPE_IPV6:
-			inet_ntop(AF_INET6, (a_stream->addr.tuple4_v6->saddr), source_ip, sizeof(source_ip));
-			inet_ntop(AF_INET6, (a_stream->addr.tuple4_v6->daddr), dest_ip, sizeof(dest_ip));
+			source_ip.ip_type=6;
+			memcpy((char *)(source_ip.ipv6), a_stream->addr.tuple4_v6->saddr, IPV6_ADDR_LEN);
+			
+			dest_ip.ip_type=6;
+			memcpy((char *)(dest_ip.ipv6), a_stream->addr.tuple4_v6->daddr, IPV6_ADDR_LEN);
 			break;
 		default:
 			return 0;
 			break;
 	}
 
-	if(*client_endpoint==NULL)
-	{
-		*client_endpoint=(struct tunnel_endpoint *)Maat_plugin_get_EX_data(g_tsg_maat_feather, table_id, source_ip);
-	}
+	offset+=get_one_endpoint_ids(a_stream, table_id, &source_ip, client_endpoint, endpoint_id_array+offset, endpoint_id_array_num-offset);
+	offset+=get_one_endpoint_ids(a_stream, table_id, &dest_ip, server_endpoint, endpoint_id_array+offset, endpoint_id_array_num-offset);
 	
-	if(*server_endpoint==NULL)
-	{
-		*server_endpoint=(struct tunnel_endpoint *)Maat_plugin_get_EX_data(g_tsg_maat_feather, table_id, dest_ip);
-	}
-	
-	return 0;
+	return offset;
 }
 
 int tsg_get_vlan_label_id(struct single_layer_vlan_addr *vlan_array, int vlan_array_num, unsigned long long *label_id_array, int label_id_array_num)
@@ -2583,8 +2632,6 @@ int tsg_get_vlan_label_id(struct single_layer_vlan_addr *vlan_array, int vlan_ar
 	return idx;
 }
 
-#define	TUNNEL_BOOL_ID_MAX	16
-#define	TUNNEL_CATALOG_MAX	16
 int tsg_scan_tunnel_id(Maat_feather_t maat_feather, struct Maat_rule_t *result, int result_num, scan_status_t *mid, unsigned long long *bool_id_array, int bool_id_array_idx, int thread_seq)
 {
 	int i=0,ret=0;
@@ -2694,22 +2741,18 @@ int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *
 				hit_num+=tsg_scan_app_id_policy(maat_feather, a_stream, result+hit_num, result_num-hit_num, mid, g_tsg_proto_name2id[PROTO_PPTP].name, proto_id, (int)a_stream->threadnum);
 				break;
 			case	ADDR_TYPE_VLAN:
-				bool_id_array_idx+=tsg_get_vlan_label_id(cur_stream->addr.vlan->c2s_addr_array, cur_stream->addr.vlan->c2s_layer_num, bool_id_array, TUNNEL_BOOL_ID_MAX-bool_id_array_idx);
-				bool_id_array_idx+=tsg_get_vlan_label_id(cur_stream->addr.vlan->s2c_addr_array, cur_stream->addr.vlan->s2c_layer_num, bool_id_array, TUNNEL_BOOL_ID_MAX-bool_id_array_idx);				
+				bool_id_array_idx+=tsg_get_vlan_label_id(cur_stream->addr.vlan->c2s_addr_array, cur_stream->addr.vlan->c2s_layer_num, bool_id_array+bool_id_array_idx, TUNNEL_BOOL_ID_MAX-bool_id_array_idx);
+				bool_id_array_idx+=tsg_get_vlan_label_id(cur_stream->addr.vlan->s2c_addr_array, cur_stream->addr.vlan->s2c_layer_num, bool_id_array+bool_id_array_idx, TUNNEL_BOOL_ID_MAX-bool_id_array_idx);				
 				break;
 			case	ADDR_TYPE_GPRS_TUNNEL:
-				tsg_get_endpoint_id(cur_stream->pfather, g_tsg_para.table_id[TABLE_TUNNEL_ENDPOINT], &(attribute_label->client_endpoint), &(attribute_label->server_endpoint));
-				if(attribute_label->client_endpoint!=NULL && bool_id_array_idx<TUNNEL_BOOL_ID_MAX)
-				{
-					bool_id_array[bool_id_array_idx++]=(long long)attribute_label->client_endpoint->id;
-					MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "client_endpoint", "addr: %s Get client endpoint id: %d", PRINTADDR(cur_stream->pfather, g_tsg_para.level), attribute_label->client_endpoint->id);
-				}
+				bool_id_array_idx+=tsg_get_endpoint_id(cur_stream->pfather, 
+														g_tsg_para.table_id[TABLE_TUNNEL_ENDPOINT],
+														&(attribute_label->client_endpoint),
+														&(attribute_label->server_endpoint),
+														bool_id_array+bool_id_array_idx,
+														TUNNEL_BOOL_ID_MAX-bool_id_array_idx
+													);
 				
-				if(attribute_label->server_endpoint!=NULL && bool_id_array_idx<TUNNEL_BOOL_ID_MAX)
-				{
-					bool_id_array[bool_id_array_idx++]=(long long)attribute_label->server_endpoint->id;
-					MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "server_endpoint", "addr: %s Get server endpoint id: %d", PRINTADDR(cur_stream->pfather, g_tsg_para.level), attribute_label->server_endpoint->id);
-				}
 				cur_stream=cur_stream->pfather;  // skip gtp tuple4
 				break;
 			default:
