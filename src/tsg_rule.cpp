@@ -1725,7 +1725,7 @@ void tunnel_label_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *a
 
 static Maat_feather_t init_maat_feather(const char* conffile, char* instance_name, char *module, void *maat_logger)
 {
-	int redis_index=0;
+	int redis_index=0,deferred_load=0;
 	unsigned short redis_port=0;
 	int ret=0,scan_detail=0,effect_interval=60;
 	Maat_feather_t _maat_feather=NULL;
@@ -1766,6 +1766,7 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 	MESA_load_profile_int_def(conffile, module,"STAT_SWITCH", &(maat_stat_on),1);
 	MESA_load_profile_int_def(conffile, module,"PERF_SWITCH", &(maat_perf_on),1);
 	MESA_load_profile_int_def(conffile, module,"OUTPUT_PROMETHEUS", &(output_prometheus), 1);
+	MESA_load_profile_int_def(conffile, module,"DEFERRED_LOAD", &(deferred_load), 0);
 
 	MESA_load_profile_string_def(conffile,module,"TABLE_INFO",table_info, sizeof(table_info), "");
 	MESA_load_profile_string_def(conffile,module,"STAT_FILE",maat_stat_file, sizeof(maat_stat_file), "");
@@ -1797,6 +1798,10 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_FOREIGN_CONT_DIR, "./alerts_files", strlen("./alerts_files")+1);		
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_INSTANCE_NAME,instance_name, strlen(instance_name)+1);		
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_STATUS_OUTPUT_PROMETHEUS, &output_prometheus, sizeof(output_prometheus));
+		if(deferred_load==1)
+		{
+			Maat_set_feather_opt(_maat_feather, MAAT_OPT_DEFERRED_LOAD, NULL, 0);
+		}
 	}
 	else
 	{
@@ -1837,6 +1842,11 @@ static Maat_feather_t init_maat_feather(const char* conffile, char* instance_nam
 
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_EFFECT_INVERVAL_MS, &effect_interval, sizeof(effect_interval));
 		Maat_set_feather_opt(_maat_feather, MAAT_OPT_SCAN_DETAIL, &scan_detail, sizeof(scan_detail));
+
+		if(deferred_load==1)
+		{
+			Maat_set_feather_opt(_maat_feather, MAAT_OPT_DEFERRED_LOAD, NULL, 0);
+		}
 	}
 	
 	ret=Maat_initiate_feather(_maat_feather);
@@ -2144,7 +2154,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	}
 	
 	MESA_load_profile_string_def(conffile, "MAAT", "CB_SUBSCRIBER_IP_TABLE", g_tsg_para.dyn_table_name[DYN_TABLE_SUBSCRIBER_IP], sizeof(g_tsg_para.dyn_table_name[DYN_TABLE_SUBSCRIBER_IP]), "TSG_DYN_SUBSCRIBER_IP");
-	MESA_load_profile_string_def(conffile, "MAAT", "GTP_SIGNALING_TABLE", g_tsg_para.dyn_table_name[DYN_TABLE_GTP_SIGNALING], sizeof(g_tsg_para.dyn_table_name[DYN_TABLE_SUBSCRIBER_IP]), (char *)"TSG_DYN_MOBILE_IDENTITY_APN_TEID");
+	MESA_load_profile_string_def(conffile, "MAAT", "GTP_SIGNALING_TABLE", g_tsg_para.dyn_table_name[DYN_TABLE_GTP_SIGNALING], sizeof(g_tsg_para.dyn_table_name[DYN_TABLE_GTP_SIGNALING]), (char *)"TSG_DYN_MOBILE_IDENTITY_APN_TEID");
 
 	for(i=0; i<DYN_TABLE_MAX; i++)
 	{
