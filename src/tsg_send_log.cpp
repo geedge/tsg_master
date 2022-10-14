@@ -1492,7 +1492,8 @@ static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_lo
 	}
 
 	if(object==NULL)
-	{
+	{	
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)(_instance->vsystem_id), TLD_TYPE_LONG);
 		return 0;
 	}
 	
@@ -1503,6 +1504,16 @@ static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_lo
 		{
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name, (void *)item->valuestring, TLD_TYPE_STRING);
 		}
+	}
+	
+	item=cJSON_GetObjectItem(object, "vsys_id");
+	if(item!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)item->valueint, TLD_TYPE_LONG);
+	}
+	else
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
 	}
 	
 	cJSON_Delete(object);
@@ -2079,9 +2090,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_TAG].name, (void *)(g_tsg_para.device_tag), TLD_TYPE_STRING);
 	}
-	
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)(_instance->vsystem_id), TLD_TYPE_LONG);
-	
+		
 	set_application_behavior(_instance, _handle, log_msg->a_stream);
 		
 	for(i=0;i<log_msg->result_num; i++)
