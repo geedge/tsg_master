@@ -721,7 +721,7 @@ static int tsg_proto_name2flag(char *proto_list, int *flag)
 
 		for(i=0; i< PROTO_MAX; i++)
 		{
-			if((memcmp(s, g_tsg_proto_name2id[i].name, e-s))==0)
+			if((strncasecmp(s, g_tsg_proto_name2id[i].name, e-s))==0)
 			{
 				*flag|=(1<<g_tsg_proto_name2id[i].type);
 				break;
