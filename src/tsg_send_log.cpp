@@ -616,19 +616,20 @@ static int set_packet_bytes(struct tsg_log_instance_t *_instance, struct TLD_han
 static int set_app_identify_info(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result)
 {	
 	int i=0,j=0,ret=0;
+	int add_app_flag=0;
 	char app_name[512]={0};
 	Value array(kArrayType);
 
 	for(i=ORIGIN_USER_DEFINE; i<ORIGIN_MAX; i++)
 	{
-		if(result[i].app_num<=0)
+		if(result[i].app_num<=0 || i==ORIGIN_QM_ENGINE)
 		{
 			continue;
 		}
 		
-		Value object(kObjectType);
 		for(j=0; j<result[i].app_num; j++)
-		{			
+		{
+			Value object(kObjectType);
 			ret=tsg_app_id2name(result[i].attributes[j].app_id, app_name, sizeof(app_name), 0);
 			if(ret>0)
 			{
@@ -638,14 +639,18 @@ static int set_app_identify_info(struct TLD_handle_t *_handle, char *field_name,
 			{
 				object.AddMember("app_name", result[i].attributes[j].app_id, _handle->document->GetAllocator());
 			}
-			object.AddMember("packet_sequence",result[i].attributes[j].packet_sequence, _handle->document->GetAllocator());
+			object.AddMember("packet_sequence",result[i].attributes[j].packet_sequence, _handle->document->GetAllocator());		
+			array.PushBack(object, _handle->document->GetAllocator());
+
+			add_app_flag=1;
 		}
-		
-		array.PushBack(object, _handle->document->GetAllocator());
+	}
+
+	if(add_app_flag==1)
+	{
+		TLD_append(_handle, field_name, &array, TLD_TYPE_OBJECT);
 	}
 	
-	TLD_append(_handle, field_name, &array, TLD_TYPE_OBJECT);
-
 	return 1;
 }
 
