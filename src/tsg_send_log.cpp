@@ -1933,9 +1933,12 @@ int load_log_common_field(const char *filename, id2field_t *id2field, struct top
 					case	TLD_TYPE_FILE:
 					case	TLD_TYPE_LONG:
 					case	TLD_TYPE_STRING:
-						id2field[id].type = tld_type[i].type;
-						id2field[id].id = id;
-						memcpy(id2field[id].name, field_name, strlen(field_name));
+						if(id<LOG_COMMON_MAX)
+						{
+							id2field[id].type = tld_type[i].type;
+							id2field[id].id = id;
+							memcpy(id2field[id].name, field_name, strlen(field_name));
+						}
 						flag=1;
 						break;
 					case	TLD_TYPE_TOPIC:

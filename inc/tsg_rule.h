@@ -64,7 +64,8 @@ struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);
 enum ACTION_RETURN_TYPE
 {
 	ACTION_RETURN_TYPE_PROT=0,
-	ACTION_RETURN_TYPE_APP
+	ACTION_RETURN_TYPE_APP,
+	ACTION_RETURN_TYPE_TCPALL
 };
 unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data);
 

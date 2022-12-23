@@ -92,17 +92,6 @@ static int set_drop_stream(const struct streaminfo *a_stream, tsg_protocol_t pro
 	return STATE_DROPME|STATE_DROPPKT;				
 }
 
-static int set_dropme_flag(const struct streaminfo *a_stream)
-{	
-	struct master_context *_context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
-	if(_context!=NULL)
-	{
-		_context->is_dropme=1;
-	}
-
-	return 0;
-}
-
 static int get_http_header(char *buff, int len, int code, char *user_define)
 {
 	int used_len=0;
@@ -192,7 +181,7 @@ static void template_generate(const struct streaminfo *a_stream, int status_code
 			dict.SetValue("msg", tmp_buff);
 
 			dictator_free(thread_seq, tmp_buff);
-			tmp_buff=NULL;
+			tmp_buff=NULL;
 		}
 		else
 		{
@@ -588,7 +577,7 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 
 static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *a_packet)
 {
-    if(user_region!=NULL && user_region->deny!=NULL && user_region->deny->type==TSG_DENY_TYPE_SEND_ICMP)
+    if(user_region!=NULL && user_region->deny!=NULL)
 	{
 		send_icmp_unreachable(a_stream);
     }
@@ -673,8 +662,7 @@ static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, Ma
 		case	TSG_DENY_TYPE_DEFAULT_RST:
 			do_action_reset(a_stream, p_result, protocol);
 			break;
-		case	TSG_DENY_TYPE_SEND_ICMP:
-		case	TSG_DENY_TYPE_DEFAULT_DROP:	
+		case	TSG_DENY_TYPE_DROP:
 			struct compile_user_region tmp_user_region;
 			tmp_user_region.deny=deny_region;
 			tmp_user_region.capture.enabled=0;			
@@ -691,23 +679,23 @@ static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, Ma
 
 static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, enum ACTION_RETURN_TYPE type)
 {
-	struct tcpall_context *context=NULL;
 	struct leaky_bucket *bucket=create_bucket(user_region->deny->bps, a_stream->threadnum);
 
-	int ret=tsg_set_bucket_to_tcpall(a_stream, &context, bucket, a_stream->threadnum);
+	int ret=set_bucket_to_tcpall(a_stream, bucket, a_stream->threadnum);
 	if(ret==0)
 	{
 		destroy_bucket(&bucket, a_stream->threadnum);
 		bucket=NULL;
 	}
-	
-	set_dropme_flag(a_stream);
-
-	context=NULL;
 
 	if(type==ACTION_RETURN_TYPE_PROT)
 	{		
 		return STATE_DROPME;
+	}
+
+	if(type==ACTION_RETURN_TYPE_APP)
+	{		
+		return STATE_DROPME|STATE_KILL_OTHER;
 	}
 
 	return STATE_GIVEME|STATE_KILL_OTHER;
@@ -851,13 +839,6 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 
 	switch(method_type)
 	{
-		case	TSG_METHOD_TYPE_DROP:
-			local_state=do_action_drop(a_stream, p_result, user_region, protocol, user_data);
-			if(protocol==PROTO_DNS && type==ACTION_RETURN_TYPE_APP)
-			{
-				local_state=set_drop_stream(a_stream, protocol);
-			}
-			break;
 		case	TSG_METHOD_TYPE_RST:
 		case	TSG_METHOD_TYPE_RESET:
 			local_state=do_action_reset(a_stream, p_result, protocol);
@@ -878,9 +859,20 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 		case	TSG_METHOD_TYPE_DEFAULT:
 			local_state=do_action_default_xxx(a_stream, p_result, user_region, protocol, user_data);
 			break;
+		case	TSG_METHOD_TYPE_DROP:
 		case	TSG_METHOD_TYPE_APP_DROP:
-			if((user_region->deny==NULL) || (user_region->deny->type!=TSG_DENY_TYPE_APP_DROP))
+			if(user_region->deny==NULL)
 			{
+				break;
+			}
+
+			if(type!=ACTION_RETURN_TYPE_TCPALL && user_region->deny->after_n_packets>0)
+			{
+				set_protocol_to_tcpall(a_stream, protocol, a_stream->threadnum);
+				set_method_to_tcpall(a_stream, user_region->method_type, a_stream->threadnum);
+				set_after_n_packet_to_tcpall(a_stream, user_region->deny->after_n_packets, a_stream->threadnum);
+				tsg_set_policy_result(a_stream, PULL_FW_RESULT, p_result, protocol, a_stream->threadnum);
+				local_state=((type==ACTION_RETURN_TYPE_PROT) ? (STATE_DROPME) : (STATE_DROPME|STATE_KILL_OTHER));
 				break;
 			}
 			
@@ -890,12 +882,12 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 				local_state=set_drop_stream(a_stream, protocol);
 			}
 			
-			if(user_region->deny->app_para.send_icmp_enable==1)
+			if(user_region->deny->drop_para.send_icmp_enable==1)
 			{
 				 local_state|=send_icmp_unreachable(a_stream);
 			}
 
-			if(user_region->deny->app_para.send_reset_enable==1)
+			if(user_region->deny->drop_para.send_reset_enable==1)
 			{
 				 local_state|=do_action_reset(a_stream, p_result, protocol);
 			}
@@ -908,8 +900,7 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 
 	if(method_type!=TSG_METHOD_TYPE_DEFAULT && method_type!=TSG_METHOD_TYPE_APP_DROP)
 	{
-		struct tcpall_context *context=NULL;
-		tsg_set_method_to_tcpall(a_stream, &context, (enum TSG_METHOD_TYPE)method_type, a_stream->threadnum);
+		set_method_to_tcpall(a_stream, (enum TSG_METHOD_TYPE)method_type, a_stream->threadnum);
 	}
 	
 	state=((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_GIVEME : APP_STATE_GIVEME);

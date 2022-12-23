@@ -260,10 +260,9 @@ struct master_context
 {
 	unsigned char is_esni;
 	unsigned char is_log;
-	unsigned char is_dropme;
 	unsigned char deal_pkt_num;
 	unsigned char is_app_link;
-	unsigned char padding;
+	unsigned char sync_cb_state;
 	unsigned short timeout;
 	tsg_protocol_t proto;
 	int hit_cnt;
@@ -287,6 +286,7 @@ struct tcpall_context
 {
 	int set_latency_flag;
 	enum TSG_METHOD_TYPE method_type; 
+	tsg_protocol_t protocol;
 	union
 	{
 		struct leaky_bucket *bucket;
@@ -295,6 +295,12 @@ struct tcpall_context
 		struct hited_app_para hited_para;
 		void *para;
 	};
+};
+
+struct udp_context
+{
+	struct master_context *data_entry;
+	struct tcpall_context *all_entry;
 };
 
 struct reset_argv
@@ -474,8 +480,10 @@ void tunnel_endpoint_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void
 void http_response_pages_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* argp);
 void dns_profile_records_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp);
 void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int value_len, int thread_seq);
-int tsg_set_method_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, enum TSG_METHOD_TYPE method_type, int thread_seq);
-int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct leaky_bucket *bucket, int thread_seq);
+int set_method_to_tcpall(const struct streaminfo *a_stream, enum TSG_METHOD_TYPE method_type, int thread_seq);
+int set_protocol_to_tcpall(const struct streaminfo *a_stream, tsg_protocol_t protocol, int thread_seq);
+int set_bucket_to_tcpall(const struct streaminfo *a_stream, struct leaky_bucket *bucket, int thread_seq);
+int set_after_n_packet_to_tcpall(const struct streaminfo *a_stream, int after_n_packets, int thread_seq);
 void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp);
 
 struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, int thread_seq);
@@ -487,6 +495,8 @@ int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct strea
 int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info);
 struct umts_user_info *tsg_get_umts_user_info_form_redis(unsigned int teid);
 
+void free_policy_label(int thread_seq, void *project_req_value);
+int tsg_set_policy_result(const struct streaminfo *a_stream, PULL_RESULT_TYPE result_type, struct Maat_rule_t *p_result, tsg_protocol_t proto, int thread_seq);
 int tsg_scan_gtp_apn_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *apn, int thread_seq);
 int tsg_scan_gtp_imsi_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *imsi, int thread_seq);
 int tsg_scan_gtp_phone_number_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *phone_number, int thread_seq);

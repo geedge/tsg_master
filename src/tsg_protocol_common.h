@@ -20,9 +20,8 @@ enum TSG_DENY_TYPE
 	TSG_DENY_TYPE_REDIRECT_TO,
 	TSG_DENY_TYPE_REDIRECT_URL,
 	TSG_DENY_TYPE_REDIRECT_RECORD,
-	TSG_DENY_TYPE_SEND_ICMP,
+	TSG_DENY_TYPE_DROP,
 	TSG_DENY_TYPE_DEFAULT_RST,
-	TSG_DENY_TYPE_DEFAULT_DROP,
 	TSG_DENY_TYPE_APP_DROP,
 	TSG_DENY_TYPE_APP_RATELIMIT,
 	TSG_DENY_TYPE_MAX
@@ -79,7 +78,7 @@ struct packet_capture
 	int depth;
 };
 
-struct app_action_para
+struct action_para
 {
 	int send_reset_enable;
 	int send_icmp_enable;
@@ -101,8 +100,7 @@ struct deny_user_region
 		struct dns_user_region *records;
 		int profile_id;
 		int bps;
-		int send_icmp_enable;
-		struct app_action_para app_para;
+		struct action_para drop_para;
 		void *para;
 	};
 };

@@ -650,9 +650,9 @@ static int parse_deny_action(char *deny_action_str, struct deny_user_region *den
 		{
 			case	TSG_METHOD_TYPE_DROP:
 				deny_app_para->type=TSG_DENY_TYPE_APP_DROP;
-				get_integer_from_json(app_para, "send_tcp_reset", &(deny_app_para->app_para.send_reset_enable));	
+				get_integer_from_json(app_para, "send_tcp_reset", &(deny_app_para->drop_para.send_reset_enable));	
 				get_integer_from_json(app_para, "after_n_packets", &(deny_app_para->after_n_packets));	
-				get_integer_from_json(app_para, "send_icmp_unreachable", &(deny_app_para->app_para.send_icmp_enable));
+				get_integer_from_json(app_para, "send_icmp_unreachable", &(deny_app_para->drop_para.send_icmp_enable));
 				break;
 			case	TSG_METHOD_TYPE_RATE_LIMIT:
 				deny_app_para->type=TSG_DENY_TYPE_APP_RATELIMIT;
@@ -980,16 +980,10 @@ static int parse_default_para(cJSON *deny_user_region_object, struct compile_use
 				get_integer_from_json(tcp_session_item, "after_n_packets", &(user_region->session_para->tcp.after_n_packets));
 				break;
 			case	TSG_METHOD_TYPE_DROP:
+				user_region->session_para->tcp.type=TSG_DENY_TYPE_DROP;
 				get_integer_from_json(tcp_session_item, "after_n_packets", &(user_region->session_para->tcp.after_n_packets));
-				get_integer_from_json(tcp_session_item, "send_icmp_unreachable", &(user_region->session_para->tcp.send_icmp_enable));
-				if(user_region->session_para->tcp.send_icmp_enable==1)
-				{
-					user_region->session_para->tcp.type=TSG_DENY_TYPE_SEND_ICMP;
-				}
-				else
-				{					
-					user_region->session_para->tcp.type=TSG_DENY_TYPE_DEFAULT_DROP;
-				}
+				get_integer_from_json(tcp_session_item, "send_icmp_unreachable", &(user_region->session_para->tcp.drop_para.send_icmp_enable));
+				get_integer_from_json(tcp_session_item, "send_tcp_reset", &(user_region->session_para->tcp.drop_para.send_reset_enable));
 				break;
 			default:
 				break;
@@ -1000,17 +994,9 @@ static int parse_default_para(cJSON *deny_user_region_object, struct compile_use
 	method_item=cJSON_GetObjectItem(udp_session_item, "method");
 	if(method_item!=NULL)
 	{
-		user_region->session_para->udp.type=TSG_DENY_TYPE_DEFAULT_DROP;
+		user_region->session_para->udp.type=TSG_DENY_TYPE_DROP;
 		get_integer_from_json(udp_session_item, "after_n_packets", &(user_region->session_para->udp.after_n_packets));
-		get_integer_from_json(udp_session_item, "send_icmp_unreachable", &(user_region->session_para->udp.send_icmp_enable));
-		if(user_region->session_para->udp.send_icmp_enable==1)
-		{
-			user_region->session_para->udp.type=TSG_DENY_TYPE_SEND_ICMP;
-		}
-		else
-		{					
-			user_region->session_para->udp.type=TSG_DENY_TYPE_DEFAULT_DROP;
-		}
+		get_integer_from_json(udp_session_item, "send_icmp_unreachable", &(user_region->session_para->udp.drop_para.send_icmp_enable));
 	}
 
 	return 1;
@@ -1139,14 +1125,12 @@ static struct compile_user_region *parse_deny_user_region(cJSON *deny_user_regio
 			user_region->deny->type=TSG_DENY_TYPE_MAX;
 			get_integer_from_json(deny_user_region_object, "bps", &(user_region->deny->bps));
 			break;
-		case	TSG_METHOD_TYPE_DROP:
+		case	TSG_METHOD_TYPE_DROP:			
 			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
-			ret=get_integer_from_json(deny_user_region_object, "send_icmp_unreachable", &(user_region->deny->send_icmp_enable));
-			if(ret==1)
-			{
-				user_region->deny->type=TSG_DENY_TYPE_SEND_ICMP;
-				break;
-			}
+			user_region->deny->type=TSG_DENY_TYPE_DROP;
+			get_integer_from_json(deny_user_region_object, "send_icmp_unreachable", &(user_region->deny->drop_para.send_icmp_enable));
+			get_integer_from_json(deny_user_region_object, "send_tcp_reset", &(user_region->deny->drop_para.send_reset_enable));
+			get_integer_from_json(deny_user_region_object, "after_n_packets", &(user_region->deny->after_n_packets));
             break;
 		case	TSG_METHOD_TYPE_APP_DROP:
 			break;
@@ -2250,6 +2234,51 @@ static int get_fqdn_category_id(Maat_feather_t maat_feather, int table_id, char 
 	return 0;
 }
 
+int tsg_set_policy_result(const struct streaminfo *a_stream, PULL_RESULT_TYPE result_type, struct Maat_rule_t *p_result, tsg_protocol_t proto, int thread_seq)
+{
+	struct policy_priority_label *priority_label=NULL;	
+
+	priority_label=(struct policy_priority_label *)project_req_get_struct((struct streaminfo *)a_stream, g_tsg_para.priority_project_id);
+	if(priority_label==NULL)
+	{
+		priority_label=(struct policy_priority_label *)dictator_malloc(thread_seq, sizeof(struct policy_priority_label));		
+		memset(priority_label, 0, sizeof(struct policy_priority_label));
+	}
+	
+
+	priority_label->proto=proto;
+	priority_label->result_num=1;
+	priority_label->result_type=result_type;
+	memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
+	
+	int ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.priority_project_id, (void *)priority_label);
+	if(ret<0)
+	{
+		free_policy_label(thread_seq, (void *)priority_label);
+		MESA_handle_runtime_log(g_tsg_para.logger,
+										RLOG_LV_FATAL,
+										"PROJECT_ADD",
+										"Add policy_priority_label failed, policy, policy_id: %d action: %d addr: %s",
+										priority_label->result[0].config_id,
+										(unsigned char)priority_label->result[0].action,
+										PRINTADDR(a_stream, g_tsg_para.level)
+									);
+		return -1;
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger, 
+									RLOG_LV_DEBUG,
+									"COPY_RESULT",
+									"Hit policy, policy_id: %d action: %d addr: %s",
+									priority_label->result[0].config_id,
+									(unsigned char)priority_label->result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
+
+	return 0;
+}
+
+
 int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t*result, int result_num, struct identify_info *identify_info)
 {
 	int num=0;
@@ -3304,63 +3333,6 @@ int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Ma
 		tsg_free_compile_user_region(&(result[i]), user_region);
 		user_region=NULL;
 	}
-	
-	return 1;
-}
-
-int tsg_set_method_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, enum TSG_METHOD_TYPE method_type, int thread_seq)
-{
-	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
-	if(_context==NULL)
-	{
-		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
-		memset(_context, 0, sizeof(struct tcpall_context));
-		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
-	}
-
-	switch(_context->method_type)
-	{
-		case	TSG_METHOD_TYPE_UNKNOWN:
-		case	TSG_METHOD_TYPE_DEFAULT:
-		case	TSG_METHOD_TYPE_MIRRORED:			
-			_context->method_type=method_type;
-			*context=_context;
-			break;
-		default:
-			return 0;
-			break;
-	}
-
-	return 1;
-}
-
-int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct leaky_bucket *bucket, int thread_seq)
-{
-	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
-	if(_context==NULL)
-	{
-		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
-		memset(_context, 0, sizeof(struct tcpall_context));
-		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
-	}
-
-	switch(_context->method_type)
-	{
-		case	TSG_METHOD_TYPE_RATE_LIMIT:
-			*context=_context;
-			return 1;	
-			break;
-		case	TSG_METHOD_TYPE_DEFAULT:
-		case	TSG_METHOD_TYPE_UNKNOWN:
-			break;
-		default:
-			return 0;
-			break;
-	}
-
-	_context->method_type=TSG_METHOD_TYPE_RATE_LIMIT;
-	_context->bucket=bucket;
-	*context=_context;
 	
 	return 1;
 }
