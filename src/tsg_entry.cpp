@@ -686,6 +686,9 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 		TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[PROTO_APP].name, TLD_TYPE_STRING);
 	}
 
+	char *flags_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_FLAGS);
+	TLD_append(TLD_handle, flags_field_name, (void *)context->session_flag, TLD_TYPE_LONG);
+
 	if(context!=NULL && context->hited_app_id>0)
 	{
 		char app_label_name[512]={0};
@@ -1892,6 +1895,32 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	return 0;
 }
 
+static int session_flags_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
+{
+	if(data==NULL)
+	{
+		return 0;
+	}
+
+	struct master_context *context=NULL;	
+	struct Maat_rule_t scan_result[MAX_RESULT_NUM]={0};
+
+	context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
+	if(context==NULL)
+	{
+		init_context((void **)(&context), a_stream->threadnum);
+		set_struct_project(a_stream, g_tsg_para.context_project_id, (void *)context);
+	}
+
+	context->session_flag=*(unsigned long *)(data);
+
+	int hit_num=tsg_scan_session_flags(g_tsg_maat_feather, a_stream, scan_result, MAX_RESULT_NUM, &context->mid, g_tsg_para.table_id[TABLE_SESSION_FLAGS], context->session_flag, a_stream->threadnum);
+
+	master_deal_scan_result(a_stream, context, scan_result, hit_num, NULL);
+
+	return 0;
+}
+
 
 static int deal_pending_state(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int result_num, void *a_packet)
 {
@@ -2010,6 +2039,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		
 			if(is_hited_allow(context->result, context->hit_cnt))
 			{
+				state=APP_STATE_KILL_OTHER|APP_STATE_GIVEME;
 				break;
 			}
 			
@@ -2037,6 +2067,19 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 				hit_num+=scan_application_id_and_properties(a_stream, scan_result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result[i]), thread_seq);
 			}
 
+			if(context->session_flag>0)
+			{
+				hit_num+=tsg_scan_session_flags(g_tsg_maat_feather, 
+													a_stream,
+													scan_result+hit_num,
+													MAX_RESULT_NUM-hit_num,
+													&context->mid,
+													g_tsg_para.table_id[TABLE_SESSION_FLAGS],
+													context->session_flag,
+													thread_seq
+												);
+			}
+			
 			p_result=tsg_policy_decision_criteria(scan_result, hit_num);
 			if(p_result!=NULL && p_result->action!=TSG_ACTION_MONITOR)
 			{
@@ -2335,6 +2378,7 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "APP_IDENTIFY_RESULT_BRIDGE", g_tsg_para.bridge_name[BRIDGE_TYPE_APP_IDENTIFY_RESULT],_MAX_TABLE_NAME_LEN, "APP_IDENTIFY_RESULT_BRIDGE");
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "SKETCH_NOTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA],_MAX_TABLE_NAME_LEN, "TSG_CONN_SKETCH_NOTIFY_DATA");
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "MASTER_NOTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_SEND_CONN_SKETCH_DATA],_MAX_TABLE_NAME_LEN, "TSG_MASTER_NOTIFY_DATA");
+	MESA_load_profile_string_def(tsg_conffile, "SESSION_FLAGS", "FLAGS_NOTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_NOTIFY_FLAGS],_MAX_TABLE_NAME_LEN, "SESSION_FLAGS_SYNC_NOTIFY_DATA");
 
 	for(i=0; i<BRIDGE_TYPE_MAX; i++)
 	{
@@ -2353,6 +2397,18 @@ extern "C" int TSG_MASTER_INIT()
 									"APP_BRIDGE",
 									"Register callback failed, bridge_name: %d",
 									g_tsg_para.bridge_name[BRIDGE_TYPE_APP_IDENTIFY_RESULT]
+								);	
+		return -1;
+	}
+
+	ret=stream_bridge_register_data_sync_cb(g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_FLAGS], session_flags_identify_result_cb);
+	if(ret<0)
+	{		
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_FATAL,
+									"APP_BRIDGE",
+									"Register callback failed, bridge_name: %d",
+									g_tsg_para.bridge_name[BRIDGE_TYPE_NOTIFY_FLAGS]
 								);	
 		return -1;
 	}

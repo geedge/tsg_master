@@ -95,6 +95,7 @@ enum MASTER_STATIC_TABLE{
 	TABLE_TUNNEL_CATALOG,
 	TABLE_TUNNEL_ENDPOINT,
 	TABLE_TUNNEL_LABEL,
+	TABLE_SESSION_FLAGS,
 	TABLE_MAX
 };
 
@@ -181,6 +182,7 @@ enum BRIDGE_TYPE
 	BRIDGE_TYPE_SEND_CONN_SKETCH_DATA=0,
 	BRIDGE_TYPE_RECV_CONN_SKETCH_DATA,
 	BRIDGE_TYPE_APP_IDENTIFY_RESULT,
+	BRIDGE_TYPE_NOTIFY_FLAGS,
 	BRIDGE_TYPE_MAX
 };
 
@@ -261,12 +263,13 @@ struct master_context
 	unsigned char is_dropme;
 	unsigned char deal_pkt_num;
 	unsigned char is_app_link;
-	unsigned char pad;
+	unsigned char padding;
 	unsigned short timeout;
 	tsg_protocol_t proto;
 	int hit_cnt;
 	int hited_app_id;
 	unsigned int quic_version;
+	unsigned long session_flag;
 	char *domain;
 	union
 	{
@@ -491,5 +494,6 @@ int tsg_get_ip_location(const struct streaminfo *a_stream, int table_id, MAAT_PL
 int tsg_get_ip_asn(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_EX_DATA* client_asn, MAAT_PLUGIN_EX_DATA* server_asn);
 int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id);
 int tsg_send_raw_packet(const struct streaminfo *a_stream, struct mirrored_vlan *vlan, int vlan_num, int thread_seq);
+int tsg_scan_session_flags(Maat_feather_t maat_feather, const struct streaminfo *a_stream, Maat_rule_t *result, int result_num,  scan_status_t *mid, int table_id, unsigned long flag, int thread_seq);
 
 #endif

@@ -1914,6 +1914,8 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_ENDPOINT_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_ENDPOINT], _MAX_TABLE_NAME_LEN, "TSG_TUNNEL_ENDPOINT");	
 	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_LABEL_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_LABEL], _MAX_TABLE_NAME_LEN, "TSG_TUNNEL_LABEL");
 
+	MESA_load_profile_string_def(conffile, "MAAT", "SESSION_FLAG_TABLE", g_tsg_para.table_name[TABLE_SESSION_FLAGS], _MAX_TABLE_NAME_LEN, "TSG_SECURITY_FLAG");
+
 	MESA_load_profile_int_def(conffile, "MAAT","LOG_LEVEL", &log_level, 30);
 	MESA_load_profile_string_def(conffile, "MAAT", "LOG_PATH", log_path, sizeof(log_path), "./tsglog/maat/tsg_maat.log");
 	g_tsg_para.maat_logger=MESA_create_runtime_log_handle(log_path, log_level);
@@ -2868,6 +2870,29 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, const struct streaminfo 
 	return 0;
 }
 
+int tsg_scan_session_flags(Maat_feather_t maat_feather, const struct streaminfo *a_stream, Maat_rule_t *result, int result_num,  scan_status_t *mid, int table_id, unsigned long flag, int thread_seq)
+{
+	int ret=Maat_scan_flag(maat_feather, table_id, flag, result, result_num, mid, thread_seq);
+	if(ret>0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"SCAN_FLAGS",
+									"Hit flag=%llu policy_id: %d service: %d action: %d addr: %s",
+									flag,
+									result[0].config_id,
+									result[0].service_id,
+									(unsigned char)result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
+
+		return ret;
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "SCAN_FLAG", "Not hit flag=%llu ret: %d stream_dir: %d addr: %s", flag, ret, a_stream->dir, PRINTADDR(a_stream, g_tsg_para.level));
+
+	return 0;
+}
 
 struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num)
 {
