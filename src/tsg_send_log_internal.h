@@ -1,6 +1,8 @@
 #ifndef	__TSG_SEND_LOG_INTERNAL_H__
 #define	__TSG_SEND_LOG_INTERNAL_H__
 
+#include <MESA/field_stat2.h>
+
 #include <librdkafka/rdkafka.h>
 #include <MESA/cJSON.h>
 #include <time.h>
@@ -130,6 +132,7 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_TUNNELS_ENDPOINT_A_DESC,
 	LOG_COMMON_TUNNELS_ENDPOINT_B_DESC,
 	LOG_COMMON_TRAFFIC_VSYSTEM_ID,
+	LOG_COMMON_APP_FULL_PATH,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
@@ -197,6 +200,7 @@ struct tsg_log_instance_t
 	int max_service;
 	int app_id_type;
 	int vsystem_id;
+	int unknown_app_id;
 	int send_user_region;
 	int send_data_center;
 	int recovery_interval;

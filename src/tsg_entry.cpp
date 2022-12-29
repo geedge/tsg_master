@@ -1847,6 +1847,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_BUILT_IN_RESULT], 0, FS_OP_ADD, 1);
 			break;
 		case	ORIGIN_BASIC_PROTOCOL:
+			context->is_app_link=FLAG_TRUE;
 			if(context->proto==PROTO_UNKONWN || context->proto==PROTO_APP)
 			{
 				set_l7_protocol_to_pme(context, identify_result->app_id[identify_result->app_id_num-1]);

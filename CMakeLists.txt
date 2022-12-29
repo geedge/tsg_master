@@ -36,6 +36,12 @@ set(CMAKE_INSTALL_PREFIX /home/mesasoft/sapp_run)
 
 add_subdirectory(support)
 add_subdirectory(src) 
+add_subdirectory(vendor)
+add_subdirectory(test)
+
+enable_testing()
+add_subdirectory(./ctest)
+
 
 SET(CPACK_RPM_LIBRARIES_PRE_INSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/cmake/PreInstall.sh")
 SET(CPACK_RPM_LIBRARIES_PRE_UNINSTALL_SCRIPT_FILE "${PROJECT_SOURCE_DIR}/cmake/PreUninstall.sh")

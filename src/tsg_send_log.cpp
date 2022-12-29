@@ -684,7 +684,7 @@ static int get_app_id_list(Value *app_id_object, struct TLD_handle_t *_handle, c
 }
 
 
-static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result, TLD_TYPE type)
+static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result)
 {
 	if(result==NULL || result->app_num<=0)
 	{
@@ -795,8 +795,7 @@ static int get_app_name_list(struct gather_app_result *result, char *app_name, i
 
 		if(i>0 && offset>0 && (app_name_len-offset)>0)
 		{
-			app_name[offset]='.';
-			offset++;
+			app_name[offset++]='.';
 		}
 		
 		offset+=tsg_app_id2name(result->attributes[i].app_id, app_name+offset, app_name_len-offset, is_joint_parent);
@@ -804,6 +803,170 @@ static int get_app_name_list(struct gather_app_result *result, char *app_name, i
 
 	return 1;
 }
+
+/*
+	L7(openvpn), appSketch(psiphon), Thrid(openvpn.ssl.wechat) = openvpn.ssl.psiphon
+	L7(openvpn), appSketch(psiphon), Thrid(openvpn.qq_web.wechat) = openvpn.psiphon
+	L7(openvpn), appSketch(psiphon), Thrid(openvpn.wechat) = openvpn.psiphon
+	L7(openvpn.ssl), appSketch(psiphon), Thrid(openvpn.wechat) = openvpn.ssl.psiphon
+	L7(openvpn.ssl), appSketch(psiphon), Thrid(openvpn) = openvpn.ssl.psiphon
+	L7(openvpn.ssl), appSketch(psiphon), Thrid(openvpn.ssl.wechat) = openvpn.ssl.psiphon
+	L7(null), appSketch(psiphon), Thrid(openvpn.ssl.wechat) = openvpn.ssl.psiphon
+	L7(null), appSketch(psiphon), Thrid(wechat) = psiphon
+	L7(null), appSketch(null), Thrid(openvpn.ssl.wechat) = openvpn.ssl.wechat
+	L7(null), appSketch(null), Thrid(null) = unknown
+*/
+
+static int get_QM_app_idx(struct gather_app_result *qm_result)
+{
+	int i=0;
+	for(i=0; i<qm_result->app_num; i++)
+	{
+		if(tsg_l7_protocol_id2name(qm_result->attributes[i].app_id)==NULL)
+		{
+			break;
+		}
+	}
+
+	return i;
+}
+
+/*
+** Engine1 1.2 Engine2 1   -> 1.2
+** Engine1 1.2 Engine2 1.3 -> 1.2
+** Engine1 1   Engine2 1.2 -> 1.2
+** Engine1 2   Engine2 1.2 -> 1.2
+** Engine1 1   Engine2 2.3 -> 1
+** Engine1 1   Engine2 2   -> 1
+*/
+
+static int copy_app_id(struct app_attributes *result, int result_num, unsigned int *combined_array, int combined_array_num)
+{
+	int i=0;
+	for(i=0; i<result_num && i<combined_array_num; i++)
+	{
+		combined_array[i]=result[i].app_id;
+	}
+
+	return i;
+}
+static int engine_result_combine(struct app_attributes *engine1_result, int engine1_result_num, struct app_attributes *engine2_result, int engine2_result_num, unsigned int *combined_array, int combined_array_num)
+{
+	int i=0,j=0,intersection_flag=0;
+
+	for(i=0; i<engine1_result_num; i++)
+	{
+		for(j=i+1; j<engine2_result_num; j++)
+		{
+			if(engine1_result[i].app_id==engine2_result[j].app_id)
+			{
+				intersection_flag=1;
+				break;
+			}
+		}
+	}
+
+
+/* ** Engine1 2   Engine2 1.2 -> 1.2 ** */
+	if(intersection_flag==1 || engine1_result_num==0)
+	{
+		return copy_app_id(engine2_result, engine2_result_num, combined_array, combined_array_num);
+	}
+
+/* 
+** Engine1 1.2 Engine2 1   -> 1.2
+** Engine1 1.2 Engine2 1.3 -> 1.2
+*/
+	if(engine1_result_num>=engine2_result_num || engine2_result_num==0)
+	{	
+		return copy_app_id(engine1_result, engine1_result_num, combined_array, combined_array_num);
+	}
+
+/*
+** Engine1 1   Engine2 1.2 -> 1.2
+*/
+	if(engine2_result_num>engine1_result_num && engine1_result[0].app_id==engine2_result[0].app_id)
+	{
+		return copy_app_id(engine2_result, engine2_result_num, combined_array, combined_array_num);
+	}
+
+/*
+** Engine1 1   Engine2 2   -> 1
+** Engine1 1   Engine2 2.3 -> 1
+*/
+	return copy_app_id(engine1_result, engine1_result_num, combined_array, combined_array_num);
+}
+
+
+int set_app_full_path(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result)
+{
+	int offset=0;
+	int qm_app_idx=0;
+	int combined_num=0;
+	char app_full_path[256]={0};
+	unsigned int combined_array[MAX_APP_ID_NUM*2]={0};
+
+	qm_app_idx=get_QM_app_idx(&(result[ORIGIN_QM_ENGINE]));
+	combined_num+=engine_result_combine(result[ORIGIN_BASIC_PROTOCOL].attributes,
+										result[ORIGIN_BASIC_PROTOCOL].app_num,
+										result[ORIGIN_QM_ENGINE].attributes,
+										qm_app_idx, 
+										combined_array+combined_num,
+										sizeof(combined_array)-combined_num
+									);
+
+	
+
+	if(result[ORIGIN_USER_DEFINE].app_num==0)
+	{
+		combined_num+=engine_result_combine(result[ORIGIN_BUILT_IN].attributes,
+												result[ORIGIN_BUILT_IN].app_num,
+												(result[ORIGIN_QM_ENGINE].attributes)+qm_app_idx,
+												result[ORIGIN_QM_ENGINE].app_num-qm_app_idx,
+												combined_array+combined_num,
+												sizeof(combined_array)-combined_num
+											);
+	}
+	else
+	{
+		combined_num+=engine_result_combine(result[ORIGIN_USER_DEFINE].attributes,
+												result[ORIGIN_USER_DEFINE].app_num,
+												NULL,
+												0,
+												combined_array+combined_num,
+												sizeof(combined_array)-combined_num
+											);
+	}
+
+	if(combined_num==0)
+	{
+		offset=tsg_app_id2name(result[ORIGIN_UNKNOWN].attributes[0].app_id, app_full_path, sizeof(app_full_path), 0);
+		if(offset>0)
+		{
+			TLD_append(_handle, field_name, (void *)app_full_path, TLD_TYPE_STRING);
+		}
+		
+		return 1;
+	}
+
+	for(int i=0; i<combined_num; i++)
+	{
+		offset+=tsg_app_id2name(combined_array[i], app_full_path+offset, sizeof(app_full_path)-offset, 0);
+		if(offset>0)
+		{
+			app_full_path[offset++]='.';
+		}
+	}
+
+	if(offset>0)
+	{
+		app_full_path[offset-1]='\0';
+		TLD_append(_handle, field_name, (void *)app_full_path, TLD_TYPE_STRING);
+	}
+			
+	return 1;	
+}
+
 
 static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
@@ -818,7 +981,12 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	
 	gather_result=(struct gather_app_result *)project_req_get_struct(a_stream, g_tsg_para.gather_app_project_id);
 	if(gather_result==NULL)
-	{		
+	{
+		if(tsg_app_id2name(_instance->unknown_app_id, app_name, sizeof(app_name), 0))
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_name, TLD_TYPE_STRING);
+		}
+		
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)_instance->l7_unknown_name, TLD_TYPE_STRING);
 		return 0;
 	}
@@ -847,8 +1015,10 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	}
 	else //string
 	{
-		set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(gather_result[ORIGIN_USER_DEFINE]), TLD_TYPE_LONG);
+		set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(gather_result[ORIGIN_USER_DEFINE]));
 
+		set_app_full_path(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, gather_result);
+				
 		get_userdefine_name(&(gather_result[ORIGIN_USER_DEFINE]), app_name, sizeof(app_name), &app_id_flag, 0);
 		
 		if(app_id_flag!=1)
@@ -893,7 +1063,7 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	return 1;
 }
 
-static int set_vlan(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct single_layer_vlan_addr *vlan_addr, int layer_num, Value *tunnel_object, tsg_log_field_id_t id)
+int set_vlan(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct single_layer_vlan_addr *vlan_addr, int layer_num, Value *tunnel_object, tsg_log_field_id_t id)
 {
 	if(layer_num==0)
 	{
@@ -1861,6 +2031,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "RAPIDJSON_CHUNK_CAPACITY", &(_instance->rapidjson_chunk_capacity), 8096);
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "VSYSTEM_ID", &(_instance->vsystem_id), 1);
+	MESA_load_profile_int_def(conffile, "SYSTEM","UNKNOWN_APP_ID", &_instance->unknown_app_id, 4);
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "APP_ID_TYPE", &(_instance->app_id_type), 1);	//0: int, 1: string	
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_UNKNOWN_NAME", _instance->l7_unknown_name, sizeof(_instance->l7_unknown_name), "UNCATEGORIZED");

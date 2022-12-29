@@ -202,8 +202,7 @@ struct gather_app_result
 {
 	int app_num;
 	enum APP_IDENTIFY_ORIGIN origin;
-	struct app_attributes
- attributes[MAX_APP_ID_NUM];
+	struct app_attributes attributes[MAX_APP_ID_NUM];
 };
 
 struct l7_protocol 

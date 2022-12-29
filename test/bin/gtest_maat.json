@@ -1,0 +1,54 @@
+{
+    "compile_table": "TSG_SECURITY_COMPILE",
+    "group2compile_table": "GROUP_COMPILE_RELATION",
+    "group2group_table": "GROUP_GROUP_RELATION",
+    "rules": [
+	    {
+            "compile_id": 2,
+            "service": 0,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "effective_rage": 0,
+            "user_region": "Virtual",
+            "is_valid": "yes",
+            "groups": [
+                {
+                    "group_name":"OBJ_DST_IP_ADDR",
+                    "virtual_table":"TSG_SECURITY_SOURCE_ADDR",
+                    "not_flag" : 0,
+                    "regions": [
+                        {  
+                            "table_type": "ip_plus",
+                            "table_name": "TSG_OBJ_IP_ADDR",
+                            "table_content": {
+                                "addr_type": "ipv4",
+                                "saddr_format": "range",
+                                "src_ip1": "0.0.0.0",
+                                "src_ip2": "255.255.255.255",
+                                "sport_format": "range",
+                                "src_port1": "0",
+                                "src_port2": "0",
+                                "protocol": 0,
+                                "direction": "double"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "plugin_table": [
+        {
+            "table_name": "APP_ID_DICT",
+            "table_content": [
+                "4\tunknown\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
+                "156\tqq\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
+                "336\tOPENVPN\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
+                "199\tSSL\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
+                "1241\tqq_web\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
+                "3145\tqq_r2\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1"
+            ]
+        }
+    ] 
+}
