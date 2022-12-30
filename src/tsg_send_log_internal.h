@@ -199,7 +199,6 @@ struct tsg_log_instance_t
 	int mode;
 	int level;
 	int max_service;
-	int app_id_type;
 	int vsystem_id;
 	int unknown_app_id;
 	int send_user_region;
@@ -215,7 +214,6 @@ struct tsg_log_instance_t
 	int bridge_id[LOG_BRIDGE_MAX];
 	int fs2_column_id[LOG_COLUMN_STATUS_MAX];
 	int fs2_field_id[LOG_FS2_TYPE_MAX];
-	char l7_unknown_name[MAX_STRING_LEN];
 	char log_path[MAX_STRING_LEN*2];
 	char tcp_label[MAX_STRING_LEN];
 	char udp_label[MAX_STRING_LEN];

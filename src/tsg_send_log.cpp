@@ -622,7 +622,7 @@ static int set_app_identify_info(struct TLD_handle_t *_handle, char *field_name,
 
 	for(i=ORIGIN_USER_DEFINE; i<ORIGIN_MAX; i++)
 	{
-		if(result[i].app_num<=0 || i==ORIGIN_QM_ENGINE)
+		if(result[i].app_num<=0 || i==ORIGIN_QM_ENGINE || i==ORIGIN_QM_ENGINE_L7)
 		{
 			continue;
 		}
@@ -712,34 +712,6 @@ static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, st
 	return 1;
 }
 
-static int get_l7_protocol(struct gather_app_result *result, char *protocol_list, int protocol_list_len,  int *flag)
-{
-	int i=0,offset=0;
-	char *name=NULL;
-
-	if((*flag)==1)
-	{
-		return 0;
-	}
-	
-	for(i=0; i<result->app_num; i++)
-	{
-		(*flag)=1;
-		name=tsg_l7_protocol_id2name(result->attributes[i].app_id);
-		if(name!=NULL)
-		{
-			if(i>0 && offset>0 && (protocol_list_len-offset)>0)
-			{
-				protocol_list[offset]='.';
-				offset++;
-			}
-			offset+=snprintf(protocol_list+offset, protocol_list_len-offset, "%s", name);
-		}
-	}
-
-	return 1;
-}
-
 static unsigned int get_userdefine_name(struct gather_app_result *result, char *app_name, int app_name_len, int *flag, int is_joint_parent)
 {
 	if((*flag)==1 || result->app_num<=0)
@@ -763,20 +735,6 @@ static unsigned int get_userdefine_name(struct gather_app_result *result, char *
 	tsg_app_id2name(max_app_id, app_name, app_name_len, is_joint_parent);
 
 	return max_app_id;
-}
-
-static int get_app_id(struct gather_app_result *result, unsigned int *app_id, unsigned int *surrogate_id, int *flag)
-{
-	if(result->app_num>0 && (*flag)==0)
-	{
-		(*flag)=1;
-		(*app_id)=result->attributes[result->app_num-1].app_id;
-		(*surrogate_id)=result->attributes[result->app_num-1].surrogate_id;
-
-		return 1;
-	}
-
-	return 0;
 }
 
 static int get_app_name_list(struct gather_app_result *result, char *app_name, int app_name_len, int *flag, int is_joint_parent)
@@ -817,18 +775,22 @@ static int get_app_name_list(struct gather_app_result *result, char *app_name, i
 	L7(null), appSketch(null), Thrid(null) = unknown
 */
 
-static int get_QM_app_idx(struct gather_app_result *qm_result)
+static int split_l7_and_app(struct gather_app_result *qm_result, struct gather_app_result *qm_l7_result)
 {
 	int i=0;
-	for(i=0; i<qm_result->app_num; i++)
+	for(i=qm_result->app_num; i>0; i--)
 	{
-		if(tsg_l7_protocol_id2name(qm_result->attributes[i].app_id)==NULL)
+		if(tsg_l7_protocol_id2name(qm_result->attributes[i-1].app_id))
 		{
 			break;
 		}
 	}
 
-	return i;
+	qm_l7_result->app_num=i;
+	qm_l7_result->origin=ORIGIN_QM_ENGINE_L7;
+	memcpy(qm_l7_result->attributes, qm_result->attributes, sizeof(struct app_attributes)*i);
+
+	return 0;
 }
 
 /*
@@ -850,92 +812,39 @@ static int copy_app_id(struct app_attributes *result, int result_num, unsigned i
 
 	return i;
 }
-static int engine_result_combine(struct app_attributes *engine1_result, int engine1_result_num, struct app_attributes *engine2_result, int engine2_result_num, unsigned int *combined_array, int combined_array_num)
-{
-	int i=0,j=0,intersection_flag=0;
 
-	for(i=0; i<engine1_result_num; i++)
-	{
-		for(j=i+1; j<engine2_result_num; j++)
-		{
-			if(engine1_result[i].app_id==engine2_result[j].app_id)
-			{
-				intersection_flag=1;
-				break;
-			}
-		}
-	}
-
-
-/* ** Engine1 2   Engine2 1.2 -> 1.2 ** */
-	if(intersection_flag==1 || engine1_result_num==0)
-	{
-		return copy_app_id(engine2_result, engine2_result_num, combined_array, combined_array_num);
-	}
-
-/* 
-** Engine1 1.2 Engine2 1   -> 1.2
-** Engine1 1.2 Engine2 1.3 -> 1.2
-*/
-	if(engine1_result_num>=engine2_result_num || engine2_result_num==0)
-	{	
-		return copy_app_id(engine1_result, engine1_result_num, combined_array, combined_array_num);
-	}
-
-/*
-** Engine1 1   Engine2 1.2 -> 1.2
-*/
-	if(engine2_result_num>engine1_result_num && engine1_result[0].app_id==engine2_result[0].app_id)
-	{
-		return copy_app_id(engine2_result, engine2_result_num, combined_array, combined_array_num);
-	}
-
-/*
-** Engine1 1   Engine2 2   -> 1
-** Engine1 1   Engine2 2.3 -> 1
-*/
-	return copy_app_id(engine1_result, engine1_result_num, combined_array, combined_array_num);
-}
-
-
+#define	COMBINED_APP_ID_NUM	MAX_APP_ID_NUM*2
 int set_app_full_path(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result)
 {
 	int offset=0;
-	int qm_app_idx=0;
 	int combined_num=0;
 	char app_full_path[256]={0};
-	unsigned int combined_array[MAX_APP_ID_NUM*2]={0};
+	unsigned int combined_array[COMBINED_APP_ID_NUM]={0};
 
-	qm_app_idx=get_QM_app_idx(&(result[ORIGIN_QM_ENGINE]));
-	combined_num+=engine_result_combine(result[ORIGIN_BASIC_PROTOCOL].attributes,
-										result[ORIGIN_BASIC_PROTOCOL].app_num,
-										result[ORIGIN_QM_ENGINE].attributes,
-										qm_app_idx, 
-										combined_array+combined_num,
-										sizeof(combined_array)-combined_num
-									);
-
-	
-
-	if(result[ORIGIN_USER_DEFINE].app_num==0)
+	if(result[ORIGIN_BASIC_PROTOCOL].app_num>0)
 	{
-		combined_num+=engine_result_combine(result[ORIGIN_BUILT_IN].attributes,
-												result[ORIGIN_BUILT_IN].app_num,
-												(result[ORIGIN_QM_ENGINE].attributes)+qm_app_idx,
-												result[ORIGIN_QM_ENGINE].app_num-qm_app_idx,
-												combined_array+combined_num,
-												sizeof(combined_array)-combined_num
-											);
+		combined_num+=copy_app_id(result[ORIGIN_BASIC_PROTOCOL].attributes, result[ORIGIN_BASIC_PROTOCOL].app_num, combined_array, COMBINED_APP_ID_NUM);
 	}
 	else
 	{
-		combined_num+=engine_result_combine(result[ORIGIN_USER_DEFINE].attributes,
-												result[ORIGIN_USER_DEFINE].app_num,
-												NULL,
-												0,
-												combined_array+combined_num,
-												sizeof(combined_array)-combined_num
-											);
+		combined_num+=copy_app_id(result[ORIGIN_QM_ENGINE_L7].attributes, result[ORIGIN_QM_ENGINE_L7].app_num, combined_array, COMBINED_APP_ID_NUM);
+	}
+	
+	if(result[ORIGIN_USER_DEFINE].app_num>0)
+	{
+		combined_num+=copy_app_id(result[ORIGIN_USER_DEFINE].attributes, result[ORIGIN_USER_DEFINE].app_num, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);
+	}
+	else if(result[ORIGIN_BUILT_IN].app_num>0)	
+	{
+		combined_num+=copy_app_id(result[ORIGIN_BUILT_IN].attributes, result[ORIGIN_BUILT_IN].app_num, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);	
+	}
+	else if(result[ORIGIN_QM_ENGINE].app_num-result[ORIGIN_QM_ENGINE_L7].app_num > 0)
+	{
+		combined_num+=copy_app_id(  result[ORIGIN_QM_ENGINE].attributes + result[ORIGIN_QM_ENGINE_L7].app_num,
+									result[ORIGIN_QM_ENGINE].app_num - result[ORIGIN_QM_ENGINE_L7].app_num, 
+									combined_array+combined_num,
+									COMBINED_APP_ID_NUM-combined_num
+								);
 	}
 
 	if(combined_num==0)
@@ -971,12 +880,7 @@ int set_app_full_path(struct TLD_handle_t *_handle, char *field_name, struct gat
 static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	int app_id_flag=0;
-	int l7_protocol_flag=0;
 	char app_name[512]={0};
-	char protocol_list[256]={0};
-
-	unsigned int one_app_id=0;
-	unsigned int one_surrogate_id=0;
 	struct gather_app_result *gather_result=NULL;
 	
 	gather_result=(struct gather_app_result *)project_req_get_struct(a_stream, g_tsg_para.gather_app_project_id);
@@ -987,80 +891,59 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_name, TLD_TYPE_STRING);
 		}
 		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)_instance->l7_unknown_name, TLD_TYPE_STRING);
 		return 0;
 	}
-	
-	get_l7_protocol(&(gather_result[ORIGIN_BASIC_PROTOCOL]), protocol_list, sizeof(protocol_list), &l7_protocol_flag);
-	if(l7_protocol_flag==1)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)protocol_list, TLD_TYPE_STRING);
-	}
-	else
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_L7_PROTOCOL].name, (void *)_instance->l7_unknown_name, TLD_TYPE_STRING);
-	}
 
-	if(_instance->app_id_type==0) // int
-	{
-		get_app_id(&(gather_result[ORIGIN_USER_DEFINE]), &one_app_id, &one_surrogate_id, &app_id_flag);
-		get_app_id(&(gather_result[ORIGIN_DKPT]), &one_app_id, &one_surrogate_id, &app_id_flag);
-		get_app_id(&(gather_result[ORIGIN_QM_ENGINE]), &one_app_id, &one_surrogate_id, &app_id_flag);
-		
-		if(app_id_flag==1)
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, (void *)(long)one_app_id, TLD_TYPE_LONG);		
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_SURROGATE_ID].name, (void *)(long)one_surrogate_id, TLD_TYPE_LONG);
-		}
-	}
-	else //string
-	{
-		set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(gather_result[ORIGIN_USER_DEFINE]));
+	split_l7_and_app(&(gather_result[ORIGIN_QM_ENGINE]), &(gather_result[ORIGIN_QM_ENGINE_L7]));
 
-		set_app_full_path(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, gather_result);
-				
+	set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(gather_result[ORIGIN_USER_DEFINE]));
+
+	set_app_full_path(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, gather_result);
+
+	if(gather_result[ORIGIN_USER_DEFINE].app_num > 0)
+	{
 		get_userdefine_name(&(gather_result[ORIGIN_USER_DEFINE]), app_name, sizeof(app_name), &app_id_flag, 0);
-		
-		if(app_id_flag!=1)
-		{
-			get_app_name_list(&(gather_result[ORIGIN_BUILT_IN]), app_name, sizeof(app_name), &app_id_flag, 0);
-		}
-
-		if(app_id_flag!=1)
-		{		
-			get_app_name_list(&(gather_result[ORIGIN_DKPT]), app_name, sizeof(app_name), &app_id_flag, 0);
-		}
-
-		if(app_id_flag!=1)
-		{		
-			get_app_name_list(&(gather_result[ORIGIN_QM_ENGINE]), app_name, sizeof(app_name), &app_id_flag, 0);
-		}
-
-		if(app_id_flag!=1)
-		{			
-			get_app_name_list(&(gather_result[ORIGIN_UNKNOWN]), app_name, sizeof(app_name), &app_id_flag, 0);
-		}
-				
-		if(app_id_flag==1)
-		{
-			if(!(TLD_search(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name)))
-			{
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
-			}
-
-			if(_instance->send_app_id)
-			{
-				Value app_id_object(kObjectType);
-				get_app_id_list(&app_id_object, _handle, "USER_DEFINE", &(gather_result[ORIGIN_USER_DEFINE]));
-				get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(gather_result[ORIGIN_BUILT_IN]));
-				get_app_id_list(&app_id_object, _handle, "DKPT", &(gather_result[ORIGIN_DKPT]));
-				get_app_id_list(&app_id_object, _handle, "THIRD", &(gather_result[ORIGIN_QM_ENGINE]));
-				get_app_id_list(&app_id_object, _handle, "UNKNOWN", &(gather_result[ORIGIN_UNKNOWN]));
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, &app_id_object, TLD_TYPE_OBJECT);
-			}
-			set_app_identify_info(_handle, _instance->id2field[LOG_COMMON_APP_IDENTIFY_INFO].name, gather_result);
-		}
+	} 
+	else if(gather_result[ORIGIN_BUILT_IN].app_num > 0)
+	{
+		get_app_name_list(&(gather_result[ORIGIN_BUILT_IN]), app_name, sizeof(app_name), &app_id_flag, 0);
 	}
+	else if(gather_result[ORIGIN_DKPT].app_num > 0)
+	{		
+		get_app_name_list(&(gather_result[ORIGIN_DKPT]), app_name, sizeof(app_name), &app_id_flag, 0);
+	}
+	else if(gather_result[ORIGIN_QM_ENGINE].app_num - gather_result[ORIGIN_QM_ENGINE_L7].app_num > 0)
+	{			
+		get_app_name_list(&(gather_result[ORIGIN_QM_ENGINE]), app_name, sizeof(app_name), &app_id_flag, 0);			
+	}
+	else if(gather_result[ORIGIN_UNKNOWN].app_num > 0)
+	{			
+		get_app_name_list(&(gather_result[ORIGIN_UNKNOWN]), app_name, sizeof(app_name), &app_id_flag, 0);
+	}
+			
+	if(app_id_flag==1)
+	{
+		if(!(TLD_search(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name)))
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
+		}
+		
+		set_app_identify_info(_handle, _instance->id2field[LOG_COMMON_APP_IDENTIFY_INFO].name, gather_result);
+	}
+
+	if(_instance->send_app_id)
+	{
+		Value app_id_object(kObjectType);
+		get_app_id_list(&app_id_object, _handle, "LPI_L7", &(gather_result[ORIGIN_BASIC_PROTOCOL]));
+		get_app_id_list(&app_id_object, _handle, "USER_DEFINE", &(gather_result[ORIGIN_USER_DEFINE]));
+		get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(gather_result[ORIGIN_BUILT_IN]));
+		get_app_id_list(&app_id_object, _handle, "DKPT", &(gather_result[ORIGIN_DKPT]));
+		get_app_id_list(&app_id_object, _handle, "THIRD", &(gather_result[ORIGIN_QM_ENGINE]));
+		get_app_id_list(&app_id_object, _handle, "UNKNOWN", &(gather_result[ORIGIN_UNKNOWN]));
+		get_app_id_list(&app_id_object, _handle, "QM_L7", &(gather_result[ORIGIN_QM_ENGINE_L7]));
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, &app_id_object, TLD_TYPE_OBJECT);
+	}
+	
 
 	return 1;
 }
@@ -2039,9 +1922,6 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "VSYSTEM_ID", &(_instance->vsystem_id), 1);
 	MESA_load_profile_int_def(conffile, "SYSTEM","UNKNOWN_APP_ID", &_instance->unknown_app_id, 4);
-
-	MESA_load_profile_int_def(conffile, "TSG_LOG", "APP_ID_TYPE", &(_instance->app_id_type), 1);	//0: int, 1: string	
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "L7_UNKNOWN_NAME", _instance->l7_unknown_name, sizeof(_instance->l7_unknown_name), "UNCATEGORIZED");
 
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LINKINFO_FROM_MAC", bridge_name[LOG_BRIDGE_MAC_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_MAC_LINKINFO]), "mirror_linkinfo_from_mac");
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_C2S_LINKINFO", bridge_name[LOG_BRIDGE_NAT_C2S_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_NAT_C2S_LINKINFO]), "common_link_info_c2s");
