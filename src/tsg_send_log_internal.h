@@ -203,6 +203,8 @@ struct tsg_log_instance_t
 	int vsystem_id;
 	int unknown_app_id;
 	int send_user_region;
+	int send_app_id;
+	int send_nat_linkinfo;
 	int send_data_center;
 	int recovery_interval;
 	int rapidjson_chunk_capacity;
