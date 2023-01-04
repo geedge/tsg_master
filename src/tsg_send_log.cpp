@@ -832,11 +832,11 @@ int set_app_full_path(struct TLD_handle_t *_handle, char *field_name, struct gat
 	
 	if(result[ORIGIN_USER_DEFINE].app_num>0)
 	{
-		combined_num+=copy_app_id(result[ORIGIN_USER_DEFINE].attributes, result[ORIGIN_USER_DEFINE].app_num, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);
+		combined_num+=copy_app_id(result[ORIGIN_USER_DEFINE].attributes, 1, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);
 	}
 	else if(result[ORIGIN_BUILT_IN].app_num>0)	
 	{
-		combined_num+=copy_app_id(result[ORIGIN_BUILT_IN].attributes, result[ORIGIN_BUILT_IN].app_num, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);	
+		combined_num+=copy_app_id(result[ORIGIN_BUILT_IN].attributes, 1, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);	
 	}
 	else if(result[ORIGIN_QM_ENGINE].app_num-result[ORIGIN_QM_ENGINE_L7].app_num > 0)
 	{
