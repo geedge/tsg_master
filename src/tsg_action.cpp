@@ -577,21 +577,12 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 
 static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *a_packet)
 {
-    if(user_region!=NULL && user_region->deny!=NULL)
-	{
-		send_icmp_unreachable(a_stream);
-    }
-
 	switch(protocol)
     {		
 		case	PROTO_DNS:
 			return STATE_GIVEME|STATE_DROPPKT;
 		default:			
 			set_drop_stream(a_stream, protocol);
-			if(g_tsg_para.deploy_mode==DEPLOY_MODE_MIRROR)
-			{
-				return do_action_reset(a_stream, p_result, protocol);
-			}
 			break;
 	}
 	
@@ -870,7 +861,16 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 			{
 				set_protocol_to_tcpall(a_stream, protocol, a_stream->threadnum);
 				set_method_to_tcpall(a_stream, user_region->method_type, a_stream->threadnum);
-				set_after_n_packet_to_tcpall(a_stream, user_region->deny->after_n_packets, a_stream->threadnum);
+
+				if(a_stream->type==STREAM_TYPE_UDP && type!=ACTION_RETURN_TYPE_PROT)
+				{
+					set_after_n_packet_to_tcpall(a_stream, user_region->deny->after_n_packets+1, a_stream->threadnum);				
+				}
+				else
+				{
+					set_after_n_packet_to_tcpall(a_stream, user_region->deny->after_n_packets, a_stream->threadnum);
+				}
+				
 				tsg_set_policy_result(a_stream, PULL_FW_RESULT, p_result, protocol, a_stream->threadnum);
 				local_state=((type==ACTION_RETURN_TYPE_PROT) ? (STATE_DROPME) : (STATE_DROPME|STATE_KILL_OTHER));
 				break;

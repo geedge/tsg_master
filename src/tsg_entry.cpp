@@ -505,23 +505,27 @@ static int get_default_para(const struct streaminfo *a_stream, int compile_id)
 
 static int get_default_policy(int compile_id, struct Maat_rule_t *result)
 {
+	int ret=0;
 	struct Maat_rule_t p_result={0};
 	struct compile_user_region *user_region=NULL;
 
 	p_result.config_id=compile_id;
 	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, &p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
-	if(user_region!=NULL && user_region->method_type==TSG_METHOD_TYPE_DEFAULT)
+	if(user_region!=NULL)
 	{
-		if(user_region->session_para!=NULL && user_region->session_para->result.action==TSG_ACTION_DENY)
+		if(user_region->method_type==TSG_METHOD_TYPE_DEFAULT)
 		{
-			memcpy(result, &(user_region->session_para->result), sizeof(struct Maat_rule_t));
+			if(user_region->session_para!=NULL && user_region->session_para->result.action==TSG_ACTION_DENY)
+			{
+				memcpy(result, &(user_region->session_para->result), sizeof(struct Maat_rule_t));
+			}
+			
+			ret=1;
 		}
-		
 		security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], &p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
-		return 1;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int get_packet_sequence(const struct streaminfo *a_stream)
@@ -684,10 +688,7 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	else
 	{
 		TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[PROTO_APP].name, TLD_TYPE_STRING);
-	}
-
-	char *flags_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_FLAGS);
-	TLD_append(TLD_handle, flags_field_name, (void *)context->session_flag, TLD_TYPE_LONG);
+	}	
 
 	if(context!=NULL && context->hited_app_id>0)
 	{
@@ -1375,6 +1376,9 @@ void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATT
 			memcpy(attribute_label->fqdn_category_id, value, sizeof(unsigned int)*value_len);
 			attribute_label->fqdn_category_id_num=value_len;
 			break;
+		case	TSG_ATTRIBUTE_TYPE_SESSION_FLAGS:
+			attribute_label->session_flags=*(unsigned long *)(value);
+			break;
 		default:
 			break;
 	}
@@ -1382,7 +1386,7 @@ void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATT
 	return ;
 }
 
-static int set_tcp_establish_latency_ms(const struct streaminfo *a_tcp, int thread_seq,const void *ip_hdr)
+static char set_tcp_establish_latency_ms(const struct streaminfo *a_tcp, int thread_seq,const void *ip_hdr)
 {
 	struct tcphdr *tcp=NULL;
 
@@ -1973,7 +1977,6 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	}
 
 	context->sync_cb_state=master_deal_scan_result(a_stream, context, scan_result, hit_num, NULL);
-	
 	return 0;
 }
 
@@ -1995,10 +1998,12 @@ static int session_flags_identify_result_cb(const struct streaminfo *a_stream, i
 	}
 
 	context->session_flag=*(unsigned long *)(data);
+	set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_SESSION_FLAGS, data, sizeof(unsigned long), a_stream->threadnum);
 
 	int hit_num=tsg_scan_session_flags(g_tsg_maat_feather, a_stream, scan_result, MAX_RESULT_NUM, &context->mid, g_tsg_para.table_id[TABLE_SESSION_FLAGS], context->session_flag, a_stream->threadnum);
 
 	context->sync_cb_state=master_deal_scan_result(a_stream, context, scan_result, hit_num, NULL);
+
 
 	return 0;
 }
@@ -2108,22 +2113,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			state=master_deal_scan_result(a_stream, context, scan_result, hit_num, a_packet);
 			context->deal_pkt_num++;
 			break;
-		case	OP_STATE_DATA:
-			if(context->sync_cb_state&APP_STATE_KILL_OTHER || context->sync_cb_state&APP_STATE_DROPPKT)
-			{
-				if(a_stream->type==STREAM_TYPE_TCP)	//tcpall
-				{
-					state=context->sync_cb_state|APP_STATE_DROPME;
-					break;
-				}
-
-				if(a_stream->type==STREAM_TYPE_UDP)  // allow, Deny(after drop N packets)
-				{
-					state=context->sync_cb_state&(~(APP_STATE_DROPME));
-					break;
-				}
-			}
-			
+		case	OP_STATE_DATA:						
 			if(context->is_app_link==FLAG_FALSE && (context->deal_pkt_num++) == (g_tsg_para.identify_app_max_pkt_num+1))
 			{
 				unknown_result.app_id_num=1;
@@ -2137,6 +2127,13 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			if(is_hited_allow(context->result, context->hit_cnt))
 			{
 				state=APP_STATE_KILL_OTHER|APP_STATE_GIVEME;
+				break;
+			}
+
+			if(context->sync_cb_state&APP_STATE_KILL_OTHER || context->sync_cb_state&APP_STATE_DROPPKT)
+			{
+				//tcpall, udp -> allow, Deny(after drop N packets)
+				state=context->sync_cb_state|APP_STATE_DROPME;
 				break;
 			}
 			
@@ -2186,7 +2183,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		default:
 			break;
 	}
-	
+		
 	if((a_stream->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
 		if(context!=NULL && context->is_log==0 && context->hit_cnt>0 && context->result!=NULL)
@@ -2211,12 +2208,12 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 	struct Maat_rule_t result[MAX_RESULT_NUM]={0};	
 	struct tcpall_context *all_context=(struct tcpall_context *)(*pme);
 		
-	if(stream_state==OP_STATE_PENDING && all_context->method_type!=TSG_METHOD_TYPE_ALLOW)
+	if(stream_state==OP_STATE_PENDING && all_context->method_type!=TSG_METHOD_TYPE_ALLOW && !(all_context->udp_data_dropme))
 	{
 		if(all_context->method_type==TSG_METHOD_TYPE_UNKNOWN)
 		{			
 			all_context->method_type=TSG_METHOD_TYPE_DEFAULT;
-			all_context->after_n_packets=get_default_para(a_stream, g_tsg_para.default_compile_id);
+			all_context->default_policy_after_n_packets=get_default_para(a_stream, g_tsg_para.default_compile_id);
 		}
 		
 		hit_num=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, PROTO_UNKONWN, &scan_mid, result, MAX_RESULT_NUM);
@@ -2262,7 +2259,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
             }
             break;
 		case	TSG_METHOD_TYPE_DEFAULT:
-			if(!is_do_default_policy(a_stream, all_context->after_n_packets) || stream_state==OP_STATE_CLOSE)
+			if(!is_do_default_policy(a_stream, all_context->default_policy_after_n_packets) || stream_state==OP_STATE_CLOSE)
 			{
 				break;
 			}
@@ -2275,16 +2272,28 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			break;
 		case	TSG_METHOD_TYPE_DROP:
 		case	TSG_METHOD_TYPE_APP_DROP:
-			if((all_context->hited_para.after_n_packets-- > 0) || stream_state==OP_STATE_CLOSE)
-			{
+			// contain hited current packet, platform calls tcp first and tcpall secondary.
+			if(((all_context->hited_para.after_n_packets >= 0) && a_stream->type==STREAM_TYPE_TCP) ||
+				((all_context->hited_para.after_n_packets > 0) && a_stream->type==STREAM_TYPE_UDP)
+				|| stream_state==OP_STATE_CLOSE)
+			{			
+				all_context->hited_para.after_n_packets--;
 				break;
 			}
 
 			ret=tsg_pull_policy_result((struct streaminfo *)a_stream,PULL_FW_RESULT, &result[0], 1, &tmp_identify_info);
-			if(ret>0)
+			if(ret<=0)
+			{
+				break;
+			}
+
+			if(all_context->hited_para.hited_app_id<=0)
+			{
+				state=tsg_deal_deny_action(a_stream, &result[0], all_context->protocol, ACTION_RETURN_TYPE_TCPALL, a_packet);
+			}
+			else
 			{
 				state=tsg_deny_application(a_stream, &result[0], all_context->protocol, all_context->hited_para.hited_app_id, ACTION_RETURN_TYPE_TCPALL, a_packet);
-				//master_send_log(a_stream, &result[0], 1, data_context, thread_seq);
 			}
 			break;
 		default:
@@ -2323,10 +2332,20 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 		memset(context->all_entry, 0, sizeof(struct tcpall_context));
 		set_struct_project(a_udp, g_tsg_para.tcpall_project_id, (void *)(context->all_entry));
 	}
-	
-	state2=tsg_master_data_entry(a_udp, (void **)&(context->data_entry), thread_seq, a_packet);	
-	if(!(state2&APP_STATE_DROPME))
+
+	if(context->all_entry->udp_data_dropme==0)
 	{
+		state2=tsg_master_data_entry(a_udp, (void **)&(context->data_entry), thread_seq, a_packet);	
+	}
+	
+	if(!(state2&APP_STATE_DROPME) || context->all_entry->hited_para.after_n_packets>0)
+	{
+		if(state2&APP_STATE_DROPME)
+		{
+			context->all_entry->udp_data_dropme=1;
+			state2=state2&(~(APP_STATE_DROPME));
+		}
+		
 		state1=tsg_master_all_entry(a_udp, a_udp->opstate, (void **)&(context->all_entry), thread_seq, a_packet);
 	}
 

@@ -168,6 +168,7 @@ enum TSG_ATTRIBUTE_TYPE
 	TSG_ATTRIBUTE_TYPE_SUBSCRIBER_ID,
 	TSG_ATTRIBUTE_TYPE_HTTP_ACTION_FILESIZE,
 	TSG_ATTRIBUTE_TYPE_CATEGORY_ID,
+	TSG_ATTRIBUTE_TYPE_SESSION_FLAGS,
 	_MAX_TSG_ATTRIBUTE_TYPE
 };
 
@@ -284,14 +285,16 @@ struct master_context
 
 struct tcpall_context
 {
-	int set_latency_flag;
+	char udp_data_dropme;
+	char set_latency_flag;
+	char padding[6];
 	enum TSG_METHOD_TYPE method_type; 
 	tsg_protocol_t protocol;
 	union
 	{
 		struct leaky_bucket *bucket;
 		long tamper_count;		
-		int after_n_packets;		
+		int default_policy_after_n_packets;		
 		struct hited_app_para hited_para;
 		void *para;
 	};

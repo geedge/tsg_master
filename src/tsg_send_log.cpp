@@ -1698,6 +1698,11 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS_ENDPOINT_B_DESC].name, (void *)attribute_label->server_endpoint->description, TLD_TYPE_STRING);
 	}
 
+	if(attribute_label->session_flags>0 && !(TLD_search(_handle, _instance->id2field[LOG_COMMON_FLAGS].name)))
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_FLAGS].name, (void *)attribute_label->session_flags, TLD_TYPE_LONG);
+	}
+
 	return 1;
 }
 

@@ -104,6 +104,7 @@ struct session_attribute_label
 	struct umts_user_info *user_info;	
 	struct tunnel_endpoint *client_endpoint;	
 	struct tunnel_endpoint *server_endpoint;
+	unsigned long session_flags;
 };
 
 struct policy_priority_label
