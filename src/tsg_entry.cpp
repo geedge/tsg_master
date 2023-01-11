@@ -391,6 +391,36 @@ static int is_deny_application(Maat_rule_t *p_result)
 	return ret;
 }
 
+static int is_alone_business(tsg_protocol_t proto, unsigned int hited_app_id)
+{
+	unsigned int l7_proto_id=0;
+	switch(proto)
+	{
+		case	PROTO_HTTP:
+		case	PROTO_MAIL:
+		case	PROTO_DNS:
+		case	PROTO_FTP:
+		case	PROTO_SSL:
+		case	PROTO_SIP:
+		case	PROTO_QUIC:
+		case	PROTO_SMTP:
+		case	PROTO_IMAP:
+		case	PROTO_POP3:
+		case	PROTO_RTP:
+		case	PROTO_DTLS:
+			l7_proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[proto].name);
+			if(l7_proto_id==hited_app_id)
+			{
+				return 1;
+			}
+			break;
+		default:
+			break;
+	}
+
+	return 0;
+}
+
 long long get_current_time_ms(void)
 {
 	int size=sizeof(long long); 	
@@ -573,6 +603,24 @@ static int is_do_default_policy(const struct streaminfo *a_stream, int after_n_p
 	return 0;
 }
 
+int set_hited_app_id(const struct streaminfo *a_stream, unsigned int hited_app_id)
+{
+	struct gather_app_result *gather_result=NULL;
+	
+	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
+	if(gather_result==NULL)
+	{
+		return 0;
+	}
+	
+	gather_result[ORIGIN_HITED_APP].app_num=1;		
+	gather_result[ORIGIN_HITED_APP].origin=ORIGIN_HITED_APP;
+	gather_result[ORIGIN_HITED_APP].attributes[0].app_id=hited_app_id;
+	gather_result[ORIGIN_HITED_APP].attributes[0].surrogate_id=0;
+
+	return 1;
+}
+
 static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int result_num, struct master_context *context, int thread_seq)
 {
 	tsg_log_t log_msg;
@@ -691,11 +739,8 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	}	
 
 	if(context!=NULL && context->hited_app_id>0)
-	{
-		char app_label_name[512]={0};
-		tsg_app_id2name(context->hited_app_id, app_label_name, sizeof(app_label_name), 0);
-		char *app_label_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_APP_LABEL);
-		TLD_append(TLD_handle, app_label_field_name, (void *)app_label_name, TLD_TYPE_STRING);
+	{		
+		set_hited_app_id(a_stream, context->hited_app_id);
 	}
 	
 	tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);
@@ -915,10 +960,13 @@ static void copy_result_to_project(const struct streaminfo *a_stream, struct mas
 		memcpy(priority_label->para, context->para, length);
 		((char *)priority_label->para)[length]='\0';
 	}
-		
-	priority_label->result_num=1;
-	priority_label->result_type=result_type;
-	memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
+
+	if(priority_label->result_num<=0 || (priority_label->result[0].action < p_result->action))
+	{
+		priority_label->result_num=1;
+		priority_label->result_type=result_type;
+		memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
+	}
 	
 	ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.priority_project_id, (void *)priority_label);
 	if(ret<0)
@@ -981,6 +1029,50 @@ static void copy_bypass_result(const struct streaminfo *a_stream, struct master_
 									RLOG_LV_DEBUG,
 									"ALLOW",
 									"Hit allow policy, policy_id: %d service: %d action: %d addr: %s",
+									p_result[0].config_id,
+									p_result[0].service_id,
+									(unsigned char)p_result[0].action,
+									PRINTADDR(a_stream, g_tsg_para.level)
+								);
+
+	return ;
+}
+
+static void copy_deny_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int thread_seq)
+{
+	if(context->result==NULL)
+	{
+		context->hit_cnt=1;
+		context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
+			
+		memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
+	}
+	else
+	{
+		if(context->result[0].action==TSG_ACTION_BYPASS)
+		{
+			return ;
+		}
+		
+		if(context->result[0].action==TSG_ACTION_DENY)
+		{
+			if(p_result->config_id>context->result[0].config_id)
+			{
+				context->hit_cnt=1;
+				memcpy(&(context->result[0]), p_result, sizeof(struct Maat_rule_t));
+			}
+		}
+		else   // hit monitor
+		{
+			context->hit_cnt=1;
+			memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
+		}
+	}
+	
+	MESA_handle_runtime_log(g_tsg_para.logger,
+									RLOG_LV_DEBUG,
+									"DENY",
+									"Hit deny policy, policy_id: %d service: %d action: %d addr: %s",
 									p_result[0].config_id,
 									p_result[0].service_id,
 									(unsigned char)p_result[0].action,
@@ -1837,8 +1929,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				
 				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT || (state&APP_STATE_KILL_OTHER))
 				{
-					context->hit_cnt=0;
-					master_send_log(a_stream, p_result, 1, context, a_stream->threadnum);					
+					copy_deny_result(a_stream, context, p_result, a_stream->threadnum);
 					copy_result_to_project(a_stream, context, p_result, PULL_FW_RESULT, a_stream->threadnum);
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
@@ -1919,9 +2010,6 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	
 	switch(identify_result->origin)
 	{
-		case	ORIGIN_DKPT:
-			context->is_app_link=FLAG_TRUE;
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_DPKT_RESULT], 0, FS_OP_ADD, 1);
 			break;
 		case	ORIGIN_QM_ENGINE:
 			context->is_app_link=FLAG_TRUE;
@@ -1971,7 +2059,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	context->last_scan_time=get_current_time_ms();
 	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, context, &(gather_result[identify_result->origin]), a_stream->threadnum);
 	p_result=tsg_policy_decision_criteria(scan_result, hit_num);
-	if(p_result==NULL || (p_result->action==TSG_ACTION_MONITOR && is_parent_ssl==1))
+	if(p_result==NULL || (p_result->action==TSG_ACTION_MONITOR && is_parent_ssl==1) || is_alone_business(context->proto, context->hited_para.hited_app_id))
 	{
 		return 0;
 	}
@@ -2052,6 +2140,10 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
 	for(i=0; i<ORIGIN_MAX && gather_result!=NULL; i++)
 	{
+		if(i==ORIGIN_HITED_APP || i==ORIGIN_QM_ENGINE_L7)
+		{
+			continue;
+		}
 		hit_num+=scan_application_id_and_properties(a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result[i]), a_stream->threadnum);
 	}
 			
@@ -2158,6 +2250,10 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
 			for(i=0; i<ORIGIN_MAX && gather_result!=NULL; i++)
 			{
+				if(i==ORIGIN_HITED_APP || i==ORIGIN_QM_ENGINE_L7)
+				{
+					continue;
+				}
 				hit_num+=scan_application_id_and_properties(a_stream, scan_result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result[i]), thread_seq);
 			}
 

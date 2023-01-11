@@ -622,7 +622,7 @@ static int set_app_identify_info(struct TLD_handle_t *_handle, char *field_name,
 
 	for(i=ORIGIN_USER_DEFINE; i<ORIGIN_MAX; i++)
 	{
-		if(result[i].app_num<=0 || i==ORIGIN_QM_ENGINE || i==ORIGIN_QM_ENGINE_L7)
+		if(result[i].app_num<=0 || i==ORIGIN_QM_ENGINE || i==ORIGIN_QM_ENGINE_L7 || i==ORIGIN_HITED_APP)
 		{
 			continue;
 		}
@@ -712,14 +712,8 @@ static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, st
 	return 1;
 }
 
-static unsigned int get_userdefine_name(struct gather_app_result *result, char *app_name, int app_name_len, int *flag, int is_joint_parent)
+static unsigned int get_max_app_id(struct gather_app_result *result)
 {
-	if((*flag)==1 || result->app_num<=0)
-	{
-		return 0;
-	}
-
-	
 	int i=0;
 	unsigned int max_app_id=0; 
 
@@ -731,35 +725,17 @@ static unsigned int get_userdefine_name(struct gather_app_result *result, char *
 		}
 	}
 
-	(*flag)=1;
-	tsg_app_id2name(max_app_id, app_name, app_name_len, is_joint_parent);
-
 	return max_app_id;
 }
 
-static int get_app_name_list(struct gather_app_result *result, char *app_name, int app_name_len, int *flag, int is_joint_parent)
+static unsigned int get_lastest_app_id(struct gather_app_result *result)
 {
-	int i=0;
-	int offset=0;
-
-	if((*flag)==1 || result->app_num<=0)
+	if(result->app_num>0)
 	{
-		return 0;
-	}
-	
-	for(i=result->app_num-1; i<result->app_num; i++)
-	{
-		(*flag)=1;
-
-		if(i>0 && offset>0 && (app_name_len-offset)>0)
-		{
-			app_name[offset++]='.';
-		}
-		
-		offset+=tsg_app_id2name(result->attributes[i].app_id, app_name+offset, app_name_len-offset, is_joint_parent);
+		return result->attributes[result->app_num-1].app_id;
 	}
 
-	return 1;
+	return 0;
 }
 
 /*
@@ -829,14 +805,23 @@ int set_app_full_path(struct TLD_handle_t *_handle, char *field_name, struct gat
 	{
 		combined_num+=copy_app_id(result[ORIGIN_QM_ENGINE_L7].attributes, result[ORIGIN_QM_ENGINE_L7].app_num, combined_array, COMBINED_APP_ID_NUM);
 	}
-	
-	if(result[ORIGIN_USER_DEFINE].app_num>0)
+
+	if(result[ORIGIN_HITED_APP].app_num > 0)
 	{
-		combined_num+=copy_app_id(result[ORIGIN_USER_DEFINE].attributes, 1, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);
+		combined_array[combined_num]=get_lastest_app_id(&(result[ORIGIN_HITED_APP]));
+		combined_num+=1;
+	}
+	else if(result[ORIGIN_USER_DEFINE].app_num>0)
+	{
+		if(combined_num<COMBINED_APP_ID_NUM)
+		{
+			combined_array[combined_num]=get_max_app_id(&(result[ORIGIN_USER_DEFINE]));
+			combined_num+=1;
+		}
 	}
 	else if(result[ORIGIN_BUILT_IN].app_num>0)	
 	{
-		combined_num+=copy_app_id(result[ORIGIN_BUILT_IN].attributes, 1, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);	
+		combined_num+=copy_app_id(result[ORIGIN_BUILT_IN].attributes, result[ORIGIN_BUILT_IN].app_num, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);	
 	}
 	else if(result[ORIGIN_QM_ENGINE].app_num-result[ORIGIN_QM_ENGINE_L7].app_num > 0)
 	{
@@ -876,11 +861,46 @@ int set_app_full_path(struct TLD_handle_t *_handle, char *field_name, struct gat
 	return 1;	
 }
 
+int set_app_label(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result)
+{
+	int max_app_id=0;
+	char app_name[512]={0};
+
+	if(result[ORIGIN_HITED_APP].app_num > 0)
+	{
+		max_app_id=get_lastest_app_id(&(result[ORIGIN_HITED_APP]));
+	}
+	else if(result[ORIGIN_USER_DEFINE].app_num > 0)
+	{	
+		max_app_id=get_max_app_id(&(result[ORIGIN_USER_DEFINE]));
+	} 
+	else if(result[ORIGIN_BUILT_IN].app_num > 0)
+	{	
+		max_app_id=get_lastest_app_id(&(result[ORIGIN_BUILT_IN]));
+	}	
+	else if(result[ORIGIN_QM_ENGINE].app_num - result[ORIGIN_QM_ENGINE_L7].app_num > 0)
+	{
+		max_app_id=get_lastest_app_id(&(result[ORIGIN_QM_ENGINE]));
+	}
+	else if(result[ORIGIN_UNKNOWN].app_num > 0)
+	{	
+		max_app_id=get_lastest_app_id(&(result[ORIGIN_UNKNOWN]));
+	}
+
+	if(max_app_id>0)
+	{
+		tsg_app_id2name(max_app_id, app_name, sizeof(app_name), 0);
+		TLD_append(_handle, field_name, (void *)app_name, TLD_TYPE_STRING);
+	}
+	
+	return 1;
+}
+
 
 static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
-	int app_id_flag=0;
 	char app_name[512]={0};
+
 	struct gather_app_result *gather_result=NULL;
 	
 	gather_result=(struct gather_app_result *)project_req_get_struct(a_stream, g_tsg_para.gather_app_project_id);
@@ -900,36 +920,9 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 
 	set_app_full_path(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, gather_result);
 
-	if(gather_result[ORIGIN_USER_DEFINE].app_num > 0)
-	{
-		get_userdefine_name(&(gather_result[ORIGIN_USER_DEFINE]), app_name, sizeof(app_name), &app_id_flag, 0);
-	} 
-	else if(gather_result[ORIGIN_BUILT_IN].app_num > 0)
-	{
-		get_app_name_list(&(gather_result[ORIGIN_BUILT_IN]), app_name, sizeof(app_name), &app_id_flag, 0);
-	}
-	else if(gather_result[ORIGIN_DKPT].app_num > 0)
-	{		
-		get_app_name_list(&(gather_result[ORIGIN_DKPT]), app_name, sizeof(app_name), &app_id_flag, 0);
-	}
-	else if(gather_result[ORIGIN_QM_ENGINE].app_num - gather_result[ORIGIN_QM_ENGINE_L7].app_num > 0)
-	{			
-		get_app_name_list(&(gather_result[ORIGIN_QM_ENGINE]), app_name, sizeof(app_name), &app_id_flag, 0);			
-	}
-	else if(gather_result[ORIGIN_UNKNOWN].app_num > 0)
-	{			
-		get_app_name_list(&(gather_result[ORIGIN_UNKNOWN]), app_name, sizeof(app_name), &app_id_flag, 0);
-	}
-			
-	if(app_id_flag==1)
-	{
-		if(!(TLD_search(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name)))
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
-		}
-		
-		set_app_identify_info(_handle, _instance->id2field[LOG_COMMON_APP_IDENTIFY_INFO].name, gather_result);
-	}
+	set_app_label(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, gather_result);
+	
+	set_app_identify_info(_handle, _instance->id2field[LOG_COMMON_APP_IDENTIFY_INFO].name, gather_result);
 
 	if(_instance->send_app_id)
 	{
@@ -937,7 +930,7 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 		get_app_id_list(&app_id_object, _handle, "LPI_L7", &(gather_result[ORIGIN_BASIC_PROTOCOL]));
 		get_app_id_list(&app_id_object, _handle, "USER_DEFINE", &(gather_result[ORIGIN_USER_DEFINE]));
 		get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(gather_result[ORIGIN_BUILT_IN]));
-		get_app_id_list(&app_id_object, _handle, "DKPT", &(gather_result[ORIGIN_DKPT]));
+		get_app_id_list(&app_id_object, _handle, "HITED_APP", &(gather_result[ORIGIN_HITED_APP]));
 		get_app_id_list(&app_id_object, _handle, "THIRD", &(gather_result[ORIGIN_QM_ENGINE]));
 		get_app_id_list(&app_id_object, _handle, "UNKNOWN", &(gather_result[ORIGIN_UNKNOWN]));
 		get_app_id_list(&app_id_object, _handle, "QM_L7", &(gather_result[ORIGIN_QM_ENGINE_L7]));

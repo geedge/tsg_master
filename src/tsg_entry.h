@@ -267,7 +267,7 @@ struct master_context
 	unsigned short timeout;
 	tsg_protocol_t proto;
 	int hit_cnt;
-	int hited_app_id;
+	int hited_app_id;		// only app
 	unsigned int quic_version;
 	unsigned long session_flag;
 	char *domain;
@@ -279,7 +279,7 @@ struct master_context
 	};
 	scan_status_t mid;	
 	struct Maat_rule_t *result;
-	struct hited_app_para hited_para;
+	struct hited_app_para hited_para;  // l7 protocol and app
 	long long last_scan_time;
 };
 
