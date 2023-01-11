@@ -765,7 +765,7 @@ static int copy_app_id(struct app_attributes *result, int result_num, unsigned i
 }
 
 #define	COMBINED_APP_ID_NUM	MAX_APP_ID_NUM*2
-int set_app_full_path(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result)
+int set_app_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct gather_app_result *result)
 {
 	int offset=0;
 	int combined_num=0;
@@ -812,7 +812,8 @@ int set_app_full_path(struct TLD_handle_t *_handle, char *field_name, struct gat
 		offset=tsg_app_id2name(result[ORIGIN_UNKNOWN].attributes[0].app_id, app_full_path, sizeof(app_full_path), 0);
 		if(offset>0)
 		{
-			TLD_append(_handle, field_name, (void *)app_full_path, TLD_TYPE_STRING);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_full_path, TLD_TYPE_STRING);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_full_path, TLD_TYPE_STRING);
 		}
 		
 		return 1;
@@ -830,47 +831,21 @@ int set_app_full_path(struct TLD_handle_t *_handle, char *field_name, struct gat
 	if(offset>0)
 	{
 		app_full_path[offset-1]='\0';
-		TLD_append(_handle, field_name, (void *)app_full_path, TLD_TYPE_STRING);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_full_path, TLD_TYPE_STRING);
+
+		char *app_label=rindex(app_full_path, '.');
+		if(app_label!=NULL)
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)(app_label+1), TLD_TYPE_STRING);
+		}
+		else
+		{
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_full_path, TLD_TYPE_STRING);
+		}
 	}
 			
 	return 1;	
 }
-
-int set_app_label(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result)
-{
-	int max_app_id=0;
-	char app_name[512]={0};
-
-	if(result[ORIGIN_HITED_APP].app_num > 0)
-	{
-		max_app_id=get_lastest_app_id(&(result[ORIGIN_HITED_APP]));
-	}
-	else if(result[ORIGIN_USER_DEFINE].app_num > 0)
-	{	
-		max_app_id=get_max_app_id(&(result[ORIGIN_USER_DEFINE]));
-	} 
-	else if(result[ORIGIN_BUILT_IN].app_num > 0)
-	{	
-		max_app_id=get_lastest_app_id(&(result[ORIGIN_BUILT_IN]));
-	}	
-	else if(result[ORIGIN_QM_ENGINE].app_num - result[ORIGIN_QM_ENGINE_L7].app_num > 0)
-	{
-		max_app_id=get_lastest_app_id(&(result[ORIGIN_QM_ENGINE]));
-	}
-	else if(result[ORIGIN_UNKNOWN].app_num > 0)
-	{	
-		max_app_id=get_lastest_app_id(&(result[ORIGIN_UNKNOWN]));
-	}
-
-	if(max_app_id>0)
-	{
-		tsg_app_id2name(max_app_id, app_name, sizeof(app_name), 0);
-		TLD_append(_handle, field_name, (void *)app_name, TLD_TYPE_STRING);
-	}
-	
-	return 1;
-}
-
 
 static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
@@ -884,6 +859,7 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 		if(tsg_app_id2name(_instance->unknown_app_id, app_name, sizeof(app_name), 0))
 		{
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_name, TLD_TYPE_STRING);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
 		}
 		
 		return 0;
@@ -893,9 +869,7 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 
 	set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(gather_result[ORIGIN_USER_DEFINE]));
 
-	set_app_full_path(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, gather_result);
-
-	set_app_label(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, gather_result);
+	set_app_info(_instance, _handle, gather_result);
 	
 	set_app_identify_info(_handle, _instance->id2field[LOG_COMMON_APP_IDENTIFY_INFO].name, gather_result);
 
