@@ -287,7 +287,8 @@ struct tcpall_context
 {
 	char udp_data_dropme;
 	char set_latency_flag;
-	char padding[6];
+	char direction;
+	char padding[5];
 	enum TSG_METHOD_TYPE method_type; 
 	tsg_protocol_t protocol;
 	union
@@ -487,6 +488,9 @@ int set_method_to_tcpall(const struct streaminfo *a_stream, enum TSG_METHOD_TYPE
 int set_protocol_to_tcpall(const struct streaminfo *a_stream, tsg_protocol_t protocol, int thread_seq);
 int set_bucket_to_tcpall(const struct streaminfo *a_stream, struct leaky_bucket *bucket, int thread_seq);
 int set_after_n_packet_to_tcpall(const struct streaminfo *a_stream, int after_n_packets, int thread_seq);
+
+char get_direction_from_tcpall(const struct streaminfo *a_stream);
+
 void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp);
 
 struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, int thread_seq);

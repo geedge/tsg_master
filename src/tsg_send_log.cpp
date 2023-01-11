@@ -382,39 +382,14 @@ static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_strea
 
 static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
-	int direction=0,i_or_e=0;
-
-	i_or_e=MESA_dir_link_to_human(a_stream->routedir);
-	switch(a_stream->curdir)
+	char direction=get_direction_from_tcpall(a_stream);
+	if(direction>0)
 	{
-		case	DIR_C2S:
-			if(i_or_e=='E' || i_or_e=='e')
-			{
-				direction='E';
-			}
-			else
-			{
-				direction='I';
-			}
-			break;
-		case	DIR_S2C:
-			if(i_or_e=='E' || i_or_e=='e')
-			{
-				direction='I';
-			}
-			else
-			{
-				direction='E';
-			}
-			break;
-		default:
-			break;
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);	
+		return 1;
 	}
-
 	
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);
-
-	return 1;
+	return 0;
 }
 
 static int set_address_list(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)

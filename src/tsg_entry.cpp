@@ -265,6 +265,41 @@ static int get_deploy_mode(void)
 	return 0;
 }
 
+static char get_direction(const struct streaminfo *a_stream)
+{
+	int i_or_e=0;
+	char direction=0;
+
+	i_or_e=MESA_dir_link_to_human(a_stream->routedir);
+	switch(a_stream->curdir)
+	{
+		case	DIR_C2S:
+			if(i_or_e=='E' || i_or_e=='e')
+			{
+				direction='E';
+			}
+			else
+			{
+				direction='I';
+			}
+			break;
+		case	DIR_S2C:
+			if(i_or_e=='E' || i_or_e=='e')
+			{
+				direction='I';
+			}
+			else
+			{
+				direction='E';
+			}
+			break;
+		default:
+			break;
+	}
+
+	return direction;
+}
+
 static int print_hit_path(const struct streaminfo *a_stream, struct master_context *context)
 {
 	if(g_tsg_para.hit_path_switch==0)
@@ -1378,6 +1413,18 @@ int set_bucket_to_tcpall(const struct streaminfo *a_stream, struct leaky_bucket 
 	return 1;
 }
 
+char get_direction_from_tcpall(const struct streaminfo *a_stream)
+{
+	struct tcpall_context *context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	if(context!=NULL)
+	{
+		return context->direction;
+	}
+
+	return -1;
+}
+
+
 void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int value_len, int thread_seq)
 {
 	unsigned long long create_time=0;
@@ -2427,6 +2474,8 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 		context->all_entry=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
 		memset(context->all_entry, 0, sizeof(struct tcpall_context));
 		set_struct_project(a_udp, g_tsg_para.tcpall_project_id, (void *)(context->all_entry));
+
+		context->all_entry->direction=get_direction(a_udp);
 	}
 
 	if(context->all_entry->udp_data_dropme==0)
@@ -2456,6 +2505,8 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 
 extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq, const void *a_packet)
 {
+	struct tcpall_context *_context=(struct tcpall_context *)(*pme);
+
 	if(*pme==NULL)
 	{		
 		*pme=(void *)get_struct_project(a_tcp, g_tsg_para.tcpall_project_id);
@@ -2465,10 +2516,11 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 			memset(*pme, 0, sizeof(struct tcpall_context));	
 			set_struct_project(a_tcp, g_tsg_para.tcpall_project_id, (void *)(*pme));
 		}
+
+		_context=(struct tcpall_context *)(*pme);
+		_context->direction=get_direction(a_tcp);
 	}
 	
-	struct tcpall_context *_context=(struct tcpall_context *)(*pme);
-
 	if(_context->set_latency_flag==0)
 	{
 		_context->set_latency_flag=set_tcp_establish_latency_ms(a_tcp, thread_seq, a_packet);
