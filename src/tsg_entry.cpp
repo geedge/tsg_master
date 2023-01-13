@@ -988,14 +988,14 @@ static void copy_bypass_result(const struct streaminfo *a_stream, struct master_
 
 int copy_app_result(struct gather_app_result *gather_result, struct app_identify_result *identify_result, int packet_sequence)
 {
-	int i=0;
-	for(i=0; (i < identify_result->app_id_num) && i<MAX_APP_ID_NUM && (gather_result->app_num < MAX_APP_ID_NUM); i++)
+	if(identify_result->app_id_num<=gather_result->app_num)
 	{
-		if(gather_result->attributes[i].app_id==identify_result->app_id[i] && gather_result->attributes[i].surrogate_id==identify_result->surrogate_id[i])
-		{
-			continue;
-		}
-		
+		return 0;
+	}
+	
+	gather_result->app_num=0;
+	for(int i=0; (i < identify_result->app_id_num) && i<MAX_APP_ID_NUM && (gather_result->app_num < MAX_APP_ID_NUM); i++)
+	{		
 		gather_result->origin=identify_result->origin;
 		gather_result->attributes[i].app_id=identify_result->app_id[i];
 		gather_result->attributes[i].surrogate_id=identify_result->surrogate_id[i];
