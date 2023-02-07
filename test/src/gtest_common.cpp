@@ -144,24 +144,50 @@ int stream_bridge_build(const char * bridge_name, const char * rw_mode)
 	return bridge_id++;
 }
 
+#define	MAX_PROJECT_NUM	16
+static int project_id=0;
+const void *g_project_data[MAX_PROJECT_NUM]={0};
+project_req_free_t *g_project_free[MAX_PROJECT_NUM]={0};
+char g_project_label[MAX_PROJECT_NUM][32]={0};
+
 int project_req_add_struct(struct streaminfo *stream, int project_req_id, const void *project_req_value)
 {
+	g_project_data[project_req_id]=project_req_value;
 	return 0;
 }
 
 const void *project_req_get_struct(const struct streaminfo *stream, int project_req_id)
 {
-	return NULL;
+	return g_project_data[project_req_id];
 }
 
 int project_customer_register(const char * project_req_name, const char * project_req_val_type)
 {
-	return 0;
+	for(int i=0; i<project_id; i++)
+	{
+		if(memcmp(g_project_label[i], project_req_name, strlen(project_req_name))==0)
+		{
+			return i;
+		}
+	}
+
+	return -1;
 }
 
 int project_producer_register(const char * project_req_name, const char * project_req_val_type, project_req_free_t * free_cb)
 {
-	return 0;
+	assert(project_id<MAX_PROJECT_NUM);
+	for(int i=0; i<project_id; i++)
+	{
+		if(memcmp(g_project_label[i], project_req_name, strlen(project_req_name))==0)
+		{
+			return project_id;
+		}
+	}
+
+	g_project_free[project_id]=free_cb;
+	memcpy(g_project_label[project_id], project_req_name, strlen(project_req_name));
+	return project_id++;
 }
 
 extern "C" void *http_field_parser(const char* buf, unsigned int buflen, int http_dir)

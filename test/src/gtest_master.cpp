@@ -7,6 +7,48 @@
 #include "tsg_entry.h"
 #include <gtest/gtest.h>
 
+TEST(TSGMaster, SetAPPIDHttp)
+{
+	struct streaminfo a_stream={0};
+	struct gather_app_result gather_result[ORIGIN_MAX]={0};
+
+	gather_result[ORIGIN_BASIC_PROTOCOL].app_num=1;
+	gather_result[ORIGIN_BASIC_PROTOCOL].origin=ORIGIN_BASIC_PROTOCOL;
+	gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].app_id=67;	//HTTP
+	
+	project_req_add_struct(&a_stream, g_tsg_para.gather_app_project_id, (const void *)gather_result);
+	struct gather_app_result *get_result=(struct gather_app_result *)project_req_get_struct(&a_stream, g_tsg_para.gather_app_project_id);
+	EXPECT_NE(nullptr, get_result);
+	EXPECT_EQ(1, get_result[ORIGIN_BASIC_PROTOCOL].app_num);
+	EXPECT_EQ(67, get_result[ORIGIN_BASIC_PROTOCOL].attributes[0].app_id);
+	EXPECT_EQ(0, get_result[ORIGIN_BASIC_PROTOCOL].attributes[0].packet_sequence);
+	EXPECT_EQ(0, get_result[ORIGIN_BASIC_PROTOCOL].attributes[0].surrogate_id);
+	EXPECT_EQ(ORIGIN_BASIC_PROTOCOL, get_result[ORIGIN_BASIC_PROTOCOL].origin);
+
+	struct TLD_handle_t *handle=TLD_create(0);
+	set_app_id(g_tsg_log_instance, handle, (struct streaminfo *)&a_stream);
+	char app_ids[256]={0};
+	TLD_convert_json(handle, app_ids, sizeof(app_ids));
+	EXPECT_STREQ("{\"common_app_full_path\":\"http\",\"common_app_label\":\"http\"}", app_ids);
+
+	
+	project_req_add_struct(&a_stream, g_tsg_para.gather_app_project_id, NULL);
+	get_result=(struct gather_app_result *)project_req_get_struct(&a_stream, g_tsg_para.gather_app_project_id);
+	EXPECT_EQ(nullptr, get_result);
+}
+
+TEST(TSGMaster, SetAPPIDUnknown)
+{
+	struct streaminfo a_stream={0};
+
+	struct TLD_handle_t *handle=TLD_create(0);
+	set_app_id(g_tsg_log_instance, handle, (struct streaminfo *)&a_stream);
+	char app_ids[256]={0};
+	TLD_convert_json(handle, app_ids, sizeof(app_ids));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\"}", app_ids);
+}
+
+
 TEST(TSGMaster, ShapingSetRuleIds)
 {
 	const struct streaminfo a_stream={0};

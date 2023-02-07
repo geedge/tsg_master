@@ -847,7 +847,7 @@ int set_app_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_han
 	return 1;	
 }
 
-static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	char app_name[512]={0};
 
@@ -886,7 +886,6 @@ static int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, &app_id_object, TLD_TYPE_OBJECT);
 	}
 	
-
 	return 1;
 }
 

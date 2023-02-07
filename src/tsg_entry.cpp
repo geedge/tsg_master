@@ -1236,7 +1236,7 @@ static int set_l7_protocol_label(const struct streaminfo *a_stream, tsg_protocol
 	int app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[protocol].name);
 	if(app_id>0)
 	{
-		gather_result[ORIGIN_BASIC_PROTOCOL].app_num=1;		
+		gather_result[ORIGIN_BASIC_PROTOCOL].app_num=1;
 		gather_result[ORIGIN_BASIC_PROTOCOL].origin=ORIGIN_BASIC_PROTOCOL;
 		gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].app_id=app_id;
 		gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].surrogate_id=0;
@@ -2190,7 +2190,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 			)
 			{
 				is_parent_ssl=1;
-			}			
+			}
 			break;
 		case	ORIGIN_UNKNOWN:
 			context->is_app_link=FLAG_TRUE;
@@ -2354,13 +2354,13 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			state=master_deal_scan_result(a_stream, context, scan_result, hit_num, a_packet);
 			context->deal_pkt_num++;
 			break;
-		case	OP_STATE_DATA:						
+		case	OP_STATE_DATA:
 			if(context->is_app_link==FLAG_FALSE && (context->deal_pkt_num++) == (g_tsg_para.identify_app_max_pkt_num+1))
 			{
 				unknown_result.app_id_num=1;
 				unknown_result.surrogate_id[0]=0;
 				unknown_result.origin=ORIGIN_UNKNOWN;
-				unknown_result.app_id[0]=g_tsg_para.unknown_app_id;				
+				unknown_result.app_id[0]=g_tsg_para.unknown_app_id;
 
 				app_identify_result_cb(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_APP_IDENTIFY_RESULT], (void *)&unknown_result);
 			}
@@ -2786,21 +2786,21 @@ extern "C" int TSG_MASTER_INIT()
 	g_tsg_para.context_project_id=project_producer_register("TSG_MASTER_CONTEXT", PROJECT_VAL_TYPE_STRUCT, free_context_label);
 	if(g_tsg_para.context_project_id<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "CONTEXT_LABEL", "project_customer_register is error, context label: %s","TSG_MASTER_CONTEXT");
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "CONTEXT_LABEL", "project_producer_register is error, context label: %s","TSG_MASTER_CONTEXT");
 		return -1;
 	}
 
 	g_tsg_para.tcpall_project_id=project_producer_register("TSG_TCPALL_CONTEXT", PROJECT_VAL_TYPE_STRUCT, free_tcpall_label);
 	if(g_tsg_para.tcpall_project_id<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "CONTEXT_LABEL", "project_customer_register is error, context label: %s","TSG_TCPALL_CONTEXT");
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "CONTEXT_LABEL", "project_producer_register is error, context label: %s","TSG_TCPALL_CONTEXT");
 		return -1;
 	}
 
 	g_tsg_para.gather_app_project_id=project_producer_register("APP_IDENTIFY_RESULT", PROJECT_VAL_TYPE_STRUCT, free_gather_app_result);
 	if(g_tsg_para.gather_app_project_id<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_IDENTIFY_RESULT", "project_customer_register is error, context label: %s","APP_IDENTIFY_RESULT");
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_IDENTIFY_RESULT", "project_producer_register is error, context label: %s","APP_IDENTIFY_RESULT");
 		return -1;
 	}
 

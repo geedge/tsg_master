@@ -43,6 +43,7 @@
             "table_name": "APP_ID_DICT",
             "table_content": [
                 "4\tunknown\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
+                "67\thttp\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
                 "156\tqq\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
                 "336\tOPENVPN\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
                 "199\tSSL\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\t1\t0\t3600\t3600\t1800\t1800\t1",
