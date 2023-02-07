@@ -37,7 +37,7 @@ set(CMAKE_INSTALL_PREFIX /home/mesasoft/sapp_run)
 add_subdirectory(support)
 add_subdirectory(src) 
 add_subdirectory(vendor)
-add_subdirectory(test)
+add_subdirectory(test/src)
 
 enable_testing()
 add_subdirectory(./ctest)

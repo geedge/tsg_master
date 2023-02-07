@@ -1209,6 +1209,17 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	return _handle;
 }
 
+int TLD_convert_json(struct TLD_handle_t *_handle, char *buff, unsigned int buff_len)
+{
+	StringBuffer sb(0, 2048);
+	Writer<StringBuffer> writer(sb);
+	_handle->document->Accept(writer);
+
+	memcpy(buff, sb.GetString(), MIN(sb.GetSize(), buff_len));
+	
+	return 1;
+}
+
 static int set_mail_eml(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	struct tsg_conn_sketch_notify_data *notify_mail=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]);
@@ -1324,6 +1335,27 @@ static int set_tunnel_ipv4v6_port(struct tsg_log_instance_t *_instance, struct T
 	}
 	
 	return 0;
+}
+
+int set_shaping_rule_ids(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]);
+	if(shaping_label==NULL)
+	{
+		return 0;
+	}
+
+	int offset=0;
+	char shaping_rule_ids[512]={0};
+	for(int i=0; i<shaping_label->shaping_result_num; i++)
+	{
+		offset+=snprintf(shaping_rule_ids+offset, sizeof(shaping_rule_ids)-offset, "%d,", shaping_label->shaping_result[i].config_id);
+	}
+
+	shaping_rule_ids[offset-1]='\0';
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_SHAPING_RULE_IDS].name, (void *)shaping_rule_ids, TLD_TYPE_STRING);
+	
+	return 1;
 }
 
 static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
@@ -2082,7 +2114,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 
 	if(_instance->mode==CLOSE)
 	{
-		TLD_cancel(handle);		
+		TLD_cancel(handle);
 		FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_field_id[LOG_COLUMN_STATUS_DROP], FS_OP_ADD, 1);
 		MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO, "TSG_SEND_LOG", "Disable tsg_send_log.");
 		return 0;
@@ -2108,6 +2140,11 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_TRAFFIC_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
 
 	set_application_behavior(_instance, _handle, log_msg->a_stream);
+
+	if(log_msg->result[i].service_id==2 && log_msg->a_stream!=NULL)		// stream of intercept is NULL
+	{
+		set_shaping_rule_ids(_instance, _handle, log_msg->a_stream);
+	}
 		
 	for(i=0;i<log_msg->result_num; i++)
 	{
@@ -2170,7 +2207,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 									);
 			continue;	
 		}
-
+		
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(log_msg->result[i].config_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(log_msg->result[i].service_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)log_msg->result[i].action), TLD_TYPE_LONG);

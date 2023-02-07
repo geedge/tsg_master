@@ -107,23 +107,6 @@ struct session_attribute_label
 	unsigned long session_flags;
 };
 
-struct policy_priority_label
-{
-	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
-	int domain_len;
-	int result_type;	//enum _PULL_RESULT_TYPE (tsg_rule.h)
-	int result_num;
-	union
-	{
-		char *http_url;
-		char *quic_ua;
-		void *para;
-	};
-	char domain[MAX_DOMAIN_LEN];
-	Maat_rule_t result[MAX_RESULT_NUM];
-};
-
-
 struct tsg_conn_sketch_notify_data
 {
 	tsg_protocol_t protocol;
@@ -135,6 +118,11 @@ struct tsg_conn_sketch_notify_data
 	}pdata;
 };
 
+struct notify_shaping_policy
+{
+	int shaping_result_num;
+	struct Maat_rule_t shaping_result[MAX_RESULT_NUM];
+};
 
 enum NOTIFY_TYPE
 {

@@ -2247,9 +2247,9 @@ int tsg_set_policy_result(const struct streaminfo *a_stream, PULL_RESULT_TYPE re
 	
 
 	priority_label->proto=proto;
-	priority_label->result_num=1;
+	priority_label->security_result_num=1;
 	priority_label->result_type=result_type;
-	memcpy(priority_label->result, p_result, sizeof(struct Maat_rule_t));
+	memcpy(priority_label->security_result, p_result, sizeof(struct Maat_rule_t));
 	
 	int ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.priority_project_id, (void *)priority_label);
 	if(ret<0)
@@ -2259,8 +2259,8 @@ int tsg_set_policy_result(const struct streaminfo *a_stream, PULL_RESULT_TYPE re
 										RLOG_LV_FATAL,
 										"PROJECT_ADD",
 										"Add policy_priority_label failed, policy, policy_id: %d action: %d addr: %s",
-										priority_label->result[0].config_id,
-										(unsigned char)priority_label->result[0].action,
+										priority_label->security_result[0].config_id,
+										(unsigned char)priority_label->security_result[0].action,
 										PRINTADDR(a_stream, g_tsg_para.level)
 									);
 		return -1;
@@ -2270,14 +2270,26 @@ int tsg_set_policy_result(const struct streaminfo *a_stream, PULL_RESULT_TYPE re
 									RLOG_LV_DEBUG,
 									"COPY_RESULT",
 									"Hit policy, policy_id: %d action: %d addr: %s",
-									priority_label->result[0].config_id,
-									(unsigned char)priority_label->result[0].action,
+									priority_label->security_result[0].config_id,
+									(unsigned char)priority_label->security_result[0].action,
 									PRINTADDR(a_stream, g_tsg_para.level)
 								);
 
 	return 0;
 }
 
+int tsg_pull_shaping_result(struct streaminfo *a_stream, Maat_rule_t*result, int result_num)
+{
+	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]);
+	if(shaping_label!=NULL && result!=NULL && result_num>0)
+	{
+		int num=MIN(shaping_label->shaping_result_num, result_num);
+		memcpy(result, shaping_label->shaping_result, num*sizeof(Maat_rule_t));
+		return num;
+	}
+
+	return 0;
+}
 
 int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t*result, int result_num, struct identify_info *identify_info)
 {
@@ -2289,8 +2301,8 @@ int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_re
 	{
 		if((label->result_type==pull_result_type) || (pull_result_type==PULL_ALL_RESULT))
 		{
-			num=MIN(label->result_num, result_num);
-			memcpy(result, label->result, num*sizeof(Maat_rule_t));
+			num=MIN(label->security_result_num, result_num);
+			memcpy(result, label->security_result, num*sizeof(Maat_rule_t));
 
 			if(label->domain_len>0)
 			{

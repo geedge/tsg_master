@@ -112,6 +112,7 @@ enum TSG_FS2_TYPE{
 	TSG_FS2_HIT_ADDR,
 	TSG_FS2_HIT_SHARE,
 	TSG_FS2_INTERCEPT,
+	TSG_FS2_SHAPING,
 	TSG_FS2_EXCLUSION,
 	TSG_FS2_APP_DPKT_RESULT,
 	TSG_FS2_APP_Q_RESULT,
@@ -184,6 +185,7 @@ enum BRIDGE_TYPE
 	BRIDGE_TYPE_RECV_CONN_SKETCH_DATA,
 	BRIDGE_TYPE_APP_IDENTIFY_RESULT,
 	BRIDGE_TYPE_NOTIFY_FLAGS,
+	BRIDGE_TYPE_NOTIFY_SHAPING_RESULT,
 	BRIDGE_TYPE_MAX
 };
 
@@ -216,9 +218,25 @@ struct l7_protocol
     UT_hash_handle hh2;        /* handle for second hash table */
 };
 
+struct policy_priority_label
+{
+	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
+	int domain_len;
+	int result_type;	//enum _PULL_RESULT_TYPE (tsg_rule.h)
+	int security_result_num;
+	union
+	{
+		char *http_url;
+		char *quic_ua;
+		void *para;
+	};
+	char domain[MAX_DOMAIN_LEN];
+	Maat_rule_t security_result[MAX_RESULT_NUM];
+};
+
 struct fqdn_category
 {
-	int ref_cnt;	
+	int ref_cnt;
 	unsigned int category_id;
 };
 
@@ -342,6 +360,7 @@ typedef	struct tsg_para
 	int table_id[TABLE_MAX];	
 	int dyn_table_id[DYN_TABLE_MAX];
 	int priority_project_id;
+	int shaping_project_id;
 	int session_attribute_project_id;
 	int context_project_id;
 	int tcpall_project_id;

@@ -12,6 +12,7 @@
 #define	TSG_ACTION_MONITOR		0x01
 #define	TSG_ACTION_INTERCEPT	0x02
 #define	TSG_ACTION_DENY			0x10
+#define	TSG_ACTION_SHAPING		0x20
 #define	TSG_ACTION_MANIPULATE	0x30
 #define	TSG_ACTION_BYPASS		0x80
 #define	TSG_ACTION_MAX			0x80
@@ -54,6 +55,8 @@ int tsg_rule_init(const char *conffile, void *logger);
 
 int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num);
 int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t*result, int result_num, struct identify_info *identify_info);
+int tsg_pull_shaping_result(struct streaminfo *a_stream, Maat_rule_t*result, int result_num);
+
 char *tsg_pull_quic_ua(struct streaminfo *a_stream);
 char *tsg_pull_http_url(struct streaminfo *a_stream);
 
@@ -86,5 +89,6 @@ int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned i
 int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq);
 int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int table_id, unsigned int *category_id, int category_id_num, int thread_seq);
 int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
+int tsg_notify_hited_shaping_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
 
 #endif

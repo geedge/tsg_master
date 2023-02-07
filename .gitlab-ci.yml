@@ -8,6 +8,8 @@ variables:
 
 stages:
 - build
+- test
+- package
 
 .build_before_script:
   before_script:
@@ -42,7 +44,31 @@ stages:
     - ./ci/travis.sh
   tags:
     - share
-  
+
+run_test_for_centos7:
+  stage: test
+  extends: .build_by_travis_for_centos7
+  script:
+    - yum makecache
+    - ./ci/travis.sh
+    - cd build
+    - make test
+    - cd testing
+    - ./gtest_rule
+    - ./gtest_master
+
+run_test_for_centos8:
+  stage: test
+  extends: .build_by_travis_for_centos8
+  script:
+    - yum makecache
+    - ./ci/travis.sh
+    - cd build
+    - make test
+    - cd testing
+    - ./gtest_rule
+    - ./gtest_master
+
 branch_build_debug_for_centos7:
   stage: build
   extends: .build_by_travis_for_centos7
@@ -101,7 +127,7 @@ develop_build_release_for_centos7:
     - /^master.*$/i
 
 release_build_debug_for_centos7:
-  stage: build
+  stage: package
   variables:
     BUILD_TYPE: Debug
     PACKAGE: 1
@@ -117,7 +143,7 @@ release_build_debug_for_centos7:
     - tags
 
 release_build_release_for_centos7:
-  stage: build
+  stage: package
   variables:
     BUILD_TYPE: RelWithDebInfo
     PACKAGE: 1
@@ -192,7 +218,7 @@ develop_build_release_for_centos8:
     - /^master.*$/i
 
 release_build_debug_for_centos8:
-  stage: build
+  stage: package
   variables:
     BUILD_TYPE: Debug
     PACKAGE: 1
@@ -208,7 +234,7 @@ release_build_debug_for_centos8:
     - tags
 
 release_build_release_for_centos8:
-  stage: build
+  stage: package
   variables:
     BUILD_TYPE: RelWithDebInfo
     PACKAGE: 1

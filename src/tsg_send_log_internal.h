@@ -134,6 +134,7 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_TRAFFIC_VSYSTEM_ID,
 	LOG_COMMON_APP_FULL_PATH,
 	LOG_COMMON_FLAGS,
+	LOG_COMMON_SHAPING_RULE_IDS,
 	LOG_COMMON_MAX
 }tsg_log_field_id_t;
 
