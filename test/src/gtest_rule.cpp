@@ -8,7 +8,7 @@
 #include <gtest/gtest.h>
 
 g_tsg_para_t g_tsg_para;
-id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
+struct id2field g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
 										 {PROTO_IPv4, 	0,	"IPV4"},
 										 {PROTO_IPv6, 	0,	"IPV6"},
 										 {PROTO_TCP, 	0, 	"TCP"},
@@ -35,13 +35,19 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"},
 										 {PROTO_DTLS, 	0,	"DTLS"}
 										};
 
-unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name)
+int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
 	return 0;
 }
 
-void free_policy_label(int thread_seq, void *project_req_value)
+int session_flags_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
+	return 0;
+}
+
+unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name)
+{
+	return 0;
 }
 
 void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATTRIBUTE_TYPE type, void *value, int value_len, int thread_seq)

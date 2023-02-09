@@ -14,6 +14,29 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 include_directories(${PROJECT_SOURCE_DIR}/inc/)
 include_directories(/opt/MESA/include/)
 
+#for cppcheck
+find_program(CMAKE_CXX_CPPCHECK NAMES cppcheck)
+if (CMAKE_CXX_CPPCHECK)
+    list(
+        APPEND CMAKE_CXX_CPPCHECK 
+            "--enable=all"
+            "--error-exitcode=1"
+            "--suppress=unreachableCode"
+            "--suppress=unusedFunction"
+            "--suppress=missingInclude"
+            "--suppress=uselessAssignmentPtrArg"
+            "--suppress=unmatchedSuppression"
+            "--suppress=internalAstError"
+            "--suppress=unmatchedSuppression"
+	    "--suppress=memleakOnRealloc"
+	    "--suppress=redundantAssignment"
+	    "--suppress=constParameter"
+    )
+    set(CMAKE_C_CPPCHECK ${CMAKE_CXX_CPPCHECK})
+else()
+  message(FATAL_ERROR "Could not find the program cppcheck.")
+endif()
+
 #for ASAN
 set(ASAN_OPTION "OFF" CACHE STRING " set asan type chosen by the user, using OFF as default")
 set_property(CACHE ASAN_OPTION  PROPERTY STRINGS OFF ADDRESS THREAD)

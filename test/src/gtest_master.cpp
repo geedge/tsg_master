@@ -7,6 +7,9 @@
 #include "tsg_entry.h"
 #include <gtest/gtest.h>
 
+extern int rd_kafka_get_sendlog_cnt(void);
+extern const char *rd_kafka_get_sendlog_payload(int idx);
+
 TEST(TSGMaster, SetAPPIDHttp)
 {
 	struct streaminfo a_stream={0};
@@ -16,8 +19,8 @@ TEST(TSGMaster, SetAPPIDHttp)
 	gather_result[ORIGIN_BASIC_PROTOCOL].origin=ORIGIN_BASIC_PROTOCOL;
 	gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].app_id=67;	//HTTP
 	
-	project_req_add_struct(&a_stream, g_tsg_para.gather_app_project_id, (const void *)gather_result);
-	struct gather_app_result *get_result=(struct gather_app_result *)project_req_get_struct(&a_stream, g_tsg_para.gather_app_project_id);
+	tsg_set_xxx_to_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id, (void *)gather_result);
+	struct gather_app_result *get_result=(struct gather_app_result *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id);
 	EXPECT_NE(nullptr, get_result);
 	EXPECT_EQ(1, get_result[ORIGIN_BASIC_PROTOCOL].app_num);
 	EXPECT_EQ(67, get_result[ORIGIN_BASIC_PROTOCOL].attributes[0].app_id);
@@ -32,8 +35,8 @@ TEST(TSGMaster, SetAPPIDHttp)
 	EXPECT_STREQ("{\"common_app_full_path\":\"http\",\"common_app_label\":\"http\"}", app_ids);
 
 	
-	project_req_add_struct(&a_stream, g_tsg_para.gather_app_project_id, NULL);
-	get_result=(struct gather_app_result *)project_req_get_struct(&a_stream, g_tsg_para.gather_app_project_id);
+	tsg_set_xxx_to_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id, NULL);
+	get_result=(struct gather_app_result *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id);
 	EXPECT_EQ(nullptr, get_result);
 }
 
@@ -68,7 +71,7 @@ TEST(TSGMaster, ShapingSetRuleIds)
 	TLD_convert_json(handle, shaping_rule_ids, sizeof(shaping_rule_ids));
 	EXPECT_STREQ("{\"common_shaping_rule_ids\":\"32,33,34,35,36,37,38,39\"}", shaping_rule_ids);
 
-	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]);
+	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id);
 	EXPECT_NE(nullptr, shaping_label);
 	EXPECT_EQ(MAX_RESULT_NUM, shaping_label->shaping_result_num);
 	for(int i=0; i<shaping_label->shaping_result_num; i++)
@@ -77,9 +80,9 @@ TEST(TSGMaster, ShapingSetRuleIds)
 		EXPECT_EQ(TSG_ACTION_SHAPING+i, shaping_label->shaping_result[i].config_id);
 	}
 	
-	free_shaping_result(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], (void *)shaping_label);
-	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], NULL);
-	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]));
+	free_shaping_result(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, (void *)shaping_label);
+	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, NULL);
+	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id));
 }
 
 int shaping_policy_notify_cb(const struct streaminfo *stream, int bridge_id, void *data)
@@ -107,7 +110,7 @@ TEST(TSGMaster, ShapingPolicyNotify)
 		shaping_result[i].config_id=TSG_ACTION_SHAPING+i;
 	}
 
-	stream_bridge_register_data_sync_cb(g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], shaping_policy_notify_cb);
+	stream_bridge_register_data_sync_cb(g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, shaping_policy_notify_cb);
 	
 	tsg_notify_hited_shaping_result(&a_stream, shaping_result, MAX_RESULT_NUM, 0);
 	int shaping_result_num=tsg_pull_shaping_result((struct streaminfo *)&a_stream, shaping_result, MAX_RESULT_NUM);
@@ -118,7 +121,7 @@ TEST(TSGMaster, ShapingPolicyNotify)
 		EXPECT_EQ(TSG_ACTION_SHAPING+i, shaping_result[i].config_id);
 	}
 	
-	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]);
+	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id);
 	EXPECT_NE(nullptr, shaping_label);
 	EXPECT_EQ(MAX_RESULT_NUM, shaping_label->shaping_result_num);
 	for(int i=0; i<shaping_label->shaping_result_num; i++)
@@ -127,9 +130,9 @@ TEST(TSGMaster, ShapingPolicyNotify)
 		EXPECT_EQ(TSG_ACTION_SHAPING+i, shaping_label->shaping_result[i].config_id);
 	}
 
-	free_shaping_result(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], (void *)shaping_label);
-	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], NULL);
-	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]));
+	free_shaping_result(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, (void *)shaping_label);
+	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, NULL);
+	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id));
 }
 
 int shaping_policy_notify_null_cb(const struct streaminfo *stream, int bridge_id, void *data)
@@ -143,10 +146,10 @@ TEST(TSGMaster, ShapingPolicyNotifyNULL)
 	const struct streaminfo a_stream={0};
 	struct Maat_rule_t shaping_result[MAX_RESULT_NUM]={0};
 
-	stream_bridge_register_data_sync_cb(g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], shaping_policy_notify_null_cb);
+	stream_bridge_register_data_sync_cb(g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, shaping_policy_notify_null_cb);
 	
 	tsg_notify_hited_shaping_result(&a_stream, shaping_result, 0, 0);
-	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]);
+	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id);
 	EXPECT_EQ(nullptr, shaping_label);
 }
 
@@ -175,7 +178,7 @@ TEST(TSGMaster, ShapingDuplicatePolicyNotify)
 		shaping_result[i].config_id=TSG_ACTION_SHAPING+(i%4);
 	}
 
-	stream_bridge_register_data_sync_cb(g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], shaping_duplicate_policy_notify_cb);
+	stream_bridge_register_data_sync_cb(g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, shaping_duplicate_policy_notify_cb);
 	
 	tsg_notify_hited_shaping_result(&a_stream, shaping_result, MAX_RESULT_NUM, 0);
 	int shaping_result_num=tsg_pull_shaping_result((struct streaminfo *)&a_stream, shaping_result, MAX_RESULT_NUM);
@@ -186,7 +189,7 @@ TEST(TSGMaster, ShapingDuplicatePolicyNotify)
 		EXPECT_EQ(TSG_ACTION_SHAPING+i, shaping_result[i].config_id);
 	}
 	
-	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]);
+	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id);
 	EXPECT_NE(nullptr, shaping_label);
 	EXPECT_EQ(MAX_RESULT_NUM/2, shaping_label->shaping_result_num);
 	for(int i=0; i<shaping_label->shaping_result_num; i++)
@@ -195,9 +198,9 @@ TEST(TSGMaster, ShapingDuplicatePolicyNotify)
 		EXPECT_EQ(TSG_ACTION_SHAPING+i, shaping_label->shaping_result[i].config_id);
 	}
 
-	free_shaping_result(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], (void *)shaping_label);
-	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], NULL);
-	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]));
+	free_shaping_result(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, (void *)shaping_label);
+	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, NULL);
+	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id));
 }
 
 TEST(TSGMaster, ShapingDuplicatePolicyMultipleNotify)
@@ -211,7 +214,7 @@ TEST(TSGMaster, ShapingDuplicatePolicyMultipleNotify)
 		shaping_result[i].config_id=TSG_ACTION_SHAPING+i;
 	}
 
-	stream_bridge_register_data_sync_cb(g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], shaping_duplicate_policy_notify_cb);
+	stream_bridge_register_data_sync_cb(g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, shaping_duplicate_policy_notify_cb);
 
 	// First notify
 	tsg_notify_hited_shaping_result(&a_stream, shaping_result, MAX_RESULT_NUM/2, 0);
@@ -223,7 +226,7 @@ TEST(TSGMaster, ShapingDuplicatePolicyMultipleNotify)
 		EXPECT_EQ(TSG_ACTION_SHAPING+i, shaping_result[i].config_id);
 	}
 	
-	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]);
+	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id);
 	EXPECT_NE(nullptr, shaping_label);
 	EXPECT_EQ(MAX_RESULT_NUM/2, shaping_label->shaping_result_num);
 	for(int i=0; i<shaping_label->shaping_result_num; i++)
@@ -242,7 +245,7 @@ TEST(TSGMaster, ShapingDuplicatePolicyMultipleNotify)
 		EXPECT_EQ(TSG_ACTION_SHAPING+i, shaping_result[i].config_id);
 	}
 	
-	shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]);
+	shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id);
 	EXPECT_NE(nullptr, shaping_label);
 	EXPECT_EQ(MAX_RESULT_NUM/2, shaping_label->shaping_result_num);
 	for(int i=0; i<shaping_label->shaping_result_num; i++)
@@ -251,9 +254,94 @@ TEST(TSGMaster, ShapingDuplicatePolicyMultipleNotify)
 		EXPECT_EQ(TSG_ACTION_SHAPING+i, shaping_label->shaping_result[i].config_id);
 	}
 
-	free_shaping_result(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], (void *)shaping_label);
-	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], NULL);
-	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]));
+	free_shaping_result(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, (void *)shaping_label);
+	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, NULL);
+	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id));
+}
+
+TEST(TSGMaster, SecurityPolicySendlog)
+{
+	const struct streaminfo a_stream={0};
+	struct Maat_rule_t security_result[MAX_RESULT_NUM]={0};
+
+	for(int i=0; i<MAX_RESULT_NUM; i++)
+	{
+		security_result[i].do_log=1;
+		security_result[i].action=TSG_ACTION_MONITOR;
+		security_result[i].config_id=TSG_ACTION_MONITOR+i;
+	}
+
+	// First notify
+	tsg_notify_hited_security_result(&a_stream, security_result, MAX_RESULT_NUM, 0);
+	
+	struct policy_priority_label *priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
+	EXPECT_NE(nullptr, priority_label);
+	EXPECT_EQ(MAX_RESULT_NUM, priority_label->security_result_num);
+	for(int i=0; i<priority_label->security_result_num; i++)
+	{	
+		EXPECT_EQ(TSG_ACTION_MONITOR, priority_label->security_result[i].action);
+		EXPECT_EQ(TSG_ACTION_MONITOR+i, priority_label->security_result[i].config_id);
+	}
+
+	struct TLD_handle_t * handle=TLD_create(0);
+	struct Maat_rule_t session_record={0, 2, 1, 0, 0, 0, 0, {0}};
+	tsg_log_t log_msg={1, &session_record, (struct streaminfo*)&a_stream};
+	tsg_send_log(g_tsg_log_instance, handle, &log_msg, 0);
+
+	int sendlog_cnt=rd_kafka_get_sendlog_cnt();
+	EXPECT_EQ(9, sendlog_cnt);
+	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(0));
+	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(1));
+	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(2));
+	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(3));
+	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(4));
+	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(5));
+	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(6));
+	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(7));
+	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(8));
+
+	priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
+	EXPECT_EQ(nullptr, priority_label);
+}
+
+TEST(TSGMaster, SecurityDuplicatePolicyMultipleNotify)
+{
+	const struct streaminfo a_stream={0};
+	struct Maat_rule_t security_result[MAX_RESULT_NUM]={0};
+
+	for(int i=0; i<MAX_RESULT_NUM/2; i++)
+	{
+		security_result[i].action=TSG_ACTION_MONITOR;
+		security_result[i].config_id=TSG_ACTION_MONITOR+i;
+	}
+
+	// First notify
+	tsg_notify_hited_security_result(&a_stream, security_result, MAX_RESULT_NUM/2, 0);
+	
+	struct policy_priority_label *priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
+	EXPECT_NE(nullptr, priority_label);
+	EXPECT_EQ(MAX_RESULT_NUM/2, priority_label->security_result_num);
+	for(int i=0; i<priority_label->security_result_num; i++)
+	{	
+		EXPECT_EQ(TSG_ACTION_MONITOR, priority_label->security_result[i].action);
+		EXPECT_EQ(TSG_ACTION_MONITOR+i, priority_label->security_result[i].config_id);
+	}
+
+	// Second notify
+	tsg_notify_hited_security_result(&a_stream, security_result, MAX_RESULT_NUM/2, 0);
+	
+	priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
+	EXPECT_NE(nullptr, priority_label);
+	EXPECT_EQ(MAX_RESULT_NUM/2, priority_label->security_result_num);
+	for(int i=0; i<priority_label->security_result_num; i++)
+	{	
+		EXPECT_EQ(TSG_ACTION_MONITOR, priority_label->security_result[i].action);
+		EXPECT_EQ(TSG_ACTION_MONITOR+i, priority_label->security_result[i].config_id);
+	}
+
+	free_shaping_result(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
+	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, NULL);
+	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id));
 }
 
 int main(int argc, char *argv[])

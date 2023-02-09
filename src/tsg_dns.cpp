@@ -34,9 +34,8 @@ static int record_hton_uint32(char *payload, unsigned int value)
 	return 4;
 }
 
-static int compress_domain_record(unsigned char *domain, int domain_len, u_char *result)
+static int compress_domain_record(const unsigned char *domain, int domain_len, u_char *result)
 {
-	int section_len = 0;
 	int result_pos = 1;
 	int domain_pos = 0;
 
@@ -45,9 +44,9 @@ static int compress_domain_record(unsigned char *domain, int domain_len, u_char 
         return -1;
     }
 
-	while((domain[domain_pos] != '\n')||(domain[domain_pos] != '\0'))
+	while((domain[domain_pos] != '\n') && (domain[domain_pos] != '\0'))
 	{
-		section_len = 0;
+		int section_len = 0;
 		while((domain[domain_pos] != '.') &&(domain[domain_pos] != '\n')&&(domain[domain_pos] != '\0'))
 		{
 			result[result_pos] = domain[domain_pos];
@@ -122,26 +121,26 @@ int dns_set_response_question(char *payload, int payload_len, dns_query_question
 
 int dns_set_response_records(char *payload, int payload_len, struct dns_record_val *record_val, int record_val_num, int max_ttl, int min_ttl)
 {
-	int i=0,ttl=0,used_len=0;
+	int used_len=0;
 	unsigned short compress_len=0;
 	unsigned char compress_name[DNS_MAX_NAME+1]={0};
 
-	for(i=0; i<record_val_num; i++)
+	for(int i=0; i<record_val_num; i++)
 	{
 		used_len+=record_hton_uint16(payload+used_len, (unsigned short)0xc00c);
 		used_len+=record_hton_uint16(payload+used_len, (unsigned short)(record_val[i].answer_type));//type
 		used_len+=record_hton_uint16(payload+used_len, (unsigned short)1); //class
 		
-		ttl=random_integer(max_ttl, min_ttl)+min_ttl;
+		int ttl=random_integer(max_ttl, min_ttl)+min_ttl;
 		used_len+=record_hton_uint32(payload+used_len, (unsigned int)ttl);//ttl
 
 		switch(record_val[i].answer_type)
 		{
-			case DNS_TYPE_A:			
+			case DNS_TYPE_A:
 				used_len+=record_hton_uint16(payload+used_len, (unsigned short)(record_val[i].len));	//len
 				used_len+=record_set_uint32(payload+used_len, (unsigned int)(record_val[i].v4_addr.s_addr));	//IPv4
 				break;
-			case DNS_TYPE_AAAA:			
+			case DNS_TYPE_AAAA:
 				used_len+=record_hton_uint16(payload+used_len, (unsigned short)(record_val[i].len));	//len
 				memcpy(payload+used_len, record_val[i].v6_addr.s6_addr, record_val[i].len);	//IPv6
 				used_len+=record_val[i].len;
@@ -191,22 +190,21 @@ static int dns_set_answer_records(char *payload, int payload_len, struct dns_ans
 	{
 		return 0;
 	}
-	
-	char profile_id[128]={0};
-	int idx=0, used_len=0, record_num=0;
-	struct dns_profile_records *profile_records=NULL;
+
+	int used_len=0;
 	
 	if(answer_records->record_val.selected_flag==1)
-	{
+	{	
+		char profile_id[128]={0};
 		snprintf(profile_id, sizeof(profile_id), "%d", answer_records->record_val.selected.profile_id);
-		profile_records=(struct dns_profile_records *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_DNS_PROFILE_RECORD], profile_id);
+		struct dns_profile_records *profile_records=(struct dns_profile_records *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_DNS_PROFILE_RECORD], profile_id);
 		if(profile_records==NULL)
 		{
 			return 0;
 		}
 
-		record_num=MIN(answer_records->record_val.selected.selected_num, profile_records->record_num);
-		idx=random_integer(profile_records->record_num, record_num);
+		int record_num=MIN(answer_records->record_val.selected.selected_num, profile_records->record_num);
+		int idx=random_integer(profile_records->record_num, record_num);
 		used_len+=dns_set_response_records(payload+used_len, payload_len-used_len, profile_records->record_val+idx, record_num, answer_records->max_ttl, answer_records->min_ttl);
 
 		(*answer_record_num)+=record_num;

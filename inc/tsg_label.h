@@ -7,7 +7,6 @@
 #define	MAX_VLAN_ID_NUM		32
 
 #define	MAX_RESULT_NUM	8
-#define	MAX_DOMAIN_LEN	2048
 
 typedef enum _tsg_protocol
 {

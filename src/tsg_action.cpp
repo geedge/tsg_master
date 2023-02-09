@@ -125,14 +125,13 @@ static int get_http_header(char *buff, int len, int code, char *user_define)
 
 static int get_tcp_mss_option(const struct streaminfo *a_stream, int type, void *out)
 {
-	int i=0,ret=0;
 	int tcp_opt_num=0;
 	struct tcp_option *tcp_opt=NULL;
 	
-	ret=MESA_get_stream_opt(a_stream, MSO_TCP_SYN_OPT, (void *)&tcp_opt, &tcp_opt_num);
+	int ret=MESA_get_stream_opt(a_stream, MSO_TCP_SYN_OPT, (void *)&tcp_opt, &tcp_opt_num);
 	if(ret>0)
 	{
-		for(i=0; i<tcp_opt_num; i++)
+		for(int i=0; i<tcp_opt_num; i++)
 		{
 			if(tcp_opt[i].type!=type)
 			{
@@ -156,8 +155,6 @@ static int get_tcp_mss_option(const struct streaminfo *a_stream, int type, void 
 
 static void template_generate(const struct streaminfo *a_stream, int status_code, int policy_id, const char* message, char **page_buff, size_t *page_size, int thread_seq)
 {
-	int used_len=0;
-	char *tmp_buff=NULL;
 	std::string page_output, msg_output;
 	ctemplate::Template *tpl=NULL;
 	ctemplate::TemplateDictionary dict("pg_page_dict");	//dict is automatically finalized after function returned.
@@ -173,8 +170,8 @@ static void template_generate(const struct streaminfo *a_stream, int status_code
 			
 			tpl_message->Expand(&msg_output, &dict_msg);
 
-			used_len=msg_output.length();
-			tmp_buff=(char *)dictator_malloc(a_stream->threadnum, (used_len+1)*sizeof(char));
+			int used_len=msg_output.length();
+			char *tmp_buff=(char *)dictator_malloc(a_stream->threadnum, (used_len+1)*sizeof(char));
 			memcpy(tmp_buff, msg_output.c_str(), used_len);
 			tmp_buff[used_len]='\0';
 
@@ -537,18 +534,16 @@ static int http_get_redirect_url(const struct streaminfo *a_stream, struct Maat_
 
 static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol)
 {
-	int ret=0,opt_value=0;
-	struct rst_tcp_para rst_paras={0};
-
 	if(a_stream->type==STREAM_TYPE_TCP)
 	{
+		struct rst_tcp_para rst_paras={0};
 		rst_paras.rst_pkt_num=g_tsg_para.reset.pkt_num;
 		rst_paras.signature_seed1=g_tsg_para.reset.seed1;
 		rst_paras.signature_seed2=g_tsg_para.reset.seed2;
 		rst_paras.th_flags=g_tsg_para.reset.th_flags;
 		rst_paras.__pad_no_use=0;
 		rst_paras.dir=g_tsg_para.reset.dir;
-		ret=MESA_rst_tcp((struct streaminfo *)a_stream, &rst_paras, sizeof(rst_paras));
+		int ret=MESA_rst_tcp((struct streaminfo *)a_stream, &rst_paras, sizeof(rst_paras));
 		if(ret<0)
 		{
 			MESA_handle_runtime_log(g_tsg_para.logger,
@@ -564,7 +559,7 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 
 		if(g_tsg_para.reset.remedy==1)
 		{
-			opt_value=1;
+			int opt_value=1;
 			MESA_set_stream_opt(a_stream, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
 		}
 
@@ -597,12 +592,12 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
 		return STATE_DROPME|STATE_DROPPKT;
 	}
 
-    struct tcpall_context * _context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+    struct tcpall_context * _context=(struct tcpall_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id);
     if(_context==NULL)
     {
         _context=(struct tcpall_context *)dictator_malloc(a_stream->threadnum, sizeof(struct tcpall_context));
         memset(_context, 0, sizeof(struct tcpall_context));
-        set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+        tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id, (void *)_context);
         _context->method_type=TSG_METHOD_TYPE_TAMPER;
         _context->tamper_count = 0;
     }
@@ -695,7 +690,6 @@ static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat
 static unsigned char do_action_block_mail(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region)
 {
 	char *payload=NULL;
-	unsigned char raw_route_dir=0;
 
 	switch(user_region->deny->code)
 	{
@@ -711,7 +705,7 @@ static unsigned char do_action_block_mail(const struct streaminfo *a_stream, Maa
 
 	if(payload!=NULL)
 	{		
-		raw_route_dir=(a_stream->curdir==DIR_C2S) ? MESA_dir_reverse(a_stream->routedir) : a_stream->routedir;
+		unsigned char raw_route_dir=(a_stream->curdir==DIR_C2S) ? MESA_dir_reverse(a_stream->routedir) : a_stream->routedir;
 		tsg_send_inject_packet(a_stream, SIO_DEFAULT, payload, strlen(payload), raw_route_dir);
 	}
 	

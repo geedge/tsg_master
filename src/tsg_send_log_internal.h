@@ -11,7 +11,10 @@
 #define	MAX_L7_PROTO_ID	150
 
 #define	MAX_IPV4_LEN	16
-#define	MAX_STRING_LEN	32
+
+#ifndef	MAX_STRING_LEN32
+#define	MAX_STRING_LEN32	32
+#endif
 
 enum _SEND_MODE
 {
@@ -181,7 +184,7 @@ typedef	struct _id2field
 {
 	int type;
 	int id;
-	char name[MAX_STRING_LEN];
+	char name[MAX_STRING_LEN32];
 }id2field_t;
 
 struct topic_stat
@@ -190,7 +193,7 @@ struct topic_stat
 	int type;
 	int fs2_line_id;
 	int *send_log_percent;
-	char name[MAX_STRING_LEN];	
+	char name[MAX_STRING_LEN32];	
 	long long *drop_start;
 	rd_kafka_topic_t *topic_rkt;
 };
@@ -215,18 +218,14 @@ struct tsg_log_instance_t
 	int bridge_id[LOG_BRIDGE_MAX];
 	int fs2_column_id[LOG_COLUMN_STATUS_MAX];
 	int fs2_field_id[LOG_FS2_TYPE_MAX];
-	char log_path[MAX_STRING_LEN*2];
-	char tcp_label[MAX_STRING_LEN];
-	char udp_label[MAX_STRING_LEN];
-	char common_field_file[MAX_STRING_LEN*4];
-	char broker_list[MAX_STRING_LEN*8];
-	char sasl_username[MAX_STRING_LEN];
-	char sasl_passwd[MAX_STRING_LEN];
-	char send_queue_max_msg[MAX_STRING_LEN];
-	char require_ack[MAX_STRING_LEN];
-	char refresh_interval_ms[MAX_STRING_LEN];
+	char tcp_label[MAX_STRING_LEN32];
+	char udp_label[MAX_STRING_LEN32];
+	char sasl_username[MAX_STRING_LEN32];
+	char sasl_passwd[MAX_STRING_LEN32];
+	char send_queue_max_msg[MAX_STRING_LEN32];
+	char require_ack[MAX_STRING_LEN32];
+	char refresh_interval_ms[MAX_STRING_LEN32];
 	char local_ip_str[MAX_IPV4_LEN];
-	char l7_proto_id_file[MAX_STRING_LEN*4];
 	id2field_t id2field[LOG_COMMON_MAX];
 	rd_kafka_t *kafka_handle;
 	struct topic_stat *service2topic;

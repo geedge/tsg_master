@@ -11,7 +11,9 @@ add_test(NAME COPY_GTEST_TABLEINFO COMMAND sh -c "cp -r ${CMAKE_SOURCE_DIR}/bin/
 add_test(NAME COPY_GTEST_MAAT_RULE COMMAND sh -c "cp -r ${CMAKE_SOURCE_DIR}/test/bin/gtest_maat.json ${CMAKE_BINARY_DIR}/testing/tsgconf/tsg_maat.json")
 
 add_test(NAME COPY_GTEST_RULE_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/test/src/gtest_rule ${CMAKE_BINARY_DIR}/testing/")
-add_test(NAME COPY_GTEST_MASTER COMMAND sh -c "cp -r ${CMAKE_BINARY_DIR}/test/src/gtest_master ${CMAKE_BINARY_DIR}/testing/")
+add_test(NAME COPY_GTEST_MASTER_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/test/src/gtest_master ${CMAKE_BINARY_DIR}/testing/")
 
-add_test(NAME FAKE_TEST COMMAND sh -c "pwd")
+set(GTEST_RUN_DIR ${CMAKE_BINARY_DIR}/testing)
+add_test(NAME GTEST_RULE COMMAND gtest_rule WORKING_DIRECTORY ${GTEST_RUN_DIR})
+add_test(NAME GTEST_MASTER COMMAND gtest_master WORKING_DIRECTORY ${GTEST_RUN_DIR})
 

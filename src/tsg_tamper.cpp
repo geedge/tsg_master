@@ -34,8 +34,6 @@
 
 int  swap_payload2byte(char *str, int endlen)
 {
-    int i = 0;
-    int j = 0;
     char temp;
 
     if(endlen<4){    //最少满足2个16bit的长度，即最小4字节。
@@ -43,8 +41,8 @@ int  swap_payload2byte(char *str, int endlen)
     }
 
     //这样交换是别面校验和不对的问题
-    for(i=1; i<endlen; i=i+2){
-        for (j=i+2; j<endlen; j=j+2){
+    for(int i=1; i<endlen; i=i+2){
+        for (int j=i+2; j<endlen; j=j+2){
             if(str[i] != str[j]){
                 temp = str[i];
                 str[i] = str[j];

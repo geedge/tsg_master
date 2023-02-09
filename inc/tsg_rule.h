@@ -8,6 +8,10 @@
 #define TSG_DOMAIN_MAX 	256
 #define	MAX_APP_ID_PROPERTY_LEN	128
 
+#ifndef	MAX_DOMAIN_LEN
+#define	MAX_DOMAIN_LEN	2048
+#endif
+
 #define	TSG_ACTION_NONE			0x00
 #define	TSG_ACTION_MONITOR		0x01
 #define	TSG_ACTION_INTERCEPT	0x02
@@ -90,5 +94,6 @@ int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo 
 int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int table_id, unsigned int *category_id, int category_id_num, int thread_seq);
 int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
 int tsg_notify_hited_shaping_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
+int tsg_notify_hited_security_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
 
 #endif

@@ -203,9 +203,6 @@ static int _set_traffic_info(struct _traffic_info *from, struct _traffic_info *t
 }
 static void *tsg_statistic_thread(void *arg)
 {
-	long long value=0;
-	long long total_value=0;
-	int value_len=sizeof(long long);
 	int thread_num=get_thread_count();
 	struct _traffic_info policy_traffic_info;
 	struct _traffic_info total_traffic_info;
@@ -215,6 +212,10 @@ static void *tsg_statistic_thread(void *arg)
 
 	while(g_tsg_statis_para.thread_alive)
 	{
+		long long value=0;
+		long long total_value=0;
+		int value_len=sizeof(long long);
+
 		memset(&policy_traffic_info, 0, sizeof(policy_traffic_info));
 		memset(&total_traffic_info, 0, sizeof(total_traffic_info));
 		memset(&default_traffic_info, 0, sizeof(default_traffic_info));
@@ -344,9 +345,9 @@ int tsg_statistic_init(const char *conffile, void *logger)
 	int output_prometheus=0;
 	int i=0,value=0,thread_num=0;
 	unsigned short fs_server_port=0;
-	char app_name[MAX_STRING_LEN]={0};
+	char app_name[128]={0};
 	char fs_server_ip[MAX_IPV4_LEN]={0};
-	char fs_output_path[MAX_STRING_LEN*4]={0};
+	char fs_output_path[128]={0};
 
 	memset(&g_tsg_statis_para, 0, sizeof(g_tsg_statis_para));
 
@@ -381,7 +382,6 @@ int tsg_statistic_init(const char *conffile, void *logger)
     FS_set_para(g_tsg_statis_para.fs2_handle, APP_NAME, app_name, strlen(app_name)+1);
 	FS_set_para(g_tsg_statis_para.fs2_handle, OUTPUT_DEVICE, fs_output_path, strlen(fs_output_path)+1);
 
-	value=1;
 	FS_set_para(g_tsg_statis_para.fs2_handle, OUTPUT_PROMETHEUS, &output_prometheus, sizeof(output_prometheus));
 
     if(fs_server_port > 0 && strlen(fs_server_ip) > 0)
@@ -390,8 +390,8 @@ int tsg_statistic_init(const char *conffile, void *logger)
         FS_set_para(g_tsg_statis_para.fs2_handle, STATS_SERVER_PORT,&(fs_server_port), sizeof(fs_server_port));
     }
 
-	value=FS_OUTPUT_INFLUX_LINE;
-	FS_set_para(g_tsg_statis_para.fs2_handle, STATS_FORMAT, &value, sizeof(value));
+	int output_influx_line=FS_OUTPUT_INFLUX_LINE;
+	FS_set_para(g_tsg_statis_para.fs2_handle, STATS_FORMAT, &output_influx_line, sizeof(output_influx_line));
 
 	g_tsg_statis_para.fs_field_id[STATIS_NEW_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, (char *)"new_conn_num");
 	g_tsg_statis_para.fs_field_id[STATIS_ESTABLISHED_CON_NUM]=FS_register(g_tsg_statis_para.fs2_handle, FS_STYLE_COLUMN, FS_CALC_CURRENT, (char *)"established_conn_num");

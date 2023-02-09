@@ -174,13 +174,12 @@ static char* parse_alpn_extension(const unsigned char* buff, size_t buff_len, en
 
 static char*  parse_server_name_extension(const unsigned char* buff, size_t buff_len, enum chello_parse_result* result)
 {
-    size_t pos = 2; /* skip server name list length */
-    size_t len;
+	size_t pos = 2; /* skip server name list length */
 	char* sni = NULL;
-    while (pos + 3 < buff_len)
+	while (pos + 3 < buff_len)
 	{
-        len = ((size_t)buff[pos + 1] << 8) + (size_t)buff[pos + 2];
-        if (pos + 3 + len > buff_len)
+		size_t len = ((size_t)buff[pos + 1] << 8) + (size_t)buff[pos + 2];
+		if (pos + 3 + len > buff_len)
 		{
 			*result = CHELLO_PARSE_INVALID_FORMAT;
 			return NULL;
@@ -366,7 +365,7 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
         	*result = CHELLO_PARSE_NOT_ENOUGH_BUFF;
 			return NULL;
 		}
-		if(buff[1] != 3 || buff[2] > 4 || buff[2] < 0)
+		if(buff[1] != 3 || buff[2] > 4)
 		{
 			*result = CHELLO_PARSE_INVALID_FORMAT;
         	return NULL;

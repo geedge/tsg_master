@@ -50,17 +50,11 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 }
 #endif
 
-struct session_record_ctx
-{
-    struct TLD_handle_t *log;
-    tsg_protocol_t proto_type;
-};
-
 char TSG_MASTER_VERSION_20200805 = 0;
 const char *tsg_conffile="tsgconf/main.conf";
 g_tsg_para_t g_tsg_para;
 
-id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
+struct id2field g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_UDP_LINKS, "udp_links"}, 
 										 {0, TSG_FS2_BYPASS, "bypass"},
 										 {0, TSG_FS2_HIT_ADDR, "hit_addr"},
@@ -111,7 +105,7 @@ id2field_t g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
 										 {0, TSG_FS2_TUNNEL_LABEL_DEL, "t_label_del"}
 										};
 
-id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
+struct id2field g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
 										 {PROTO_IPv4, 	0,	"IPV4"},
 										 {PROTO_IPv6, 	0,	"IPV6"},
 										 {PROTO_TCP, 	0, 	"TCP"},
@@ -140,6 +134,75 @@ id2field_t g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"},
 
 #define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
 
+static int init_page_template(const char *conffile)
+{
+	char page_path[256];
+	memset(page_path, 0, sizeof(page_path));
+	MESA_load_profile_string_def(conffile, "HTTP_PLUG", "PAGE403", page_path, sizeof(page_path), "./tsgconf/HTTP403.html");
+	g_tsg_para.tpl_403 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
+	
+	memset(page_path, 0, sizeof(page_path));
+	MESA_load_profile_string_def(conffile, "HTTP_PLUG", "PAGE404", page_path, sizeof(page_path), "./tsgconf/HTTP404.html");
+	g_tsg_para.tpl_404 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
+
+	memset(page_path, 0, sizeof(page_path));
+	MESA_load_profile_string_def(conffile, "HTTP_PLUG", "PAGE200", page_path, sizeof(page_path), "./tsgconf/HTTP200.html");
+	g_tsg_para.tpl_200 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
+
+	memset(page_path, 0, sizeof(page_path));
+	MESA_load_profile_string_def(conffile, "HTTP_PLUG", "PAGE204", page_path, sizeof(page_path), "./tsgconf/HTTP204.html");
+	g_tsg_para.tpl_204 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
+
+	return 0;
+}
+
+static int init_fs2_handle(const char *conffile)
+{
+	int value=0,cycle=0;
+	int output_prometheus=0;
+	unsigned short fs_server_port=0;
+	char app_name[128]={0};
+	char fs_server_ip[MAX_IPV4_LEN]={0};
+	char fs_output_path[128]={0};
+
+	MESA_load_profile_int_def(conffile, "FIELD_STAT", "CYCLE", &cycle, 30);
+	MESA_load_profile_short_nodef(conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));
+	MESA_load_profile_string_nodef(conffile,"FIELD_STAT","TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
+	MESA_load_profile_string_def(conffile,"FIELD_STAT","OUTPUT_PATH",fs_output_path, sizeof(fs_output_path), "tsg_stat.log");
+	MESA_load_profile_string_def(conffile,"FIELD_STAT","APP_NAME", app_name, sizeof(app_name), "tsg_master");
+	MESA_load_profile_int_def(conffile, "FIELD_STAT", "PROMETHEUS", &output_prometheus, 1);
+
+	g_tsg_para.fs2_handle=FS_create_handle();
+
+	value=1;//Rewrite
+	FS_set_para(g_tsg_para.fs2_handle, PRINT_MODE, &value, sizeof(value));
+	value=1;//Do not create stat thread
+	FS_set_para(g_tsg_para.fs2_handle, CREATE_THREAD, &value, sizeof(value));
+	
+    FS_set_para(g_tsg_para.fs2_handle, STAT_CYCLE, &cycle, sizeof(cycle));
+    FS_set_para(g_tsg_para.fs2_handle, APP_NAME, app_name, strlen(app_name)+1);
+	FS_set_para(g_tsg_para.fs2_handle, OUTPUT_DEVICE, fs_output_path, strlen(fs_output_path)+1);
+
+	value=1;
+	FS_set_para(g_tsg_para.fs2_handle, OUTPUT_PROMETHEUS, &output_prometheus, sizeof(output_prometheus));
+
+    if(fs_server_port > 0 && strlen(fs_server_ip) > 0)
+    {
+        FS_set_para(g_tsg_para.fs2_handle, STATS_SERVER_IP,fs_server_ip, strlen(fs_server_ip)+1);
+        FS_set_para(g_tsg_para.fs2_handle, STATS_SERVER_PORT,&(fs_server_port), sizeof(fs_server_port));
+    }
+
+	value=FS_OUTPUT_INFLUX_LINE;
+	FS_set_para(g_tsg_para.fs2_handle, STATS_FORMAT, &value, sizeof(value));
+
+	for(int i=0; i<TSG_FS2_MAX; i++)
+	{
+		g_tsg_para.fs2_field_id[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, g_tsg_fs2_field[i].name);
+	}
+
+	return 0;
+}
+
 static int init_context(void **pme, int thread_seq)
 {
 	*pme=dictator_malloc(thread_seq, sizeof(struct master_context));
@@ -150,17 +213,16 @@ static int init_context(void **pme, int thread_seq)
 
 static int tsg_get_sn(char *filename, char *device_sn, int device_sn_len)
 {
-	int ret=0,flags=0;
-	char buff[4096]={0};
-	cJSON *object=NULL;
+	int flags=0;
 	
 	FILE *fp=fopen(filename, "rb");
 	if(fp)
 	{
-		ret=fread(buff, sizeof(buff), 1, fp);
+		char buff[4096]={0};
+		int ret=fread(buff, sizeof(buff), 1, fp);
 		if(ret<(int)sizeof(buff))
 		{
-			object=cJSON_Parse(buff);
+			cJSON *object=cJSON_Parse(buff);
 			if(object)
 			{
 				cJSON *item=cJSON_GetObjectItem(object, "sn");
@@ -336,36 +398,6 @@ static int print_hit_path(const struct streaminfo *a_stream, struct master_conte
 	return 1;
 }
 
-static int is_only_monitor(struct Maat_rule_t *result, int hit_cnt)
-{
-	int i=0;
-
-	for(i=0; i<hit_cnt; i++)
-	{
-		if(result[i].action==TSG_ACTION_BYPASS || result[i].action==TSG_ACTION_INTERCEPT || result[i].action==TSG_ACTION_DENY)
-		{
-			return 0;
-		}
-	}
-
-	return 1;
-}
-
-static int is_hited_allow(struct Maat_rule_t *result, int hit_cnt)
-{
-	int i=0;
-
-	for(i=0; i<hit_cnt; i++)
-	{
-		if(result[i].action==TSG_ACTION_BYPASS)
-		{
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
 static int is_dns_protocol(const struct streaminfo *a_stream)
 {
 	struct stream_tuple4_v4 *tpl4 = NULL;
@@ -427,36 +459,6 @@ static int is_deny_application(Maat_rule_t *p_result)
 	return ret;
 }
 
-static int is_alone_business(tsg_protocol_t proto, unsigned int hited_app_id)
-{
-	unsigned int l7_proto_id=0;
-	switch(proto)
-	{
-		case	PROTO_HTTP:
-		case	PROTO_MAIL:
-		case	PROTO_DNS:
-		case	PROTO_FTP:
-		case	PROTO_SSL:
-		case	PROTO_SIP:
-		case	PROTO_QUIC:
-		case	PROTO_SMTP:
-		case	PROTO_IMAP:
-		case	PROTO_POP3:
-		case	PROTO_RTP:
-		case	PROTO_DTLS:
-			l7_proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[proto].name);
-			if(l7_proto_id==hited_app_id)
-			{
-				return 1;
-			}
-			break;
-		default:
-			break;
-	}
-
-	return 0;
-}
-
 long long get_current_time_ms(void)
 {
 	int size=sizeof(long long); 	
@@ -466,38 +468,6 @@ long long get_current_time_ms(void)
 	return current_time_ms;
 }
 
-int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data)
-{
-	if(a_stream==NULL || project_id<0)
-	{
-		return 0;
-	}
-	
-	int ret=project_req_add_struct((struct streaminfo *)a_stream, project_id, data);
-	if(ret<0)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, 
-									RLOG_LV_FATAL,
-									"PROJECT",
-									"Add project failed, project_id: %d addr: %s", 
-									project_id,
-									PRINTADDR(a_stream, g_tsg_para.level)
-								);
-		return 0;
-	}
-
-	return 1;
-}
-
-const void *get_struct_project(const struct streaminfo *a_stream, int project_id)
-{
-	if(a_stream==NULL || project_id<0)
-	{
-		return NULL;
-	}
-	
-	return project_req_get_struct(a_stream, project_id);
-}
 static int get_table_id(tsg_protocol_t protocol)
 {
 	switch(protocol)
@@ -643,7 +613,7 @@ int set_hited_app_id(const struct streaminfo *a_stream, unsigned int hited_app_i
 {
 	struct gather_app_result *gather_result=NULL;
 	
-	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
+	gather_result=(struct gather_app_result *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id);
 	if(gather_result==NULL)
 	{
 		return 0;
@@ -657,6 +627,7 @@ int set_hited_app_id(const struct streaminfo *a_stream, unsigned int hited_app_i
 	return 1;
 }
 
+#if 0
 static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int result_num, struct master_context *context, int thread_seq)
 {
 	tsg_log_t log_msg;
@@ -677,20 +648,20 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	log_msg.result=p_result;
 	log_msg.result_num=result_num;
 
-	if(p_result[0].action==TSG_ACTION_MONITOR && g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]>=0)
+	if(p_result[0].action==TSG_ACTION_MONITOR && g_tsg_para.bridge[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA].id>=0)
 	{
 		switch(proto)
 		{
 			case	PROTO_SSH:
 			case	PROTO_RDP:
 			case	PROTO_STRATUM:
-					notify=(struct tsg_conn_sketch_notify_data *)stream_bridge_async_data_get(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA]);
+					notify=(struct tsg_conn_sketch_notify_data *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA].id);
 					if (notify != NULL && notify->pdata.TLD_handle!=NULL && (notify->protocol== PROTO_SSH || notify->protocol== PROTO_STRATUM  || notify->protocol== PROTO_RDP))
 					{
 						TLD_handle = TLD_duplicate(notify->pdata.TLD_handle);
 						if (TLD_handle!=NULL)
 						{
-							tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);							
+							tsg_send_log(g_tsg_log_instance, TLD_handle, &log_msg, thread_seq);
 							tsg_set_policy_flow((struct streaminfo *)a_stream, p_result, thread_seq);
 							return 1;
 						}
@@ -788,14 +759,12 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	
 	return 1;
 }
-
+#endif
 
 static int tsg_proto_name2flag(char *proto_list, int *flag)
 {
-	int i=0;
-	char *s=NULL,*e=NULL;
-
-	s=proto_list;
+	char *e=NULL;
+	char *s=proto_list;
 	while(s)
 	{
 		e=index(s, ';');
@@ -804,7 +773,7 @@ static int tsg_proto_name2flag(char *proto_list, int *flag)
 			break;
 		}
 
-		for(i=0; i< PROTO_MAX; i++)
+		for(int i=0; i< PROTO_MAX; i++)
 		{
 			if((strncasecmp(s, g_tsg_proto_name2id[i].name, e-s))==0)
 			{
@@ -813,105 +782,10 @@ static int tsg_proto_name2flag(char *proto_list, int *flag)
 			}
 		}
 		
-		s=e+1;	
+		s=e+1;
 	}
 
 	return 0;
-}
-
-static void free_context_label(int thread_seq, void *project_req_value)
-{
-	struct master_context *context=(struct master_context *)project_req_value;
-	if(context!=NULL)
-	{
-		if(context->domain!=NULL)
-		{
-			dictator_free(thread_seq, (void *)context->domain);
-			context->domain=NULL;
-		}
-
-		if(context->quic_ua!=NULL)
-		{
-			dictator_free(thread_seq, (void *)context->quic_ua);
-			context->quic_ua=NULL;
-		}
-
-		if(context->result!=NULL)
-		{
-			dictator_free(thread_seq, (void *)context->result);
-			context->result=NULL;
-		}
-
-		if(context->mid!=NULL)
-		{
-			Maat_clean_status(&context->mid);
-			context->mid=NULL;
-		}
-
-		dictator_free(thread_seq, (void *)context);
-		context=NULL;
-	}
-
-	project_req_value=NULL;
-
-	return ;
-}
-
-static void free_tcpall_label(int thread_seq, void *project_req_value)
-{
-	if(project_req_value!=NULL)
-	{
-		struct tcpall_context *context=(struct tcpall_context *)project_req_value;
-		if(context->para!=NULL)
-		{
-			switch(context->method_type)
-			{
-				case	TSG_METHOD_TYPE_RATE_LIMIT:
-					destroy_bucket(&(context->bucket), thread_seq);
-					break;
-				default:
-					break;
-			}
-		}
-		
-		dictator_free(thread_seq, project_req_value);
-		project_req_value=NULL;
-	}
-
-	return ;
-}
-
-void free_shaping_result(const struct streaminfo *stream, int bridge_id, void *data)
-{
-	if(data!=NULL)
-	{
-		dictator_free(stream->threadnum, data);
-		data=NULL;
-	}
-}
-
-void free_policy_label(int thread_seq, void *project_req_value)
-{
-	if(project_req_value!=NULL)
-	{		
-		struct policy_priority_label *priority_label=(struct policy_priority_label *)project_req_value;
-		if(priority_label->para!=NULL)
-		{
-			dictator_free(thread_seq, priority_label->para);
-			priority_label->para=NULL;
-		}
-		dictator_free(thread_seq, project_req_value);
-		project_req_value=NULL;
-	}
-}
-
-void free_gather_app_result(int thread_seq, void *project_req_value)
-{
-	if(project_req_value!=NULL)
-	{
-		dictator_free(thread_seq, project_req_value);
-		project_req_value=NULL;
-	}
 }
 
 static char *malloc_copy_string(char *origin, int length, int thread_seq)
@@ -926,127 +800,6 @@ static char *malloc_copy_string(char *origin, int length, int thread_seq)
 	dest[length]='\0';
 
 	return dest;
-}
-
-static void copy_monitor_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int result_num, int thread_seq)
-{
-	int i=0;
-	
-	if(context->result==NULL)
-	{
-		context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t)*MAX_RESULT_NUM);
-
-		for(i=0; i<result_num && p_result[i].action!=TSG_ACTION_INTERCEPT && context->hit_cnt<MAX_RESULT_NUM; i++) // SSL Decryption Exclusion
-		{
-			memcpy(context->result+context->hit_cnt, &p_result[i], sizeof(struct Maat_rule_t));
-			context->hit_cnt+=1;
-		}
-	}
-	else
-	{
-		if(context->result[0].action==TSG_ACTION_MONITOR)
-		{
-			for(i=0; i<result_num && p_result[i].action!=TSG_ACTION_INTERCEPT && context->hit_cnt<MAX_RESULT_NUM; i++) // SSL Decryption Exclusion
-			{
-				memcpy(context->result+context->hit_cnt, &p_result[i], sizeof(struct Maat_rule_t));
-				context->hit_cnt+=1;
-			}
-		}
-	}
-	
-	MESA_handle_runtime_log(g_tsg_para.logger,
-								RLOG_LV_DEBUG,
-								"MONITOR",
-								"Hit monitor policy, policy_id: %d service: %d action: %d addr: %s",
-								p_result[0].config_id,
-								p_result[0].service_id,
-								(unsigned char)p_result[0].action,
-								PRINTADDR(a_stream, g_tsg_para.level)
-							);
-
-}
-
-static void copy_bypass_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int thread_seq)
-{
-	if(context->result==NULL)
-	{
-		context->hit_cnt=1;
-		context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
-			
-		memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
-	}
-	else
-	{
-		if(context->result[0].action==TSG_ACTION_BYPASS)
-		{
-			if(p_result->config_id>context->result[0].config_id)
-			{
-				context->hit_cnt=1;
-				memcpy(&(context->result[0]), p_result, sizeof(struct Maat_rule_t));
-			}
-		}
-		else   // hit monitor
-		{
-			context->hit_cnt=1;
-			memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
-		}
-	}
-	
-	MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_DEBUG,
-									"ALLOW",
-									"Hit allow policy, policy_id: %d service: %d action: %d addr: %s",
-									p_result[0].config_id,
-									p_result[0].service_id,
-									(unsigned char)p_result[0].action,
-									PRINTADDR(a_stream, g_tsg_para.level)
-								);
-
-	return ;
-}
-
-static void copy_deny_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int thread_seq)
-{
-	if(context->result==NULL)
-	{
-		context->hit_cnt=1;
-		context->result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
-			
-		memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
-	}
-	else
-	{
-		if(context->result[0].action==TSG_ACTION_BYPASS)
-		{
-			return ;
-		}
-		
-		if(context->result[0].action==TSG_ACTION_DENY)
-		{
-			if(p_result->config_id>context->result[0].config_id)
-			{
-				context->hit_cnt=1;
-				memcpy(&(context->result[0]), p_result, sizeof(struct Maat_rule_t));
-			}
-		}
-		else   // hit monitor
-		{
-			context->hit_cnt=1;
-			memcpy(context->result, p_result, sizeof(struct Maat_rule_t));
-		}
-	}
-	
-	MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_DEBUG,
-									"DENY",
-									"Hit deny policy, policy_id: %d service: %d action: %d addr: %s",
-									p_result[0].config_id,
-									p_result[0].service_id,
-									(unsigned char)p_result[0].action,
-									PRINTADDR(a_stream, g_tsg_para.level)
-								);
-
-	return ;
 }
 
 int copy_app_result(struct gather_app_result *gather_result, struct app_identify_result *identify_result, int packet_sequence)
@@ -1069,14 +822,17 @@ int copy_app_result(struct gather_app_result *gather_result, struct app_identify
 	return 0;
 }
 
-static int l7_protocol_mapper(const char *filename)
+static int l7_protocol_mapper(const char *conffile)
 {
 	int ret=0;
 	FILE *fp=NULL;
 	char line[1024]={0};
 	char type_name[32]={0};
+	char filename[128]={0};
 	struct l7_protocol *protocol=NULL;
 	
+	MESA_load_profile_string_def(conffile, "SYSTEM", "L7_PROTOCOL_FILE", filename, sizeof(filename), "./tsgconf/tsg_l7_protocol.conf");
+
 	fp=fopen(filename, "r");
 	if(fp==NULL)
 	{
@@ -1094,7 +850,7 @@ static int l7_protocol_mapper(const char *filename)
 		}
 		
 	    protocol=(struct l7_protocol *)calloc(1, sizeof(struct l7_protocol));
-		ret=sscanf(line, "%s %s %d", type_name, protocol->name, &protocol->id);
+		ret=sscanf(line, "%31s %31s %d", type_name, protocol->name, &protocol->id);
 		assert(ret==3);
 
 	    HASH_ADD(hh1, g_tsg_para.name_by_id, id, sizeof(int), protocol);
@@ -1136,12 +892,10 @@ unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name)
 
 static int set_l7_protocol_to_pme(struct master_context *context, unsigned int app_id)
 {
-	int i=0;
-	char *l7_protocol_name=NULL;
-	l7_protocol_name=tsg_l7_protocol_id2name(app_id);
+	char *l7_protocol_name=tsg_l7_protocol_id2name(app_id);
 	if(l7_protocol_name!=NULL)
 	{
-		for(i=PROTO_HTTP; i<PROTO_MAX; i++)
+		for(int i=PROTO_HTTP; i<PROTO_MAX; i++)
 		{
 			if((strcasecmp(g_tsg_proto_name2id[i].name, l7_protocol_name))==0)
 			{
@@ -1158,13 +912,11 @@ static int set_l7_protocol_to_pme(struct master_context *context, unsigned int a
 
 int is_intercept_exclusion(const struct streaminfo *a_stream, Maat_rule_t *p_result, char *domain, int thread_seq)
 {
-	int ret=0;	
-	scan_status_t mid=NULL;
-	Maat_rule_t tmp_result;
-
 	if(domain!=NULL)
 	{
-		ret=Maat_full_scan_string(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_EXCLUSION_SSL_SNI], CHARSET_UTF8, domain, strlen(domain), &tmp_result, NULL, 1, &mid,thread_seq);
+		scan_status_t mid=NULL;
+		struct Maat_rule_t tmp_result;
+		int ret=Maat_full_scan_string(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_EXCLUSION_SSL_SNI], CHARSET_UTF8, domain, strlen(domain), &tmp_result, NULL, 1, &mid,thread_seq);
 		if(mid!=NULL)
 		{
 			Maat_clean_status(&mid);
@@ -1223,7 +975,7 @@ static int set_l7_protocol_label(const struct streaminfo *a_stream, tsg_protocol
 {
 	struct gather_app_result *gather_result=NULL;
 	
-	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
+	gather_result=(struct gather_app_result *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id);
 	if(gather_result!=NULL)
 	{
 		return 0;
@@ -1231,7 +983,7 @@ static int set_l7_protocol_label(const struct streaminfo *a_stream, tsg_protocol
 	
 	gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result)*ORIGIN_MAX);
 	memset(gather_result, 0, sizeof(struct gather_app_result)*ORIGIN_MAX);
-	set_struct_project(a_stream, g_tsg_para.gather_app_project_id, (void *)gather_result);
+	tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id, (void *)gather_result);
 	
 	int app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[protocol].name);
 	if(app_id>0)
@@ -1248,12 +1000,12 @@ static int set_l7_protocol_label(const struct streaminfo *a_stream, tsg_protocol
 
 int set_after_n_packet_to_tcpall(const struct streaminfo *a_stream, int after_n_packets, int thread_seq)
 {
-	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	struct tcpall_context *_context=(struct tcpall_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id);
 	if(_context==NULL)
 	{
 		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
 		memset(_context, 0, sizeof(struct tcpall_context));
-		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+		tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id, (void *)_context);
 	}
 			
 	_context->hited_para.after_n_packets=after_n_packets;
@@ -1263,12 +1015,12 @@ int set_after_n_packet_to_tcpall(const struct streaminfo *a_stream, int after_n_
 
 int set_hited_app_id_to_tcpall(const struct streaminfo *a_stream, int hited_app_id, int thread_seq)
 {
-	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	struct tcpall_context *_context=(struct tcpall_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id);
 	if(_context==NULL)
 	{
 		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
 		memset(_context, 0, sizeof(struct tcpall_context));
-		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+		tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id, (void *)_context);
 	}
 			
 	_context->hited_para.hited_app_id=hited_app_id;
@@ -1278,12 +1030,12 @@ int set_hited_app_id_to_tcpall(const struct streaminfo *a_stream, int hited_app_
 
 int set_protocol_to_tcpall(const struct streaminfo *a_stream, tsg_protocol_t protocol, int thread_seq)
 {
-	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	struct tcpall_context *_context=(struct tcpall_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id);
 	if(_context==NULL)
 	{
 		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
 		memset(_context, 0, sizeof(struct tcpall_context));
-		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+		tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id, (void *)_context);
 	}
 			
 	_context->protocol=protocol;
@@ -1293,12 +1045,12 @@ int set_protocol_to_tcpall(const struct streaminfo *a_stream, tsg_protocol_t pro
 
 int set_method_to_tcpall(const struct streaminfo *a_stream, enum TSG_METHOD_TYPE method_type, int thread_seq)
 {
-	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	struct tcpall_context *_context=(struct tcpall_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id);
 	if(_context==NULL)
 	{
 		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
 		memset(_context, 0, sizeof(struct tcpall_context));
-		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+		tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id, (void *)_context);
 	}
 
 	switch(_context->method_type)
@@ -1318,18 +1070,18 @@ int set_method_to_tcpall(const struct streaminfo *a_stream, enum TSG_METHOD_TYPE
 
 int set_bucket_to_tcpall(const struct streaminfo *a_stream, struct leaky_bucket *bucket, int thread_seq)
 {
-	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	struct tcpall_context *_context=(struct tcpall_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id);
 	if(_context==NULL)
 	{
 		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
 		memset(_context, 0, sizeof(struct tcpall_context));
-		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+		tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id, (void *)_context);
 	}
 
 	switch(_context->method_type)
 	{
 		case	TSG_METHOD_TYPE_RATE_LIMIT:
-			return 1;	
+			return 1;
 			break;
 		case	TSG_METHOD_TYPE_DEFAULT:
 		case	TSG_METHOD_TYPE_UNKNOWN:
@@ -1347,27 +1099,13 @@ int set_bucket_to_tcpall(const struct streaminfo *a_stream, struct leaky_bucket 
 
 char get_direction_from_tcpall(const struct streaminfo *a_stream)
 {
-	struct tcpall_context *context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	struct tcpall_context *context=(struct tcpall_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id);
 	if(context!=NULL)
 	{
 		return context->direction;
 	}
 
 	return -1;
-}
-
-int get_shaping_result(struct Maat_rule_t *hit_result, int hit_num, struct Maat_rule_t *shaping_result, int shaping_result_num)
-{
-	int shaping_cnt=0;
-	for(int i=0; i<hit_num; i++)
-	{
-		if(hit_result[i].action==TSG_ACTION_SHAPING && shaping_cnt<shaping_result_num)
-		{
-			memcpy(&shaping_result[shaping_cnt++], &hit_result[i], sizeof(struct Maat_rule_t));
-		}
-	}
-
-	return shaping_cnt;
 }
 
 static void set_shaping_result_to_project(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int p_result_num, int thread_seq)
@@ -1377,10 +1115,10 @@ static void set_shaping_result_to_project(const struct streaminfo *a_stream, str
 		return ;
 	}
 	
-	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get((struct streaminfo *)a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]);
+	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)tsg_get_xxx_from_bridge((struct streaminfo *)a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id);
 	if(shaping_label==NULL)
 	{
-		shaping_label=(struct notify_shaping_policy *)dictator_malloc(thread_seq, sizeof(struct notify_shaping_policy));	
+		shaping_label=(struct notify_shaping_policy *)dictator_malloc(thread_seq, sizeof(struct notify_shaping_policy));
 		memset(shaping_label, 0, sizeof(struct notify_shaping_policy));
 	}
 
@@ -1408,13 +1146,13 @@ static void set_shaping_result_to_project(const struct streaminfo *a_stream, str
 	struct notify_shaping_policy sync_result={0, {0}};
 	sync_result.shaping_result_num=inc_result_num;
 	memcpy(sync_result.shaping_result, inc_result, inc_result_num*sizeof(struct Maat_rule_t));
-	stream_bridge_sync_data_put(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], (void *)&sync_result);
+	stream_bridge_sync_data_put(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, (void *)&sync_result);
 
 	shaping_label->shaping_result_num+=inc_result_num;
-	int ret=stream_bridge_async_data_put((struct streaminfo *)a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], (void *)shaping_label);
+	int ret=tsg_set_xxx_to_bridge((struct streaminfo *)a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, (void *)shaping_label);
 	if(ret<0)
 	{
-		free_shaping_result(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], (void *)shaping_label);
+		free_shaping_result(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id, (void *)shaping_label);
 		return ;
 	}
 }
@@ -1425,84 +1163,89 @@ int tsg_notify_hited_shaping_result(const struct streaminfo *a_stream, struct Ma
 	return 0;
 }
 
+int set_log_field_to_project(const struct streaminfo * a_stream, char *domain, void *para, tsg_protocol_t proto, int thread_seq)
+{
+	struct policy_priority_label *priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge((struct streaminfo *)a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
+	if(priority_label==NULL)
+	{
+		priority_label=(struct policy_priority_label *)dictator_malloc(thread_seq, sizeof(struct policy_priority_label));
+		memset(priority_label, 0, sizeof(struct policy_priority_label));
 
-static void set_security_result_to_project(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int p_result_num, PULL_RESULT_TYPE result_type, int thread_seq)
+		int ret=tsg_set_xxx_to_bridge((struct streaminfo *)a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
+		if(ret<0)
+		{
+			free_policy_label(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
+		}
+	}
+
+	priority_label->proto=proto;
+	if(domain!=NULL)
+	{
+		priority_label->domain_len=MIN(sizeof(priority_label->domain)-1 ,strlen(domain));
+		memcpy(priority_label->domain, domain, priority_label->domain_len);
+	}
+
+	if(para!=NULL)
+	{
+		int length=strlen((const char*)para);
+		priority_label->para=dictator_malloc(thread_seq,length+1);
+		memcpy(priority_label->para, para, length);
+		((char *)priority_label->para)[length]='\0';
+	}
+
+	return 0;
+}
+
+static void set_security_result_to_project(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int p_result_num, PULL_RESULT_TYPE result_type, int thread_seq)
 {
 	if(p_result==NULL || p_result_num==0)
 	{
 		return ;
 	}
 
-	struct policy_priority_label *priority_label=(struct policy_priority_label *)project_req_get_struct((struct streaminfo *)a_stream, g_tsg_para.priority_project_id);
+	struct policy_priority_label *priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge((struct streaminfo *)a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
 	if(priority_label==NULL)
 	{
-		priority_label=(struct policy_priority_label *)dictator_malloc(thread_seq, sizeof(struct policy_priority_label));	
+		priority_label=(struct policy_priority_label *)dictator_malloc(thread_seq, sizeof(struct policy_priority_label));
 		memset(priority_label, 0, sizeof(struct policy_priority_label));
-	}
-	else
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, 
-										RLOG_LV_DEBUG,
-										"DUP_HIT_POLICY",
-										"Hit policy, domain: %s policy_id: %d action: %d addr: %s",
-										(context->domain!=NULL ? context->domain : ""),
-										p_result->config_id,
-										(unsigned char)p_result->action,
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
+
+		int ret=tsg_set_xxx_to_bridge((struct streaminfo *)a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
+		if(ret<0)
+		{
+			free_policy_label(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
+		}
 	}
 
-	priority_label->proto=context->proto;
-	if(context->domain!=NULL)
+	if(priority_label->security_result_num>0 && priority_label->security_result[0].action!=p_result[0].action)
 	{
-		priority_label->domain_len=MIN(sizeof(priority_label->domain)-1 ,strlen(context->domain));
-		memcpy(priority_label->domain, context->domain, priority_label->domain_len);
-	}
-
-	if(context->para!=NULL)
-	{
-		int length=strlen(context->http_url);
-		priority_label->para=dictator_malloc(thread_seq,length+1);
-		memcpy(priority_label->para, context->para, length);
-		((char *)priority_label->para)[length]='\0';
-	}
-
-	if(priority_label->security_result_num<=0 || (priority_label->security_result[0].action < p_result->action))
-	{
-		priority_label->security_result_num=1;
-		priority_label->result_type=result_type;
-		memcpy(priority_label->security_result, p_result, sizeof(struct Maat_rule_t));
 	}
 	
-	int ret=project_req_add_struct((struct streaminfo *)a_stream, g_tsg_para.priority_project_id, (void *)priority_label);
-	if(ret<0)
+	int num=MIN(MAX_RESULT_NUM-priority_label->security_result_num, p_result_num);
+	for(int i=0; i<num; i++)
 	{
-		free_policy_label(thread_seq, (void *)priority_label);
-		MESA_handle_runtime_log(g_tsg_para.logger,
-										RLOG_LV_FATAL,
-										"PROJECT_ADD",
-										"Add policy_priority_label failed, policy, domain: %s para(url/ua): %s policy_id: %d action: %d addr: %s",
-										(context->domain!=NULL ? context->domain : ""),
-										(context->para!=NULL ? context->http_url : ""),
-										priority_label->security_result[0].config_id,
-										(unsigned char)priority_label->security_result[0].action,
-										PRINTADDR(a_stream, g_tsg_para.level)
-									);
-		return ;
+		int repeat_result=0;
+		for(int j=0; j<priority_label->security_result_num; j++)
+		{
+			if(p_result[i].config_id==priority_label->security_result[j].config_id)
+			{
+				repeat_result=1;
+				break;
+			}
+		}
+
+		if(repeat_result==0)
+		{
+			memcpy(&(priority_label->security_result[priority_label->security_result_num++]), &(p_result[i]), sizeof(struct Maat_rule_t));
+		}
 	}
 	
-	MESA_handle_runtime_log(g_tsg_para.logger, 
-									RLOG_LV_DEBUG,
-									"COPY_RESULT",
-									"Hit policy, domain: %s para(url/ua): %s policy_id: %d action: %d addr: %s",
-									(context->domain!=NULL ? context->domain : ""),
-									(context->para!=NULL ? context->http_url : ""),
-									priority_label->security_result[0].config_id,
-									(unsigned char)priority_label->security_result[0].action,
-									PRINTADDR(a_stream, g_tsg_para.level)
-								);
-
 	return ;
+}
+
+int tsg_notify_hited_security_result(const struct streaminfo * a_stream, struct Maat_rule_t * p_result, int p_result_num, int thread_seq)
+{
+	set_security_result_to_project(a_stream, p_result, p_result_num, PULL_FW_RESULT, thread_seq);
+	return 0;
 }
 
 
@@ -1525,15 +1268,6 @@ void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATT
 		{
 			dictator_free(thread_seq, (void *)attribute_label);
 			attribute_label=NULL;
-			
-			MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_FATAL,
-									"PROJECT_ADD",
-									"Add internal_label failed, establish latency ms: %llu proto: %d addr: %s",
-									attribute_label->establish_latency_ms,
-									attribute_label->proto,
-									PRINTADDR(a_stream, g_tsg_para.level)
-									);
 			return ;
 		}
 	}
@@ -1639,14 +1373,12 @@ static char set_tcp_establish_latency_ms(const struct streaminfo *a_tcp, int thr
 
 int tsg_set_device_id_to_telegraf(char *device_sn)
 {
-	char buff[128]={0};
-	FILE *fp=NULL;
-
 	if(device_sn)
 	{
-		fp=fopen("/etc/default/telegraf", "wb");
+		FILE *fp=fopen("/etc/default/telegraf", "wb");
 		if(fp)
 		{
+			char buff[128]={0};
 			snprintf(buff, sizeof(buff), "device_id=\"%s\"\n", device_sn);
 			fwrite(buff, strlen(buff), 1, fp);
 			fclose(fp);
@@ -1735,11 +1467,6 @@ struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result
 
 	for(i=0; i<result_num; i++)
 	{
-		if((unsigned char)result[i].action==TSG_ACTION_SHAPING)
-		{
-			continue;
-		}
-			
 		if(p_result==NULL)
 		{
 			p_result=&result[i];
@@ -1766,7 +1493,7 @@ struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result
 
 static int identify_application_protocol(const struct streaminfo *a_stream, struct master_context *context, void *a_packet)
 {
-	int ret=0, length=0;
+	int ret=0;
 
 	switch(a_stream->type)
 	{
@@ -1779,7 +1506,7 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 				{
 					context->proto=PROTO_HTTP;
 					
-					length=http_get_filed_result(parser_result, HTTP_HOST, &host);
+					int length=http_get_filed_result(parser_result, HTTP_HOST, &host);
 					context->domain=malloc_copy_string(host, length, a_stream->threadnum);
 					length=http_get_filed_result(parser_result, HTTP_MESSAGE_URL, &url);
 					context->http_url=malloc_copy_string(url, length, a_stream->threadnum);
@@ -1935,11 +1662,11 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 
 			if (g_tsg_para.proto_flag&(1<<PROTO_DTLS)) //DTLS
 			{
-				char sni_buff[512] = {0};
-				int sni_len = 512;
 				bool is_dtls = dtls_identifyStream((streaminfo *)a_stream);
 				if (is_dtls)
 				{
+					char sni_buff[512]={0};
+					int sni_len=sizeof(sni_buff);
 					context->proto = PROTO_DTLS;
 					ret = dtls_parse_sni((const char *)a_stream->pudpdetail->pdata, a_stream->pudpdetail->datalen, sni_buff, sni_len);
 					if (ret == 0 && strlen(sni_buff) > 0)
@@ -1949,7 +1676,6 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 					}
 				}
 			}
-						
 			break;
 		default:
 			break;
@@ -1975,7 +1701,7 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 
 	for(i=0; i< identify_result->app_num; i++)
 	{
-		snprintf(app_id_buff, sizeof(app_id_buff), "%d", identify_result->attributes[i].app_id);
+		snprintf(app_id_buff, sizeof(app_id_buff), "%u", identify_result->attributes[i].app_id);
 		dict=(struct app_id_dict *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
 		if(dict!=NULL)
 		{
@@ -2033,11 +1759,9 @@ int scan_application_id_and_properties(const struct streaminfo *a_stream, struct
 	return hit_num;
 }
 
-static int master_deal_shaping_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int hit_num)
+static int master_deal_shaping_result(const struct streaminfo *a_stream, struct Maat_rule_t *shaping_result, int shaping_result_num)
 {
 	//get shaping rule
-	struct Maat_rule_t shaping_result[hit_num];
-	int shaping_result_num=get_shaping_result(result, hit_num, shaping_result, hit_num);
 	set_shaping_result_to_project(a_stream, shaping_result, shaping_result_num, a_stream->threadnum);
 
 	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SHAPING], 0, FS_OP_ADD, 1);
@@ -2048,10 +1772,13 @@ static int master_deal_shaping_result(const struct streaminfo *a_stream, struct 
 
 static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int hit_num, const void *a_packet)
 {
-	Maat_rule_t *p_result=NULL;
+	struct Maat_rule_t *p_result=NULL;
 	unsigned char state=APP_STATE_GIVEME;
+	struct Maat_rule_t shaping_result[MAX_RESULT_NUM]={0};
+	struct Maat_rule_t security_result[MAX_RESULT_NUM]={0};
 
-	p_result=tsg_policy_decision_criteria(result, hit_num);
+	int security_result_num=tsg_fetch_hited_security_result(result, hit_num, security_result, MAX_RESULT_NUM);
+	p_result=tsg_policy_decision_criteria(security_result, hit_num);
 	if(p_result!=NULL)
 	{
 		print_hit_path(a_stream, context);
@@ -2075,8 +1802,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				
 				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT || (state&APP_STATE_KILL_OTHER))
 				{
-					copy_deny_result(a_stream, context, p_result, a_stream->threadnum);
-					set_security_result_to_project(a_stream, context, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
+					set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
 												"DENY",
@@ -2086,19 +1812,20 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 												(unsigned char)p_result->action,
 												PRINTADDR(a_stream, g_tsg_para.level)
 											);
-				}
+				}				
+				set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
 				break;
 			case	TSG_ACTION_MONITOR:
 				if(context->proto==PROTO_RTP)
 				{
 					break;
 				}
-				copy_monitor_result(a_stream, context, result, hit_num, a_stream->threadnum);
 				tsg_notify_hited_monitor_result(a_stream, result, hit_num, a_stream->threadnum);
+				set_security_result_to_project(a_stream, security_result, security_result_num, PULL_FW_RESULT, a_stream->threadnum);
 				break;
 			case	TSG_ACTION_BYPASS:
-				copy_bypass_result(a_stream, context, p_result, a_stream->threadnum);				
-				set_security_result_to_project(a_stream, context, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
+				context->is_hited_allow=1;
+				set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 				state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 
@@ -2111,7 +1838,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 					break;
 				}
 				
-				set_security_result_to_project(a_stream, context, p_result, 1, PULL_KNI_RESULT, a_stream->threadnum);
+				set_security_result_to_project(a_stream, p_result, 1, PULL_KNI_RESULT, a_stream->threadnum);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
 				state=APP_STATE_DROPME|APP_STATE_KILL_OTHER;
 
@@ -2120,23 +1847,24 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 			default:
 				break;
 		}
+
+		set_log_field_to_project(a_stream, context->domain, context->para, context->proto, a_stream->threadnum);
 	}
 
-	if(state==APP_STATE_GIVEME)
-	{	
-		master_deal_shaping_result(a_stream, result, hit_num);
+	int shaping_result_num=tsg_fetch_hited_shaping_result(result, hit_num, shaping_result, MAX_RESULT_NUM);
+	if(state==APP_STATE_GIVEME && shaping_result_num>0)
+	{
+		master_deal_shaping_result(a_stream, shaping_result, shaping_result_num);
 	}
 
 	return state;
 }
 
-static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
+int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
-	int hit_num=0,app_id=-1;
-	int is_parent_ssl=0;
 	struct master_context *context=NULL;
 	struct gather_app_result *gather_result=NULL;
-	struct Maat_rule_t scan_result[MAX_RESULT_NUM]={0}, *p_result=NULL;
+	struct Maat_rule_t scan_result[MAX_RESULT_NUM]={0};
 	struct app_identify_result *identify_result=(struct app_identify_result *)data;
 
 	if(data==NULL)
@@ -2144,19 +1872,19 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 		return 0;
 	}
 
-	context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
+	context=(struct master_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_DATA_CONTEXT].id);
 	if(context==NULL)
 	{
 		init_context((void **)(&context), a_stream->threadnum);
-		set_struct_project(a_stream, g_tsg_para.context_project_id, (void *)context);
+		tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_DATA_CONTEXT].id, (void *)context);
 	}
 
-	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
+	gather_result=(struct gather_app_result *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id);
 	if(gather_result==NULL)
 	{
 		gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result)*ORIGIN_MAX);
 		memset(gather_result, 0, sizeof(struct gather_app_result)*ORIGIN_MAX);
-		set_struct_project(a_stream, g_tsg_para.gather_app_project_id, (void *)gather_result);
+		tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id, (void *)gather_result);
 	}
 	
 	switch(identify_result->origin)
@@ -2180,17 +1908,6 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 			{
 				set_l7_protocol_to_pme(context, identify_result->app_id[identify_result->app_id_num-1]);
 			}
-			
-			app_id=identify_result->app_id[identify_result->app_id_num-1];
-			if(app_id==(int)tsg_l7_protocol_name2id("SMTPS")	|| 
-			app_id==(int)tsg_l7_protocol_name2id("IMAPS")	||
-			app_id==(int)tsg_l7_protocol_name2id("POP3S")	||
-			app_id==(int)tsg_l7_protocol_name2id("FTPS")	||
-			app_id==(int)tsg_l7_protocol_name2id("HTTPS")
-			)
-			{
-				is_parent_ssl=1;
-			}
 			break;
 		case	ORIGIN_UNKNOWN:
 			context->is_app_link=FLAG_TRUE;
@@ -2208,18 +1925,13 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 	}
 	
 	context->last_scan_time=get_current_time_ms();
-	hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, context, &(gather_result[identify_result->origin]), a_stream->threadnum);
-	p_result=tsg_policy_decision_criteria(scan_result, hit_num);
-	if(p_result==NULL || (p_result->action==TSG_ACTION_MONITOR && is_parent_ssl==1) || is_alone_business(context->proto, context->hited_para.hited_app_id))
-	{
-		return 0;
-	}
+	int hit_num=scan_application_id_and_properties((struct streaminfo *)a_stream, scan_result, MAX_RESULT_NUM, context, &(gather_result[identify_result->origin]), a_stream->threadnum);
 
 	context->sync_cb_state=master_deal_scan_result(a_stream, context, scan_result, hit_num, NULL);
 	return 0;
 }
 
-static int session_flags_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
+int session_flags_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
 	if(data==NULL)
 	{
@@ -2229,11 +1941,11 @@ static int session_flags_identify_result_cb(const struct streaminfo *a_stream, i
 	struct master_context *context=NULL;	
 	struct Maat_rule_t scan_result[MAX_RESULT_NUM]={0};
 
-	context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
+	context=(struct master_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_DATA_CONTEXT].id);
 	if(context==NULL)
 	{
 		init_context((void **)(&context), a_stream->threadnum);
-		set_struct_project(a_stream, g_tsg_para.context_project_id, (void *)context);
+		tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_DATA_CONTEXT].id, (void *)context);
 	}
 
 	context->session_flag=*(unsigned long *)(data);
@@ -2249,12 +1961,9 @@ static int session_flags_identify_result_cb(const struct streaminfo *a_stream, i
 
 static int deal_pending_state(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *result, int result_num, void *a_packet)
 {
-	int i=0,table_id=0;
-	int ret=0,hit_num=0;
-	unsigned int protocol_id=0;
-	struct gather_app_result *gather_result=NULL;
+	int hit_num=0;
 	
-	ret=identify_application_protocol(a_stream, context, a_packet);
+	int ret=identify_application_protocol(a_stream, context, a_packet);
 	if(ret==1)
 	{
 		set_l7_protocol_label(a_stream, context->proto);
@@ -2265,12 +1974,12 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 			set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_JA3_HASH, NULL, 0, a_stream->threadnum);
 		}
 		
-		table_id=get_table_id(context->proto);	
+		int table_id=get_table_id(context->proto);	
 		hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_stream, context->domain, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, table_id, a_stream->threadnum);
 		hit_num+=scan_fqdn_category_id(g_tsg_maat_feather, a_stream, context->domain, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, table_id, a_stream->threadnum);
 		if(context->is_esni)
 		{
-			protocol_id=tsg_l7_protocol_name2id("ESNI");
+			unsigned int protocol_id=tsg_l7_protocol_name2id("ESNI");
 			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, (char *)"ESNI", protocol_id, a_stream->threadnum);
 		}
 
@@ -2287,8 +1996,8 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
 	}
 
-	gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
-	for(i=0; i<ORIGIN_MAX && gather_result!=NULL; i++)
+	struct gather_app_result *gather_result=(struct gather_app_result *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id);
+	for(int i=0; i<ORIGIN_MAX && gather_result!=NULL; i++)
 	{
 		if(i==ORIGIN_HITED_APP || i==ORIGIN_QM_ENGINE_L7)
 		{
@@ -2296,40 +2005,27 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 		}
 		hit_num+=scan_application_id_and_properties(a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result[i]), a_stream->threadnum);
 	}
-			
-	
-	if((is_only_monitor(result, hit_num)) && 
-		context->proto!=PROTO_UNKONWN &&
-		context->proto!=PROTO_APP &&
-		context->proto!=PROTO_SSH &&
-		context->proto!=PROTO_STRATUM &&
-		context->proto!=PROTO_RDP)	// business deal action of monitor 
-	{
-		hit_num=0;
-	}
 
 	return hit_num;
 }
 
-
 static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, void **pme, int thread_seq,void *a_packet)
 {
-	int i=0, ret=0, hit_num=0;	
+	int i=0,ret=0,hit_num=0;
 	unsigned char state=APP_STATE_GIVEME;
-	Maat_rule_t scan_result[MAX_RESULT_NUM];
-	Maat_rule_t *p_result=NULL;
+	Maat_rule_t hited_result[MAX_RESULT_NUM];
 	struct gather_app_result *gather_result=NULL;
 	struct master_context *context=(struct master_context *)*pme;
 	struct app_identify_result unknown_result;
 
 	if(*pme==NULL)
 	{
-		context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
+		context=(struct master_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_DATA_CONTEXT].id);
 		if(context==NULL)
 		{
 			init_context(pme, thread_seq);
 			context=(struct master_context *)*pme;
-			set_struct_project(a_stream, g_tsg_para.context_project_id, *pme);
+			tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_DATA_CONTEXT].id, *pme);
 		}
 		else
 		{
@@ -2350,8 +2046,8 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);
 			}
 			
-			hit_num+=deal_pending_state(a_stream, context, scan_result+hit_num, MAX_RESULT_NUM-hit_num, a_packet);
-			state=master_deal_scan_result(a_stream, context, scan_result, hit_num, a_packet);
+			hit_num+=deal_pending_state(a_stream, context, hited_result+hit_num, MAX_RESULT_NUM-hit_num, a_packet);
+			state=master_deal_scan_result(a_stream, context, hited_result, hit_num, a_packet);
 			context->deal_pkt_num++;
 			break;
 		case	OP_STATE_DATA:
@@ -2362,10 +2058,10 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 				unknown_result.origin=ORIGIN_UNKNOWN;
 				unknown_result.app_id[0]=g_tsg_para.unknown_app_id;
 
-				app_identify_result_cb(a_stream, g_tsg_para.bridge_id[BRIDGE_TYPE_APP_IDENTIFY_RESULT], (void *)&unknown_result);
+				app_identify_result_cb(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_APP_IDENTIFY_RESULT].id, (void *)&unknown_result);
 			}
 		
-			if(is_hited_allow(context->result, context->hit_cnt))
+			if(context->is_hited_allow)
 			{
 				state=APP_STATE_KILL_OTHER|APP_STATE_GIVEME;
 				break;
@@ -2390,27 +2086,27 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			}
 			
 			context->last_scan_time=get_current_time_ms();
-			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, scan_result+hit_num, MAX_RESULT_NUM-hit_num);
+			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, hited_result+hit_num, MAX_RESULT_NUM-hit_num);
 			if(ret>0)
 			{
 				hit_num+=ret;
 			}
 			
-			gather_result=(struct gather_app_result *)get_struct_project(a_stream, g_tsg_para.gather_app_project_id);
+			gather_result=(struct gather_app_result *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id);
 			for(i=0; i<ORIGIN_MAX && gather_result!=NULL; i++)
 			{
 				if(i==ORIGIN_HITED_APP || i==ORIGIN_QM_ENGINE_L7)
 				{
 					continue;
 				}
-				hit_num+=scan_application_id_and_properties(a_stream, scan_result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result[i]), thread_seq);
+				hit_num+=scan_application_id_and_properties(a_stream, hited_result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result[i]), thread_seq);
 			}
 
 			if(context->session_flag>0)
 			{
 				hit_num+=tsg_scan_session_flags(g_tsg_maat_feather, 
 													a_stream,
-													scan_result+hit_num,
+													hited_result+hit_num,
 													MAX_RESULT_NUM-hit_num,
 													&context->mid,
 													g_tsg_para.table_id[TABLE_SESSION_FLAGS],
@@ -2419,11 +2115,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 												);
 			}
 			
-			p_result=tsg_policy_decision_criteria(scan_result, hit_num);
-			if(p_result!=NULL && p_result->action!=TSG_ACTION_MONITOR)
-			{
-				state=master_deal_scan_result(a_stream, context, scan_result, hit_num, a_packet);
-			}
+			state=master_deal_scan_result(a_stream, context, hited_result, hit_num, a_packet);
 			break;
 		default:
 			break;
@@ -2431,11 +2123,6 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		
 	if((a_stream->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
-		if(context!=NULL && context->is_log==0 && context->hit_cnt>0 && context->result!=NULL)
-		{	
-			context->is_log = 1;
-			master_send_log(a_stream, context->result, context->hit_cnt, context, thread_seq);
-		}
 		*pme = NULL;
 	}
 
@@ -2444,13 +2131,15 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 
 static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, unsigned char stream_state, void **pme, int thread_seq, const void *a_packet)
 {
-	int ret=0,hit_num=0;
+	int ret=0;
 	int eth_rawpkt_len=0;
 	scan_status_t scan_mid=NULL;
-	struct Maat_rule_t *p_result=NULL;	
-	unsigned char state=APP_STATE_GIVEME;	
-	struct identify_info tmp_identify_info; 
+	struct Maat_rule_t *p_result=NULL;
+	unsigned char state=APP_STATE_GIVEME;
+	struct identify_info tmp_identify_info;
+	struct Maat_rule_t hited_result[MAX_TSG_ALL_RESULT_NUM]={0};
 	struct Maat_rule_t security_result[MAX_RESULT_NUM]={0};	
+	struct Maat_rule_t shaping_result[MAX_RESULT_NUM]={0};
 	struct tcpall_context *all_context=(struct tcpall_context *)(*pme);
 		
 	if(stream_state==OP_STATE_PENDING && all_context->method_type!=TSG_METHOD_TYPE_ALLOW && !(all_context->udp_data_dropme))
@@ -2461,29 +2150,32 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			all_context->default_policy_after_n_packets=get_default_para(a_stream, g_tsg_para.default_compile_id);
 		}
 		
-		hit_num=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, PROTO_UNKONWN, &scan_mid, security_result, MAX_RESULT_NUM);
+		int hit_num=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, PROTO_UNKONWN, &scan_mid, hited_result, MAX_TSG_ALL_RESULT_NUM);
 		if(hit_num>0)
 		{
-			p_result=tsg_policy_decision_criteria(security_result, hit_num);
+			int security_result_num=tsg_fetch_hited_security_result(hited_result, hit_num, security_result, MAX_RESULT_NUM);
+			p_result=tsg_policy_decision_criteria(security_result, security_result_num);
 			if(p_result!=NULL)
 			{
 				switch(p_result->action)
 				{
 					case	TSG_ACTION_DENY:
 						state=tsg_deal_deny_action(a_stream, p_result, PROTO_UNKONWN, ACTION_RETURN_TYPE_TCPALL, a_packet);
-						master_send_log(a_stream, p_result, 1, NULL, thread_seq);
+						set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT,thread_seq);
 						break;
 					case	TSG_ACTION_MONITOR:
 						tsg_notify_hited_monitor_result(a_stream, security_result, hit_num, thread_seq);
+						set_security_result_to_project(a_stream, security_result, security_result_num, PULL_FW_RESULT,thread_seq);
 						break;
 					default:
 						break;
 				}
 			}
 
-			if(state==APP_STATE_GIVEME)
+			int shaping_result_num=tsg_fetch_hited_security_result(hited_result, hit_num, shaping_result, MAX_RESULT_NUM);
+			if(state==APP_STATE_GIVEME && shaping_result_num>0)
 			{
-				master_deal_shaping_result(a_stream, security_result, hit_num);
+				master_deal_shaping_result(a_stream, shaping_result, shaping_result_num);
 			}
 		}
 		
@@ -2521,7 +2213,6 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			if(get_default_policy(g_tsg_para.default_compile_id, &security_result[0]))
 			{
 				state=tsg_deal_deny_action(a_stream, &security_result[0], PROTO_UNKONWN, ACTION_RETURN_TYPE_TCPALL, a_packet);				
-				master_send_log(a_stream, &security_result[0], 1, NULL, thread_seq);
 			}
 			break;
 		case	TSG_METHOD_TYPE_DROP:
@@ -2584,7 +2275,7 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 		
 		context->all_entry=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
 		memset(context->all_entry, 0, sizeof(struct tcpall_context));
-		set_struct_project(a_udp, g_tsg_para.tcpall_project_id, (void *)(context->all_entry));
+		tsg_set_xxx_to_bridge(a_udp, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id, (void *)(context->all_entry));
 
 		context->all_entry->direction=get_direction(a_udp);
 	}
@@ -2620,12 +2311,12 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 
 	if(*pme==NULL)
 	{		
-		*pme=(void *)get_struct_project(a_tcp, g_tsg_para.tcpall_project_id);
+		*pme=(void *)tsg_get_xxx_from_bridge(a_tcp, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id);
 		if(*pme==NULL)
 		{
 			*pme=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
 			memset(*pme, 0, sizeof(struct tcpall_context));	
-			set_struct_project(a_tcp, g_tsg_para.tcpall_project_id, (void *)(*pme));
+			tsg_set_xxx_to_bridge(a_tcp, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id, (void *)(*pme));
 		}
 
 		_context=(struct tcpall_context *)(*pme);
@@ -2642,22 +2333,15 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 
 extern "C" int TSG_MASTER_INIT()
 {
-	int i=0,ret=0;
-	char buff[128]={0};
-	int value=0,cycle=0;
-	int output_prometheus=0;
-	unsigned short fs_server_port=0;
-	char app_name[MAX_STRING_LEN]={0};
-	char label_buff[MAX_STRING_LEN*4]={0};
-	char fs_server_ip[MAX_IPV4_LEN]={0};
-	char fs_output_path[MAX_STRING_LEN*4]={0};
-	char device_sn_filename[MAX_STRING_LEN]={0};
-	char identify_proto_name[MAX_STRING_LEN*4]={0};
+	int ret=0;
+	char label_buff[128]={0};
+	char device_sn_filename[128]={0};
+	char identify_proto_name[256]={0};
 	
 	memset(&g_tsg_para, 0, sizeof(g_tsg_para));
 	
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","LOG_LEVEL", &g_tsg_para.level, RLOG_LV_FATAL);
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM","LOG_PATH", g_tsg_para.log_path, sizeof(g_tsg_para.log_path), "tsglog/tsg_master");
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM","LOG_PATH", g_tsg_para.log_path, sizeof(g_tsg_para.log_path), "log/tsg_master");
 
 	g_tsg_para.logger=MESA_create_runtime_log_handle(g_tsg_para.log_path, g_tsg_para.level);
 	if(g_tsg_para.logger==NULL)
@@ -2673,7 +2357,7 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_int_def(tsg_conffile, "RESET", "SEED1", &g_tsg_para.reset.seed1, 65535);
 	MESA_load_profile_int_def(tsg_conffile, "RESET", "SEED2", &g_tsg_para.reset.seed2, 13);
 	MESA_load_profile_int_def(tsg_conffile, "RESET", "FLAGS", &g_tsg_para.reset.th_flags, 0x14);
-	MESA_load_profile_int_def(tsg_conffile, "RESET", "DIR", &g_tsg_para.reset.dir, DIR_DOUBLE);	
+	MESA_load_profile_int_def(tsg_conffile, "RESET", "DIR", &g_tsg_para.reset.dir, DIR_DOUBLE);
 	MESA_load_profile_int_def(tsg_conffile, "RESET", "REMEDY", &g_tsg_para.reset.remedy, 1);
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM","DEFAULT_POLICY_ID", &g_tsg_para.default_compile_id, 0);
@@ -2716,14 +2400,6 @@ extern "C" int TSG_MASTER_INIT()
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "SET_DEVICE_SN_TO_TELEGRAF", "Set device SN(%s) failed; please check :%s", g_tsg_para.device_sn, "/etc/default/telegraf");
 	}
-	
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "POLICY_PRIORITY_LABEL", label_buff, sizeof(label_buff), "POLICY_PRIORITY");
-	g_tsg_para.priority_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_policy_label);
-	if(g_tsg_para.priority_project_id<0)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
-		return -1;
-	}
 
 	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "TSG_MASTER_INTERNAL_LABEL", label_buff, sizeof(label_buff), "TSG_MASTER_INTERNAL_LABEL");
 	g_tsg_para.session_attribute_project_id=project_producer_register(label_buff, PROJECT_VAL_TYPE_STRUCT, free_session_attribute_label);
@@ -2732,129 +2408,14 @@ extern "C" int TSG_MASTER_INIT()
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROJECT_REGISTER", "Register %s failed.", label_buff);
 	}
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "APP_IDENTIFY_RESULT_BRIDGE", g_tsg_para.bridge_name[BRIDGE_TYPE_APP_IDENTIFY_RESULT],_MAX_TABLE_NAME_LEN, "APP_IDENTIFY_RESULT_BRIDGE");
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "SKETCH_NOTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA],_MAX_TABLE_NAME_LEN, "TSG_CONN_SKETCH_NOTIFY_DATA");
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "MASTER_NOTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_SEND_CONN_SKETCH_DATA],_MAX_TABLE_NAME_LEN, "TSG_MASTER_NOTIFY_DATA");
-	MESA_load_profile_string_def(tsg_conffile, "SESSION_FLAGS", "FLAGS_NOTIFY_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_NOTIFY_FLAGS],_MAX_TABLE_NAME_LEN, "SESSION_FLAGS_SYNC_NOTIFY_DATA");
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "SHAPING_RESULT_BRIDGE_NAME", g_tsg_para.bridge_name[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT],_MAX_TABLE_NAME_LEN, "NOTIFY_SHAPING_RESULT");
-
-	for(i=0; i<BRIDGE_TYPE_MAX; i++)
-	{
-		g_tsg_para.bridge_id[i]=stream_bridge_build(g_tsg_para.bridge_name[i], "w");
-		if(g_tsg_para.bridge_id[i]<0)
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_BRIDGE", "stream_bridge_build is error, bridge_name: %s", g_tsg_para.bridge_name[i]);	
-		}
-	}
-
-	ret=stream_bridge_register_data_sync_cb(g_tsg_para.bridge_id[BRIDGE_TYPE_APP_IDENTIFY_RESULT], app_identify_result_cb);
+	ret=tsg_init_bridge(tsg_conffile);
 	if(ret<0)
-	{		
-		MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_FATAL,
-									"APP_BRIDGE",
-									"Register callback failed, bridge_name: %d",
-									g_tsg_para.bridge_name[BRIDGE_TYPE_APP_IDENTIFY_RESULT]
-								);	
-		return -1;
-	}
-
-	ret=stream_bridge_register_data_sync_cb(g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_FLAGS], session_flags_identify_result_cb);
-	if(ret<0)
-	{		
-		MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_FATAL,
-									"APP_BRIDGE",
-									"Register callback failed, bridge_name: %d",
-									g_tsg_para.bridge_name[BRIDGE_TYPE_NOTIFY_FLAGS]
-								);	
-		return -1;
-	}
-
-	ret=stream_bridge_register_data_free_cb(g_tsg_para.bridge_id[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT], free_shaping_result);
-	if(ret<0)
-	{		
-		MESA_handle_runtime_log(g_tsg_para.logger,
-									RLOG_LV_FATAL,
-									"APP_BRIDGE",
-									"Register async free callback failed, bridge_name: %d",
-									g_tsg_para.bridge_name[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT]
-								);	
-		return -1;
-	}
-
-	g_tsg_para.context_project_id=project_producer_register("TSG_MASTER_CONTEXT", PROJECT_VAL_TYPE_STRUCT, free_context_label);
-	if(g_tsg_para.context_project_id<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "CONTEXT_LABEL", "project_producer_register is error, context label: %s","TSG_MASTER_CONTEXT");
 		return -1;
 	}
 
-	g_tsg_para.tcpall_project_id=project_producer_register("TSG_TCPALL_CONTEXT", PROJECT_VAL_TYPE_STRUCT, free_tcpall_label);
-	if(g_tsg_para.tcpall_project_id<0)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "CONTEXT_LABEL", "project_producer_register is error, context label: %s","TSG_TCPALL_CONTEXT");
-		return -1;
-	}
-
-	g_tsg_para.gather_app_project_id=project_producer_register("APP_IDENTIFY_RESULT", PROJECT_VAL_TYPE_STRUCT, free_gather_app_result);
-	if(g_tsg_para.gather_app_project_id<0)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_IDENTIFY_RESULT", "project_producer_register is error, context label: %s","APP_IDENTIFY_RESULT");
-		return -1;
-	}
-
-	char page_path[256];
-	memset(page_path, 0, sizeof(page_path));
-	MESA_load_profile_string_def(tsg_conffile, "HTTP_PLUG", "PAGE403", page_path, sizeof(page_path), "./tsgconf/HTTP403.html");
-	g_tsg_para.tpl_403 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
-	
-	memset(page_path, 0, sizeof(page_path));
-	MESA_load_profile_string_def(tsg_conffile, "HTTP_PLUG", "PAGE404", page_path, sizeof(page_path), "./tsgconf/HTTP404.html");
-	g_tsg_para.tpl_404 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
-
-	memset(page_path, 0, sizeof(page_path));
-	MESA_load_profile_string_def(tsg_conffile, "HTTP_PLUG", "PAGE200", page_path, sizeof(page_path), "./tsgconf/HTTP200.html");
-	g_tsg_para.tpl_200 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
-
-	memset(page_path, 0, sizeof(page_path));
-	MESA_load_profile_string_def(tsg_conffile, "HTTP_PLUG", "PAGE204", page_path, sizeof(page_path), "./tsgconf/HTTP204.html");
-	g_tsg_para.tpl_204 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
-
-	MESA_load_profile_int_def(tsg_conffile, "FIELD_STAT", "CYCLE", &cycle, 30);
-	MESA_load_profile_short_nodef(tsg_conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));
-	MESA_load_profile_string_nodef(tsg_conffile,"FIELD_STAT","TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
-	MESA_load_profile_string_def(tsg_conffile,"FIELD_STAT","OUTPUT_PATH",fs_output_path, sizeof(fs_output_path), "tsg_stat.log");
-	MESA_load_profile_string_def(tsg_conffile,"FIELD_STAT","APP_NAME", app_name, sizeof(app_name), "tsg_master");
-	MESA_load_profile_int_def(tsg_conffile, "FIELD_STAT", "PROMETHEUS", &output_prometheus, 1);
-
-	g_tsg_para.fs2_handle=FS_create_handle();
-
-	value=1;//Rewrite
-	FS_set_para(g_tsg_para.fs2_handle, PRINT_MODE, &value, sizeof(value));
-	value=1;//Do not create stat thread
-	FS_set_para(g_tsg_para.fs2_handle, CREATE_THREAD, &value, sizeof(value));
-	
-    FS_set_para(g_tsg_para.fs2_handle, STAT_CYCLE, &cycle, sizeof(cycle));
-    FS_set_para(g_tsg_para.fs2_handle, APP_NAME, app_name, strlen(app_name)+1);
-	FS_set_para(g_tsg_para.fs2_handle, OUTPUT_DEVICE, fs_output_path, strlen(fs_output_path)+1);
-
-	value=1;
-	FS_set_para(g_tsg_para.fs2_handle, OUTPUT_PROMETHEUS, &output_prometheus, sizeof(output_prometheus));
-
-    if(fs_server_port > 0 && strlen(fs_server_ip) > 0)
-    {
-        FS_set_para(g_tsg_para.fs2_handle, STATS_SERVER_IP,fs_server_ip, strlen(fs_server_ip)+1);
-        FS_set_para(g_tsg_para.fs2_handle, STATS_SERVER_PORT,&(fs_server_port), sizeof(fs_server_port));
-    }
-
-	value=FS_OUTPUT_INFLUX_LINE;
-	FS_set_para(g_tsg_para.fs2_handle, STATS_FORMAT, &value, sizeof(value));
-
-	for(i=0; i<TSG_FS2_MAX; i++)
-	{
-		g_tsg_para.fs2_field_id[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, g_tsg_fs2_field[i].name);
-	}
+	init_page_template(tsg_conffile);
+	init_fs2_handle(tsg_conffile);
 
 	ret=tsg_rule_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
@@ -2870,9 +2431,9 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 	g_tsg_log_instance->session_attribute_project_id=g_tsg_para.session_attribute_project_id;
-
-	FS_start(g_tsg_para.fs2_handle);
 	
+	FS_start(g_tsg_para.fs2_handle);
+
 	ret=tsg_statistic_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
 	{
@@ -2880,8 +2441,7 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 
-	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "L7_PROTOCOL_FILE", buff, sizeof(buff), "./tsgconf/tsg_l7_protocol.conf");
-	l7_protocol_mapper(buff);
+	l7_protocol_mapper(tsg_conffile);
 
 	ret=tsg_gtp_signaling_hash_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)

@@ -9,12 +9,13 @@
 
 #include <MESA/Maat_rule.h>
 #include <MESA/field_stat2.h>
-#include <ctemplate/template.h>
 
 #include "uthash.h"
 #include "tsg_rule.h"
 #include "app_label.h"
 #include "tsg_label.h"
+#include "tsg_bridge.h"
+#include "tsg_variable.h"
 #include "tsg_statistic.h"
 #include "tsg_leaky_bucket.h"
 #include "tsg_protocol_common.h"
@@ -33,14 +34,6 @@ typedef int atomic_t;
 #include <alsa/iatomic.h>
 #endif 
 
-#ifndef MIN
-#define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
-#endif
-
-#ifndef	PRINTADDR
-#define	PRINTADDR(a, b)	((b)<RLOG_LV_FATAL ? printaddr(&(a->addr), a->threadnum) : "")
-#endif
-
 #ifndef	FLAG_FALSE
 #define	FLAG_FALSE	0
 #endif
@@ -51,112 +44,6 @@ typedef int atomic_t;
 
 #define	APP_SCAN_FLAG_STOP	0
 #define	APP_SCAN_FLAG_CONTINUE	1
-
-enum DEPLOY_MODE
-{
-	DEPLOY_MODE_MIRROR,
-	DEPLOY_MODE_INLINE,
-	DEPLOY_MODE_TRANSPARENT,
-	DEPLOY_MODE_MAX
-};
-
-enum MASTER_STATIC_TABLE{
-	TABLE_SECURITY_COMPILE=0,
-	TABLE_IP_ADDR,
-	TABLE_SUBSCRIBER_ID,
-	TABLE_APP_ID,
-	TABLE_HTTP_HOST,
-	TABLE_SSL_SNI,
-	TABLE_EXCLUSION_SSL_SNI,
-	TABLE_SRC_ASN,
-	TABLE_DST_ASN,
-	TABLE_SRC_LOCATION,
-	TABLE_DST_LOCATION,
-	TABLE_ASN_USER_DEFINED,
-	TABLE_ASN_BUILT_IN,
-	TABLE_LOCATION_USER_DEFINED,
-	TABLE_LOCATION_BUILT_IN,
-	TABLE_QUIC_SNI,
-	TABLE_FQDN_CAT_ID,
-	TABLE_FQDN_CAT_USER_DEFINED,
-	TABLE_FQDN_CAT_BUILT_IN,
-	TABLE_APP_ID_DICT,
-	TABLE_SELECTOR_ID,
-	TABLE_SELECTOR_PROPERTIES,
-	TABLE_GTP_APN,
-	TABLE_GTP_IMSI,
-	TABLE_GTP_PHONE_NUMBER,
-	TABLE_RESPONSE_PAGES,
-	TABLE_DNS_PROFILE_RECORD,
-	TABLE_PROFILE_MIRROR,
-	TABLE_HTTP_URL,
-	TABLE_DTLS_SNI,
-	TABLE_TUNNEL_ID,
-	TABLE_TUNNEL_CATALOG,
-	TABLE_TUNNEL_ENDPOINT,
-	TABLE_TUNNEL_LABEL,
-	TABLE_SESSION_FLAGS,
-	TABLE_MAX
-};
-
-enum MASTER_DYNAMIC_TABLE{
-	DYN_TABLE_SUBSCRIBER_IP=0,		
-	DYN_TABLE_GTP_SIGNALING,
-	DYN_TABLE_MAX
-};
-
-enum TSG_FS2_TYPE{
-	TSG_FS2_TCP_LINKS=0,
-	TSG_FS2_UDP_LINKS,
-	TSG_FS2_BYPASS,
-	TSG_FS2_HIT_ADDR,
-	TSG_FS2_HIT_SHARE,
-	TSG_FS2_INTERCEPT,
-	TSG_FS2_SHAPING,
-	TSG_FS2_EXCLUSION,
-	TSG_FS2_APP_DPKT_RESULT,
-	TSG_FS2_APP_Q_RESULT,
-	TSG_FS2_APP_USER_RESULT,
-	TSG_FS2_APP_BUILT_IN_RESULT,
-	TSG_FS2_INJECT_PKT_SUCCESS,
-	TSG_FS2_INJECT_PKT_FAILED,
-	TSG_FS2_MIRRORED_PKT_SUCCESS,	
-	TSG_FS2_MIRRORED_BYTE_SUCCESS,
-	TSG_FS2_MIRRORED_PKT_FAILED,
-	TSG_FS2_MIRRORED_BYTE_FAILED,
-	TSG_FS2_SET_TIMOUT_SUCCESS,
-	TSG_FS2_SET_TIMOUT_FAILED,
-    TSG_FS2_SUCESS_TAMPER,
-    TSG_FS2_TAMPER_FAILED_PLOAD_LESS_4,
-    TSG_FS2_TAMPER_FAILED_NOSWAP,
-	TSG_FS2_ASN_ADD,
-	TSG_FS2_ASN_DEL,
-	TSG_FS2_GTPC_ADD,
-	TSG_FS2_GTPC_DEL,
-	TSG_FS2_LOCATION_ADD,
-	TSG_FS2_LOCATION_DEL,
-	TSG_FS2_FQDN_ADD,
-	TSG_FS2_FQDN_DEL,
-	TSG_FS2_SUBSCRIBER_ADD,
-	TSG_FS2_SUBSCRIBER_DEL,
-	TSG_FS2_SECURIRY_ADD,
-	TSG_FS2_SECURIRY_DEL,
-	TSG_FS2_MIRRORED_ADD,
-	TSG_FS2_MIRRORED_DEL,
-	TSG_FS2_HTTP_RES_ADD,
-	TSG_FS2_HTTP_RES_DEL,
-	TSG_FS2_DNS_RES_ADD,
-	TSG_FS2_DNS_RES_DEL,
-	TSG_FS2_APP_ID_ADD,
-	TSG_FS2_APP_ID_DEL,
-	TSG_FS2_TUNNEL_CATALOG_ADD,
-	TSG_FS2_TUNNEL_CATALOG_DEL,
-	TSG_FS2_TUNNEL_ENDPOINT_ADD,
-	TSG_FS2_TUNNEL_ENDPOINT_DEL,
-	TSG_FS2_TUNNEL_LABEL_ADD,
-	TSG_FS2_TUNNEL_LABEL_DEL,
-	TSG_FS2_MAX
-};
 
 enum TSG_ATTRIBUTE_TYPE
 {
@@ -179,59 +66,12 @@ enum HTTP_RESPONSE_FORMAT
 	HTTP_RESPONSE_FORMAT_HTML
 };
 
-enum BRIDGE_TYPE
-{
-	BRIDGE_TYPE_SEND_CONN_SKETCH_DATA=0,
-	BRIDGE_TYPE_RECV_CONN_SKETCH_DATA,
-	BRIDGE_TYPE_APP_IDENTIFY_RESULT,
-	BRIDGE_TYPE_NOTIFY_FLAGS,
-	BRIDGE_TYPE_NOTIFY_SHAPING_RESULT,
-	BRIDGE_TYPE_MAX
-};
-
-struct _str2index
-{
-	int index;
-	int len;
-	char *type;
-};
-
-struct app_attributes
-{
-	unsigned int app_id;
-	unsigned int surrogate_id;
-	unsigned int packet_sequence;
-};
-
-struct gather_app_result
-{
-	int app_num;
-	enum APP_IDENTIFY_ORIGIN origin;
-	struct app_attributes attributes[MAX_APP_ID_NUM];
-};
-
 struct l7_protocol 
 {
     int id;                    /* first key */
     char name[32];         		/* second key */
     UT_hash_handle hh1;        /* handle for first hash table */
     UT_hash_handle hh2;        /* handle for second hash table */
-};
-
-struct policy_priority_label
-{
-	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
-	int domain_len;
-	int result_type;	//enum _PULL_RESULT_TYPE (tsg_rule.h)
-	int security_result_num;
-	union
-	{
-		char *http_url;
-		char *quic_ua;
-		void *para;
-	};
-	char domain[MAX_DOMAIN_LEN];
-	Maat_rule_t security_result[MAX_RESULT_NUM];
 };
 
 struct fqdn_category
@@ -268,130 +108,6 @@ struct app_id_dict
 	char *characteristics;
 	struct deny_user_region deny_app_para;
 };
-
-struct hited_app_para
-{
-	int hited_app_id;
-	int after_n_packets;
-};
-
-struct master_context
-{
-	unsigned char is_esni;
-	unsigned char is_log;
-	unsigned char deal_pkt_num;
-	unsigned char is_app_link;
-	unsigned char sync_cb_state;
-	unsigned short timeout;
-	tsg_protocol_t proto;
-	int hit_cnt;
-	int hited_app_id;		// only app
-	unsigned int quic_version;
-	unsigned long session_flag;
-	char *domain;
-	union
-	{
-		char *http_url;
-		char *quic_ua;
-		void *para;
-	};
-	scan_status_t mid;	
-	struct Maat_rule_t *result;
-	struct hited_app_para hited_para;  // l7 protocol and app
-	long long last_scan_time;
-};
-
-struct tcpall_context
-{
-	char udp_data_dropme;
-	char set_latency_flag;
-	char direction;
-	char padding[5];
-	enum TSG_METHOD_TYPE method_type; 
-	tsg_protocol_t protocol;
-	union
-	{
-		struct leaky_bucket *bucket;
-		long tamper_count;		
-		int default_policy_after_n_packets;		
-		struct hited_app_para hited_para;
-		void *para;
-	};
-};
-
-struct udp_context
-{
-	struct master_context *data_entry;
-	struct tcpall_context *all_entry;
-};
-
-struct reset_argv
-{
-	int pkt_num;
-	int seed1;
-	int seed2;
-	int th_flags;
-	int dir;
-	int remedy;
-};
-
-#define	_MAX_TABLE_NAME_LEN	64
-typedef	struct tsg_para
-{
-	int level;
-	short mirror_switch;
-	unsigned short timeout;
-	int dynamic_maat_switch;
-	int location_field_num;
-	int app_dict_field_num;
-	int device_seq_in_dc;
-	int datacenter_id;
-	int scan_signaling_switch;
-	int hash_timeout;
-	int hash_slot_size;
-	int hash_thread_safe;
-	int feature_tamper;
-	enum DEPLOY_MODE deploy_mode;
-	int scan_time_interval;
-	int identify_app_max_pkt_num;
-	int unknown_app_id;
-	int hit_path_switch;
-	int default_compile_id;
-	int table_id[TABLE_MAX];	
-	int dyn_table_id[DYN_TABLE_MAX];
-	int priority_project_id;
-	int shaping_project_id;
-	int session_attribute_project_id;
-	int context_project_id;
-	int tcpall_project_id;
-	int gather_app_project_id;	
-	int bridge_id[BRIDGE_TYPE_MAX];
-	int proto_flag; //tsg_protocol_t
-	int fs2_field_id[TSG_FS2_MAX];
-	char device_sn[MAX_DOMAIN_LEN/8];
-	char log_path[MAX_DOMAIN_LEN/8];
-	char device_id_command[MAX_DOMAIN_LEN/8];
-	char data_center[_MAX_TABLE_NAME_LEN];
-	char device_tag[MAX_DOMAIN_LEN/2];
-	char table_name[TABLE_MAX][_MAX_TABLE_NAME_LEN];	
-	char dyn_table_name[DYN_TABLE_MAX][_MAX_TABLE_NAME_LEN];
-	char bridge_name[BRIDGE_TYPE_MAX][_MAX_TABLE_NAME_LEN];
-	void *logger;
-	void *maat_logger;
-	struct reset_argv reset;
-	struct mirrored_vlan default_vlan;
-	screen_stat_handle_t fs2_handle;
-	struct l7_protocol *name_by_id;
-	struct l7_protocol *id_by_name;
-	struct traffic_mirror *mirror_handle;
-	ctemplate::Template *tpl_403,*tpl_404;
-	ctemplate::Template *tpl_200,*tpl_204;
-	ctemplate::Template *tpl_303;
-}g_tsg_para_t;
-
-extern g_tsg_para_t g_tsg_para;
-extern Maat_feather_t g_tsg_dynamic_maat_feather;
-extern id2field_t g_tsg_proto_name2id[PROTO_MAX];
 
 typedef enum tsg_statis_field_id
 {
@@ -483,9 +199,6 @@ void tsg_statistic_destroy(void);
 
 int tsg_gtp_signaling_hash_init(const char* conffile, void *logger);
 
-int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data);
-const void *get_struct_project(const struct streaminfo *a_stream, int project_id);
-
 long long get_current_time_ms(void);
 
 //parent_app_name.app_name
@@ -521,7 +234,6 @@ int tsg_scan_subscribe_id_policy(Maat_feather_t maat_feather, const struct strea
 int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info);
 struct umts_user_info *tsg_get_umts_user_info_form_redis(unsigned int teid);
 
-void free_policy_label(int thread_seq, void *project_req_value);
 int tsg_set_policy_result(const struct streaminfo *a_stream, PULL_RESULT_TYPE result_type, struct Maat_rule_t *p_result, tsg_protocol_t proto, int thread_seq);
 int tsg_scan_gtp_apn_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *apn, int thread_seq);
 int tsg_scan_gtp_imsi_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *imsi, int thread_seq);
@@ -531,5 +243,9 @@ int tsg_get_ip_asn(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_
 int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id);
 int tsg_send_raw_packet(const struct streaminfo *a_stream, struct mirrored_vlan *vlan, int vlan_num, int thread_seq);
 int tsg_scan_session_flags(Maat_feather_t maat_feather, const struct streaminfo *a_stream, Maat_rule_t *result, int result_num,  scan_status_t *mid, int table_id, unsigned long flag, int thread_seq);
+
+int tsg_fetch_hited_security_result(struct Maat_rule_t *hited_result, int hited_result_num, struct Maat_rule_t *security_result, int security_result_num);
+int tsg_fetch_hited_shaping_result(struct Maat_rule_t *hited_result, int hited_result_num, struct Maat_rule_t *security_result, int security_result_num);
+
 
 #endif

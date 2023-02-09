@@ -35,7 +35,7 @@ static int is_gtp_tunnel(const struct streaminfo *a_stream)
 
 static int get_gtp_teid(const struct streaminfo *a_stream, unsigned int *uplink, unsigned int *downlink)
 {
-	const struct streaminfo *p=a_stream, *q=a_stream->pfather;
+	const struct streaminfo *p=a_stream;
 
 	while(p)
 	{
@@ -47,8 +47,7 @@ static int get_gtp_teid(const struct streaminfo *a_stream, unsigned int *uplink,
 			return 1;
 		}
 
-		p=q;
-		q=q->pfather;
+		p=p->pfather;
 	}
 
 	return 0;

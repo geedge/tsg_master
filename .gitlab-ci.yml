@@ -7,6 +7,7 @@ variables:
   INSTALL_DEPENDENCY_LIBRARY: systemd-devel libbreakpad_mini numactl-devel zlib-devel vim-common libMESA_handle_logger-devel  libcjson-devel libMESA_field_stat2-devel sapp  sapp-devel framework_env  libMESA_prof_load-devel http-devel dns-devel ftp-devel mail-devel ssl-devel  librdkafka-devel libmaatframe-devel quic-devel  mesa_sip-devel gtp-devel libMESA_htable-devel libasan mrzcpd rapidjson-devel libMESA_jump_layer-devel stratum-devel rdp-devel dtls-devel
 
 stages:
+- analysis
 - build
 - test
 - package
@@ -45,6 +46,54 @@ stages:
   tags:
     - share
 
+run_cppcheck_for_centos7:
+  stage: analysis
+  image: $BUILD_IMAGE_CENTOS7
+  script:
+    - mkdir build || true
+    - cd build
+    - cmake3 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+    - cppcheck --project=compile_commands.json 
+       --enable=all
+       --error-exitcode=1 
+       --suppress=unusedFunction 
+       --suppress=missingInclude
+       --suppress=uselessAssignmentPtrArg
+       --suppress=unreachableCode
+       --suppress=internalAstError
+       --suppress=unmatchedSuppression
+       --suppress=memleakOnRealloc
+       --suppress=internalAstError
+       --suppress=unmatchedSuppression
+       --suppress=redundantAssignment
+       --suppress=constParameter
+  tags:
+    - share
+
+run_cppcheck_for_centos8:
+  stage: analysis
+  image: $BUILD_IMAGE_CENTOS8
+  script:
+    - mkdir build || true
+    - cd build
+    - cmake3 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+    - cppcheck --project=compile_commands.json 
+       --enable=all
+       --error-exitcode=1 
+       --suppress=unusedFunction 
+       --suppress=missingInclude
+       --suppress=uselessAssignmentPtrArg
+       --suppress=unreachableCode
+       --suppress=internalAstError
+       --suppress=unmatchedSuppression
+       --suppress=memleakOnRealloc
+       --suppress=internalAstError
+       --suppress=unmatchedSuppression
+       --suppress=redundantAssignment
+       --suppress=constParameter
+  tags:
+    - share
+
 run_test_for_centos7:
   stage: test
   extends: .build_by_travis_for_centos7
@@ -53,9 +102,7 @@ run_test_for_centos7:
     - ./ci/travis.sh
     - cd build
     - make test
-    - cd testing
-    - ./gtest_rule
-    - ./gtest_master
+    - ctest --verbose
 
 run_test_for_centos8:
   stage: test
@@ -65,9 +112,7 @@ run_test_for_centos8:
     - ./ci/travis.sh
     - cd build
     - make test
-    - cd testing
-    - ./gtest_rule
-    - ./gtest_master
+    - ctest --verbose
 
 branch_build_debug_for_centos7:
   stage: build
