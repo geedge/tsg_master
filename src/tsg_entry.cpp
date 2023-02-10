@@ -398,6 +398,21 @@ static int print_hit_path(const struct streaminfo *a_stream, struct master_conte
 	return 1;
 }
 
+static int is_only_monitor(struct Maat_rule_t *result, int hit_cnt)
+{
+	int i=0;
+
+	for(i=0; i<hit_cnt; i++)
+	{
+		if(result[i].action==TSG_ACTION_BYPASS || result[i].action==TSG_ACTION_INTERCEPT || result[i].action==TSG_ACTION_DENY)
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 static int is_dns_protocol(const struct streaminfo *a_stream)
 {
 	struct stream_tuple4_v4 *tpl4 = NULL;
@@ -493,7 +508,7 @@ static int get_raw_packet_len(const struct streaminfo *a_stream)
 
 	if(a_stream->type==STREAM_TYPE_TCP)
 	{
-		if(a_stream->ptcpdetail==NULL || a_stream->ptcpdetail->pdata==NULL || a_stream->ptcpdetail->datalen<=0)
+		if(a_stream->ptcpdetail==NULL || a_stream->ptcpdetail->pdata==NULL || a_stream->ptcpdetail->datalen==0)
 		{
 			return 0;
 		}
@@ -627,11 +642,9 @@ int set_hited_app_id(const struct streaminfo *a_stream, unsigned int hited_app_i
 	return 1;
 }
 
-#if 0
 static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int result_num, struct master_context *context, int thread_seq)
 {
 	tsg_log_t log_msg;
-	char quic_version[64]={0};
 	char *domain_field_name=NULL;
 	char *schema_field_name=NULL;
 	char *quic_ua_field_name=NULL;
@@ -727,6 +740,7 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 		
 		if(context!=NULL && context->quic_version>0)
 		{
+			char quic_version[64]={0};
 			if(quic_version_int2string(context->quic_version, quic_version, sizeof(quic_version)))
 			{
 				quic_version_field_name=log_field_id2name(g_tsg_log_instance, LOG_QUIC_VERSION);
@@ -759,7 +773,6 @@ static int master_send_log(const struct streaminfo *a_stream, struct Maat_rule_t
 	
 	return 1;
 }
-#endif
 
 static int tsg_proto_name2flag(char *proto_list, int *flag)
 {
@@ -1662,7 +1675,7 @@ static int identify_application_protocol(const struct streaminfo *a_stream, stru
 
 			if (g_tsg_para.proto_flag&(1<<PROTO_DTLS)) //DTLS
 			{
-				bool is_dtls = dtls_identifyStream((streaminfo *)a_stream);
+				bool is_dtls = dtls_identifyStream((struct streaminfo *)a_stream);
 				if (is_dtls)
 				{
 					char sni_buff[512]={0};
@@ -1802,7 +1815,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				
 				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT || (state&APP_STATE_KILL_OTHER))
 				{
-					set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
+					master_send_log(a_stream, p_result, 1, context, a_stream->threadnum);
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
 												"DENY",
@@ -1812,8 +1825,10 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 												(unsigned char)p_result->action,
 												PRINTADDR(a_stream, g_tsg_para.level)
 											);
-				}				
-				set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
+				}else
+				{
+					set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
+				}
 				break;
 			case	TSG_ACTION_MONITOR:
 				if(context->proto==PROTO_RTP)
@@ -2005,6 +2020,12 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 		}
 		hit_num+=scan_application_id_and_properties(a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result[i]), a_stream->threadnum);
 	}
+			
+	
+	if((is_only_monitor(result, hit_num)) && context->proto==PROTO_DNS)	// business deal action of monitor 
+	{
+		hit_num=0;
+	}
 
 	return hit_num;
 }
@@ -2161,7 +2182,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 				{
 					case	TSG_ACTION_DENY:
 						state=tsg_deal_deny_action(a_stream, p_result, PROTO_UNKONWN, ACTION_RETURN_TYPE_TCPALL, a_packet);
-						set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT,thread_seq);
+						master_send_log(a_stream, p_result, 1, NULL, thread_seq);
 						break;
 					case	TSG_ACTION_MONITOR:
 						tsg_notify_hited_monitor_result(a_stream, security_result, hit_num, thread_seq);

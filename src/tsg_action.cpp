@@ -898,8 +898,9 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 	}
 	
 	state=((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_GIVEME : APP_STATE_GIVEME);
-	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_DROPME ? PROT_STATE_DROPME : 0) : (local_state&STATE_DROPME ? APP_STATE_DROPME : 0));	
-	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_GIVEME ? PROT_STATE_GIVEME: 0) : (local_state&STATE_GIVEME ? APP_STATE_GIVEME: 0));
+	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_DROPME ? PROT_STATE_DROPME : 0) : (local_state&STATE_DROPME ? APP_STATE_DROPME : 0));
+	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_GIVEME ? PROT_STATE_GIVEME: 0) : 0);
+	//state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_GIVEME ? PROT_STATE_GIVEME: 0) : (local_state&STATE_GIVEME ? APP_STATE_GIVEME: 0));
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_DROPPKT ? PROT_STATE_DROPPKT : 0) : (local_state&STATE_DROPPKT ? APP_STATE_DROPPKT: 0));
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (0) : (local_state&STATE_KILL_OTHER ? APP_STATE_KILL_OTHER : 0));
 	

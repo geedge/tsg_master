@@ -119,7 +119,7 @@ int tsg_set_xxx_to_bridge(const struct streaminfo *a_stream, int bridge_id, void
 
 void *tsg_get_xxx_from_bridge(const struct streaminfo *a_stream, int bridge_id)
 {
-	if(a_stream!=NULL || bridge_id>=0)
+	if(a_stream!=NULL && bridge_id>=0)
 	{
 		return stream_bridge_async_data_get(a_stream, bridge_id);
 	}

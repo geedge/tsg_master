@@ -2880,6 +2880,11 @@ int tsg_scan_shared_policy(Maat_feather_t maat_feather, const struct streaminfo 
 	}
 
 	int fqdn_len=get_fqdn_len(domain);
+	if(fqdn_len==0)
+	{
+		return 0;
+	}
+	
 	int ret=Maat_full_scan_string(g_tsg_maat_feather, table_id, CHARSET_UTF8, domain, fqdn_len, result, NULL, result_num, mid, thread_seq);
 	if(ret>0)
 	{
