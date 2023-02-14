@@ -1228,10 +1228,6 @@ static void set_security_result_to_project(const struct streaminfo *a_stream, st
 			free_policy_label(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
 		}
 	}
-
-	if(priority_label->security_result_num>0 && priority_label->security_result[0].action!=p_result[0].action)
-	{
-	}
 	
 	int num=MIN(MAX_RESULT_NUM-priority_label->security_result_num, p_result_num);
 	for(int i=0; i<num; i++)
@@ -1815,7 +1811,11 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				
 				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT || (state&APP_STATE_KILL_OTHER))
 				{
-					master_send_log(a_stream, p_result, 1, context, a_stream->threadnum);
+					if(context->hited_result==NULL)
+					{
+						context->hited_result=(struct Maat_rule_t *)dictator_malloc(1, sizeof(struct Maat_rule_t));
+						memcpy(context->hited_result, p_result, sizeof(struct Maat_rule_t));
+					}
 					MESA_handle_runtime_log(g_tsg_para.logger,
 												RLOG_LV_DEBUG,
 												"DENY",
@@ -1825,7 +1825,8 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 												(unsigned char)p_result->action,
 												PRINTADDR(a_stream, g_tsg_para.level)
 											);
-				}else
+				}
+				else
 				{
 					set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
 				}
@@ -1840,7 +1841,9 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				break;
 			case	TSG_ACTION_BYPASS:
 				context->is_hited_allow=1;
-				set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
+				context->hited_result=(struct Maat_rule_t *)dictator_malloc(1, sizeof(struct Maat_rule_t));
+				memcpy(context->hited_result, p_result, sizeof(struct Maat_rule_t));
+				//set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 				state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 
@@ -1848,7 +1851,7 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				break;
 			case	TSG_ACTION_INTERCEPT:
 				if(is_intercept_exclusion(a_stream, p_result, context->domain, a_stream->threadnum))
-				{					
+				{
 					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_EXCLUSION], 0, FS_OP_ADD, 1);
 					break;
 				}
@@ -1953,7 +1956,7 @@ int session_flags_identify_result_cb(const struct streaminfo *a_stream, int brid
 		return 0;
 	}
 
-	struct master_context *context=NULL;	
+	struct master_context *context=NULL;
 	struct Maat_rule_t scan_result[MAX_RESULT_NUM]={0};
 
 	context=(struct master_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_DATA_CONTEXT].id);
@@ -1982,6 +1985,7 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 	if(ret==1)
 	{
 		set_l7_protocol_label(a_stream, context->proto);
+		context->is_app_link=FLAG_TRUE;
 		set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_PROTOCOL, (void *)&(context->proto), sizeof(int), a_stream->threadnum);
 
 		if(context->proto==PROTO_SSL)
@@ -2144,7 +2148,11 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		
 	if((a_stream->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
-		*pme = NULL;
+		if(context->hited_result)
+		{
+			master_send_log(a_stream, context->hited_result, 1, context, thread_seq);
+		}
+		*pme=NULL;
 	}
 
 	return state;
@@ -2193,7 +2201,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 				}
 			}
 
-			int shaping_result_num=tsg_fetch_hited_security_result(hited_result, hit_num, shaping_result, MAX_RESULT_NUM);
+			int shaping_result_num=tsg_fetch_hited_shaping_result(hited_result, hit_num, shaping_result, MAX_RESULT_NUM);
 			if(state==APP_STATE_GIVEME && shaping_result_num>0)
 			{
 				master_deal_shaping_result(a_stream, shaping_result, shaping_result_num);

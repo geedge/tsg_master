@@ -865,7 +865,7 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 					set_after_n_packet_to_tcpall(a_stream, user_region->deny->after_n_packets, a_stream->threadnum);
 				}
 				
-				tsg_set_policy_result(a_stream, PULL_FW_RESULT, p_result, protocol, a_stream->threadnum);
+				//tsg_set_policy_result(a_stream, PULL_FW_RESULT, p_result, protocol, a_stream->threadnum);
 				local_state=((type==ACTION_RETURN_TYPE_PROT) ? (STATE_DROPME) : (STATE_DROPME|STATE_KILL_OTHER));
 				break;
 			}

@@ -83,6 +83,7 @@ struct master_context
 	scan_status_t mid;	
 	struct hited_app_para hited_para;  // l7 protocol and app
 	long long last_scan_time;
+	struct Maat_rule_t *hited_result;
 };
 
 struct tcpall_context
