@@ -1334,19 +1334,13 @@ int set_shaping_rule_ids(struct tsg_log_instance_t *_instance, struct TLD_handle
 		return 0;
 	}
 
-	int offset=0;
-	char shaping_rule_ids[512]={0};
+	Value shaping_rule_ids_array(kArrayType);
 	for(int i=0; i<shaping_label->shaping_result_num; i++)
 	{
-		offset+=snprintf(shaping_rule_ids+offset, sizeof(shaping_rule_ids)-offset, "%d,", shaping_label->shaping_result[i].config_id);
+		shaping_rule_ids_array.PushBack(shaping_label->shaping_result[i].config_id, _handle->document->GetAllocator());
 	}
 
-	if(offset>0)
-	{
-		shaping_rule_ids[offset-1]='\0';
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_SHAPING_RULE_IDS].name, (void *)shaping_rule_ids, TLD_TYPE_STRING);		
-		return 1;
-	}
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_SHAPING_RULE_IDS].name, (void *) &shaping_rule_ids_array, TLD_TYPE_OBJECT);
 
 	return 0;
 }

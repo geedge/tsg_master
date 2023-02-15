@@ -69,7 +69,7 @@ TEST(TSGMaster, ShapingSetRuleIds)
 	set_shaping_rule_ids(g_tsg_log_instance, handle, (struct streaminfo *)&a_stream);
 	char shaping_rule_ids[256]={0};
 	TLD_convert_json(handle, shaping_rule_ids, sizeof(shaping_rule_ids));
-	EXPECT_STREQ("{\"common_shaping_rule_ids\":\"32,33,34,35,36,37,38,39\"}", shaping_rule_ids);
+	EXPECT_STREQ("{\"common_shaping_rule_ids\":[32,33,34,35,36,37,38,39]}", shaping_rule_ids);
 
 	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id);
 	EXPECT_NE(nullptr, shaping_label);
