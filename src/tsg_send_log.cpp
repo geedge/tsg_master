@@ -1146,7 +1146,7 @@ int TLD_array_append(struct TLD_handle_t *handle, char *key, void **array, int a
 	case    TLD_TYPE_STRING:
 		for(i=0; i<array_num; i++)
 		{
-			Value str_value(StringRef((char *)(array[i]), strlen((char *)array[i])));
+			Value str_value((const char *)(array[i]), handle->document->GetAllocator());
 			obj_array.PushBack(str_value, handle->document->GetAllocator());
 		}
 		break;
