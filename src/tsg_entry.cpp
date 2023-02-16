@@ -2165,12 +2165,12 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 	scan_status_t scan_mid=NULL;
 	struct Maat_rule_t *p_result=NULL;
 	unsigned char state=APP_STATE_GIVEME;
-	struct identify_info tmp_identify_info;
 	struct Maat_rule_t hited_result[MAX_TSG_ALL_RESULT_NUM]={0};
 	struct Maat_rule_t security_result[MAX_RESULT_NUM]={0};	
 	struct Maat_rule_t shaping_result[MAX_RESULT_NUM]={0};
 	struct tcpall_context *all_context=(struct tcpall_context *)(*pme);
-		
+	struct policy_priority_label *priority_label=NULL;
+
 	if(stream_state==OP_STATE_PENDING && all_context->method_type!=TSG_METHOD_TYPE_ALLOW && !(all_context->udp_data_dropme))
 	{
 		if(all_context->method_type==TSG_METHOD_TYPE_UNKNOWN)
@@ -2241,33 +2241,34 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			
 			if(get_default_policy(g_tsg_para.default_compile_id, &security_result[0]))
 			{
-				state=tsg_deal_deny_action(a_stream, &security_result[0], PROTO_UNKONWN, ACTION_RETURN_TYPE_TCPALL, a_packet);				
+				state=tsg_deal_deny_action(a_stream, &security_result[0], PROTO_UNKONWN, ACTION_RETURN_TYPE_TCPALL, a_packet);
+				master_send_log(a_stream, &security_result[0], 1, NULL, thread_seq);
 			}
 			break;
 		case	TSG_METHOD_TYPE_DROP:
 		case	TSG_METHOD_TYPE_APP_DROP:
 			// contain hited current packet, platform calls tcp first and tcpall secondary.
-			if(((all_context->hited_para.after_n_packets >= 0) && a_stream->type==STREAM_TYPE_TCP) ||
+			if(((all_context->hited_para.after_n_packets > 0) && a_stream->type==STREAM_TYPE_TCP) ||
 				((all_context->hited_para.after_n_packets > 0) && a_stream->type==STREAM_TYPE_UDP)
 				|| stream_state==OP_STATE_CLOSE)
 			{			
 				all_context->hited_para.after_n_packets--;
 				break;
 			}
-
-			ret=tsg_pull_policy_result((struct streaminfo *)a_stream,PULL_FW_RESULT, &security_result[0], 1, &tmp_identify_info);
-			if(ret<=0)
+			priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
+			//ret=tsg_pull_policy_result((struct streaminfo *)a_stream,PULL_FW_RESULT, &security_result[0], 1, &tmp_identify_info);
+			if(priority_label==NULL || priority_label->security_result[0].action!=TSG_ACTION_DENY)
 			{
 				break;
 			}
 
 			if(all_context->hited_para.hited_app_id<=0)
 			{
-				state=tsg_deal_deny_action(a_stream, &security_result[0], all_context->protocol, ACTION_RETURN_TYPE_TCPALL, a_packet);
+				state=tsg_deal_deny_action(a_stream, &priority_label->security_result[0], all_context->protocol, ACTION_RETURN_TYPE_TCPALL, a_packet);
 			}
 			else
 			{
-				state=tsg_deny_application(a_stream, &security_result[0], all_context->protocol, all_context->hited_para.hited_app_id, ACTION_RETURN_TYPE_TCPALL, a_packet);
+				state=tsg_deny_application(a_stream, &priority_label->security_result[0], all_context->protocol, all_context->hited_para.hited_app_id, ACTION_RETURN_TYPE_TCPALL, a_packet);
 			}
 			break;
 		default:

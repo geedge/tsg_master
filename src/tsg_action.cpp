@@ -687,6 +687,33 @@ static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat
 	return STATE_GIVEME|STATE_KILL_OTHER;
 }
 
+static unsigned char do_action_block_sip(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, const void *user_data)
+{
+	int offset=0;
+	char payload[1024]={0};
+	switch(user_region->deny->code)
+	{
+		case	480:
+			//"SIP/2.0 480 Temporarily Unavailable\r\n"
+			offset=strlen("SIP/2.0 480 Temporarily Unavailable\r\n");
+			memcpy(payload, "SIP/2.0 480 Temporarily Unavailable\r\n", offset);
+			break;
+		case	500:
+			//"SIP/2.0 500 Server Internal Error\r\n",
+			offset=strlen("SIP/2.0 500 Server Internal Error\r\n");
+			memcpy(payload, "SIP/2.0 500 Server Internal Error\r\n", offset);
+			break;
+		default:
+			return STATE_DROPME|STATE_DROPPKT;
+	}
+	
+	memcpy(payload+offset, user_data, strlen((const char*)user_data));
+	unsigned char raw_route_dir=(a_stream->curdir==DIR_C2S) ? MESA_dir_reverse(a_stream->routedir) : a_stream->routedir;
+	tsg_send_inject_packet(a_stream, SIO_DEFAULT, payload, strlen(payload), raw_route_dir);
+
+	return STATE_DROPME|STATE_DROPPKT;
+}
+
 static unsigned char do_action_block_mail(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region)
 {
 	char *payload=NULL;
@@ -739,23 +766,26 @@ static unsigned char do_action_block_http(const struct streaminfo *a_stream, Maa
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_block_xxx(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *a_packet)
+static unsigned char do_action_block_xxx(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
 {
 	if(user_region==NULL || user_region->deny==NULL)
 	{
-		return do_action_drop(a_stream, p_result, user_region, protocol, a_packet);
+		return do_action_drop(a_stream, p_result, user_region, protocol, user_data);
 	}
 	
 	switch(protocol)
 	{
 		case	PROTO_HTTP:
-			return do_action_block_http(a_stream, p_result, user_region, a_packet);
+			return do_action_block_http(a_stream, p_result, user_region, user_data);
 			break;
 		case	PROTO_POP3:
 		case	PROTO_IMAP:
 		case	PROTO_SMTP:
 		case	PROTO_MAIL:
 			return do_action_block_mail(a_stream, p_result, user_region);
+			break;
+		case	PROTO_SIP:
+			return do_action_block_sip(a_stream, p_result, user_region, user_data);
 			break;
 		default:
 			break;
