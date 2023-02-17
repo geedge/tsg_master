@@ -474,6 +474,32 @@ static int is_deny_application(Maat_rule_t *p_result)
 	return ret;
 }
 
+static int is_deny_after_N_packets(Maat_rule_t *p_result)
+{
+	int ret=0;
+	struct compile_user_region *user_region=NULL;
+
+	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
+	if(user_region==NULL)
+	{
+		return 0;
+	}
+
+	if(user_region->method_type!=TSG_METHOD_TYPE_APP_DROP && user_region->method_type!=TSG_METHOD_TYPE_DROP)
+	{
+		return 0;
+	}
+
+	if(user_region->deny!=NULL && user_region->deny->after_n_packets>0)
+	{
+		ret=1;
+	}
+	
+	security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+	
+	return ret;
+}
+
 long long get_current_time_ms(void)
 {
 	int size=sizeof(long long); 	
@@ -1813,27 +1839,20 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				{
 					state=tsg_deal_deny_action(a_stream, p_result, context->proto, ACTION_RETURN_TYPE_APP, a_packet);
 				}
-				
-				if((state&APP_STATE_DROPPKT)==APP_STATE_DROPPKT || (state&APP_STATE_KILL_OTHER))
-				{
-					if(context->hited_result==NULL)
-					{
-						context->hited_result=(struct Maat_rule_t *)dictator_malloc(1, sizeof(struct Maat_rule_t));
-						memcpy(context->hited_result, p_result, sizeof(struct Maat_rule_t));
-					}
-					MESA_handle_runtime_log(g_tsg_para.logger,
-												RLOG_LV_DEBUG,
-												"DENY",
-												"Hit deny policy, policy_id: %d service: %d action: %d addr: %s",
-												p_result->config_id,
-												p_result->service_id,
-												(unsigned char)p_result->action,
-												PRINTADDR(a_stream, g_tsg_para.level)
-											);
-				}
-				else
+
+				if(is_deny_after_N_packets(p_result))
 				{
 					set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
+					if(a_stream->type==STREAM_TYPE_TCP)
+					{
+						break;
+					}
+				}
+
+				if(context->hited_result==NULL)
+				{
+					context->hited_result=(struct Maat_rule_t *)dictator_malloc(1, sizeof(struct Maat_rule_t));
+					memcpy(context->hited_result, p_result, sizeof(struct Maat_rule_t));
 				}
 				break;
 			case	TSG_ACTION_MONITOR:
