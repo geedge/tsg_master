@@ -34,6 +34,12 @@ void free_context_label(const struct streaminfo *a_stream, int bridge_id, void *
 			context->mid=NULL;
 		}
 
+		if(context->hited_result!=NULL)
+		{
+			dictator_free(a_stream->threadnum, (void *)context->hited_result);
+			context->hited_result=NULL;
+		}
+
 		dictator_free(a_stream->threadnum, (void *)context);
 		context=NULL;
 	}

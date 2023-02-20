@@ -1156,6 +1156,11 @@ static void set_shaping_result_to_project(const struct streaminfo *a_stream, str
 		}
 	}
 
+	if(inc_result==0)
+	{
+		return ;
+	}
+
 	struct notify_shaping_policy sync_result={0, {0}};
 	sync_result.shaping_result_num=inc_result_num;
 	memcpy(sync_result.shaping_result, inc_result, inc_result_num*sizeof(struct Maat_rule_t));
