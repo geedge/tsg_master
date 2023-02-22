@@ -1182,7 +1182,7 @@ static void set_shaping_result_to_project(const struct streaminfo *a_stream, str
 		}
 	}
 
-	if(inc_result==0)
+	if(inc_result_num==0)
 	{
 		return ;
 	}

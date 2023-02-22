@@ -108,10 +108,7 @@ int stream_bridge_register_data_free_cb(int bridge_id, stream_bridge_free_cb_t *
 
 int stream_bridge_register_data_sync_cb(int bridge_id, stream_bridge_sync_cb_t * sync_cb_fun)
 {
-	if(g_bridge_sync_cb[bridge_id])
-	{
-		g_bridge_sync_cb[bridge_id]=sync_cb_fun;
-	}
+	g_bridge_sync_cb[bridge_id]=*(stream_bridge_sync_cb_t *)sync_cb_fun;
 	
 	return 0;
 }
