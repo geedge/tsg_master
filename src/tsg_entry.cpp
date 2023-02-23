@@ -1240,7 +1240,7 @@ int set_log_field_to_project(const struct streaminfo * a_stream, char *domain, v
 	return 0;
 }
 
-static void set_security_result_to_project(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int p_result_num, PULL_RESULT_TYPE result_type, int thread_seq)
+void set_security_result_to_project(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int p_result_num, PULL_RESULT_TYPE result_type, int thread_seq)
 {
 	if(p_result==NULL || p_result_num==0)
 	{
@@ -1252,12 +1252,28 @@ static void set_security_result_to_project(const struct streaminfo *a_stream, st
 	{
 		priority_label=(struct policy_priority_label *)dictator_malloc(thread_seq, sizeof(struct policy_priority_label));
 		memset(priority_label, 0, sizeof(struct policy_priority_label));
+		priority_label->result_type=result_type;
 
 		int ret=tsg_set_xxx_to_bridge((struct streaminfo *)a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
 		if(ret<0)
 		{
 			free_policy_label(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
 		}
+	}
+
+	if(priority_label->result_type!=result_type)
+	{
+		if(p_result[0].action<priority_label->security_result[0].action)
+		{
+			return ;
+		}
+
+		if(p_result[0].action>priority_label->security_result[0].action)
+		{
+			priority_label->security_result_num=0;
+		}
+
+		priority_label->result_type=result_type;
 	}
 	
 	int num=MIN(MAX_RESULT_NUM-priority_label->security_result_num, p_result_num);
@@ -1818,13 +1834,18 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 	struct Maat_rule_t security_result[MAX_RESULT_NUM]={0};
 
 	int security_result_num=tsg_fetch_hited_security_result(result, hit_num, security_result, MAX_RESULT_NUM);
-	p_result=tsg_policy_decision_criteria(security_result, hit_num);
+	p_result=tsg_policy_decision_criteria(security_result, security_result_num);
 	if(p_result!=NULL)
 	{
 		print_hit_path(a_stream, context);
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
+				if(context->proto==PROTO_DNS)	/* deal action of deny in firewall */
+				{
+					break;
+				}
+				
 				if(is_deny_application(p_result))
 				{
 					if(context->hited_para.hited_app_id==0)
@@ -1867,7 +1888,6 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 				context->is_hited_allow=1;
 				context->hited_result=(struct Maat_rule_t *)dictator_malloc(1, sizeof(struct Maat_rule_t));
 				memcpy(context->hited_result, p_result, sizeof(struct Maat_rule_t));
-				//set_security_result_to_project(a_stream, p_result, 1, PULL_FW_RESULT, a_stream->threadnum);
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 				state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
 
@@ -1993,6 +2013,11 @@ int session_flags_identify_result_cb(const struct streaminfo *a_stream, int brid
 	context->session_flag=*(unsigned long *)(data);
 	set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_SESSION_FLAGS, data, sizeof(unsigned long), a_stream->threadnum);
 
+	if(context->mid==NULL)
+	{
+		return 0;
+	}
+
 	int hit_num=tsg_scan_session_flags(g_tsg_maat_feather, a_stream, scan_result, MAX_RESULT_NUM, &context->mid, g_tsg_para.table_id[TABLE_SESSION_FLAGS], context->session_flag, a_stream->threadnum);
 
 	context->sync_cb_state=master_deal_scan_result(a_stream, context, scan_result, hit_num, NULL);
@@ -2018,25 +2043,25 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 		}
 		
 		int table_id=get_table_id(context->proto);	
-		hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_stream, context->domain, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, table_id, a_stream->threadnum);
-		hit_num+=scan_fqdn_category_id(g_tsg_maat_feather, a_stream, context->domain, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, table_id, a_stream->threadnum);
+		hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_stream, context->domain, result+hit_num, result_num-hit_num, &context->mid, table_id, a_stream->threadnum);
+		hit_num+=scan_fqdn_category_id(g_tsg_maat_feather, a_stream, context->domain, result+hit_num, result_num-hit_num, &context->mid, table_id, a_stream->threadnum);
 		if(context->is_esni)
 		{
 			unsigned int protocol_id=tsg_l7_protocol_name2id("ESNI");
-			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, (char *)"ESNI", protocol_id, a_stream->threadnum);
+			hit_num+=tsg_scan_app_id_policy(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &context->mid, (char *)"ESNI", protocol_id, a_stream->threadnum);
 		}
 
 		if(context->proto==PROTO_HTTP && context->http_url!=NULL)
 		{
-			hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_stream, context->http_url, result+hit_num, MAX_RESULT_NUM-hit_num, &context->mid, g_tsg_para.table_id[TABLE_HTTP_URL], a_stream->threadnum);
+			hit_num+=tsg_scan_shared_policy(g_tsg_maat_feather, a_stream, context->http_url, result+hit_num, result_num-hit_num, &context->mid, g_tsg_para.table_id[TABLE_HTTP_URL], a_stream->threadnum);
 		}
 	}
 
-	ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, result+hit_num, MAX_RESULT_NUM-hit_num);
+	ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, result+hit_num, result_num-hit_num);
 	if(ret>0)
 	{
 		hit_num+=ret;
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);		
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);
 	}
 
 	struct gather_app_result *gather_result=(struct gather_app_result *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id);
@@ -2046,9 +2071,10 @@ static int deal_pending_state(const struct streaminfo *a_stream, struct master_c
 		{
 			continue;
 		}
-		hit_num+=scan_application_id_and_properties(a_stream, result+hit_num, MAX_RESULT_NUM-hit_num, context, &(gather_result[i]), a_stream->threadnum);
+		hit_num+=scan_application_id_and_properties(a_stream, result+hit_num, result_num-hit_num, context, &(gather_result[i]), a_stream->threadnum);
 	}
-			
+	
+	hit_num+=tsg_scan_session_flags(g_tsg_maat_feather, a_stream, result+hit_num, result_num-hit_num, &context->mid, g_tsg_para.table_id[TABLE_SESSION_FLAGS], context->session_flag, a_stream->threadnum);
 	
 	if((is_only_monitor(result, hit_num)) && context->proto==PROTO_DNS)	// business deal action of monitor 
 	{
@@ -2062,7 +2088,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 {
 	int i=0,ret=0,hit_num=0;
 	unsigned char state=APP_STATE_GIVEME;
-	Maat_rule_t hited_result[MAX_RESULT_NUM];
+	Maat_rule_t hited_result[MAX_TSG_ALL_RESULT_NUM];
 	struct gather_app_result *gather_result=NULL;
 	struct master_context *context=(struct master_context *)*pme;
 	struct app_identify_result unknown_result;
@@ -2095,7 +2121,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);
 			}
 			
-			hit_num+=deal_pending_state(a_stream, context, hited_result+hit_num, MAX_RESULT_NUM-hit_num, a_packet);
+			hit_num+=deal_pending_state(a_stream, context, hited_result+hit_num, MAX_TSG_ALL_RESULT_NUM-hit_num, a_packet);
 			state=master_deal_scan_result(a_stream, context, hited_result, hit_num, a_packet);
 			context->deal_pkt_num++;
 			break;
@@ -2135,7 +2161,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			}
 			
 			context->last_scan_time=get_current_time_ms();
-			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, hited_result+hit_num, MAX_RESULT_NUM-hit_num);
+			ret=tsg_scan_nesting_addr(g_tsg_maat_feather, a_stream, context->proto, &context->mid, hited_result+hit_num, MAX_TSG_ALL_RESULT_NUM-hit_num);
 			if(ret>0)
 			{
 				hit_num+=ret;
@@ -2156,7 +2182,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 				hit_num+=tsg_scan_session_flags(g_tsg_maat_feather, 
 													a_stream,
 													hited_result+hit_num,
-													MAX_RESULT_NUM-hit_num,
+													MAX_TSG_ALL_RESULT_NUM-hit_num,
 													&context->mid,
 													g_tsg_para.table_id[TABLE_SESSION_FLAGS],
 													context->session_flag,

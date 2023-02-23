@@ -941,7 +941,7 @@ unsigned char tsg_deny_application(const struct streaminfo *a_stream, Maat_rule_
 {
 	unsigned char state=0;
 	char app_id_buff[32]={0};
-	struct app_id_dict *dict=NULL;	
+	struct app_id_dict *dict=NULL;
 	struct compile_user_region app_user_region={0}, *user_region=NULL;
 	
 	snprintf(app_id_buff, sizeof(app_id_buff), "%d", app_id);
@@ -955,7 +955,7 @@ unsigned char tsg_deny_application(const struct streaminfo *a_stream, Maat_rule_
 	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 	if(user_region!=NULL)
 	{
-		app_user_region.capture=user_region->capture;		
+		app_user_region.capture=user_region->capture;
 		security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
 	}
 

@@ -2226,14 +2226,17 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	send_log(_instance, _handle, log_msg->a_stream, log_msg->result,  log_msg->result_num, thread_id);
 
 	//fetch firewall result
-	if(log_msg->result[0].action!=TSG_ACTION_INTERCEPT)
+	if(log_msg->result[0].service_id==2 || log_msg->result[0].service_id==7)
 	{
 		struct policy_priority_label *priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge(log_msg->a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
-		if((log_msg->result[0].service_id==2 || log_msg->result[0].service_id==7) && priority_label!=NULL && priority_label->security_result_num>0)
+		if(priority_label!=NULL && priority_label->security_result_num>0)
 		{
-			send_log(_instance, _handle, log_msg->a_stream, priority_label->security_result,  priority_label->security_result_num, thread_id);
-			free_policy_label(log_msg->a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
-			tsg_set_xxx_to_bridge(log_msg->a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, NULL);
+			if(priority_label->security_result[0].action!=TSG_ACTION_INTERCEPT)
+			{
+				send_log(_instance, _handle, log_msg->a_stream, priority_label->security_result,  priority_label->security_result_num, thread_id);
+				free_policy_label(log_msg->a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
+				tsg_set_xxx_to_bridge(log_msg->a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, NULL);
+			}
 		}
 	}
 	
