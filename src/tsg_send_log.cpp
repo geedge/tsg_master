@@ -2218,7 +2218,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 
 	set_application_behavior(_instance, _handle, log_msg->a_stream);
 
-	if(log_msg->result[0].service_id==2 && log_msg->a_stream!=NULL)		// stream of intercept is NULL
+	if((log_msg->result[0].service_id==2 || log_msg->result[0].service_id==6 || log_msg->result[0].service_id==7) && log_msg->a_stream!=NULL)		// stream of intercept is NULL
 	{
 		set_shaping_rule_ids(_instance, _handle, log_msg->a_stream);
 	}
