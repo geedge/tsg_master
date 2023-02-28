@@ -1326,6 +1326,36 @@ static int set_tunnel_ipv4v6_port(struct tsg_log_instance_t *_instance, struct T
 	return 0;
 }
 
+#define SESSION_MARKER_ALL_FIELD_NUM 13
+
+struct session_marker_notify_ctx 
+{
+	uint64_t flags;
+	uint32_t identify[SESSION_MARKER_ALL_FIELD_NUM];
+	char *identify_str;
+};
+
+int set_session_flags(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	struct session_marker_notify_ctx *sm_notify=(struct session_marker_notify_ctx *)tsg_get_xxx_from_bridge(a_stream, _instance->bridge_id[LOG_BRIDGE_ASYNC_SESSION_FLAGS]);
+	if(sm_notify==NULL)
+	{
+		return 0;
+	}
+
+	if(!TLD_search(_handle, _instance->id2field[LOG_COMMON_FLAGS].name))
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_FLAGS].name, (void *)(long)(sm_notify->flags), TLD_TYPE_LONG);
+	}
+
+	if(!TLD_search(_handle, _instance->id2field[LOG_COMMON_FLAGS_IDENTIFY_INFO].name))
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_FLAGS_IDENTIFY_INFO].name, (void *)(long)(sm_notify->identify_str), TLD_TYPE_STRING);
+	}
+
+	return 0;
+}
+
 int set_shaping_rule_ids(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
 	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id);
@@ -1728,6 +1758,8 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	set_session_attributes(_instance, _handle, a_stream);
 	set_lua_scripts_result(_instance, _handle, a_stream);
 	
+	set_session_flags(_instance, _handle, a_stream);
+	
 	if(is_tunnels(a_stream))
 	{
 		set_common_tunnels(_instance, _handle, a_stream);
@@ -1894,6 +1926,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "BUSINESS_S3_FILENAME", bridge_name[LOG_BRIDGE_BUSINESS_S3_FILENAME], sizeof(bridge_name[LOG_BRIDGE_BUSINESS_S3_FILENAME]), "TSG_BUSINESS_S3_FILENAME");
 	MESA_load_profile_string_def(conffile, "SYSTEM", "APP_BEHAVIOR_BRIDGE_NAME", bridge_name[LOG_BRIDGE_APP_BEHAVIOR_RESULT], sizeof(bridge_name[LOG_BRIDGE_APP_BEHAVIOR_RESULT]), "TSG_APPLICATION_BEHAVIOR");
 	MESA_load_profile_string_def(conffile, "SYSTEM", "NOTIFY_EXEC_RESULT_BRIDGE_NAME", bridge_name[LOG_BRIDGE_CONN_SKETCH_EXEC_RESULT], sizeof(bridge_name[LOG_BRIDGE_CONN_SKETCH_EXEC_RESULT]), "TSG_NOTIFICATION_EXECUTION_RESULT");
+	MESA_load_profile_string_def(conffile, "SYSTEM", "NOTIFY_ASYNC_FLAGS_BRIDGE_NAME", bridge_name[LOG_BRIDGE_ASYNC_SESSION_FLAGS], sizeof(bridge_name[LOG_BRIDGE_ASYNC_SESSION_FLAGS]), "SESSION_FLAGS_ASYNC_NOTIFY_DATA");
 
 	for(int i=0; i<LOG_BRIDGE_MAX; i++)
 	{

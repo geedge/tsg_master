@@ -94,7 +94,7 @@ int get_rawpkt_opt_from_streaminfo(const struct streaminfo * pstream, int type, 
 	return 0;
 }
 
-#define	MAX_BRIDGE_NUM	16
+#define	MAX_BRIDGE_NUM	32
 void *g_bridge_async_data[MAX_BRIDGE_NUM]={0};
 stream_bridge_free_cb_t *g_bridge_async_free[MAX_BRIDGE_NUM]={0};
 stream_bridge_sync_cb_t *g_bridge_sync_cb[MAX_BRIDGE_NUM]={0};
