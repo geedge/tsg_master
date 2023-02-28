@@ -1597,6 +1597,19 @@ void mirrored_profile_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, voi
 	}
 }
 
+void session_log_profile_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{
+	g_tsg_para.session_record_switch=tsg_get_column_integer_value(table_line, 2);
+}
+
+void session_log_profile_dup(int table_id, MAAT_PLUGIN_EX_DATA *to, MAAT_PLUGIN_EX_DATA *from, long argl, void *argp)
+{
+}
+
+void session_log_profile_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
+{
+}
+
 void tunnel_catalog_new(int table_id, const char* key, const char* table_line, MAAT_PLUGIN_EX_DATA* ad, long argl, void *argp)
 {
 	struct tunnel_catalog *t_catalog=(struct tunnel_catalog *)calloc(sizeof(struct tunnel_catalog), 1);
@@ -1898,6 +1911,7 @@ int tsg_rule_init(const char* conffile, void *logger)
 	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_LABEL_TABLE", g_tsg_para.table_name[TABLE_TUNNEL_LABEL], MAX_TABLE_NAME_LEN, "TSG_TUNNEL_LABEL");
 
 	MESA_load_profile_string_def(conffile, "MAAT", "SESSION_FLAG_TABLE", g_tsg_para.table_name[TABLE_SESSION_FLAGS], MAX_TABLE_NAME_LEN, "TSG_SECURITY_FLAG");
+	MESA_load_profile_string_def(conffile, "MAAT", "SESSION_RECORD_TABLE", g_tsg_para.table_name[TABLE_SESSION_LOG], MAX_TABLE_NAME_LEN, "T_VSYS_INFO");
 
 	MESA_load_profile_int_def(conffile, "MAAT","LOG_LEVEL", &log_level, 30);
 	MESA_load_profile_string_def(conffile, "MAAT", "LOG_PATH", log_path, sizeof(log_path), "./tsglog/maat/tsg_maat.log");
@@ -2076,6 +2090,21 @@ int tsg_rule_init(const char* conffile, void *logger)
 	if(ret<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "REGISTER_TABLE", "Maat_plugin_EX_register failed, table_name: %s", g_tsg_para.table_name[TABLE_PROFILE_MIRROR]);
+		return -1;
+	}
+
+	ret=Maat_plugin_EX_register(g_tsg_maat_feather,
+								g_tsg_para.table_id[TABLE_SESSION_LOG],
+								session_log_profile_new,
+								session_log_profile_free,
+								session_log_profile_dup,
+								NULL,
+								0, 
+								NULL);
+
+	if(ret<0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.maat_logger, RLOG_LV_FATAL, "REGISTER_TABLE", "Maat_plugin_EX_register failed, table_name: %s", g_tsg_para.table_name[TABLE_SESSION_LOG]);
 		return -1;
 	}
 
@@ -3450,4 +3479,3 @@ int tsg_fetch_hited_security_result(struct Maat_rule_t *hited_result, int hited_
 
 	return result_cnt;
 }
-

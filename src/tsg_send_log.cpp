@@ -2083,6 +2083,11 @@ int send_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle,
 	int fs_id=0,ret=0,repeat_cnt=0;
 	int policy_id[MAX_RESULT_NUM]={0};
 
+	if(g_tsg_para.session_record_switch==0 && (p_result[0].service_id==2 || p_result[0].service_id==6 || p_result[0].service_id==7))
+	{
+		return 0;
+	}
+
 	for(int i=0;i<p_result_num; i++)
 	{
 		if(is_multi_hit_same_policy(&(p_result[i]), policy_id, &repeat_cnt))

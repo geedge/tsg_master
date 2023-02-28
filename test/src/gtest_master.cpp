@@ -289,7 +289,7 @@ TEST(TSGMaster, SecurityPolicySendlog)
 	tsg_send_log(g_tsg_log_instance, handle, &log_msg, 0);
 
 	int sendlog_cnt=rd_kafka_get_sendlog_cnt();
-	EXPECT_EQ(9, sendlog_cnt);
+	EXPECT_EQ(8, sendlog_cnt);
 	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(0));
 	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(1));
 	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(2));

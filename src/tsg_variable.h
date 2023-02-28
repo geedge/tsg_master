@@ -104,6 +104,7 @@ enum MASTER_STATIC_TABLE
 	TABLE_TUNNEL_ENDPOINT,
 	TABLE_TUNNEL_LABEL,
 	TABLE_SESSION_FLAGS,
+	TABLE_SESSION_LOG,
 	TABLE_MAX
 };
 
@@ -175,6 +176,7 @@ typedef	struct tsg_para
 	int identify_app_max_pkt_num;
 	int unknown_app_id;
 	int hit_path_switch;
+	int session_record_switch;
 	int default_compile_id;
 	int table_id[TABLE_MAX];
 	int dyn_table_id[DYN_TABLE_MAX];
