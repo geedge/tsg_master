@@ -18,6 +18,7 @@
 #define	TSG_ACTION_DENY			0x10
 #define	TSG_ACTION_SHAPING		0x20
 #define	TSG_ACTION_MANIPULATE	0x30
+#define	TSG_ACTION_S_CHAINING	0x40
 #define	TSG_ACTION_BYPASS		0x80
 #define	TSG_ACTION_MAX			0x80
 
@@ -95,5 +96,6 @@ int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streamin
 int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
 int tsg_notify_hited_shaping_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
 int tsg_notify_hited_security_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
+int tsg_notify_hited_s_chaining_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
 
 #endif

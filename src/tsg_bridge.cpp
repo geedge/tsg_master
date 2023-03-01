@@ -82,6 +82,15 @@ void free_shaping_result(const struct streaminfo *stream, int bridge_id, void *d
 	}
 }
 
+void free_s_chaining_result(const struct streaminfo *stream, int bridge_id, void *data)
+{
+	if(data!=NULL)
+	{
+		dictator_free(stream->threadnum, data);
+		data=NULL;
+	}
+}
+
 void free_policy_label(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
 	if(data!=NULL)
@@ -158,6 +167,9 @@ int tsg_init_bridge(const char *conffile)
 
 	MESA_load_profile_string_def(conffile, "SYSTEM", "POLICY_PRIORITY_BRIDGE_NAME", g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].name, MAX_BRIDGE_NAME_LEN, "TSG_POLICY_PRIORITY");
 	g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].free_cb=free_policy_label;
+
+	MESA_load_profile_string_def(conffile, "SYSTEM", "S_CHAINING_RESULT_BRIDGE_NAME", g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].name, MAX_BRIDGE_NAME_LEN, "SERVICE_CHAINING_RESULT");
+	g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].free_cb=free_s_chaining_result;
 
 	for(int i=0; i<BRIDGE_TYPE_MAX; i++)
 	{

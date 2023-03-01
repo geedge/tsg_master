@@ -3,6 +3,12 @@
 
 const char *gtest_addrlist="127.0.0.1.37690>127.0.0.1.443";
 
+struct gtest_ctrl_pkt
+{
+	char buf[1024];
+	int len;
+}ctrl_pkt;
+
 void dictator_free(int thread_seq, void * pbuf)
 {
 	free(pbuf);
@@ -34,6 +40,20 @@ int sapp_inject_pkt(struct streaminfo * stream, enum sapp_inject_opt sio, const 
 	return 0;
 }
 
+int sapp_inject_ctrl_pkt(struct streaminfo * stream, enum sapp_inject_opt sio, const void * payload, int payload_len, unsigned char snd_routedir)
+{
+    memset(&ctrl_pkt, 0, 1024);
+    memcpy(ctrl_pkt.buf, payload, payload_len);
+    ctrl_pkt.len = payload_len;
+
+    return 0;
+}
+
+int get_ctrl_pkt(char *buf, int len)
+{
+	memcpy(buf, ctrl_pkt.buf, MIN(len, ctrl_pkt.len));
+	return MIN(len, ctrl_pkt.len);
+}
 
 unsigned char MESA_dir_reverse(unsigned char raw_route_dir)
 {

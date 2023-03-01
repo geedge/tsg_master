@@ -4,7 +4,7 @@
     "group2group_table": "GROUP_GROUP_RELATION",
     "rules": [
 	    {
-            "compile_id": 2,
+            "compile_id": 1,
             "service": 0,
             "action": 1,
             "do_blacklist": 0,
@@ -19,6 +19,40 @@
                     "not_flag" : 0,
                     "regions": [
                         {  
+                            "table_type": "ip_plus",
+                            "table_name": "TSG_OBJ_IP_ADDR",
+                            "table_content": {
+                                "addr_type": "ipv4",
+                                "saddr_format": "range",
+                                "src_ip1": "0.0.0.0",
+                                "src_ip2": "255.255.255.255",
+                                "sport_format": "range",
+                                "src_port1": "0",
+                                "src_port2": "0",
+                                "protocol": 0,
+                                "direction": "double"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 2,
+            "service": 0,
+            "action": 16,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "effective_rage": 0,
+            "user_region": "{\"method\":\"rate_limit\",\"bps\":1024,\"packet_capture\":{\"enable\":1,\"capture_depth\":2000}}",
+            "is_valid": "yes",
+            "groups": [
+                {
+                    "group_name": "OBJ_DST_IP_ADDR",
+                    "virtual_table": "TSG_SECURITY_SOURCE_ADDR",
+                    "not_flag": 0,
+                    "regions": [
+                        {
                             "table_type": "ip_plus",
                             "table_name": "TSG_OBJ_IP_ADDR",
                             "table_content": {

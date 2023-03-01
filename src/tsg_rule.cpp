@@ -3464,7 +3464,7 @@ int tsg_fetch_hited_security_result(struct Maat_rule_t *hited_result, int hited_
 	int result_cnt=0;
 	for(int i=0; i<hited_result_num; i++)
 	{
-		if(hited_result[i].action==TSG_ACTION_SHAPING)
+		if(hited_result[i].action==TSG_ACTION_SHAPING || hited_result[i].action==TSG_ACTION_S_CHAINING)
 		{
 			continue;
 		}
@@ -3479,3 +3479,30 @@ int tsg_fetch_hited_security_result(struct Maat_rule_t *hited_result, int hited_
 
 	return result_cnt;
 }
+
+int tsg_fetch_hited_s_chaining_result(struct Maat_rule_t *hited_result, int hited_result_num, struct Maat_rule_t *s_chaining_result, int s_chaining_result_num)
+{
+	if(hited_result==NULL || hited_result_num<=0 || s_chaining_result==NULL || s_chaining_result_num<=0)
+	{
+		return 0;
+	}
+
+	int result_cnt=0;
+	for(int i=0; i<hited_result_num; i++)
+	{
+		if(hited_result[i].action!=TSG_ACTION_S_CHAINING)
+		{
+			continue;
+		}
+
+		if(result_cnt>=s_chaining_result_num)
+		{
+			break;
+		}
+		
+		memcpy(&(s_chaining_result[result_cnt++]), &(hited_result[i]), sizeof(struct Maat_rule_t));
+	}
+
+	return result_cnt;
+}
+

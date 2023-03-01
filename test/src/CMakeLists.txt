@@ -25,7 +25,11 @@ set(TSG_MASTER_SRC ${PROJECT_SOURCE_DIR}/src/tsg_entry.cpp
 	${PROJECT_SOURCE_DIR}/src/tsg_icmp.cpp
 	${PROJECT_SOURCE_DIR}/src/tsg_tamper.cpp
 	${PROJECT_SOURCE_DIR}/src/tsg_bridge.cpp
+	${PROJECT_SOURCE_DIR}/src/tsg_sync_state.cpp
 )
 
 add_executable(gtest_master ${TSG_MASTER_SRC} gtest_kafka.cpp gtest_common.cpp gtest_master.cpp)
 target_link_libraries(gtest_master gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger MESA_jump_layer MESA_field_stat2 maatframe MESA_htable)
+
+add_executable(gtest_sync_session_state ${PROJECT_SOURCE_DIR}/src/tsg_sync_state.cpp gtest_common.cpp gtest_session_state.cpp)
+target_link_libraries(gtest_sync_session_state gtest-static cjson ctemplate-static)

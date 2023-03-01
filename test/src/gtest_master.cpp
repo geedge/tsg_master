@@ -344,98 +344,125 @@ TEST(TSGMaster, SecurityDuplicatePolicyMultipleNotify)
 	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id));
 }
 
-extern void set_security_result_to_project(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, int p_result_num, PULL_RESULT_TYPE result_type, int thread_seq);
+extern void set_s_chaining_result_to_bridge(const struct streaminfo * a_stream, struct Maat_rule_t * p_result, int p_result_num, int thread_seq);
 
-TEST(TSGMaster, SecurityPolicyIntercept)
+TEST(TSGMaster, ServiceChainingPolicyNotify)
 {
 	const struct streaminfo a_stream={0};
-	struct Maat_rule_t security_result[MAX_RESULT_NUM]={0};
-	struct identify_info identify_info;
-
-	security_result[1].action=TSG_ACTION_INTERCEPT;
-	security_result[1].config_id=TSG_ACTION_INTERCEPT;
-
-	// Set Intercept
-	set_security_result_to_project((struct streaminfo *)&a_stream, &security_result[1], 1, PULL_KNI_RESULT, 0);
-
-	int ret=tsg_pull_policy_result((struct streaminfo *)&a_stream, PULL_FW_RESULT, &(security_result[2]), 1, &identify_info);
-	EXPECT_EQ(0, ret);
-
-	ret=tsg_pull_policy_result((struct streaminfo *)&a_stream, PULL_KNI_RESULT, &(security_result[2]), 1, &identify_info);
-	EXPECT_EQ(1, ret);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, security_result[2].action);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, security_result[2].config_id);
+	struct Maat_rule_t s_chaining_result[MAX_RESULT_NUM]={0};
 	
-	ret=tsg_pull_policy_result((struct streaminfo *)&a_stream, PULL_ALL_RESULT, &(security_result[2]), 1, &identify_info);
-	EXPECT_EQ(1, ret);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, security_result[2].action);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, security_result[2].config_id);
+	for(int i=0; i<MAX_RESULT_NUM/2; i++)
+	{
+		s_chaining_result[i].action=TSG_ACTION_S_CHAINING;
+		s_chaining_result[i].config_id=TSG_ACTION_S_CHAINING+i;
+	}
+	
+	set_s_chaining_result_to_bridge(&a_stream, s_chaining_result, MAX_RESULT_NUM/2, 0);
+	struct tm_hited_result *hited_s_chaining=(struct tm_hited_result *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id);
+	EXPECT_NE(nullptr, hited_s_chaining);
+	EXPECT_EQ(g_tsg_para.service_chaining_sid, hited_s_chaining->sid);
+	EXPECT_EQ(MAX_RESULT_NUM/2, hited_s_chaining->result_num);
+	for(int i=0; i<hited_s_chaining->result_num; i++)
+	{	
+		EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->result[i].action);
+		EXPECT_EQ(TSG_ACTION_S_CHAINING+i, hited_s_chaining->result[i].config_id);
+	}
 
-	struct policy_priority_label *priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
-	EXPECT_NE(nullptr, priority_label);	
-	EXPECT_EQ(1, priority_label->security_result_num);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, priority_label->security_result[0].action);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, priority_label->security_result[0].config_id);
-
-	free_policy_label(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
-	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, NULL);
-	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id));
+	free_shaping_result(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id, (void *)hited_s_chaining);
+	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id, NULL);
+	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id));
 }
 
-
-TEST(TSGMaster, SecurityMultiplePolicyMonitorToIntercept)
+TEST(TSGMaster, ServiceChainingDuplicatePolicyMultipleNotify)
 {
 	const struct streaminfo a_stream={0};
-	struct Maat_rule_t security_result[MAX_RESULT_NUM]={0};
-	struct identify_info identify_info;
+	struct Maat_rule_t s_chaining_result[MAX_RESULT_NUM]={0};
 
-	security_result[0].action=TSG_ACTION_MONITOR;
-	security_result[0].config_id=TSG_ACTION_MONITOR;
-
-	security_result[1].action=TSG_ACTION_INTERCEPT;
-	security_result[1].config_id=TSG_ACTION_INTERCEPT;
-
-	// First Monitor, second Intercpt
-	tsg_notify_hited_security_result(&a_stream, &security_result[0], 1, 0);
-
-	int ret=tsg_pull_policy_result((struct streaminfo *)&a_stream, PULL_KNI_RESULT, &(security_result[2]), 1, &identify_info);
-	EXPECT_EQ(0, ret);
+	// first
+	for(int i=0; i<MAX_RESULT_NUM/2; i++)
+	{
+		s_chaining_result[i].action=TSG_ACTION_S_CHAINING;
+		s_chaining_result[i].config_id=TSG_ACTION_S_CHAINING+i;
+	}
 	
-	ret=tsg_pull_policy_result((struct streaminfo *)&a_stream, PULL_FW_RESULT, &(security_result[2]), 1, &identify_info);
-	EXPECT_EQ(1, ret);
-	EXPECT_EQ(TSG_ACTION_MONITOR, security_result[2].action);
-	EXPECT_EQ(TSG_ACTION_MONITOR, security_result[2].config_id);
+	set_s_chaining_result_to_bridge(&a_stream, s_chaining_result, MAX_RESULT_NUM/2, 0);
+	struct tm_hited_result *hited_s_chaining=(struct tm_hited_result *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id);
+	EXPECT_NE(nullptr, hited_s_chaining);
+	EXPECT_EQ(g_tsg_para.service_chaining_sid, hited_s_chaining->sid);
+	EXPECT_EQ(MAX_RESULT_NUM/2, hited_s_chaining->result_num);
+	for(int i=0; i<hited_s_chaining->result_num; i++)
+	{	
+		EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->result[i].action);
+		EXPECT_EQ(TSG_ACTION_S_CHAINING+i, hited_s_chaining->result[i].config_id);
+	}
 
-	ret=tsg_pull_policy_result((struct streaminfo *)&a_stream, PULL_ALL_RESULT, &(security_result[2]), 1, &identify_info);
-	EXPECT_EQ(1, ret);
-	EXPECT_EQ(TSG_ACTION_MONITOR, security_result[2].action);
-	EXPECT_EQ(TSG_ACTION_MONITOR, security_result[2].config_id);
-
-	// Set Intercept
-	set_security_result_to_project((struct streaminfo *)&a_stream, &security_result[1], 1, PULL_KNI_RESULT, 0);
-
-	ret=tsg_pull_policy_result((struct streaminfo *)&a_stream, PULL_FW_RESULT, &(security_result[2]), 1, &identify_info);
-	EXPECT_EQ(0, ret);
-
-	ret=tsg_pull_policy_result((struct streaminfo *)&a_stream, PULL_KNI_RESULT, &(security_result[2]), 1, &identify_info);
-	EXPECT_EQ(1, ret);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, security_result[2].action);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, security_result[2].config_id);
+	// second
+	for(int i=0; i<MAX_RESULT_NUM/2; i++)
+	{
+		s_chaining_result[i].action=TSG_ACTION_S_CHAINING;
+		s_chaining_result[i].config_id=TSG_ACTION_S_CHAINING+i;
+	}
 	
-	ret=tsg_pull_policy_result((struct streaminfo *)&a_stream, PULL_ALL_RESULT, &(security_result[2]), 1, &identify_info);
-	EXPECT_EQ(1, ret);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, security_result[2].action);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, security_result[2].config_id);
+	tsg_notify_hited_s_chaining_result(&a_stream, s_chaining_result, MAX_RESULT_NUM/2, 1);
+	hited_s_chaining=(struct tm_hited_result *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id);
+	EXPECT_NE(nullptr, hited_s_chaining);
+	EXPECT_EQ(g_tsg_para.service_chaining_sid, hited_s_chaining->sid);
+	EXPECT_EQ(MAX_RESULT_NUM/2, hited_s_chaining->result_num);
+	for(int i=0; i<hited_s_chaining->result_num; i++)
+	{	
+		EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->result[i].action);
+		EXPECT_EQ(TSG_ACTION_S_CHAINING+i, hited_s_chaining->result[i].config_id);
+	}
 
-	struct policy_priority_label *priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
-	EXPECT_NE(nullptr, priority_label);	
-	EXPECT_EQ(1, priority_label->security_result_num);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, priority_label->security_result[0].action);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, priority_label->security_result[0].config_id);
+	free_shaping_result(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id, (void *)hited_s_chaining);
+	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id, NULL);
+	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id));
+}
 
-	free_policy_label(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
-	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, NULL);
-	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id));
+TEST(TSGMaster, ServiceChainingPolicyMultipleNotify)
+{
+	const struct streaminfo a_stream={0};
+	struct Maat_rule_t s_chaining_result[MAX_RESULT_NUM]={0};
+
+	// first
+	for(int i=0; i<MAX_RESULT_NUM/2; i++)
+	{
+		s_chaining_result[i].action=TSG_ACTION_S_CHAINING;
+		s_chaining_result[i].config_id=TSG_ACTION_S_CHAINING+i;
+	}
+	
+	set_s_chaining_result_to_bridge(&a_stream, s_chaining_result, MAX_RESULT_NUM/2, 0);
+	struct tm_hited_result *hited_s_chaining=(struct tm_hited_result *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id);
+	EXPECT_NE(nullptr, hited_s_chaining);
+	EXPECT_EQ(g_tsg_para.service_chaining_sid, hited_s_chaining->sid);
+	EXPECT_EQ(MAX_RESULT_NUM/2, hited_s_chaining->result_num);
+	for(int i=0; i<hited_s_chaining->result_num; i++)
+	{	
+		EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->result[i].action);
+		EXPECT_EQ(TSG_ACTION_S_CHAINING+i, hited_s_chaining->result[i].config_id);
+	}
+
+	// second
+	for(int i=MAX_RESULT_NUM/2; i<MAX_RESULT_NUM; i++)
+	{
+		s_chaining_result[i].action=TSG_ACTION_S_CHAINING;
+		s_chaining_result[i].config_id=TSG_ACTION_S_CHAINING+i;
+	}
+	
+	tsg_notify_hited_s_chaining_result(&a_stream, &(s_chaining_result[MAX_RESULT_NUM/2]), MAX_RESULT_NUM/2, 1);
+	hited_s_chaining=(struct tm_hited_result *)tsg_get_xxx_from_bridge(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id);
+	EXPECT_NE(nullptr, hited_s_chaining);
+	EXPECT_EQ(g_tsg_para.service_chaining_sid, hited_s_chaining->sid);
+	EXPECT_EQ(MAX_RESULT_NUM, hited_s_chaining->result_num);
+	for(int i=0; i<hited_s_chaining->result_num; i++)
+	{	
+		EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->result[i].action);
+		EXPECT_EQ(TSG_ACTION_S_CHAINING+i, hited_s_chaining->result[i].config_id);
+	}
+
+	free_shaping_result(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id, (void *)hited_s_chaining);
+	stream_bridge_async_data_put(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id, NULL);
+	EXPECT_EQ(nullptr, stream_bridge_async_data_get(&a_stream, g_tsg_para.bridge[BRIDGE_TYPE_SERVICE_CHAINING].id));
 }
 
 int main(int argc, char *argv[])

@@ -13,6 +13,11 @@ enum TSG_FS2_TYPE
 	TSG_FS2_HIT_SHARE,
 	TSG_FS2_INTERCEPT,
 	TSG_FS2_SHAPING,
+	TSG_FS2_S_CHAINING,
+	TSG_FS2_CTRL_OPENING,
+	TSG_FS2_CTRL_CLOSING,
+	TSG_FS2_CTRL_ACTIVE,
+	TSG_FS2_CTRL_RESETALL,
 	TSG_FS2_EXCLUSION,
 	TSG_FS2_APP_DPKT_RESULT,
 	TSG_FS2_APP_Q_RESULT,
@@ -124,7 +129,7 @@ enum MASTER_DYNAMIC_TABLE
 #endif
 
 #ifndef	MAX_TSG_ALL_RESULT_NUM
-#define	MAX_TSG_ALL_RESULT_NUM	MAX_RESULT_NUM*2
+#define	MAX_TSG_ALL_RESULT_NUM	MAX_RESULT_NUM*3
 #endif
 
 #ifndef	MAX_STRING_LEN32
@@ -171,6 +176,8 @@ typedef	struct tsg_para
 	int hash_slot_size;
 	int hash_thread_safe;
 	int feature_tamper;
+	int service_chaining_sid;
+	int shaping_sid;
 	enum DEPLOY_MODE deploy_mode;
 	int scan_time_interval;
 	int identify_app_max_pkt_num;
@@ -191,6 +198,7 @@ typedef	struct tsg_para
 	char table_name[TABLE_MAX][MAX_TABLE_NAME_LEN];	
 	char dyn_table_name[DYN_TABLE_MAX][MAX_TABLE_NAME_LEN];
 	struct bridge_info bridge[BRIDGE_TYPE_MAX];
+	int send_resetall;
 	void *logger;
 	void *maat_logger;
 	struct reset_argv reset;

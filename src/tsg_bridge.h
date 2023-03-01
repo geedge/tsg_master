@@ -22,7 +22,15 @@ enum BRIDGE_TYPE
 	BRIDGE_TYPE_ALL_CONTEXT,		//async
 	BRIDGE_TYPE_GATHER_APP_RESULT,	//async
 	BRIDGE_TYPE_POLICY_PRIORITY,	//async
+	BRIDGE_TYPE_SERVICE_CHAINING,	//async
 	BRIDGE_TYPE_MAX
+};
+
+struct tm_hited_result
+{
+	int sid;
+	int result_num;
+	struct Maat_rule_t result[MAX_RESULT_NUM];
 };
 
 struct app_attributes

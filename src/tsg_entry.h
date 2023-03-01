@@ -34,6 +34,15 @@ typedef int atomic_t;
 #include <alsa/iatomic.h>
 #endif 
 
+#ifndef	TM_FALSE
+#define	TM_FALSE	0
+#endif
+
+#ifndef	TM_TRUE
+#define TM_TRUE	1
+#endif
+
+
 #ifndef	FLAG_FALSE
 #define	FLAG_FALSE	0
 #endif
@@ -246,6 +255,6 @@ int tsg_scan_session_flags(Maat_feather_t maat_feather, const struct streaminfo 
 
 int tsg_fetch_hited_security_result(struct Maat_rule_t *hited_result, int hited_result_num, struct Maat_rule_t *security_result, int security_result_num);
 int tsg_fetch_hited_shaping_result(struct Maat_rule_t *hited_result, int hited_result_num, struct Maat_rule_t *security_result, int security_result_num);
-
+int tsg_fetch_hited_s_chaining_result(struct Maat_rule_t *hited_result, int hited_result_num, struct Maat_rule_t *s_chaining_result, int s_chaining_result_num);
 
 #endif
