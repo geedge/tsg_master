@@ -1326,12 +1326,9 @@ static int set_tunnel_ipv4v6_port(struct tsg_log_instance_t *_instance, struct T
 	return 0;
 }
 
-#define SESSION_MARKER_ALL_FIELD_NUM 13
-
 struct session_marker_notify_ctx 
 {
 	uint64_t flags;
-	uint32_t identify[SESSION_MARKER_ALL_FIELD_NUM];
 	char *identify_str;
 };
 
