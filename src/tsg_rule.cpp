@@ -628,6 +628,35 @@ void subscriber_id_free(int table_id, MAAT_PLUGIN_EX_DATA* ad, long argl, void* 
 	return;
 }
 
+static int parse_enforce_direction(cJSON *app_para, int *value)
+{
+	char *enforce_direction=NULL;
+	int ret=get_string_from_json(app_para, "enforce_direction", &enforce_direction);
+	if(ret==0 || enforce_direction==NULL)
+	{
+		*value=DIR_DOUBLE;
+		return 1;
+	}
+
+	if(strcasecmp(enforce_direction, "c2s")==0)
+	{
+		*value=DIR_C2S;
+	}
+	else if(strcasecmp(enforce_direction, "s2c")==0)
+	{
+		*value=DIR_S2C;
+	}
+	else
+	{
+		*value=DIR_DOUBLE;
+	}
+	
+	free(enforce_direction);
+	enforce_direction=NULL;
+
+	return 1;
+}
+
 static int parse_deny_action(char *deny_action_str, struct deny_user_region *deny_app_para)
 {
 	if(deny_action_str==NULL)
@@ -650,13 +679,13 @@ static int parse_deny_action(char *deny_action_str, struct deny_user_region *den
 		{
 			case	TSG_METHOD_TYPE_DROP:
 				deny_app_para->type=TSG_DENY_TYPE_APP_DROP;
-				get_integer_from_json(app_para, "send_tcp_reset", &(deny_app_para->app_para.send_reset_enable));	
+				get_integer_from_json(app_para, "send_tcp_reset", (int *)&(deny_app_para->action.send_reset_enable));	
 				get_integer_from_json(app_para, "after_n_packets", &(deny_app_para->after_n_packets));	
-				get_integer_from_json(app_para, "send_icmp_unreachable", &(deny_app_para->app_para.send_icmp_enable));
+				get_integer_from_json(app_para, "send_icmp_unreachable", (int *)&(deny_app_para->action.send_icmp_enable));
 				break;
 			case	TSG_METHOD_TYPE_RATE_LIMIT:
 				deny_app_para->type=TSG_DENY_TYPE_APP_RATELIMIT;
-				get_integer_from_json(app_para, "bps", &(deny_app_para->bps)); 
+				get_integer_from_json(app_para, "bps", &(deny_app_para->action.bps));
 				break;
 			default:
 				break;
@@ -981,7 +1010,7 @@ static int parse_default_para(cJSON *deny_user_region_object, struct compile_use
 				break;
 			case	TSG_METHOD_TYPE_DROP:
 				get_integer_from_json(tcp_session_item, "after_n_packets", &(user_region->session_para->tcp.after_n_packets));
-				get_integer_from_json(tcp_session_item, "send_icmp_unreachable", &(user_region->session_para->tcp.send_icmp_enable));
+				get_integer_from_json(tcp_session_item, "send_icmp_unreachable", (int *)&(user_region->session_para->tcp.send_icmp_enable));
 				if(user_region->session_para->tcp.send_icmp_enable==1)
 				{
 					user_region->session_para->tcp.type=TSG_DENY_TYPE_SEND_ICMP;
@@ -1002,7 +1031,7 @@ static int parse_default_para(cJSON *deny_user_region_object, struct compile_use
 	{
 		user_region->session_para->udp.type=TSG_DENY_TYPE_DEFAULT_DROP;
 		get_integer_from_json(udp_session_item, "after_n_packets", &(user_region->session_para->udp.after_n_packets));
-		get_integer_from_json(udp_session_item, "send_icmp_unreachable", &(user_region->session_para->udp.send_icmp_enable));
+		get_integer_from_json(udp_session_item, "send_icmp_unreachable", (int *)&(user_region->session_para->udp.send_icmp_enable));
 		if(user_region->session_para->udp.send_icmp_enable==1)
 		{
 			user_region->session_para->udp.type=TSG_DENY_TYPE_SEND_ICMP;
@@ -1137,25 +1166,27 @@ static struct compile_user_region *parse_deny_user_region(cJSON *deny_user_regio
 		case	TSG_METHOD_TYPE_RATE_LIMIT:
 			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
 			user_region->deny->type=TSG_DENY_TYPE_MAX;
-			get_integer_from_json(deny_user_region_object, "bps", &(user_region->deny->bps));
+			get_integer_from_json(deny_user_region_object, "bps", &(user_region->deny->action.bps));
+			parse_enforce_direction(deny_user_region_object, &(user_region->deny->action.enforce_direction));
 			break;
 		case	TSG_METHOD_TYPE_DROP:
 			user_region->deny=(struct deny_user_region *)calloc(1, sizeof(struct deny_user_region));
-			ret=get_integer_from_json(deny_user_region_object, "send_icmp_unreachable", &(user_region->deny->send_icmp_enable));
+			parse_enforce_direction(deny_user_region_object, &(user_region->deny->action.enforce_direction));
+			ret=get_integer_from_json(deny_user_region_object, "send_icmp_unreachable", (int *)&(user_region->deny->action.send_icmp_enable));
 			if(ret==1)
 			{
 				user_region->deny->type=TSG_DENY_TYPE_SEND_ICMP;
 				break;
 			}
-            break;
+			break;
 		case	TSG_METHOD_TYPE_APP_DROP:
 			break;
 		case	TSG_METHOD_TYPE_RST:
 		case	TSG_METHOD_TYPE_RESET:
 			break;
-        case    TSG_METHOD_TYPE_TAMPER:
-            break;
-		default:			
+		case	TSG_METHOD_TYPE_TAMPER:
+			break;
+		default:
 			parse_default_para(deny_user_region_object, user_region);
 			break;
 	}

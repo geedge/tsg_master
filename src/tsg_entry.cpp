@@ -2121,11 +2121,11 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 				state|=APP_STATE_GIVEME|APP_STATE_DROPPKT;
 			}
 			break;
-        case    TSG_METHOD_TYPE_TAMPER:
-            if(0 == send_tamper_xxx(a_stream, &all_context->tamper_count, a_packet)){
-                state|=APP_STATE_GIVEME|APP_STATE_DROPPKT;
-            }
-            break;
+		case	TSG_METHOD_TYPE_TAMPER:
+			if(0 == send_tamper_xxx(a_stream, &all_context->tamper_count, a_packet)){
+			state|=APP_STATE_GIVEME|APP_STATE_DROPPKT;
+			}
+			break;
 		case	TSG_METHOD_TYPE_DEFAULT:
 			if(!is_do_default_policy(a_stream, all_context->after_n_packets) || stream_state==OP_STATE_CLOSE)
 			{
@@ -2134,7 +2134,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			
 			if(get_default_policy(g_tsg_para.default_compile_id, &result[0]))
 			{
-				state=tsg_deal_deny_action(a_stream, &result[0], PROTO_UNKONWN, ACTION_RETURN_TYPE_APP, a_packet);				
+				state=tsg_deal_deny_action(a_stream, &result[0], PROTO_UNKONWN, ACTION_RETURN_TYPE_APP, a_packet);
 				master_send_log(a_stream, &result[0], 1, NULL, thread_seq);
 			}
 			break;

@@ -79,10 +79,18 @@ struct packet_capture
 	int depth;
 };
 
-struct app_action_para
+struct sub_action
 {
-	int send_reset_enable;
-	int send_icmp_enable;
+	union
+	{
+		int bps;				// override or app default ratelimit
+		int send_icmp_enable;	// override or app default drop
+	};
+	union 
+	{
+		int send_reset_enable;	// app default drop
+		int enforce_direction;	// override drop and ratelimit
+	};
 };
 
 struct deny_user_region
@@ -100,9 +108,8 @@ struct deny_user_region
 		char *redirect_url_to;
 		struct dns_user_region *records;
 		int profile_id;
-		int bps;
 		int send_icmp_enable;
-		struct app_action_para app_para;
+		struct sub_action action;
 		void *para;
 	};
 };

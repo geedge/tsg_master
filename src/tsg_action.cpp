@@ -632,13 +632,13 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
         _context->tamper_count = 0;
     }
 
-    //当前为tsg_master_plug暂时不处理在tsg_master_all_entry处理,防止命中发两次
+    //当前为tsg_master_plug暂时不处理在tsg_master_all_entry处理,防止命中发两�?
     if(ACTION_RETURN_TYPE_APP == type)
     {
         return STATE_GIVEME|STATE_DROPPKT|STATE_KILL_OTHER;
     }
 
-    //TCP这里发送的话，tsg_master_all_entry仍会处理发送,UDP没有这个情况,所以加该判断
+    //TCP这里发送的话，tsg_master_all_entry仍会处理发�?UDP没有这个情况,所以加该判�?
     if(a_stream->type == STREAM_TYPE_UDP) 
     {
         send_tamper_xxx(a_stream, &_context->tamper_count, user_data);
@@ -692,7 +692,7 @@ static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, Ma
 static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, enum ACTION_RETURN_TYPE type)
 {
 	struct tcpall_context *context=NULL;
-	struct leaky_bucket *bucket=create_bucket(user_region->deny->bps, a_stream->threadnum);
+	struct leaky_bucket *bucket=create_bucket(user_region->deny->action.bps, a_stream->threadnum);
 
 	int ret=tsg_set_bucket_to_tcpall(a_stream, &context, bucket, a_stream->threadnum);
 	if(ret==0)
@@ -890,12 +890,12 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 				local_state=set_drop_stream(a_stream, protocol);
 			}
 			
-			if(user_region->deny->app_para.send_icmp_enable==1)
+			if(user_region->deny->action.send_icmp_enable==1)
 			{
 				 local_state|=send_icmp_unreachable(a_stream);
 			}
 
-			if(user_region->deny->app_para.send_reset_enable==1)
+			if(user_region->deny->action.send_reset_enable==1)
 			{
 				 local_state|=do_action_reset(a_stream, p_result, protocol);
 			}
@@ -980,6 +980,15 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPPKT|PROT_STATE_DROPME: APP_STATE_DROPME|APP_STATE_DROPPKT);
 	}
 
+	if((user_region->method_type==TSG_METHOD_TYPE_DROP || user_region->method_type==TSG_METHOD_TYPE_RATE_LIMIT) && user_region->deny!=NULL)
+	{
+		if(user_region->deny->action.enforce_direction!=DIR_DOUBLE && a_stream->dir!=DIR_DOUBLE && (user_region->deny->action.enforce_direction)!=a_stream->dir)
+		{
+			security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+			return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPME : APP_STATE_DROPME);
+		}
+	}
+	
 	if(user_region->method_type==TSG_METHOD_TYPE_APP_DROP)
 	{
 		unsigned int app_id=0;
