@@ -2931,6 +2931,38 @@ struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num)
 	return p_result;
 }
 
+struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result_num)
+{
+	int i=0;
+	Maat_rule_t *p_result=NULL;
+
+	for(i=0; i<result_num; i++)
+	{
+		if(p_result==NULL)
+		{
+			p_result=&result[i];
+			continue;
+		}
+		
+		if((unsigned char)result[i].action>(unsigned char)p_result->action)
+		{
+			p_result=&result[i];
+			continue;
+		}
+		
+		if(result[i].action==p_result->action)
+		{
+			if(result[i].config_id>p_result->config_id)
+			{
+				p_result=&result[i];
+			}
+		}	
+	}
+
+	return p_result;
+}
+
+
 int tsg_get_method_id(char *method)
 {
 	int i=0;
@@ -3314,6 +3346,37 @@ int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Ma
 	return 1;
 }
 
+int tsg_set_enforce_direction_deny_rule_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct Maat_rule_t *p_result, int thread_seq)
+{
+	if(p_result==NULL)
+	{
+		return 0;
+	}
+	
+	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	if(_context==NULL)
+	{
+		_context=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
+		memset(_context, 0, sizeof(struct tcpall_context));
+		set_struct_project(a_stream, g_tsg_para.tcpall_project_id, (void *)_context);
+	}
+
+	if(_context->enforce_direction_result==NULL)
+	{
+		_context->enforce_direction_result=(struct Maat_rule_t *)dictator_malloc(thread_seq, sizeof(struct Maat_rule_t));
+		memcpy(_context->enforce_direction_result, p_result, sizeof(struct Maat_rule_t));
+
+		return 1;
+	}
+
+	if(_context->enforce_direction_result->config_id < p_result->config_id)
+	{
+		memcpy(_context->enforce_direction_result, p_result, sizeof(struct Maat_rule_t));
+	}
+
+	return 1;
+}
+
 int tsg_set_method_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, enum TSG_METHOD_TYPE method_type, int thread_seq)
 {
 	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
@@ -3423,3 +3486,29 @@ struct umts_user_info *tsg_get_umts_user_info_form_redis(unsigned int teid)
 	return (struct umts_user_info *)Maat_plugin_get_EX_data(g_tsg_dynamic_maat_feather, g_tsg_para.dyn_table_id[DYN_TABLE_GTP_SIGNALING], (const char *)teid_str);
 }
 
+int tsg_is_do_deny_action_by_enforce_direction(const struct streaminfo *a_stream, struct Maat_rule_t *p_result)
+{
+	if(p_result==NULL || p_result->action!=TSG_ACTION_DENY)
+	{
+		return 0;
+	}
+	
+	struct compile_user_region *user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
+	if(user_region==NULL)
+	{
+		return 1;
+	}
+
+	if((user_region->method_type==TSG_METHOD_TYPE_DROP || user_region->method_type==TSG_METHOD_TYPE_RATE_LIMIT) && user_region->deny!=NULL)
+	{
+		if(user_region->deny->action.enforce_direction!=DIR_DOUBLE && a_stream->dir!=DIR_DOUBLE && (user_region->deny->action.enforce_direction)!=a_stream->dir)
+		{
+			security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+			return 0;
+		}
+	}
+
+	security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+	
+	return 1;
+}

@@ -86,4 +86,9 @@ int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo 
 int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int table_id, unsigned int *category_id, int category_id_num, int thread_seq);
 int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
 
+struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result_num);
+
+// 0: not do action, 1: do action
+int tsg_is_do_deny_action_by_enforce_direction(const struct streaminfo *a_stream, struct Maat_rule_t *p_result);
+
 #endif

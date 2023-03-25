@@ -979,15 +979,6 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 		set_drop_stream(a_stream, protocol);
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPPKT|PROT_STATE_DROPME: APP_STATE_DROPME|APP_STATE_DROPPKT);
 	}
-
-	if((user_region->method_type==TSG_METHOD_TYPE_DROP || user_region->method_type==TSG_METHOD_TYPE_RATE_LIMIT) && user_region->deny!=NULL)
-	{
-		if(user_region->deny->action.enforce_direction!=DIR_DOUBLE && a_stream->dir!=DIR_DOUBLE && (user_region->deny->action.enforce_direction)!=a_stream->dir)
-		{
-			security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
-			return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPME : APP_STATE_DROPME);
-		}
-	}
 	
 	if(user_region->method_type==TSG_METHOD_TYPE_APP_DROP)
 	{

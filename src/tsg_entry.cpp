@@ -788,6 +788,12 @@ static void free_tcpall_label(int thread_seq, void *project_req_value)
 					break;
 			}
 		}
+
+		if(context->enforce_direction_result!=NULL)
+		{
+			dictator_free(thread_seq, context->enforce_direction_result);
+			context->enforce_direction_result=NULL;
+		}
 		
 		dictator_free(thread_seq, project_req_value);
 		project_req_value=NULL;
@@ -988,11 +994,6 @@ static void copy_bypass_result(const struct streaminfo *a_stream, struct master_
 
 int copy_app_result(struct gather_app_result *gather_result, struct app_identify_result *identify_result, int packet_sequence)
 {
-	if(identify_result->app_id_num<=gather_result->app_num)
-	{
-		return 0;
-	}
-	
 	gather_result->app_num=0;
 	for(int i=0; (i < identify_result->app_id_num) && i<MAX_APP_ID_NUM && (gather_result->app_num < MAX_APP_ID_NUM); i++)
 	{		
@@ -1042,6 +1043,22 @@ static int l7_protocol_mapper(const char *filename)
 
 	fclose(fp);
 	fp=NULL;
+
+	return 1;
+}
+
+int tsg_select_monitor_result(const struct streaminfo *a_stream, struct master_context *context, struct Maat_rule_t *p_result, int result_num, int thread_seq)
+{
+	for(int i=0; i<result_num; i++)
+	{
+		if(p_result[i].action!=TSG_ACTION_MONITOR)
+		{
+			continue;
+		}
+		
+		copy_monitor_result(a_stream, context, &(p_result[i]), 1, a_stream->threadnum);
+		tsg_notify_hited_monitor_result(a_stream, &(p_result[i]), 1, a_stream->threadnum);
+	}
 
 	return 1;
 }
@@ -1402,37 +1419,6 @@ static void free_session_attribute_label(int thread_seq, void *project_req_value
 	}
 }
 
-struct Maat_rule_t *tsg_policy_decision_criteria(Maat_rule_t *result, int result_num)
-{
-	int i=0;
-	Maat_rule_t *p_result=NULL;
-
-	for(i=0; i<result_num; i++)
-	{
-		if(p_result==NULL)
-		{
-			p_result=&result[i];
-			continue;
-		}
-		
-		if((unsigned char)result[i].action>(unsigned char)p_result->action)
-		{
-			p_result=&result[i];
-			continue;
-		}
-		
-		if(result[i].action==p_result->action)
-		{
-			if(result[i].config_id>p_result->config_id)
-			{
-				p_result=&result[i];
-			}
-		}	
-	}
-
-	return p_result;
-}
-
 static int identify_application_protocol(const struct streaminfo *a_stream, struct master_context *context, void *a_packet)
 {
 	int ret=0, length=0;
@@ -1716,6 +1702,18 @@ static unsigned char master_deal_scan_result(const struct streaminfo *a_stream, 
 		switch((unsigned char)p_result->action)
 		{
 			case	TSG_ACTION_DENY:
+				ret=tsg_is_do_deny_action_by_enforce_direction(a_stream, p_result);
+				if(ret==0)
+				{
+					if(context->proto!=PROTO_RTP)
+					{
+						tsg_select_monitor_result(a_stream, context, result, hit_num, a_stream->threadnum);
+					}
+
+					tsg_set_enforce_direction_deny_rule_to_tcpall(a_stream, &tmp_tcpall_context, p_result, a_stream->threadnum);
+					break;
+				}
+				
 				if(is_deny_application(p_result))
 				{
 					if(context->hited_para.hited_app_id==0)
@@ -2091,6 +2089,12 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			switch(p_result->action)
 			{
 				case	TSG_ACTION_DENY:
+					ret=tsg_is_do_deny_action_by_enforce_direction(a_stream, p_result);
+					if(ret==0)
+					{
+						tsg_set_enforce_direction_deny_rule_to_tcpall(a_stream, &all_context, p_result, thread_seq);
+						break;
+					}
 					state=tsg_deal_deny_action(a_stream, p_result, PROTO_UNKONWN, ACTION_RETURN_TYPE_APP, a_packet);
 					master_send_log(a_stream, p_result, 1, NULL, thread_seq);
 					break;
@@ -2159,6 +2163,30 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			}
 			break;
 		default:
+			if(all_context->enforce_direction_result==NULL)
+			{
+				break;
+			}
+			
+			data_context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
+			if(data_context!=NULL && (data_context->proto==PROTO_DNS || data_context->proto==PROTO_QUIC || data_context->proto==PROTO_SIP || data_context->proto==PROTO_RTP  || data_context->proto==PROTO_DTLS))
+			{
+				break;
+			}
+			
+			ret=tsg_is_do_deny_action_by_enforce_direction(a_stream, all_context->enforce_direction_result);
+			if(ret==0)
+			{
+				break;
+			}
+			
+			state=tsg_deal_deny_action(a_stream, all_context->enforce_direction_result, (data_context==NULL ? PROTO_UNKONWN : data_context->proto), ACTION_RETURN_TYPE_APP, a_packet);
+			master_send_log(a_stream, all_context->enforce_direction_result, 1, data_context, thread_seq);
+
+			if(data_context!=NULL)
+			{
+				data_context->is_log=1;
+			}
 			break;
 	}
 

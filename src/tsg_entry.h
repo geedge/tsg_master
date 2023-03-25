@@ -293,6 +293,8 @@ struct tcpall_context
 		struct hited_app_para hited_para;
 		void *para;
 	};
+
+	struct Maat_rule_t *enforce_direction_result;
 };
 
 struct reset_argv
@@ -492,5 +494,8 @@ int tsg_get_ip_location(const struct streaminfo *a_stream, int table_id, MAAT_PL
 int tsg_get_ip_asn(const struct streaminfo *a_stream, int table_id, MAAT_PLUGIN_EX_DATA* client_asn, MAAT_PLUGIN_EX_DATA* server_asn);
 int tsg_get_subscribe_id(const struct streaminfo *a_stream, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id);
 int tsg_send_raw_packet(const struct streaminfo *a_stream, struct mirrored_vlan *vlan, int vlan_num, int thread_seq);
+
+int tsg_set_enforce_direction_deny_rule_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct Maat_rule_t *p_result, int thread_seq);
+
 
 #endif
