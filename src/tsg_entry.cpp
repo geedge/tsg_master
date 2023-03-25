@@ -2163,31 +2163,35 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			}
 			break;
 		default:
-			if(all_context->enforce_direction_result==NULL)
-			{
-				break;
-			}
-			
-			data_context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
-			if(data_context!=NULL && (data_context->proto==PROTO_DNS || data_context->proto==PROTO_QUIC || data_context->proto==PROTO_SIP || data_context->proto==PROTO_RTP  || data_context->proto==PROTO_DTLS))
-			{
-				break;
-			}
-			
-			ret=tsg_is_do_deny_action_by_enforce_direction(a_stream, all_context->enforce_direction_result);
-			if(ret==0)
-			{
-				break;
-			}
-			
-			state=tsg_deal_deny_action(a_stream, all_context->enforce_direction_result, (data_context==NULL ? PROTO_UNKONWN : data_context->proto), ACTION_RETURN_TYPE_APP, a_packet);
-			master_send_log(a_stream, all_context->enforce_direction_result, 1, data_context, thread_seq);
-
-			if(data_context!=NULL)
-			{
-				data_context->is_log=1;
-			}
 			break;
+	}
+
+	if(all_context->enforce_direction_result==NULL)
+	{
+		return state;
+	}
+	
+	data_context=(struct master_context *)get_struct_project(a_stream, g_tsg_para.context_project_id);
+	if(data_context!=NULL && 
+		data_context->hited_para.hited_app_id==0 &&
+		(data_context->proto==PROTO_DNS || data_context->proto==PROTO_QUIC || data_context->proto==PROTO_SIP || data_context->proto==PROTO_RTP  || data_context->proto==PROTO_DTLS)
+	)
+	{
+		return state;
+	}
+	
+	ret=tsg_is_do_deny_action_by_enforce_direction(a_stream, all_context->enforce_direction_result);
+	if(ret==0)
+	{
+		return state;
+	}
+	
+	state=tsg_deal_deny_action(a_stream, all_context->enforce_direction_result, (data_context==NULL ? PROTO_UNKONWN : data_context->proto), ACTION_RETURN_TYPE_APP, a_packet);
+	master_send_log(a_stream, all_context->enforce_direction_result, 1, data_context, thread_seq);
+	
+	if(data_context!=NULL)
+	{
+		data_context->is_log=1;
 	}
 
 	return state;
