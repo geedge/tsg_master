@@ -3417,7 +3417,7 @@ int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 	{
 		case	TSG_METHOD_TYPE_RATE_LIMIT:
 			*context=_context;
-			return 1;	
+			return 0;	
 			break;
 		case	TSG_METHOD_TYPE_DEFAULT:
 		case	TSG_METHOD_TYPE_UNKNOWN:

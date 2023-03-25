@@ -2188,7 +2188,10 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 	
 	state=tsg_deal_deny_action(a_stream, all_context->enforce_direction_result, (data_context==NULL ? PROTO_UNKONWN : data_context->proto), ACTION_RETURN_TYPE_APP, a_packet);
 	master_send_log(a_stream, all_context->enforce_direction_result, 1, data_context, thread_seq);
-	
+
+	dictator_free(thread_seq, all_context->enforce_direction_result);
+	all_context->enforce_direction_result=NULL;
+		
 	if(data_context!=NULL)
 	{
 		data_context->is_log=1;
