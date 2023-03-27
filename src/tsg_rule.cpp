@@ -3496,7 +3496,7 @@ int tsg_is_do_deny_action_by_enforce_direction(const struct streaminfo *a_stream
 	struct compile_user_region *user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
 	if(user_region==NULL)
 	{
-		return 1;
+		return 0;
 	}
 
 	if((user_region->method_type==TSG_METHOD_TYPE_DROP || user_region->method_type==TSG_METHOD_TYPE_RATE_LIMIT) && user_region->deny!=NULL)
