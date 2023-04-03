@@ -156,6 +156,34 @@ typedef enum tsg_statis_field_id
 	STATIS_MAX
 }tsg_statis_field_id_t;
 
+enum TRAFFIC_INFO_IDX
+{
+	TRAFFIC_INFO_ALLOW=0,
+	TRAFFIC_INFO_DENY,
+	TRAFFIC_INFO_MONITOR,
+	TRAFFIC_INFO_INTERCEPT,
+	TRAFFIC_INFO_MAX
+};
+
+struct tsg_statistic
+{
+	int cycle;
+	int thread_alive;
+	pthread_t stat_thread_id;
+	long long statistic_opt[_OPT_TYPE_MAX];
+	struct _traffic_info *traffic_info[TSG_ACTION_MAX+1];
+	struct _traffic_info default_total_info;
+
+	int static_table_id;
+	int static_column_id[STATIS_MAX];
+	struct fieldstat_instance *statistic_handle;
+
+	int metric_cycle;
+	int metric_table_id;
+	struct fieldstat_dynamic_instance *metric_handle;
+	struct fieldstat_tag **metric_tags;
+};
+
 int tsg_statistic_init(const char *conffile, void *logger);
 void tsg_statistic_destroy(void);
 

@@ -27,7 +27,7 @@ const char *printaddr (const struct layer_addr *paddrinfo, int threadindex)
 
 int get_thread_count(void)
 {
-	return 1;
+	return 8;
 }
 
 int MESA_rst_tcp(struct streaminfo * stream, struct rst_tcp_para * paras, int para_len)
@@ -100,6 +100,16 @@ int MESA_set_stream_opt(const struct streaminfo * pstream, enum MESA_stream_opt 
 
 int MESA_get_stream_opt(const struct streaminfo * pstream, enum MESA_stream_opt opt, void * opt_val, int * opt_val_len)
 {
+	if (*opt_val_len == 2)
+	{
+		*(u_short *)opt_val = 2;
+	}
+
+	if (*opt_val_len == 8)
+	{
+		*(long long *)opt_val = 5;
+	}
+
 	return 0;
 }
 

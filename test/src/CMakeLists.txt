@@ -40,7 +40,10 @@ set(TSG_MASTER_SRC ${PROJECT_SOURCE_DIR}/src/tsg_entry.cpp
 )
 
 add_executable(gtest_master ${TSG_MASTER_SRC} gtest_kafka.cpp gtest_common.cpp gtest_master.cpp)
-target_link_libraries(gtest_master gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger MESA_jump_layer MESA_field_stat2 maat4 MESA_htable)
+target_link_libraries(gtest_master gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger MESA_jump_layer MESA_field_stat2 maat4 MESA_htable fieldstat3)
 
 add_executable(gtest_sync_session_state ${PROJECT_SOURCE_DIR}/src/tsg_sync_state.cpp gtest_common.cpp gtest_session_state.cpp)
 target_link_libraries(gtest_sync_session_state gtest-static cjson ctemplate-static)
+
+add_executable(gtest_fieldstat3 ${PROJECT_SOURCE_DIR}/src/tsg_statistic.cpp gtest_common.cpp gtest_fieldstat3.cpp)
+target_link_libraries(gtest_fieldstat3 gtest-static ctemplate-static MESA_field_stat2 fieldstat3 MESA_prof_load MESA_handle_logger)
