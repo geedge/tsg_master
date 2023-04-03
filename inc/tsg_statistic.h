@@ -20,8 +20,8 @@ struct _traffic_info
 	long long out_packets;
 };
 
-int tsg_set_policy_flow(struct streaminfo *a_stream, Maat_rule_t *p_result, int thread_seq);
-int tsg_set_intercept_flow(Maat_rule_t *p_result, struct _traffic_info *traffic_info, int thread_seq);
+int tsg_set_policy_flow(const struct streaminfo *a_stream, struct maat_rule *p_result, int thread_seq);
+int tsg_set_intercept_flow(struct maat_rule *p_result, struct _traffic_info *traffic_info, int thread_seq);
 int tsg_set_statistic_opt(int value, enum _STATISTIC_OPT_TYPE type, int thread_seq);
 
 #endif

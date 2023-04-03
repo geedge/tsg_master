@@ -9,7 +9,7 @@
             "action": 1,
             "do_blacklist": 0,
             "do_log": 1,
-            "effective_rage": 0,
+            "tags": "{}",
             "user_region": "Virtual",
             "is_valid": "yes",
             "groups": [
@@ -23,14 +23,13 @@
                             "table_name": "TSG_OBJ_IP_ADDR",
                             "table_content": {
                                 "addr_type": "ipv4",
-                                "saddr_format": "range",
-                                "src_ip1": "192.168.41.228",
-                                "src_ip2": "192.168.41.228",
-                                "sport_format": "range",
-                                "src_port1": "0",
-                                "src_port2": "0",
-                                "protocol": 6,
-                                "direction": "double"
+                                "addr_format": "range",
+                                "ip1": "192.168.41.228",
+                                "ip2": "192.168.41.228",
+                                "port_format": "range",
+                                "port1": "0",
+                                "port2": "0",
+                                "protocol": -1
                             }
                         }
                     ]

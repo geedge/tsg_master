@@ -8,6 +8,13 @@ global:
 		*tsg_free_gtp_signaling_field;
 		*tsg_*;
 		*TLD_*;
+		*session_runtime_attribute_get*;
+		*srt_attribute*;
+		*session_runtime_process_context_async*;
+		*session_runtime_process_context_get*;
+		*srt_process_context_*;
+		*session_matched_rules_notify*;
+		*session_matched_rules_copy*;
 		*GIT*;
 	};
   local: *;

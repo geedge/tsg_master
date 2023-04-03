@@ -11,7 +11,29 @@
 #include "tsg_statistic.h"
 #include "tsg_send_log_internal.h"
 
-tsg_statis_para_t g_tsg_statis_para;
+enum TRAFFIC_INFO_IDX
+{
+	TRAFFIC_INFO_ALLOW=0,
+	TRAFFIC_INFO_DENY,
+	TRAFFIC_INFO_MONITOR,
+	TRAFFIC_INFO_INTERCEPT,
+	TRAFFIC_INFO_MAX
+};
+
+struct tsg_statistic
+{
+	int cycle;
+	int fs_line_id;
+	int thread_alive;
+	pthread_t stat_thread_id;
+	int fs_field_id[STATIS_MAX];
+	long long statistic_opt[_OPT_TYPE_MAX];
+	struct _traffic_info *traffic_info[TSG_ACTION_MAX+1];
+	struct _traffic_info default_total_info;
+	screen_stat_handle_t fs2_handle;
+};
+
+struct tsg_statistic g_tsg_statis_para;
 
 int tsg_set_statistic_opt(int value, enum _STATISTIC_OPT_TYPE type, int thread_seq)
 {
@@ -31,7 +53,7 @@ int tsg_set_statistic_opt(int value, enum _STATISTIC_OPT_TYPE type, int thread_s
 	return 0;
 }
 
-int tsg_set_intercept_flow(Maat_rule_t *p_result, struct _traffic_info *traffic_info, int thread_seq)
+int tsg_set_intercept_flow(struct maat_rule *p_result, struct _traffic_info *traffic_info, int thread_seq)
 {
 	struct _traffic_info *_info=NULL;
 
@@ -49,7 +71,7 @@ int tsg_set_intercept_flow(Maat_rule_t *p_result, struct _traffic_info *traffic_
 	return 0;
 }
 
-int tsg_set_policy_flow(struct streaminfo *a_stream, Maat_rule_t *p_result, int thread_seq)
+int tsg_set_policy_flow(const struct streaminfo *a_stream, struct maat_rule *p_result, int thread_seq)
 {
 	unsigned long long value=0;
 	int value_len=sizeof(unsigned long long);

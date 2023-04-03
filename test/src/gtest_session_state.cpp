@@ -10,7 +10,7 @@ extern int get_ctrl_pkt(char *buf, int len);
 
 struct parse_handle test_handle;
 
-unsigned long long tsg_get_stream_id(struct streaminfo * a_stream)
+unsigned long long tsg_get_stream_trace_id(const struct streaminfo * a_stream)
 {
 	return 10;
 }
@@ -131,11 +131,11 @@ TEST(SESSION_STATE, ActiveStateServiceChainingAndShaping1)
     int ctrl_pkt_len = 0;
     memset(&policy_array, 0, sizeof(struct update_policy) * 2);
     policy_array[0].type = POLICY_UPDATE_SHAPING;
-    policy_array[0].id_num = 3;
+    policy_array[0].n_ids = 3;
     policy_array[0].ids[0] = 1;
     policy_array[0].ids[1] = 2;
     policy_array[0].ids[2] = 3;
-    policy_array[1].id_num = 3;
+    policy_array[1].n_ids = 3;
     policy_array[1].ids[0] = 4;
     policy_array[1].ids[1] = 5;
     policy_array[1].ids[2] = 6;

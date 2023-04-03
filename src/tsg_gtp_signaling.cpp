@@ -5,7 +5,7 @@
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
 
-#include "tsg_entry.h"
+#include "tsg_rule_internal.h"
 #include "tsg_gtp_signaling.h"
 
 MESA_htable_handle g_gtp_signaling_hash_handle=NULL;
@@ -150,7 +150,7 @@ static int get_umts_user_info_form_hash(struct umts_user_info **user_info, unsig
 
 static int get_umts_user_info_form_redis(struct umts_user_info **user_info, unsigned int teid, int thread_seq)
 {
-	(*user_info)=tsg_get_umts_user_info_form_redis(teid);
+	(*user_info) = tsg_get_umts_user_info_form_redis(g_tsg_maat_feather, (long long)teid);
 	if((*user_info)!=NULL)
 	{
 		return 1;
@@ -159,8 +159,7 @@ static int get_umts_user_info_form_redis(struct umts_user_info **user_info, unsi
 	return 0;
 }
 
-
-int tsg_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info)
+int session_runtine_attribute_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info)
 {
 	int ret=0;
 	unsigned int uplink=0,downlink=0;

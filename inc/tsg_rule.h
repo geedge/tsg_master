@@ -1,16 +1,6 @@
-#ifndef	__TSG_RULE_H__
-#define	__TSG_RULE_H__
-
-#include <MESA/Maat_rule.h>
+#pragma once
 
 #include "tsg_label.h"
-
-#define TSG_DOMAIN_MAX 	256
-#define	MAX_APP_ID_PROPERTY_LEN	128
-
-#ifndef	MAX_DOMAIN_LEN
-#define	MAX_DOMAIN_LEN	2048
-#endif
 
 #define	TSG_ACTION_NONE			0x00
 #define	TSG_ACTION_MONITOR		0x01
@@ -19,8 +9,20 @@
 #define	TSG_ACTION_SHAPING		0x20
 #define	TSG_ACTION_MANIPULATE	0x30
 #define	TSG_ACTION_S_CHAINING	0x40
-#define	TSG_ACTION_BYPASS		0x80
+#define	TSG_ACTION_BYPASS		0x60
+#define	TSG_ACTION_SHUNT		0x80
 #define	TSG_ACTION_MAX			0x80
+
+enum TSG_SERVICE
+{
+	TSG_SERVICE_SECURITY=2,
+	TSG_SERVICE_INTERCEPT=3,
+	TSG_SERVICE_CHAINING=5,
+	TSG_SERVICE_SHAPING=6,
+	TSG_SERVICE_PRE_SIGNATURE=7,
+	TSG_SERVICE_SIGNATURE=8,
+	TSG_SERVICE_MAX
+};
 
 enum TSG_METHOD_TYPE
 {
@@ -33,41 +35,13 @@ enum TSG_METHOD_TYPE
 	TSG_METHOD_TYPE_ALERT,
 	TSG_METHOD_TYPE_RATE_LIMIT,
 	TSG_METHOD_TYPE_MIRRORED,
-    TSG_METHOD_TYPE_TAMPER,
-    TSG_METHOD_TYPE_DEFAULT,
-    TSG_METHOD_TYPE_APP_DROP,
-    TSG_METHOD_TYPE_ALLOW,
+	TSG_METHOD_TYPE_TAMPER,
+	TSG_METHOD_TYPE_DEFAULT,
+	TSG_METHOD_TYPE_APP_DROP,
+	TSG_METHOD_TYPE_ALLOW,
+	TSG_METHOD_TYPE_SHUNT,
 	TSG_METHOD_TYPE_MAX
 };
-
-struct identify_info
-{
-	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
-	int domain_len;
-	char domain[MAX_DOMAIN_LEN];
-};
-
-typedef	enum _PULL_RESULT_TYPE
-{
-	PULL_KNI_RESULT,
-	PULL_FW_RESULT,
-	PULL_ALL_RESULT
-}PULL_RESULT_TYPE;
-
-extern Maat_feather_t g_tsg_maat_feather;
-
-int tsg_rule_init(const char *conffile, void *logger);
-
-int tsg_scan_nesting_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num);
-int tsg_pull_policy_result(struct streaminfo *a_stream, PULL_RESULT_TYPE pull_result_type, Maat_rule_t*result, int result_num, struct identify_info *identify_info);
-int tsg_pull_shaping_result(struct streaminfo *a_stream, Maat_rule_t*result, int result_num);
-
-char *tsg_pull_quic_ua(struct streaminfo *a_stream);
-char *tsg_pull_http_url(struct streaminfo *a_stream);
-
-
-//return NULL if none exists, otherwise return one deny rule;
-struct Maat_rule_t *tsg_fetch_deny_rule(Maat_rule_t *result, int result_num);
 
 enum ACTION_RETURN_TYPE
 {
@@ -75,27 +49,30 @@ enum ACTION_RETURN_TYPE
 	ACTION_RETURN_TYPE_APP,
 	ACTION_RETURN_TYPE_TCPALL
 };
-unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data);
 
-int tsg_get_method_id(char *method);
+extern struct maat *g_tsg_maat_feather;
 
-int tsg_free_compile_user_region(const struct Maat_rule_t *rule, struct compile_user_region *user_region);
-struct compile_user_region *tsg_get_compile_user_region(const Maat_feather_t maat_feather,	struct Maat_rule_t *result);
+struct maat_rule
+{
+	long long rule_id;
+	unsigned char action;
+	unsigned char service_id;
+	unsigned char do_log;
+	unsigned char padding[5];
+};
 
+struct matched_policy_rules
+{
+	size_t n_rules;
+	struct maat_rule rules[MAX_RESULT_NUM];
+};
 
-////return -1 if none exists  otherwise return >=0
-int tsg_get_column_integer_value(const char* line, int column_seq);
+void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE service, struct maat_rule *rules, size_t n_rules, int thread_seq);
+size_t tsg_matched_rules_select(struct maat *feather, TSG_SERVICE service, long long *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules);
+size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *feather, enum TSG_PROTOCOL proto, struct maat_state *s_mid, struct maat_rule *rules, size_t n_rules);
+size_t session_matched_rules_copy(const struct streaminfo *a_stream, enum TSG_SERVICE service, struct maat_rule *rules, size_t n_rules);
 
-//return NULL if none exists, otherwise return value;
-char *tsg_get_column_string_value(const char* line, int column_seq);
+int tsg_get_fqdn_category_ids(struct maat *feather, char *fqdn, unsigned int *category_ids, int n_category_ids);
 
-int tsg_set_fqdn_category_id(const struct streaminfo *a_stream, unsigned int *category_id, int category_id_num, int thread_seq);
-int tsg_get_fqdn_category_id(Maat_feather_t maat_feather, char *fqdn, unsigned int *category_id, int category_id_num, void *logger, int thread_seq);
-int tsg_scan_app_id_policy(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, char *name, unsigned int id, int thread_seq);
-int tsg_scan_fqdn_category_id(Maat_feather_t maat_feather, const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, scan_status_t *mid, int table_id, unsigned int *category_id, int category_id_num, int thread_seq);
-int tsg_notify_hited_monitor_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
-int tsg_notify_hited_shaping_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
-int tsg_notify_hited_security_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
-int tsg_notify_hited_s_chaining_result(const struct streaminfo *a_stream, struct Maat_rule_t *result, int result_num, int thread_seq);
+unsigned char tsg_enforing_deny(const struct streaminfo *a_stream, struct maat_rule *p_result, enum TSG_PROTOCOL protocol, enum ACTION_RETURN_TYPE type, const void *user_data);
 
-#endif

@@ -1,5 +1,4 @@
-#ifndef	__TSG_PROTOCOL_COMMON_H__
-#define	__TSG_PROTOCOL_COMMON_H__
+#pragma once
 
 #include <MESA/stream.h>
 #include "tsg_rule.h"
@@ -120,30 +119,29 @@ struct monitor_user_region
 
 struct default_session_para
 {
-	struct Maat_rule_t result; 			//XJ default policy
+	struct maat_rule result; 			//XJ default policy
 	struct deny_user_region tcp;
 	struct deny_user_region udp;
 };
 
 struct compile_user_region
 {	
-	int ref_cnt;
 	enum TSG_METHOD_TYPE method_type;
 	union	
 	{
-		struct deny_user_region *deny;		
-		struct monitor_user_region *mirror;		
-		struct default_session_para *session_para;		
-		void *user_region_para;		
+		struct deny_user_region *deny;
+		struct monitor_user_region *mirror;
+		struct default_session_para *session_para;
+		void *user_region_para;
 	};	
 	struct packet_capture capture;
+	struct maat_rule compile_rule;
 };
 
 int tsg_send_inject_packet(const struct streaminfo *a_stream, enum sapp_inject_opt sio, char *payload, int payload_len, unsigned char raw_route_dir);
-unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, const void *user_data);
+unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, const void *user_data);
 
 unsigned char send_icmp_unreachable(const struct streaminfo *a_stream);
 int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count, const void *raw_pkt);
-unsigned char tsg_deny_application(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, int app_id, enum ACTION_RETURN_TYPE type, const void *user_data);
+unsigned char tsg_enforing_deny_application(const struct streaminfo *a_stream, struct maat_rule *p_result, enum TSG_PROTOCOL protocol, int app_id, enum ACTION_RETURN_TYPE type, const void *user_data);
 
-#endif

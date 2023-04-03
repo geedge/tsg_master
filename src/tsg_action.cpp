@@ -17,26 +17,27 @@
 #include <MESA/stream.h>
 #include <MESA/MESA_handle_logger.h>
 
-#include "app_label.h"
 #include "tsg_rule.h"
+#include "app_label.h"
 #include "tsg_entry.h"
+#include "tsg_bridge.h"
 #include "tsg_statistic.h"
 #include "tsg_send_log.h"
 #include "tsg_protocol_common.h"
+#include "tsg_rule_internal.h"
 
 extern "C" int sendpacket_do_checksum(unsigned char *buf, int protocol, int len);
 
-static int replace_policy_variable(const struct streaminfo *a_stream, ctemplate::TemplateDictionary *tpl_dict, int policy_id)
+static int replace_policy_variable(const struct streaminfo *a_stream, ctemplate::TemplateDictionary *tpl_dict, long long policy_id)
 {
 	char ip_str[128]={0};
-	struct session_attribute_label *attr_label=NULL;
 	
-	tpl_dict->SetIntValue("tsg_policy_id", policy_id);
+	tpl_dict->SetIntValue("tsg_policy_id", policy_id);	//TODO
 
-	attr_label=(struct session_attribute_label *)project_req_get_struct(a_stream, g_tsg_para.session_attribute_project_id);
-	if(attr_label!=NULL && attr_label->client_subscribe_id!=NULL)
+	const struct session_runtime_attribute *srt_attribute=(const struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	if(srt_attribute!=NULL && srt_attribute->client_subscribe_id!=NULL)
 	{
-		tpl_dict->SetFormattedValue("tsg_subscriber_id", "%s", attr_label->client_subscribe_id->subscribe_id);
+		tpl_dict->SetFormattedValue("tsg_subscriber_id", "%s", srt_attribute->client_subscribe_id->subscribe_id);
 	}
 	else
 	{
@@ -46,11 +47,11 @@ static int replace_policy_variable(const struct streaminfo *a_stream, ctemplate:
 
 	switch(a_stream->addr.addrtype)
 	{
-		case	ADDR_TYPE_IPV4: 			
+		case	ADDR_TYPE_IPV4:
 			inet_ntop(AF_INET, (const void *)&(a_stream->addr.ipv4->saddr), ip_str, sizeof(ip_str));
 			tpl_dict->SetFormattedValue("tsg_client_ip", "%s", ip_str);
 			break;
-		case	ADDR_TYPE_IPV6: 			
+		case	ADDR_TYPE_IPV6:
 			inet_ntop(AF_INET6, (const void *)(a_stream->addr.ipv6->saddr), ip_str, sizeof(ip_str));
 			tpl_dict->SetFormattedValue("tsg_client_ip", "%s", ip_str);
 			break;
@@ -62,7 +63,7 @@ static int replace_policy_variable(const struct streaminfo *a_stream, ctemplate:
 	return 0;
 }
 
-static int set_drop_stream(const struct streaminfo *a_stream, tsg_protocol_t protocol)
+static int set_drop_stream(const struct streaminfo *a_stream, enum TSG_PROTOCOL protocol)
 {
 	int ret=0, opt_value=1;
 	MESA_set_stream_opt(a_stream, MSO_DROP_STREAM, (void *)&opt_value, sizeof(opt_value));
@@ -89,7 +90,7 @@ static int set_drop_stream(const struct streaminfo *a_stream, tsg_protocol_t pro
 			break;
 	}
 
-	return STATE_DROPME|STATE_DROPPKT;				
+	return STATE_DROPME|STATE_DROPPKT;
 }
 
 static int get_http_header(char *buff, int len, int code, char *user_define)
@@ -153,7 +154,7 @@ static int get_tcp_mss_option(const struct streaminfo *a_stream, int type, void 
 	return 0;
 }
 
-static void template_generate(const struct streaminfo *a_stream, int status_code, int policy_id, const char* message, char **page_buff, size_t *page_size, int thread_seq)
+static void template_generate(const struct streaminfo *a_stream, int status_code, long long policy_id, const char* message, char **page_buff, size_t *page_size, int thread_seq)
 {
 	std::string page_output, msg_output;
 	ctemplate::Template *tpl=NULL;
@@ -223,16 +224,14 @@ static void template_generate(const struct streaminfo *a_stream, int status_code
 	return ;
 }
 
-static int get_response_pages(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, struct compile_user_region *user_region, char **payload, int thread_seq)
+static int get_response_pages(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, char **payload, int thread_seq)
 {
-	char key[16]={0};
 	int payload_len=0;
-	struct http_response_pages *res_pages=NULL;
 
 	switch(user_region->deny->type)
 	{
 		case	TSG_DENY_TYPE_MESSAGE:
-			template_generate(a_stream, user_region->deny->code, p_result->config_id, user_region->deny->message, payload, (size_t *)&payload_len, thread_seq);
+			template_generate(a_stream, user_region->deny->code, p_result->rule_id, user_region->deny->message, payload, (size_t *)&payload_len, thread_seq);
 			return payload_len;
 			break;
 		case	TSG_DENY_TYPE_PROFILE:
@@ -241,25 +240,24 @@ static int get_response_pages(const struct streaminfo *a_stream, struct Maat_rul
 			break;
 	}
 
-	snprintf(key, sizeof(key), "%d", user_region->deny->profile_id);
-	res_pages=(struct http_response_pages *)Maat_plugin_get_EX_data(g_tsg_maat_feather,g_tsg_para.table_id[TABLE_RESPONSE_PAGES], key);
-	if(res_pages!=NULL)
+	struct http_response_pages *response_pages=(struct http_response_pages *)matched_rule_cites_http_response_pages(g_tsg_maat_feather, (long long)user_region->deny->profile_id);
+	if(response_pages!=NULL)
 	{
-		switch(res_pages->format)
+		switch(response_pages->format)
 		{
 			case	HTTP_RESPONSE_FORMAT_HTML:
-				*payload=(char *)dictator_malloc(thread_seq, res_pages->content_len);
-				memcpy(*payload, res_pages->content, res_pages->content_len);
-				payload_len=res_pages->content_len;
+				*payload=(char *)dictator_malloc(thread_seq, response_pages->content_len);
+				memcpy(*payload, response_pages->content, response_pages->content_len);
+				payload_len=response_pages->content_len;
 				break;
 			case	HTTP_RESPONSE_FORMAT_TEMPLATE:
-				template_generate(a_stream, user_region->deny->code, p_result->config_id, res_pages->content, payload, (size_t *)&payload_len, thread_seq);
+				template_generate(a_stream, user_region->deny->code, p_result->rule_id, response_pages->content, payload, (size_t *)&payload_len, thread_seq);
 				break;
 			default:
 				break;
 		}
 
-		http_response_pages_free(g_tsg_para.table_id[TABLE_RESPONSE_PAGES], (MAAT_PLUGIN_EX_DATA *)&res_pages, 0, NULL);
+		plugin_ex_data_http_response_pages_free(response_pages);
 	}
 
 	return payload_len;
@@ -439,7 +437,7 @@ static int http_send_reponse_packet(const struct streaminfo *a_stream, char *pac
 	return ip_tcp_hdr_len+http_hdr_len+payload_len;
 }
 
-static int http_build_response_packet(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, struct compile_user_region *user_region, const void *a_packet)
+static int http_build_response_packet(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, const void *a_packet)
 {
 	char *payload=NULL;
 	char message[1024*64]={0};
@@ -465,7 +463,7 @@ static int http_build_response_packet(const struct streaminfo *a_stream, struct 
 	http_hdr_len=get_http_header(message+ip_tcp_hdr_len, sizeof(message)-ip_tcp_hdr_len, user_region->deny->code, NULL);
 	payload_len=get_response_pages(a_stream, p_result, user_region, &payload, a_stream->threadnum);
 
-	set_session_attribute_label(a_stream, TSG_ATTRIBUTE_TYPE_HTTP_ACTION_FILESIZE, (void *)&payload_len, sizeof(int), a_stream->threadnum);
+	srt_attribute_set_reponse_size(a_stream, payload_len);
 	
 	get_tcp_mss_option(a_stream, TCP_OPT_MSS, (void *)&max_segment_size);
 	
@@ -499,7 +497,7 @@ static int http_build_response_packet(const struct streaminfo *a_stream, struct 
 	return send_pkt_len;
 }
 
-static int http_get_redirect_url(const struct streaminfo *a_stream, struct Maat_rule_t *p_result, char *url, int code, char *http_hdr, int http_hdr_len)
+static int http_get_redirect_url(const struct streaminfo *a_stream, struct maat_rule *p_result, char *url, int code, char *http_hdr, int http_hdr_len)
 {
 	int used_len=0;
 	char *tmp_buff=NULL;
@@ -510,7 +508,7 @@ static int http_get_redirect_url(const struct streaminfo *a_stream, struct Maat_
 	{
 		ctemplate::TemplateDictionary dict_303("url_dict");	//dict is automatically finalized after function returned.
 
-		replace_policy_variable(a_stream, &dict_303, p_result->config_id);
+		replace_policy_variable(a_stream, &dict_303, p_result->rule_id);
 		
 		tpl_303->Expand(&output, &dict_303);
 
@@ -532,7 +530,7 @@ static int http_get_redirect_url(const struct streaminfo *a_stream, struct Maat_
 	return used_len;
 }
 
-static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol)
+static unsigned char do_action_reset(const struct streaminfo *a_stream, struct maat_rule *p_result, enum TSG_PROTOCOL protocol)
 {
 	if(a_stream->type==STREAM_TYPE_TCP)
 	{
@@ -550,7 +548,7 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 											RLOG_LV_FATAL,
 											"RST_TCP",
 											"Send RST failed policy_id: %d service: %d action: %d addr: %s",
-											p_result->config_id,
+											p_result->rule_id,
 											p_result->service_id,
 											(unsigned char)p_result->action,
 											PRINTADDR(a_stream, g_tsg_para.level)
@@ -569,14 +567,13 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, Maat_rul
 	return STATE_DROPPKT|STATE_DROPME;
 }
 
-
-static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *a_packet)
+static unsigned char do_action_drop(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum TSG_PROTOCOL protocol, const void *a_packet)
 {
 	switch(protocol)
     {		
 		case	PROTO_DNS:
 			return STATE_GIVEME|STATE_DROPPKT;
-		default:			
+		default:
 			set_drop_stream(a_stream, protocol);
 			break;
 	}
@@ -584,7 +581,7 @@ static unsigned char do_action_drop(const struct streaminfo *a_stream, Maat_rule
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data, enum ACTION_RETURN_TYPE type)
+static unsigned char do_action_tamper(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum TSG_PROTOCOL protocol, const void *user_data, enum ACTION_RETURN_TYPE type)
 {
 	if(g_tsg_para.feature_tamper==0)
 	{
@@ -592,36 +589,35 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
 		return STATE_DROPME|STATE_DROPPKT;
 	}
 
-    struct tcpall_context * _context=(struct tcpall_context *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id);
-    if(_context==NULL)
-    {
-        _context=(struct tcpall_context *)dictator_malloc(a_stream->threadnum, sizeof(struct tcpall_context));
-        memset(_context, 0, sizeof(struct tcpall_context));
-        tsg_set_xxx_to_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_ALL_CONTEXT].id, (void *)_context);
-        _context->method_type=TSG_METHOD_TYPE_TAMPER;
-        _context->tamper_count = 0;
-    }
-    else
-    {
-        _context->method_type = TSG_METHOD_TYPE_TAMPER;
-        _context->tamper_count = 0;
-    }
+	struct session_runtime_action_context * _context=(struct session_runtime_action_context *)session_runtime_action_context_get(a_stream);
+	if(_context==NULL)
+	{
+		_context=(struct session_runtime_action_context *)dictator_malloc(a_stream->threadnum, sizeof(struct session_runtime_action_context));
+		memset(_context, 0, sizeof(struct session_runtime_action_context));
+		session_runtime_action_context_async(a_stream, (void *)_context);
+		_context->method_type=TSG_METHOD_TYPE_TAMPER;
+		_context->tamper_count = 0;
+	}
+	else
+	{
+		_context->method_type = TSG_METHOD_TYPE_TAMPER;
+		_context->tamper_count = 0;
+	}
 
-    //当前为tsg_master_plug暂时不处理在tsg_master_all_entry处理,防止命中发两次
-    if(ACTION_RETURN_TYPE_APP == type)
-    {
-        return STATE_GIVEME|STATE_DROPPKT|STATE_KILL_OTHER;
-    }
+	if(ACTION_RETURN_TYPE_APP == type)
+	{
+		return STATE_GIVEME|STATE_DROPPKT|STATE_KILL_OTHER;
+	}
 
-    //TCP这里发送的话，tsg_master_all_entry仍会处理发送,UDP没有这个情况,所以加该判断
-    if(a_stream->type == STREAM_TYPE_UDP) 
-    {
-        send_tamper_xxx(a_stream, &_context->tamper_count, user_data);
-    }
-    return STATE_DROPME|STATE_DROPPKT;
+	if(a_stream->type == STREAM_TYPE_UDP) 
+	{
+		send_tamper_xxx(a_stream, &_context->tamper_count, user_data);
+	}
+	
+	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
+static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum TSG_PROTOCOL protocol, const void *user_data)
 {
 	struct deny_user_region *deny_region=NULL;
 
@@ -651,7 +647,7 @@ static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, Ma
 		case	TSG_DENY_TYPE_DROP:
 			struct compile_user_region tmp_user_region;
 			tmp_user_region.deny=deny_region;
-			tmp_user_region.capture.enabled=0;			
+			tmp_user_region.capture.enabled=0;
 			tmp_user_region.capture.depth=0;
 			tmp_user_region.method_type=TSG_METHOD_TYPE_DROP;
 			do_action_drop(a_stream, p_result, &tmp_user_region, protocol, user_data);
@@ -663,11 +659,11 @@ static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, Ma
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, enum ACTION_RETURN_TYPE type)
+static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum ACTION_RETURN_TYPE type)
 {
 	struct leaky_bucket *bucket=create_bucket(user_region->deny->bps, a_stream->threadnum);
 
-	int ret=set_bucket_to_tcpall(a_stream, bucket, a_stream->threadnum);
+	int ret=srt_action_context_set_leaky_bucket(a_stream, bucket, a_stream->threadnum);
 	if(ret==0)
 	{
 		destroy_bucket(&bucket, a_stream->threadnum);
@@ -687,7 +683,7 @@ static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, Maat
 	return STATE_GIVEME|STATE_KILL_OTHER;
 }
 
-static unsigned char do_action_block_sip(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, const void *user_data)
+static unsigned char do_action_block_sip(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, const void *user_data)
 {
 	int offset=0;
 	char payload[1024]={0};
@@ -714,7 +710,7 @@ static unsigned char do_action_block_sip(const struct streaminfo *a_stream, Maat
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_block_mail(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region)
+static unsigned char do_action_block_mail(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region)
 {
 	char *payload=NULL;
 
@@ -739,7 +735,7 @@ static unsigned char do_action_block_mail(const struct streaminfo *a_stream, Maa
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_block_http(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, const void *a_packet)
+static unsigned char do_action_block_http(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, const void *a_packet)
 {
 	int opt_value=0;
 	int send_pkt_len=0;
@@ -766,7 +762,7 @@ static unsigned char do_action_block_http(const struct streaminfo *a_stream, Maa
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_block_xxx(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
+static unsigned char do_action_block_xxx(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum TSG_PROTOCOL protocol, const void *user_data)
 {
 	if(user_region==NULL || user_region->deny==NULL)
 	{
@@ -796,7 +792,7 @@ static unsigned char do_action_block_xxx(const struct streaminfo *a_stream, Maat
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_redirect_http(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region)
+static unsigned char do_action_redirect_http(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region)
 {
 	int used_http_hdr_len=0;
 	char http_hdr[1024]={0};
@@ -805,7 +801,7 @@ static unsigned char do_action_redirect_http(const struct streaminfo *a_stream, 
 	switch(user_region->deny->code)
 	{
 		case	302:
-		case	303:			
+		case	303:
 			used_http_hdr_len=http_get_redirect_url(a_stream, p_result, user_region->deny->redirect_url_to, user_region->deny->code, http_hdr, sizeof(http_hdr));
 			break;
 		default:
@@ -819,16 +815,16 @@ static unsigned char do_action_redirect_http(const struct streaminfo *a_stream, 
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, tsg_protocol_t protocol, const void *user_data)
+static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum TSG_PROTOCOL protocol, const void *user_data)
 {
 	if(user_region==NULL || user_region->deny==NULL)
 	{
-        return do_action_drop(a_stream, p_result, user_region, protocol, user_data);
-    }
+		return do_action_drop(a_stream, p_result, user_region, protocol, user_data);
+	}
 
 	switch(protocol)
 	{
-		case	PROTO_DNS:			
+		case	PROTO_DNS:
 			return do_action_redirect_dns(a_stream, p_result, user_region, user_data);
 			break;
 		case	PROTO_HTTP:
@@ -842,7 +838,7 @@ static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, M
 	return STATE_DROPME|STATE_DROPPKT;
 }
 
-static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struct compile_user_region *user_region, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
+static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struct compile_user_region *user_region, struct maat_rule *p_result, enum TSG_PROTOCOL protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
 {
 	unsigned char local_state=STATE_GIVEME;
 	unsigned char state=0;
@@ -868,9 +864,9 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 		case	TSG_METHOD_TYPE_RATE_LIMIT:
 			local_state=do_action_ratelimit(a_stream, p_result, user_region, type);
 			break;
-        case TSG_METHOD_TYPE_TAMPER:
-            local_state = do_action_tamper(a_stream, p_result, user_region, protocol, user_data, type);
-            break;
+		case TSG_METHOD_TYPE_TAMPER:
+			local_state = do_action_tamper(a_stream, p_result, user_region, protocol, user_data, type);
+			break;
 		case	TSG_METHOD_TYPE_DEFAULT:
 			local_state=do_action_default_xxx(a_stream, p_result, user_region, protocol, user_data);
 			break;
@@ -883,19 +879,18 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 
 			if(type!=ACTION_RETURN_TYPE_TCPALL && user_region->deny->after_n_packets>0)
 			{
-				set_protocol_to_tcpall(a_stream, protocol, a_stream->threadnum);
-				set_method_to_tcpall(a_stream, user_region->method_type, a_stream->threadnum);
+				srt_action_context_set_l7_protocol(a_stream, protocol, a_stream->threadnum);
+				srt_action_context_set_rule_method(a_stream, user_region->method_type, a_stream->threadnum);
 
 				if(a_stream->type==STREAM_TYPE_UDP && type!=ACTION_RETURN_TYPE_PROT)
 				{
-					set_after_n_packet_to_tcpall(a_stream, user_region->deny->after_n_packets+1, a_stream->threadnum);				
+					srt_action_context_set_after_n_packet(a_stream, user_region->deny->after_n_packets+1, a_stream->threadnum);
 				}
 				else
 				{
-					set_after_n_packet_to_tcpall(a_stream, user_region->deny->after_n_packets, a_stream->threadnum);
+					srt_action_context_set_after_n_packet(a_stream, user_region->deny->after_n_packets, a_stream->threadnum);
 				}
 				
-				//tsg_set_policy_result(a_stream, PULL_FW_RESULT, p_result, protocol, a_stream->threadnum);
 				local_state=((type==ACTION_RETURN_TYPE_PROT) ? (STATE_DROPME) : (STATE_DROPME|STATE_KILL_OTHER));
 				break;
 			}
@@ -920,11 +915,11 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 			break;
 	}
 	
-	tsg_notify_hited_monitor_result(a_stream, p_result, 1, a_stream->threadnum);
+	session_packet_capture_notify(a_stream, p_result, 1, a_stream->threadnum);
 
 	if(method_type!=TSG_METHOD_TYPE_DEFAULT && method_type!=TSG_METHOD_TYPE_APP_DROP)
 	{
-		set_method_to_tcpall(a_stream, (enum TSG_METHOD_TYPE)method_type, a_stream->threadnum);
+		srt_action_context_set_rule_method(a_stream, (enum TSG_METHOD_TYPE)method_type, a_stream->threadnum);
 	}
 	
 	state=((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_GIVEME : APP_STATE_GIVEME);
@@ -937,26 +932,23 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 	return state;
 }
 
-unsigned char tsg_deny_application(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, int app_id, enum ACTION_RETURN_TYPE type, const void *user_data)
+unsigned char tsg_enforing_deny_application(const struct streaminfo *a_stream, struct maat_rule *p_result, enum TSG_PROTOCOL protocol, int app_id, enum ACTION_RETURN_TYPE type, const void *user_data)
 {
-	unsigned char state=0;
-	char app_id_buff[32]={0};
-	struct app_id_dict *dict=NULL;
-	struct compile_user_region app_user_region={0}, *user_region=NULL;
-	
-	snprintf(app_id_buff, sizeof(app_id_buff), "%d", app_id);
-	dict=(struct app_id_dict *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
+	struct app_id_dict *dict=(struct app_id_dict *)matched_rule_cites_app_id_dict(g_tsg_maat_feather, (long long)app_id);
 	if(dict==NULL)
 	{
 		set_drop_stream(a_stream, protocol);
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPPKT|PROT_STATE_DROPME: APP_STATE_DROPME|APP_STATE_DROPPKT);
 	}
+
+	unsigned char state=0;
+	struct compile_user_region app_user_region;
 	
-	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
-	if(user_region!=NULL)
+	struct maat_compile *maat_compile=(struct maat_compile *)matched_rule_cites_security_compile(g_tsg_maat_feather, p_result->rule_id);
+	if(maat_compile!=NULL && maat_compile->user_region!=NULL)
 	{
-		app_user_region.capture=user_region->capture;
-		security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+		app_user_region.capture=maat_compile->user_region->capture;
+		plugin_ex_data_security_compile_free(maat_compile);
 	}
 
 	switch(dict->deny_app_para.type)
@@ -974,29 +966,28 @@ unsigned char tsg_deny_application(const struct streaminfo *a_stream, Maat_rule_
 	}
 	
 	state=tsg_do_deny_action(a_stream, &app_user_region, p_result, protocol, type, user_data);
-	app_id_dict_free(g_tsg_para.table_id[TABLE_APP_ID_DICT], (MAAT_PLUGIN_EX_DATA *)&dict, 0, NULL);
+	plugin_ex_data_app_id_dict_free(dict);
 	
 	return state;
 }
 
-unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_t *p_result, tsg_protocol_t protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
+unsigned char tsg_enforing_deny(const struct streaminfo *a_stream, struct maat_rule *p_result, enum TSG_PROTOCOL protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
 {
-	unsigned char state=0;
-	struct compile_user_region *user_region=NULL;
-
 	if(p_result->action==TSG_ACTION_BYPASS)
 	{
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPME : APP_STATE_GIVEME);
 	}
 
-	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
-	if(user_region==NULL)
+	struct maat_compile *maat_compile=(struct maat_compile *)matched_rule_cites_security_compile(g_tsg_maat_feather, p_result->rule_id);
+	if(maat_compile==NULL || maat_compile->user_region==NULL)
 	{
 		set_drop_stream(a_stream, protocol);
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPPKT|PROT_STATE_DROPME: APP_STATE_DROPME|APP_STATE_DROPPKT);
 	}
 
-	if(user_region->method_type==TSG_METHOD_TYPE_APP_DROP)
+	unsigned char state=0;
+
+	if(maat_compile->user_region->method_type==TSG_METHOD_TYPE_APP_DROP)
 	{
 		unsigned int app_id=0;
 		
@@ -1008,14 +999,14 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 		{
 			app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[protocol].name);
 		}
-		state=tsg_deny_application(a_stream, p_result, protocol, app_id, ACTION_RETURN_TYPE_APP, user_data);
+		state=tsg_enforing_deny_application(a_stream, p_result, protocol, app_id, ACTION_RETURN_TYPE_APP, user_data);
 	}
 	else
 	{
-		state=tsg_do_deny_action(a_stream, user_region, p_result, protocol, type, user_data);
+		state=tsg_do_deny_action(a_stream, maat_compile->user_region, p_result, protocol, type, user_data);
 	}
 	
-	security_compile_free(g_tsg_para.table_id[TABLE_SECURITY_COMPILE], p_result, NULL, (MAAT_RULE_EX_DATA *)&user_region, 0, NULL);
+	plugin_ex_data_security_compile_free(maat_compile);
 
 	return state;
 }

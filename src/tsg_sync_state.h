@@ -1,5 +1,4 @@
-#ifndef TSG_SESSION_STATE_H
-#define TSG_SESSION_STATE_H
+#pragma once
 
 #include <stdint.h>
 #include <MESA/stream.h>
@@ -14,8 +13,8 @@ enum policy_type
 struct update_policy
 {
 	enum policy_type type; 
-	int id_num;
-	int ids[8];
+	int n_ids;
+	long long ids[8];
 };
 
 // i don't need this 
@@ -36,5 +35,3 @@ int tsg_sync_policy_update(const struct streaminfo *a_stream, struct update_poli
 
 int tsg_recv_control_pkt(const struct streaminfo *a_stream, const void *payload, int payload_len);
 
-
-#endif //TSG_SESSION_STATE_H

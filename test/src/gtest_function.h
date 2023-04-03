@@ -28,6 +28,6 @@ using namespace rapidjson;
 using namespace std;
 
 extern "C" int TSG_MASTER_INIT();
-int set_vlan(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct single_layer_vlan_addr *vlan_addr, int layer_num, Value *tunnel_object, tsg_log_field_id_t id);
-int set_app_full_path(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result);
+int set_vlan(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct single_layer_vlan_addr *vlan_addr, int layer_num, Value *tunnel_object, tsg_log_field_id_t id);
+int set_app_full_path(struct TLD_handle_t *handle, char *field_name, struct gather_app_result *result);
 

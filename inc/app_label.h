@@ -1,5 +1,4 @@
-#ifndef	__APP_LABEL_H__
-#define	__APP_LABEL_H__
+#pragma once
 
 #define	MAX_APP_ID_NUM	8
 
@@ -40,19 +39,19 @@ struct app_identify_result
 	unsigned int surrogate_id[MAX_APP_ID_NUM];
 };
 
-enum _ATTRIBUTE_TYPE
+enum LUA_ATTRIBUTE_TYPE
 {
-	ATTRIBUTE_TYPE_UNKNOWN,
-	ATTRIBUTE_TYPE_IP,
-	ATTRIBUTE_TYPE_STRING,
-	ATTRIBUTE_TYPE_NUMERIC,
-	ATTRIBUTE_TYPE_BOOL,
-	_ATTRIBUTE_TYPE_MAX
+	LUA_ATTRIBUTE_TYPE_UNKNOWN,
+	LUA_ATTRIBUTE_TYPE_IP,
+	LUA_ATTRIBUTE_TYPE_STRING,
+	LUA_ATTRIBUTE_TYPE_NUMERIC,
+	LUA_ATTRIBUTE_TYPE_BOOL,
+	LUA_ATTRIBUTE_TYPE_MAX
 };
 
 struct attribute_kv
 {
-	enum _ATTRIBUTE_TYPE type;
+	enum LUA_ATTRIBUTE_TYPE type;
 	char *name;
 	union
 	{
@@ -63,10 +62,9 @@ struct attribute_kv
 	};
 };
 
-struct user_defined_attribute_label
+struct user_defined_attribute
 {
-	int attribute_num;
-	struct attribute_kv *attribute;
+	int n_akv;
+	struct attribute_kv *akv;
 };
 
-#endif

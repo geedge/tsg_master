@@ -171,8 +171,7 @@ static void format_icmpv4(const char *raw_pkt, char *ret_icmpv4, int *ret_len){
 }
 
 /*
- *  icmpv6数据包组装
- *  [ICMPV6] = [ipv6_headr]+[icmp]
+ *  icmpv6数据包组�? *  [ICMPV6] = [ipv6_headr]+[icmp]
  *
  *  icmpv6的最大MTU应是ipv6的最小MTU(1280)
  *  <本端内容来自RFC443>
@@ -183,9 +182,8 @@ static void format_icmpv4(const char *raw_pkt, char *ret_icmpv4, int *ret_len){
  *
  *  [ICMPV6] = [ipv6_headr]+[icmp]
  *
- *  计算ICMPV6的校验和： (ICMP + 伪首部) 作为计算数据部分
- *  注意： ICMPV6数据要补充成四字节对齐
- *  ipv6伪首部数据: 长度
+ *  计算ICMPV6的校验和�?(ICMP + 伪首�? 作为计算数据部分
+ *  注意�?ICMPV6数据要补充成四字节对�? *  ipv6伪首部数�? 长度
  *  {
  *      Soucre Address :            16
  *      Destination Address:        16
@@ -267,7 +265,7 @@ static void format_icmpv6(const char *raw_pkt, char *ret_icmpv6, int *ret_len){
     memcpy(icmp.origin_data, raw_pkt, icmp_original_data_len);
 
     upper_layer_packet_len = htonl((int)icmp_len);
-    four_byte_alignment(&icmp_len, &icmp_checksum_len); //icmp_len和icmp_checksum_len 补充为4字节对齐
+    four_byte_alignment(&icmp_len, &icmp_checksum_len); //icmp_len和icmp_checksum_len 补充�?字节对齐
 
     //calc icmp checksum
     memcpy(icmp_checksum_buf, &icmp, icmp_len);
@@ -350,6 +348,6 @@ unsigned char send_icmp_unreachable(const struct streaminfo *a_stream)
             __FUNCTION__,
             debug_buf);
 
-    return STATE_DROPME|STATE_DROPPKT;;
+    return STATE_DROPME|STATE_DROPPKT;
 }
 

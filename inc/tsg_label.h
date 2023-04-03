@@ -1,5 +1,6 @@
-#ifndef	__TSG_LABEL_H__
-#define	__TSG_LABEL_H__
+#pragma once
+
+#include <stddef.h>
 
 #define	MAX_CATEGORY_ID_NUM	8
 #define	MAX_STR_FIELD_LEN	64
@@ -8,36 +9,35 @@
 
 #define	MAX_RESULT_NUM	8
 
-typedef enum _tsg_protocol
+enum TSG_PROTOCOL
 {
-   PROTO_UNKONWN=0,
-   PROTO_IPv4=1,
-   PROTO_IPv6,
-   PROTO_TCP,
-   PROTO_UDP,
-   PROTO_HTTP,
-   PROTO_MAIL,
-   PROTO_DNS,
-   PROTO_FTP,
-   PROTO_SSL,
-   PROTO_SIP,
-   PROTO_BGP,
-   PROTO_STREAMING_MEDIA,
-   PROTO_QUIC,
-   PROTO_SSH,
-   PROTO_SMTP,
-   PROTO_IMAP,
-   PROTO_POP3,
-   PROTO_RTP,
-   PROTO_APP,
-   PROTO_L2TP,
-   PROTO_PPTP,
-   PROTO_STRATUM,
-   PROTO_RDP,
-   PROTO_DTLS,
-   PROTO_MAX
-}tsg_protocol_t;
-
+	PROTO_UNKONWN=0,
+	PROTO_IPv4=1,
+	PROTO_IPv6,
+	PROTO_TCP,
+	PROTO_UDP,
+	PROTO_HTTP,
+	PROTO_MAIL,
+	PROTO_DNS,
+	PROTO_FTP,
+	PROTO_SSL,
+	PROTO_SIP,
+	PROTO_BGP,
+	PROTO_STREAMING_MEDIA,
+	PROTO_QUIC,
+	PROTO_SSH,
+	PROTO_SMTP,
+	PROTO_IMAP,
+	PROTO_POP3,
+	PROTO_RTP,
+	PROTO_APP,
+	PROTO_L2TP,
+	PROTO_PPTP,
+	PROTO_STRATUM,
+	PROTO_RDP,
+	PROTO_DTLS,
+	PROTO_MAX
+};
 
 struct asn_info
 {
@@ -86,41 +86,15 @@ struct tunnel_endpoint
 	char *description;
 };
 
-struct session_attribute_label
-{
-	int http_action_file_size;
-	int fqdn_category_id_num;
-	tsg_protocol_t proto;
-	long establish_latency_ms;
-	struct asn_info *client_asn;
-	struct asn_info *server_asn;
-	struct location_info *client_location;
-	struct location_info *server_location;
-	struct subscribe_id_info *client_subscribe_id;
-	struct subscribe_id_info *server_subscribe_id;
-	char *ja3_fingerprint;
-	unsigned int fqdn_category_id[MAX_CATEGORY_ID_NUM];
-	struct umts_user_info *user_info;	
-	struct tunnel_endpoint *client_endpoint;	
-	struct tunnel_endpoint *server_endpoint;
-	unsigned long session_flags;
-};
-
 struct tsg_conn_sketch_notify_data
 {
-	tsg_protocol_t protocol;
+	enum TSG_PROTOCOL protocol;
 	union
 	{
 		char *mail_eml_filename;
 		struct TLD_handle_t *TLD_handle;
 		void *value;
 	}pdata;
-};
-
-struct notify_shaping_policy
-{
-	int shaping_result_num;
-	struct Maat_rule_t shaping_result[MAX_RESULT_NUM];
 };
 
 enum NOTIFY_TYPE
@@ -139,19 +113,19 @@ struct mirrored_vlan
 struct mirrored_stat
 {
 	long bytes;
-	long packets;	
-	int compile_id;
+	long packets;
+	long long compile_id;
 };
 
 struct policy_capture_result
 {
-	int compile_id;
+	long long compile_id;
 	char *packet_path;
 };
 
 struct tsg_notify_data
 {
-	int compile_id;
+	long long compile_id;
 	enum NOTIFY_TYPE type;
 	union
 	{		
@@ -181,7 +155,7 @@ struct http_s3_file
 
 struct business_notify_data
 {
-	tsg_protocol_t proto;	//enum _tsg_protocol (tsg_types.h)
+	enum TSG_PROTOCOL proto;	//enum _tsg_protocol (tsg_types.h)
 	union
 	{		
 		struct http_s3_file *s3_http;
@@ -189,4 +163,25 @@ struct business_notify_data
 	};
 };
 
-#endif
+struct session_runtime_attribute;
+const struct session_runtime_attribute *session_runtime_attribute_get(const struct streaminfo *a_stream);
+const char *srt_attribute_get_ja3_fingerprint(const struct session_runtime_attribute *srt_attribute);
+const char *srt_attribute_get_client_subscriber_id(const struct session_runtime_attribute *srt_attribute);
+const char *srt_attribute_get_server_subscriber_id(const struct session_runtime_attribute *srt_attribute);
+const struct asn_info *srt_attribute_get_client_ip_asn(const struct session_runtime_attribute *srt_attribute);
+const struct asn_info *srt_attribute_get_server_ip_asn(const struct session_runtime_attribute *srt_attribute);
+const struct location_info *srt_attribute_get_client_ip_location(const struct session_runtime_attribute *srt_attribute);
+const struct location_info *srt_attribute_get_server_ip_location(const struct session_runtime_attribute *srt_attribute);
+size_t srt_attribute_get_category_ids(const struct session_runtime_attribute *srt_attribute, unsigned int *category_ids, size_t n_category_ids);
+
+int srt_attribute_set_category_ids(const struct streaminfo *a_stream, unsigned int *category_ids, int n_category_ids);
+
+struct session_runtime_process_context;
+int session_runtime_process_context_async(const struct streaminfo *a_stream, void *data);
+const struct session_runtime_process_context *session_runtime_process_context_get(const struct streaminfo *a_stream);
+// return NULL; http host or ssl sni or quic sni or dtls sni
+const char *srt_process_context_get_domain(const struct session_runtime_process_context *srt_process_context);
+const char *srt_process_context_get_http_url(const struct session_runtime_process_context *srt_process_context);
+const char *srt_process_context_get_quic_ua(const struct session_runtime_process_context *srt_process_context);
+enum TSG_PROTOCOL srt_process_context_get_protocol(const struct session_runtime_process_context *srt_process_context);
+

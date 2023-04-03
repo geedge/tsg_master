@@ -1,5 +1,4 @@
-#ifndef	__TSG_SEND_LOG_INTERNAL_H__
-#define	__TSG_SEND_LOG_INTERNAL_H__
+#pragma once
 
 #include <MESA/field_stat2.h>
 
@@ -16,14 +15,14 @@
 #define	MAX_STRING_LEN32	32
 #endif
 
-enum _SEND_MODE
+enum SEND_MODE
 {
 	CLOSE=0,
 	KAFKA=1,
 };
 
 
-typedef enum _tsg_log_field_id
+enum LOG_FIELD_ID
 {
 	LOG_COMMON_POLICY_ID=1,
 	LOG_COMMON_SERVICE,
@@ -140,11 +139,11 @@ typedef enum _tsg_log_field_id
 	LOG_COMMON_SHAPING_RULE_IDS,
 	LOG_COMMON_FLAGS_IDENTIFY_INFO,
 	LOG_COMMON_MAX
-}tsg_log_field_id_t;
+};
 
 enum LOG_COLUMN_STATUS
 {
-	LOG_COLUMN_STATUS_SUCCESS=0,		
+	LOG_COLUMN_STATUS_SUCCESS=0,
 	LOG_COLUMN_STATUS_SUCCESS_S,
 	LOG_COLUMN_STATUS_FAIL,
 	LOG_COLUMN_STATUS_FAIL_S,
@@ -167,20 +166,6 @@ enum LOG_FS2_TYPE{
 	LOG_FS2_FREE_RAPID_CAPACITY,	
 	LOG_FS2_TYPE_MAX
 };
-
-enum LOG_BRIDGE
-{
-	LOG_BRIDGE_MAC_LINKINFO=0,
-	LOG_BRIDGE_NAT_C2S_LINKINFO,
-	LOG_BRIDGE_NAT_S2C_LINKINFO,
-	LOG_BRIDGE_APP_LUA_RESULT,
-	LOG_BRIDGE_BUSINESS_S3_FILENAME,
-	LOG_BRIDGE_APP_BEHAVIOR_RESULT,
-	LOG_BRIDGE_CONN_SKETCH_EXEC_RESULT,
-	LOG_BRIDGE_ASYNC_SESSION_FLAGS,
-	LOG_BRIDGE_MAX
-};
-
 	
 typedef	struct _id2field
 {
@@ -213,11 +198,9 @@ struct tsg_log_instance_t
 	int send_data_center;
 	int recovery_interval;
 	int rapidjson_chunk_capacity;
-	int session_attribute_project_id;
 	int tcp_flow_project_id;
 	int udp_flow_project_id;
 	int sum_line_id;
-	int bridge_id[LOG_BRIDGE_MAX];
 	int fs2_column_id[LOG_COLUMN_STATUS_MAX];
 	int fs2_field_id[LOG_FS2_TYPE_MAX];
 	char tcp_label[MAX_STRING_LEN32];
@@ -235,9 +218,7 @@ struct tsg_log_instance_t
 	void *logger;
 };
 
-char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t id);
+char *log_field_id2name(struct tsg_log_instance_t *instance, enum LOG_FIELD_ID id);
 struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_handle_t fs2_handle);
 void tsg_sendlog_destroy(struct tsg_log_instance_t * instance);
-
-#endif
 

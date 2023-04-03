@@ -4,6 +4,7 @@
 #include <MESA/dns.h>
 
 #include "tsg_entry.h"
+#include "tsg_rule_internal.h"
 #include "tsg_protocol_common.h"
 
 static int random_integer(int max, int min)
@@ -192,12 +193,9 @@ static int dns_set_answer_records(char *payload, int payload_len, struct dns_ans
 	}
 
 	int used_len=0;
-	
 	if(answer_records->record_val.selected_flag==1)
 	{	
-		char profile_id[128]={0};
-		snprintf(profile_id, sizeof(profile_id), "%d", answer_records->record_val.selected.profile_id);
-		struct dns_profile_records *profile_records=(struct dns_profile_records *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_DNS_PROFILE_RECORD], profile_id);
+		struct dns_profile_records *profile_records=(struct dns_profile_records *)matched_rule_cites_dns_profile_record(g_tsg_maat_feather, answer_records->record_val.selected.profile_id);
 		if(profile_records==NULL)
 		{
 			return 0;
@@ -208,19 +206,18 @@ static int dns_set_answer_records(char *payload, int payload_len, struct dns_ans
 		used_len+=dns_set_response_records(payload+used_len, payload_len-used_len, profile_records->record_val+idx, record_num, answer_records->max_ttl, answer_records->min_ttl);
 
 		(*answer_record_num)+=record_num;
-		dns_profile_records_free(0, (MAAT_PLUGIN_EX_DATA *)&profile_records, 0, NULL);
+		plugin_ex_data_dns_profile_record_free(profile_records);
 	}
 	else
 	{		
 		(*answer_record_num)++;
 		used_len+=dns_set_response_records(payload+used_len, payload_len-used_len, &(answer_records->record_val), 1, answer_records->max_ttl, answer_records->min_ttl);
 	}
-
 	
 	return used_len;
 }
 
-unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, Maat_rule_t *p_result, struct compile_user_region *user_region, const void *user_data)
+unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, const void *user_data)
 {
 	int ret=0,used_len=0,record_num=0;	
 	unsigned char raw_route_dir=0;

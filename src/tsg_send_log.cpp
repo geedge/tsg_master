@@ -19,7 +19,9 @@
 
 #include "app_label.h"
 #include "tsg_entry.h"
+#include "tsg_bridge.h"
 #include "tsg_send_log.h"
+#include "tsg_rule_internal.h"
 #include "tsg_send_log_internal.h"
 
 #include "rapidjson/document.h"     // rapidjson's DOM-style API
@@ -33,7 +35,6 @@
 using namespace rapidjson;
 using namespace std;
 
-char TSG_SEND_LOG_VERSION_20200729=0;
 struct tsg_log_instance_t *g_tsg_log_instance;
 
 struct TLD_handle_t
@@ -127,7 +128,7 @@ static int register_topic(struct tsg_log_instance_t *instance, struct topic_stat
 	for(int i=0; i<thread_num; i++)
 	{
 		topic->send_log_percent[i]=100;
-		topic->drop_start[i]=get_current_time_ms();
+		topic->drop_start[i]=tsg_get_current_time_ms();
 	}
 
 	topic->fs2_line_id=FS_register(_instance->fs2_handle, FS_STYLE_LINE, FS_CALC_SPEED, topic->name);
@@ -138,7 +139,7 @@ static int register_topic(struct tsg_log_instance_t *instance, struct topic_stat
 
 static int update_percent(struct tsg_log_instance_t *_instance, int service_id, enum LOG_COLUMN_STATUS column, int thread_id)
 {
-	long long current_time_ms=get_current_time_ms();
+	long long current_time_ms=tsg_get_current_time_ms();
 	struct topic_stat *topic=(struct topic_stat *)&(_instance->service2topic[service_id]);
 
 	switch(column)
@@ -202,7 +203,7 @@ static struct tsg_log_instance_t *get_log_instance(void)
 	return NULL;
 }
 
-static int is_tunnels(struct streaminfo *a_stream)
+static int is_tunnels(const struct streaminfo *a_stream)
 {
 	const struct streaminfo *ptmp = a_stream;
 	const struct streaminfo *pfather=NULL;
@@ -240,7 +241,7 @@ static int is_tunnels(struct streaminfo *a_stream)
 	return is_tunnel;
 }
 
-static int set_isn(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, enum MESA_stream_opt type)
+static int set_isn(const struct streaminfo *a_stream, struct TLD_handle_t *_handle, char *field_name, enum MESA_stream_opt type)
 {
 	unsigned int isn=0;
 	int size=sizeof(isn);
@@ -253,21 +254,21 @@ static int set_isn(struct TLD_handle_t *_handle, struct streaminfo *a_stream, ch
 	return 1;
 }
 
-static int set_tcp_isn(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_tcp_isn(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	if(a_stream->type==STREAM_TYPE_TCP)
 	{
 		switch(a_stream->dir)
 		{
-			case	DIR_C2S:				
-				set_isn(_handle, a_stream, _instance->id2field[LOG_COMMON_TCP_CLIENT_ISN].name, MSO_TCP_ISN_C2S);
+			case	DIR_C2S:
+				set_isn(a_stream, _handle, _instance->id2field[LOG_COMMON_TCP_CLIENT_ISN].name, MSO_TCP_ISN_C2S);
 				break;
-			case	DIR_S2C:				
-				set_isn(_handle, a_stream, _instance->id2field[LOG_COMMON_TCP_SERVER_ISN].name, MSO_TCP_ISN_S2C);
+			case	DIR_S2C:
+				set_isn(a_stream, _handle, _instance->id2field[LOG_COMMON_TCP_SERVER_ISN].name, MSO_TCP_ISN_S2C);
 				break;
 			case	DIR_DOUBLE:
-				set_isn(_handle, a_stream, _instance->id2field[LOG_COMMON_TCP_CLIENT_ISN].name, MSO_TCP_ISN_C2S);
-				set_isn(_handle, a_stream, _instance->id2field[LOG_COMMON_TCP_SERVER_ISN].name, MSO_TCP_ISN_S2C);
+				set_isn(a_stream, _handle, _instance->id2field[LOG_COMMON_TCP_CLIENT_ISN].name, MSO_TCP_ISN_C2S);
+				set_isn(a_stream, _handle, _instance->id2field[LOG_COMMON_TCP_SERVER_ISN].name, MSO_TCP_ISN_S2C);
 				break;
 			default:
 				break;
@@ -277,9 +278,9 @@ static int set_tcp_isn(struct tsg_log_instance_t *_instance, struct TLD_handle_t
 	return 1;
 }
 
-static int set_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	const char *linkinfo=(const char *)tsg_get_xxx_from_bridge(a_stream, _instance->bridge_id[LOG_BRIDGE_MAC_LINKINFO]);
+	const char *linkinfo=(const char *)session_mac_linkinfo_get(a_stream);
 	if(linkinfo==NULL)
 	{
 		return 0;
@@ -301,7 +302,7 @@ static int set_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_
 			TLD_append(_handle, (char *)"common_egress_link_id", (void *)(long)(item->valueint), TLD_TYPE_LONG);
 		}
 		
-		item=cJSON_GetObjectItem(object, "common_ingress_link_id");		
+		item=cJSON_GetObjectItem(object, "common_ingress_link_id");
 		if(item!=NULL)
 		{			
 			TLD_append(_handle, (char *)"common_ingress_link_id", (void *)(long)(item->valueint), TLD_TYPE_LONG);
@@ -316,7 +317,7 @@ static int set_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_
 	return 0;
 }
 
-static int set_asn(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, struct asn_info *asn_info)
+static int set_asn(struct TLD_handle_t *_handle, const struct streaminfo *a_stream, char *field_name, struct asn_info *asn_info)
 {	
 	if(asn_info!=NULL)
 	{
@@ -334,7 +335,7 @@ static int set_asn(struct TLD_handle_t *_handle, struct streaminfo *a_stream, ch
 	return 1;
 }
 
-static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, struct location_info *location_info)
+static int set_location(struct TLD_handle_t *_handle,  const struct streaminfo *a_stream, char *field_name, struct location_info *location_info)
 {
 	if(location_info==NULL)
 	{
@@ -344,7 +345,7 @@ static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_strea
 	int len=0;
 	char buff[1024]={0};
 	int buff_len=sizeof(buff);
-	int location_type=tsg_get_location_type();
+	int location_type=tsg_location_type_get();
 	switch(location_type)
 	{
 		case	18:
@@ -376,9 +377,9 @@ static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_strea
 	return 1;
 }
 
-static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle,  const struct streaminfo *a_stream)
 {
-	char direction=get_direction_from_tcpall(a_stream);
+	char direction=srt_action_context_get_direction(a_stream);
 	if(direction>0)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);	
@@ -388,7 +389,7 @@ static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle
 	return 0;
 }
 
-static int set_address_list(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_address_list(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	unsigned short tunnel_type=0;
 	char nest_addr_buf[1024];
@@ -409,7 +410,7 @@ static int set_address_list(struct tsg_log_instance_t *_instance, struct TLD_han
 	return 1;
 }
 
-static int set_tuple4(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_tuple4(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	int addr_type=0;
 	unsigned short c_port=0, s_port=0;
@@ -456,7 +457,7 @@ static int set_tuple4(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	return 1;
 }
 
-static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	long common_con_duration_ms=0;
 	int size=sizeof(unsigned long long);
@@ -500,7 +501,7 @@ static int set_subscriber_id(struct TLD_handle_t *_handle, char *field_name, str
 	return 0;
 }
 
-static int set_fqdn_category(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, unsigned int *category_id, int category_id_num)
+static int set_fqdn_category(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, unsigned int *category_id, int category_id_num)
 {
 	int i=0;
 	if(category_id_num<=0 || category_id==NULL)
@@ -519,7 +520,7 @@ static int set_fqdn_category(struct tsg_log_instance_t *_instance, struct TLD_ha
 	return 1;
 }
 
-static int set_umts_user_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, struct umts_user_info *user_info)
+static int set_umts_user_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, struct umts_user_info *user_info)
 {
 	if(user_info==NULL)
 	{
@@ -549,7 +550,7 @@ static int set_umts_user_info(struct tsg_log_instance_t *_instance, struct TLD_h
 	return 1;
 }
 
-static int set_packet_bytes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_packet_bytes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	struct tcp_flow_stat *tflow_project=NULL;
     struct udp_flow_stat *uflow_project=NULL;
@@ -600,7 +601,7 @@ static int set_app_identify_info(struct TLD_handle_t *_handle, char *field_name,
 		for(j=0; j<result[i].app_num; j++)
 		{
 			Value object(kObjectType);
-			ret=tsg_app_id2name(result[i].attributes[j].app_id, app_name, sizeof(app_name), 0);
+			ret=tsg_get_app_name_by_id(g_tsg_maat_feather, result[i].attributes[j].app_id, app_name, sizeof(app_name), 0);
 			if(ret>0)
 			{
 				add_str_member(_handle, &object, "app_name", app_name);
@@ -636,7 +637,7 @@ static int get_app_id_list(Value *app_id_object, struct TLD_handle_t *_handle, c
 	{	
 		char app_name[512]={0};
 		Value object(kObjectType);
-		int ret=tsg_app_id2name(result->attributes[i].app_id, app_name, sizeof(app_name), 1);
+		int ret=tsg_get_app_name_by_id(g_tsg_maat_feather, result->attributes[i].app_id, app_name, sizeof(app_name), 1);
 		if(ret>0)
 		{		
 			add_str_member(_handle, &object, "app_name", app_name);
@@ -666,11 +667,11 @@ static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, st
 	for(i=0; i<result->app_num; i++)
 	{
 		memset(app_name, 0, sizeof(app_name));
-		tsg_app_id2name(result->attributes[i].app_id, app_name, sizeof(app_name), 1);
+		tsg_get_app_name_by_id(g_tsg_maat_feather, result->attributes[i].app_id, app_name, sizeof(app_name), 1);
 		if(strnlen(app_name, sizeof(app_name)) > 0)
 		{
 			Value app_name_str;
-    		app_name_str.SetString(app_name, _handle->document->GetAllocator());
+			app_name_str.SetString(app_name, _handle->document->GetAllocator());
 			array.PushBack(app_name_str, _handle->document->GetAllocator());
 		}
 	}
@@ -802,7 +803,7 @@ int set_app_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_han
 
 	if(combined_num==0)
 	{
-		offset=tsg_app_id2name(result[ORIGIN_UNKNOWN].attributes[0].app_id, app_full_path, sizeof(app_full_path), 0);
+		offset=tsg_get_app_name_by_id(g_tsg_maat_feather, result[ORIGIN_UNKNOWN].attributes[0].app_id, app_full_path, sizeof(app_full_path), 0);
 		if(offset>0)
 		{
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_full_path, TLD_TYPE_STRING);
@@ -814,7 +815,7 @@ int set_app_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_han
 
 	for(int i=0; i<combined_num; i++)
 	{
-		offset+=tsg_app_id2name(combined_array[i], app_full_path+offset, sizeof(app_full_path)-offset, 0);
+		offset+=tsg_get_app_name_by_id(g_tsg_maat_feather, combined_array[i], app_full_path+offset, sizeof(app_full_path)-offset, 0);
 		if(offset>0)
 		{
 			app_full_path[offset++]='.';
@@ -840,13 +841,13 @@ int set_app_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_han
 	return 1;	
 }
 
-int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	struct gather_app_result *gather_result=(struct gather_app_result *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_GATHER_APP_RESULT].id);
+	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(a_stream);
 	if(gather_result==NULL)
 	{	
 		char app_name[512]={0};
-		if(tsg_app_id2name(_instance->unknown_app_id, app_name, sizeof(app_name), 0))
+		if(tsg_get_app_name_by_id(g_tsg_maat_feather, _instance->unknown_app_id, app_name, sizeof(app_name), 0))
 		{
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_name, TLD_TYPE_STRING);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_name, TLD_TYPE_STRING);
@@ -879,7 +880,7 @@ int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handl
 	return 1;
 }
 
-int set_vlan(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct single_layer_vlan_addr *vlan_addr, int layer_num, Value *tunnel_object, tsg_log_field_id_t id)
+int set_vlan(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct single_layer_vlan_addr *vlan_addr, int layer_num, Value *tunnel_object, enum LOG_FIELD_ID id)
 {
 	if(layer_num==0)
 	{
@@ -897,7 +898,7 @@ int set_vlan(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle,
 	return 1;
 }
 
-static int set_mpls(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct single_layer_mpls_addr *mpls_addr, int layer_num, Value *tunnel_object, tsg_log_field_id_t id)
+static int set_mpls(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct single_layer_mpls_addr *mpls_addr, int layer_num, Value *tunnel_object, enum LOG_FIELD_ID id)
 {
 	if(layer_num==0)
 	{
@@ -1209,9 +1210,9 @@ int TLD_convert_json(struct TLD_handle_t *_handle, char *buff, unsigned int buff
 	return 1;
 }
 
-static int set_mail_eml(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_mail_eml(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	struct tsg_conn_sketch_notify_data *notify_mail=(struct tsg_conn_sketch_notify_data *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_RECV_CONN_SKETCH_DATA].id);
+	struct tsg_conn_sketch_notify_data *notify_mail=(struct tsg_conn_sketch_notify_data *)session_conn_sketch_notify_data_get(a_stream);
 	if(notify_mail!=NULL && notify_mail->pdata.mail_eml_filename!=NULL && notify_mail->protocol==PROTO_MAIL)
 	{
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_MAIL_EML_FILE].name);
@@ -1222,10 +1223,9 @@ static int set_mail_eml(struct tsg_log_instance_t *_instance, struct TLD_handle_
 	return 0;
 }
 
-
-static int set_s3_filename(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_s3_filename(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	struct business_notify_data *bnd_label=(struct business_notify_data *)tsg_get_xxx_from_bridge(a_stream, _instance->bridge_id[LOG_BRIDGE_BUSINESS_S3_FILENAME]);
+	struct business_notify_data *bnd_label=(struct business_notify_data *)session_business_data_get(a_stream);
 	if(bnd_label==NULL || bnd_label->pdata==NULL)
 	{
 		return 0;
@@ -1234,7 +1234,7 @@ static int set_s3_filename(struct tsg_log_instance_t *_instance, struct TLD_hand
 	switch(bnd_label->proto)
 	{
 		case	PROTO_HTTP:
-			TLD_delete(_handle, _instance->id2field[LOG_COMMON_HTTP_REQUEST_S3_FILE].name);				
+			TLD_delete(_handle, _instance->id2field[LOG_COMMON_HTTP_REQUEST_S3_FILE].name);
 			TLD_delete(_handle, _instance->id2field[LOG_COMMON_HTTP_RESPONSE_S3_FILE].name);
 
 			if(bnd_label->s3_http==NULL)
@@ -1242,7 +1242,7 @@ static int set_s3_filename(struct tsg_log_instance_t *_instance, struct TLD_hand
 				break;
 			}
 
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_HTTP_REQUEST_S3_FILE].name, bnd_label->s3_http->request_filename, TLD_TYPE_STRING);				
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_HTTP_REQUEST_S3_FILE].name, bnd_label->s3_http->request_filename, TLD_TYPE_STRING);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_HTTP_RESPONSE_S3_FILE].name, bnd_label->s3_http->response_filename, TLD_TYPE_STRING);
 			break;
 		default:
@@ -1252,20 +1252,29 @@ static int set_s3_filename(struct tsg_log_instance_t *_instance, struct TLD_hand
 	return 1;
 }
 
-int set_nat_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, char *field_name, int project_id)
+int set_nat_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	const char *nat_linkinfo=(const char *)stream_bridge_async_data_get(a_stream, project_id);
-	if(nat_linkinfo==NULL)
+	if(_instance->send_nat_linkinfo==0 || a_stream==NULL)
 	{
 		return 0;
 	}
 
-	copy_rapidjson(_handle, field_name, nat_linkinfo);
+	char *c2s_linkinfo=(char *)session_nat_c2s_linkinfo_get(a_stream);
+	if(c2s_linkinfo!=NULL)
+	{
+		copy_rapidjson(_handle, _instance->id2field[LOG_COMMON_LINK_INFO_C2S].name, c2s_linkinfo);
+	}
+		
+	char *s2c_linkinfo=(char *)session_nat_s2c_linkinfo_get(a_stream);
+	if(s2c_linkinfo!=NULL)
+	{
+		copy_rapidjson(_handle, _instance->id2field[LOG_COMMON_LINK_INFO_S2C].name, s2c_linkinfo);
+	}
 
-	return 0;
+	return 1;
 }
 
-static int set_tunnel_ipv4v6_port(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, Value *object, enum addr_type_t up_layer_type)
+static int set_tunnel_ipv4v6_port(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, Value *object, enum addr_type_t up_layer_type)
 {
 	char ip_buff[64]={0};
 	if(a_stream==NULL)
@@ -1273,7 +1282,7 @@ static int set_tunnel_ipv4v6_port(struct tsg_log_instance_t *_instance, struct T
 		return 0;
 	}
 
-	tsg_log_field_id_t s_ip_idx, d_ip_idx, s_port_idx, d_port_idx;
+	enum LOG_FIELD_ID s_ip_idx, d_ip_idx, s_port_idx, d_port_idx;
 
 	switch(up_layer_type)
 	{
@@ -1332,9 +1341,9 @@ struct session_marker_notify_ctx
 	char *identify_str;
 };
 
-int set_session_flags(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+int set_session_flags(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	struct session_marker_notify_ctx *sm_notify=(struct session_marker_notify_ctx *)tsg_get_xxx_from_bridge(a_stream, _instance->bridge_id[LOG_BRIDGE_ASYNC_SESSION_FLAGS]);
+	struct session_marker_notify_ctx *sm_notify=(struct session_marker_notify_ctx *)session_session_flags_get(a_stream);
 	if(sm_notify==NULL)
 	{
 		return 0;
@@ -1353,18 +1362,23 @@ int set_session_flags(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	return 0;
 }
 
-int set_shaping_rule_ids(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+int set_shaping_rule_ids(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	struct notify_shaping_policy *shaping_label=(struct notify_shaping_policy *)tsg_get_xxx_from_bridge(a_stream, g_tsg_para.bridge[BRIDGE_TYPE_NOTIFY_SHAPING_RESULT].id);
-	if(shaping_label==NULL)
+	if(a_stream==NULL)
+	{
+		return 0;
+	}
+	
+	struct matched_policy_rules *hited_shaping=(struct matched_policy_rules *)session_matched_rules_get(a_stream, TSG_SERVICE_SHAPING);
+	if(hited_shaping==NULL)
 	{
 		return 0;
 	}
 
 	Value shaping_rule_ids_array(kArrayType);
-	for(int i=0; i<shaping_label->shaping_result_num; i++)
+	for(size_t i=0; i<hited_shaping->n_rules; i++)
 	{
-		shaping_rule_ids_array.PushBack(shaping_label->shaping_result[i].config_id, _handle->document->GetAllocator());
+		shaping_rule_ids_array.PushBack((unsigned int)(hited_shaping->rules[i].rule_id), _handle->document->GetAllocator());
 	}
 
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SHAPING_RULE_IDS].name, (void *) &shaping_rule_ids_array, TLD_TYPE_OBJECT);
@@ -1372,7 +1386,7 @@ int set_shaping_rule_ids(struct tsg_log_instance_t *_instance, struct TLD_handle
 	return 0;
 }
 
-static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	int ret=0;	
 	char ip_buff[64]={0};
@@ -1469,7 +1483,7 @@ static int set_common_tunnels(struct tsg_log_instance_t *_instance, struct TLD_h
 	return 0;
 }
 
-char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t id)
+char *log_field_id2name(struct tsg_log_instance_t *instance, enum LOG_FIELD_ID id)
 {
 	struct tsg_log_instance_t *_instance=instance;
 	if(_instance!=NULL)
@@ -1480,66 +1494,45 @@ char *log_field_id2name(struct tsg_log_instance_t *instance, tsg_log_field_id_t 
 	return NULL;
 }
 
-unsigned long long tsg_get_stream_id(struct streaminfo * a_stream)
-{
-	int ret=0;
-	int device_id_size=sizeof(unsigned long long);
-	unsigned long long device_id=(unsigned long long)g_tsg_para.device_seq_in_dc;
-
-	ret=MESA_get_stream_opt(a_stream, MSO_GLOBAL_STREAM_ID, (void *)&device_id, &device_id_size);
-	if(ret==0)
-	{
-		return device_id;
-	}
-
-	return -1;
-}
-
-int is_multi_hit_same_policy(struct Maat_rule_t *result, int *policy_id, int *policy_id_num)
+int is_multi_hit_same_policy(struct maat_rule *result, int *policy_id, int *policy_id_num)
 {
 	int j=0;
 	
 	for(j=0;j<*policy_id_num;j++)
 	{
-		if(policy_id[j]==result->config_id)
+		if(policy_id[j]==result->rule_id)
 		{
 			return 1;
 		}
 	}
 
-	policy_id[(*policy_id_num)++]=result->config_id;
+	policy_id[(*policy_id_num)++]=result->rule_id;
 
 	return 0;
 }
 
-static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_log_instance_t *_instance, struct Maat_rule_t *p_result, int thread_seq)
+static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_log_instance_t *_instance, struct maat_rule *p_result, int thread_seq)
 {
 	cJSON *item=NULL;
 	cJSON *object=NULL;
-	char *user_region=NULL;
 
 	TLD_delete(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name);
 	TLD_delete(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name);
 	TLD_delete(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name);
 
-	if(p_result->action!=TSG_ACTION_NONE && p_result->serv_def_len>0)
+	if(p_result->action!=TSG_ACTION_NONE)
 	{
-		user_region=(char *)dictator_malloc(thread_seq, p_result->serv_def_len+1);
-		int ret=Maat_read_rule(g_tsg_maat_feather, p_result, MAAT_RULE_SERV_DEFINE, user_region, p_result->serv_def_len+1);
-		if(ret==p_result->serv_def_len)
+		struct maat_compile *compile=(struct maat_compile *)matched_rule_cites_security_compile(g_tsg_maat_feather, p_result->rule_id);
+		if(compile!=NULL && compile->p_user_region!=NULL)
 		{
-			user_region[p_result->serv_def_len]='\0';
-
-			object=cJSON_Parse(user_region);
-
+			object=cJSON_Parse(compile->p_user_region);
 			if(_instance->send_user_region==1)
 			{
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)user_region, TLD_TYPE_STRING);
-			}			
-		}
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)(compile->p_user_region), TLD_TYPE_STRING);
+			}
 
-		dictator_free(thread_seq, user_region);
-		user_region=NULL;
+			plugin_ex_data_security_compile_free(compile);
+		}
 	}
 
 	if(object==NULL)
@@ -1573,35 +1566,20 @@ static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_lo
 	return 0;
 }
 
-int set_application_behavior(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+int set_application_behavior(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	if(a_stream==NULL)
+	struct application_behavior *behavior_result=(struct application_behavior *)session_application_behavior_get(a_stream);
+	if(behavior_result!=NULL)
 	{
-		return 0;
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APPLICATION_BEHAVIOR].name, (void *)(behavior_result->stream_behavior), TLD_TYPE_STRING);
 	}
-	
-	struct application_behavior *behavior_result=NULL;
-	behavior_result=(struct application_behavior *)tsg_get_xxx_from_bridge(a_stream, _instance->bridge_id[LOG_BRIDGE_APP_BEHAVIOR_RESULT]);
-	if(behavior_result==NULL)
-	{
-		return 0;
-	}
-
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_APPLICATION_BEHAVIOR].name, (void *)(behavior_result->stream_behavior), TLD_TYPE_STRING);			
 
 	return 1;
 }
 
-int set_notify_execution_result(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, struct Maat_rule_t *p_result)
+int set_policy_action_para_exec_result(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, struct maat_rule *p_result)
 {
-	if(a_stream==NULL)
-	{
-		return 0;
-	}
-	
-	int i=0;
-	struct tsg_notify_execution_result *execution_result=NULL;
-	execution_result=(struct tsg_notify_execution_result *)tsg_get_xxx_from_bridge(a_stream, _instance->bridge_id[LOG_BRIDGE_CONN_SKETCH_EXEC_RESULT]);
+	struct tsg_notify_execution_result *execution_result=(struct tsg_notify_execution_result *)session_mirrored_and_capture_packets_exec_result_get(a_stream);
 	if(execution_result==NULL)
 	{
 		return 0;
@@ -1611,19 +1589,19 @@ int set_notify_execution_result(struct tsg_log_instance_t *_instance, struct TLD
 	TLD_delete(_handle, _instance->id2field[LOG_COMMON_MIRRORED_BYTES].name);
 	TLD_delete(_handle, _instance->id2field[LOG_COMMON_PACKET_CAPTURE_FILE].name);
 	
-	for(i=0; i<execution_result->stat_mirrored_cnt; i++)
+	for(int i=0; i<execution_result->stat_mirrored_cnt; i++)
 	{
-		if(execution_result->stat_mirrored[i].compile_id==p_result->config_id)
+		if(execution_result->stat_mirrored[i].compile_id==p_result->rule_id)
 		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_PKTS].name, (void *)(execution_result->stat_mirrored[i].packets), TLD_TYPE_LONG);			
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_PKTS].name, (void *)(execution_result->stat_mirrored[i].packets), TLD_TYPE_LONG);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_MIRRORED_BYTES].name, (void *)(execution_result->stat_mirrored[i].bytes), TLD_TYPE_LONG);
 			break;
 		}
 	}
 
-	for(i=0; i<execution_result->capture_result_cnt; i++)
+	for(int i=0; i<execution_result->capture_result_cnt; i++)
 	{		
-		if(execution_result->capture_result[i].compile_id==p_result->config_id)
+		if(execution_result->capture_result[i].compile_id==p_result->rule_id)
 		{	
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_PACKET_CAPTURE_FILE].name, (void *)(execution_result->capture_result[i].packet_path), TLD_TYPE_STRING);
 			break;
@@ -1633,85 +1611,82 @@ int set_notify_execution_result(struct tsg_log_instance_t *_instance, struct TLD
 	return 1;
 }
 
-int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	int ret=0;
-	struct session_attribute_label *attribute_label=NULL;
-
-	attribute_label=(struct session_attribute_label *)project_req_get_struct(a_stream, _instance->session_attribute_project_id);
-	if(attribute_label==NULL)
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	if(srt_attribute==NULL)
 	{
 		return 0;
 	}
 
-	if(attribute_label->establish_latency_ms>0)
+	if(srt_attribute->establish_latency_ms>0)
 	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)attribute_label->establish_latency_ms, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_ESTABLISH_LATENCY_MS].name, (void *)srt_attribute->establish_latency_ms, TLD_TYPE_LONG);
 	}
 
-	if(attribute_label->http_action_file_size>0)
+	if(srt_attribute->http_action_file_size>0)
 	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_HTTP_ACTION_FILESIZE].name, (void *)(long)attribute_label->http_action_file_size, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_HTTP_ACTION_FILESIZE].name, (void *)(long)srt_attribute->http_action_file_size, TLD_TYPE_LONG);
 	}
 	
-	set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_ASN].name, attribute_label->client_asn);		
-	set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_ASN].name, attribute_label->server_asn);
+	set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_ASN].name, srt_attribute->client_asn);
+	set_asn(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_ASN].name, srt_attribute->server_asn);
 	
-	set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, attribute_label->client_location);
-	set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, attribute_label->server_location);
+	set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_CLINET_LOCATION].name, srt_attribute->client_location);
+	set_location(_handle, a_stream, _instance->id2field[LOG_COMMON_SERVER_LOCATION].name, srt_attribute->server_location);
 
-	ret=set_subscriber_id(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, attribute_label->client_subscribe_id);
+	int ret=set_subscriber_id(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, srt_attribute->client_subscribe_id);
 	if(ret==0)
 	{
-		set_subscriber_id(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, attribute_label->server_subscribe_id);
+		set_subscriber_id(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, srt_attribute->server_subscribe_id);
 	}
 	
-	set_fqdn_category(_instance, _handle, a_stream, attribute_label->fqdn_category_id, attribute_label->fqdn_category_id_num);
+	set_fqdn_category(_instance, _handle, a_stream, srt_attribute->fqdn_category_ids, srt_attribute->n_fqdn_category_ids);
 
-	if(attribute_label->ja3_fingerprint!=NULL)
+	if(srt_attribute->ja3_fingerprint!=NULL)
 	{
-		TLD_append(_handle, _instance->id2field[LOG_SSL_JA3_FINGERPRINT].name, (void *)attribute_label->ja3_fingerprint, TLD_TYPE_STRING);
+		TLD_append(_handle, _instance->id2field[LOG_SSL_JA3_FINGERPRINT].name, (void *)srt_attribute->ja3_fingerprint, TLD_TYPE_STRING);
 	}
 
-	set_umts_user_info(_instance, _handle, a_stream, attribute_label->user_info);
+	set_umts_user_info(_instance, _handle, a_stream, srt_attribute->user_info);
 
-	if(attribute_label->client_endpoint!=NULL)
+	if(srt_attribute->client_endpoint!=NULL)
 	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS_ENDPOINT_A_DESC].name, (void *)attribute_label->client_endpoint->description, TLD_TYPE_STRING);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS_ENDPOINT_A_DESC].name, (void *)srt_attribute->client_endpoint->description, TLD_TYPE_STRING);
 	}
 
-	if(attribute_label->server_endpoint!=NULL)
+	if(srt_attribute->server_endpoint!=NULL)
 	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS_ENDPOINT_B_DESC].name, (void *)attribute_label->server_endpoint->description, TLD_TYPE_STRING);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS_ENDPOINT_B_DESC].name, (void *)srt_attribute->server_endpoint->description, TLD_TYPE_STRING);
 	}
 
-	if(attribute_label->session_flags>0 && !(TLD_search(_handle, _instance->id2field[LOG_COMMON_FLAGS].name)))
+	if(srt_attribute->session_flags>0 && !(TLD_search(_handle, _instance->id2field[LOG_COMMON_FLAGS].name)))
 	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_FLAGS].name, (void *)attribute_label->session_flags, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_FLAGS].name, (void *)srt_attribute->session_flags, TLD_TYPE_LONG);
 	}
 
 	return 1;
 }
 
-int set_lua_scripts_result(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+int set_lua_scripts_result(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	struct user_defined_attribute_label *uda_label=(struct user_defined_attribute_label *)tsg_get_xxx_from_bridge(a_stream, _instance->bridge_id[LOG_BRIDGE_APP_LUA_RESULT]);
+	struct user_defined_attribute *uda_label=(struct user_defined_attribute *)session_lua_user_defined_attribute_get(a_stream);
 	if(uda_label!=NULL)
 	{
 		Value array(kArrayType);
 
-		for(int i=0; i<uda_label->attribute_num; i++)
+		for(int i=0; i<uda_label->n_akv; i++)
 		{
-			Value object(kObjectType);		
-			switch(uda_label->attribute[i].type)
+			Value object(kObjectType);
+			switch(uda_label->akv[i].type)
 			{
-				case	ATTRIBUTE_TYPE_BOOL:
-				case	ATTRIBUTE_TYPE_NUMERIC:					
-					add_number_member(_handle, &object, uda_label->attribute[i].name, uda_label->attribute[i].number);	
+				case	LUA_ATTRIBUTE_TYPE_BOOL:
+				case	LUA_ATTRIBUTE_TYPE_NUMERIC:
+					add_number_member(_handle, &object, uda_label->akv[i].name, uda_label->akv[i].number);
 					break;
-				case	ATTRIBUTE_TYPE_IP:
-				case	ATTRIBUTE_TYPE_STRING:	
-					add_str_member(_handle, &object, uda_label->attribute[i].name, uda_label->attribute[i].string);
+				case	LUA_ATTRIBUTE_TYPE_IP:
+				case	LUA_ATTRIBUTE_TYPE_STRING:	
+					add_str_member(_handle, &object, uda_label->akv[i].name, uda_label->akv[i].string);
 					break;
 				default:
 					continue;
@@ -1726,7 +1701,7 @@ int set_lua_scripts_result(struct tsg_log_instance_t *_instance, struct TLD_hand
 	return 0;
 }
 
-int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, struct streaminfo *a_stream)
+int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, const struct streaminfo *a_stream)
 {
 	if(instance==NULL || handle==NULL || a_stream==NULL)
 	{
@@ -1762,7 +1737,7 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 		set_common_tunnels(_instance, _handle, a_stream);
 	}
 	
-	unsigned long long stream_id=tsg_get_stream_id(a_stream);
+	unsigned long long stream_id=tsg_get_stream_trace_id(a_stream);
 	char stream_id_buff[128]={0};
 	snprintf(stream_id_buff, sizeof(stream_id_buff), "%llu", stream_id);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_STREAM_TRACE_ID].name, (void *)stream_id_buff, TLD_TYPE_STRING);
@@ -1773,7 +1748,7 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	return 0;
 }
 
-int load_log_common_field(const char *filename, id2field_t *id2field, struct topic_stat **service2topic, int *max_service)
+int log_common_fields_new(const char *filename, id2field_t *id2field, struct topic_stat **service2topic, int *max_service)
 {
 	int i=0,flag=0;
 	int ret=0,id=0;
@@ -1881,8 +1856,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	char override_sled_ip[32]={0};
 	char kafka_errstr[1024]={0};
 	unsigned int local_ip_nr=0;
-	char bridge_name[LOG_BRIDGE_MAX][128]={0};
-	rd_kafka_conf_t *rdkafka_conf = NULL;	
+	rd_kafka_conf_t *rdkafka_conf = NULL;
 	char broker_list[1024]={0};
 	struct tsg_log_instance_t *_instance=NULL;
 	char common_field_file[128]={0};	
@@ -1915,24 +1889,6 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "VSYSTEM_ID", &(_instance->vsystem_id), 1);
 	MESA_load_profile_int_def(conffile, "SYSTEM","UNKNOWN_APP_ID", &_instance->unknown_app_id, 4);
-
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "LINKINFO_FROM_MAC", bridge_name[LOG_BRIDGE_MAC_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_MAC_LINKINFO]), "mirror_linkinfo_from_mac");
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_C2S_LINKINFO", bridge_name[LOG_BRIDGE_NAT_C2S_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_NAT_C2S_LINKINFO]), "common_link_info_c2s");
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "NAT_S2C_LINKINFO", bridge_name[LOG_BRIDGE_NAT_S2C_LINKINFO], sizeof(bridge_name[LOG_BRIDGE_NAT_S2C_LINKINFO]), "common_link_info_s2c");
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "APP_LUA_SCRIPTS_BRIDGE_NAME", bridge_name[LOG_BRIDGE_APP_LUA_RESULT], sizeof(bridge_name[LOG_BRIDGE_APP_LUA_RESULT]), "LUA_USER_DEFINED_ATTRIBUTE");	
-	MESA_load_profile_string_def(conffile, "TSG_LOG", "BUSINESS_S3_FILENAME", bridge_name[LOG_BRIDGE_BUSINESS_S3_FILENAME], sizeof(bridge_name[LOG_BRIDGE_BUSINESS_S3_FILENAME]), "TSG_BUSINESS_S3_FILENAME");
-	MESA_load_profile_string_def(conffile, "SYSTEM", "APP_BEHAVIOR_BRIDGE_NAME", bridge_name[LOG_BRIDGE_APP_BEHAVIOR_RESULT], sizeof(bridge_name[LOG_BRIDGE_APP_BEHAVIOR_RESULT]), "TSG_APPLICATION_BEHAVIOR");
-	MESA_load_profile_string_def(conffile, "SYSTEM", "NOTIFY_EXEC_RESULT_BRIDGE_NAME", bridge_name[LOG_BRIDGE_CONN_SKETCH_EXEC_RESULT], sizeof(bridge_name[LOG_BRIDGE_CONN_SKETCH_EXEC_RESULT]), "TSG_NOTIFICATION_EXECUTION_RESULT");
-	MESA_load_profile_string_def(conffile, "SYSTEM", "NOTIFY_ASYNC_FLAGS_BRIDGE_NAME", bridge_name[LOG_BRIDGE_ASYNC_SESSION_FLAGS], sizeof(bridge_name[LOG_BRIDGE_ASYNC_SESSION_FLAGS]), "SESSION_FLAGS_ASYNC_NOTIFY_DATA");
-
-	for(int i=0; i<LOG_BRIDGE_MAX; i++)
-	{
-		_instance->bridge_id[i]=stream_bridge_build(bridge_name[i], "w");
-		if(_instance->bridge_id[i]<0)
-		{
-			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "LINKINFO_FROM_MAC", "stream_bridge_build is error, bridge_name: %s", bridge_name[i]);	
-		}
-	}	
 
 	_instance->logger=MESA_create_runtime_log_handle(log_path, _instance->level);
 	if(_instance->logger==NULL)
@@ -2020,7 +1976,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 		return NULL;
 	}
 
-	load_log_common_field(common_field_file, _instance->id2field, &(_instance->service2topic), &(_instance->max_service));
+	log_common_fields_new(common_field_file, _instance->id2field, &(_instance->service2topic), &(_instance->max_service));
 
 	if(_instance->service2topic!=NULL)
 	{
@@ -2030,16 +1986,11 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 			{
 				register_topic(_instance, &( _instance->service2topic[i]));
 			}
-
-			if(i==1)
-			{
-				 memcpy(&(_instance->service2topic[i]), &(_instance->service2topic[0]), sizeof(struct topic_stat));   // service id of security event is 0 and 1
-			}
 		}
 	}
 	else
 	{
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "KAFKA_INIT", "load_log_common_field is error, please check %s", common_field_file);
+		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "KAFKA_INIT", "log_common_fields_new is error, please check %s", common_field_file);
 	}
 	
 	return _instance;
@@ -2091,72 +2042,76 @@ void tsg_sendlog_destroy(struct tsg_log_instance_t * instance)
 
 	free(instance);
 	instance=NULL;
-/*
-	int ret=0,count=0;
-	
-	while(1)
-	{
-		ret=rd_kafka_wait_destroyed(1000);
-		if(ret==0)
-		{
-			break;
-		}
-		count++;
-	}
-*/
-
 	return ;
 }
 
-int send_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream, struct Maat_rule_t *p_result, int p_result_num, int thread_id)
+int send_log_by_type(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, LOG_TYPE log_type, int thread_id)
 {
-	int fs_id=0,ret=0,repeat_cnt=0;
+	int ret=update_percent(_instance, log_type, LOG_COLUMN_STATUS_DROP, thread_id);
+	if(ret==1)
+	{
+		MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
+									"record_log",
+									"drop log: log_type=%d send_log_percent: %d addr=%s",
+									log_type,
+									_instance->service2topic[log_type].send_log_percent[thread_id],
+									(a_stream==NULL ? "" : PRINTADDR(a_stream,_instance->level))
+								);
+	}
+		
+	StringBuffer sb(0, 2048);
+	Writer<StringBuffer> writer(sb);
+	_handle->document->Accept(writer);
+
+	tsg_send_payload(_instance, log_type, (char *)sb.GetString(), sb.GetSize(), thread_id);
+	
+	return 0;
+}
+
+int send_security_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, struct maat_rule *rules, size_t n_rules, int thread_id)
+{
+	int fs_id=0,repeat_cnt=0;
 	int policy_id[MAX_RESULT_NUM]={0};
 
-	if(g_tsg_para.session_record_switch==0 && (p_result[0].service_id==2 || p_result[0].service_id==6 || p_result[0].service_id==7))
+	for(size_t i=0;i<n_rules; i++)
 	{
-		return 0;
-	}
-
-	for(int i=0;i<p_result_num; i++)
-	{
-		if(is_multi_hit_same_policy(&(p_result[i]), policy_id, &repeat_cnt))
+		if(is_multi_hit_same_policy(&(rules[i]), policy_id, &repeat_cnt))
 		{
 			MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
-										"TSG_SEND_LOG",
+										"tsg_send_log",
 										"tsg same log:cfg_id=%d service=%d addr=%s",
-										p_result[i].config_id,
-										p_result[i].service_id,
+										rules[i].rule_id,
+										rules[i].service_id,
 										(a_stream==NULL ? "" : PRINTADDR(a_stream,_instance->level))
 									);
 			continue;
 		}
 
-		switch(p_result[i].do_log)
+		switch(rules[i].do_log)
 		{
 			case	LOG_ABORT:
 				MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
-											"TSG_SEND_LOG",
+											"tsg_send_log",
 											"tsg abort log:cfg_id=%d service=%d addr=%s",
-											p_result[i].config_id,
-											p_result[i].service_id,
+											rules[i].rule_id,
+											rules[i].service_id,
 											(a_stream==NULL ? "" : PRINTADDR(a_stream,_instance->level))
 										);
 
-				fs_id=action2fs_id((int)p_result[i].action);
+				fs_id=action2fs_id((int)rules[i].action);
 				FS_operate(_instance->fs2_handle, _instance->fs2_field_id[fs_id], 0, FS_OP_ADD, 1);
 				continue;
 				break;
 			case	LOG_ALL:
-				if(p_result[i].action==TSG_ACTION_MONITOR)
+				if(rules[i].action==TSG_ACTION_MONITOR)
 				{
 					set_s3_filename(_instance, _handle, a_stream);
 					set_mail_eml(_instance, _handle, a_stream);
 				}
 				break;
 			case	LOG_NOFILE:
-				if(p_result[i].action==TSG_ACTION_MONITOR)
-				{					
+				if(rules[i].action==TSG_ACTION_MONITOR)
+				{
 					TLD_delete(_handle, _instance->id2field[LOG_COMMON_MAIL_EML_FILE].name);
 					TLD_delete(_handle, _instance->id2field[LOG_COMMON_HTTP_REQUEST_S3_FILE].name);
 					TLD_delete(_handle, _instance->id2field[LOG_COMMON_HTTP_RESPONSE_S3_FILE].name);
@@ -2165,40 +2120,16 @@ int send_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle,
 			default:
 				break;
 		}
-
-		ret=update_percent(_instance, p_result[i].service_id, LOG_COLUMN_STATUS_DROP, thread_id);
-		if(ret==1)
-		{
-			MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
-										"TSG_SEND_LOG",
-										"tsg drop log:cfg_id=%d service=%d send_log_percent: %d addr=%s",
-										p_result[i].config_id,
-										p_result[i].service_id,
-										_instance->service2topic[p_result[i].service_id].send_log_percent[thread_id],
-										(a_stream==NULL ? "" : PRINTADDR(a_stream,_instance->level))
-									);
-			continue;	
-		}
 		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(p_result[i].config_id), TLD_TYPE_LONG);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(p_result[i].service_id), TLD_TYPE_LONG);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)p_result[i].action), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(rules[i].rule_id), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(rules[i].service_id), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)rules[i].action), TLD_TYPE_LONG);
 
-		set_notify_execution_result(_instance, _handle, a_stream, &(p_result[i]));
-
-		if(_instance->send_nat_linkinfo &&p_result[i].config_id==0 && a_stream!=NULL)
-		{			
-			set_nat_linkinfo(_instance, _handle, a_stream, _instance->id2field[LOG_COMMON_LINK_INFO_C2S].name, _instance->bridge_id[LOG_BRIDGE_NAT_C2S_LINKINFO]);
-			set_nat_linkinfo(_instance, _handle, a_stream, _instance->id2field[LOG_COMMON_LINK_INFO_S2C].name, _instance->bridge_id[LOG_BRIDGE_NAT_S2C_LINKINFO]);
-		}
+		set_policy_action_para_exec_result(_instance, _handle, a_stream, &(rules[i]));
 		
-		set_xxxx_from_user_region(_handle, _instance, &(p_result[i]), thread_id);
-		
-		StringBuffer sb(0, 2048);
-		Writer<StringBuffer> writer(sb);
-		_handle->document->Accept(writer);
+		set_xxxx_from_user_region(_handle, _instance, &(rules[i]), thread_id);
 
-		tsg_send_payload(_instance, p_result[i].service_id, (char *)sb.GetString(), sb.GetSize(), thread_id);
+		send_log_by_type(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, thread_id);
 
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
@@ -2209,14 +2140,14 @@ int send_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle,
 	return 0;
 }
 
-int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, tsg_log_t *log_msg, int thread_id)
+int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, const struct streaminfo *a_stream, enum LOG_TYPE log_type, struct maat_rule *rules, size_t n_rules, int thread_id)
 {	
-	if(instance==NULL || handle==NULL || log_msg==NULL)
+	if(instance==NULL || handle==NULL || rules==NULL || n_rules==0)
 	{
 		TLD_cancel(handle);
 		if(instance!=NULL)
 		{
-			MESA_handle_runtime_log(instance->logger, RLOG_LV_DEBUG, "TSG_SEND_LOG", " instance==NULL || TLD_handle==NULL || log_msg==NULL ");
+			MESA_handle_runtime_log(instance->logger, RLOG_LV_DEBUG, "tsg_send_log", " instance==NULL || TLD_handle==NULL || log_msg==NULL ");
 		}
 		return -1;
 	}
@@ -2228,51 +2159,61 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	{
 		TLD_cancel(handle);
 		FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_field_id[LOG_COLUMN_STATUS_DROP], FS_OP_ADD, 1);
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO, "TSG_SEND_LOG", "Disable tsg_send_log.");
+		MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO, "tsg_send_log", "Disable tsg_send_log.");
 		return 0;
 	}
 	
-	TLD_append_streaminfo(instance, handle, log_msg->a_stream);
+	TLD_append_streaminfo(instance, handle, a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
 	if(strlen(g_tsg_para.device_sn)>0)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
 	}
 
-	if(strlen(g_tsg_para.data_center)>0 && _instance->send_data_center==1)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_DATA_CENTER].name, (void *)(g_tsg_para.data_center), TLD_TYPE_STRING);
-	}
-
-	if(strlen(g_tsg_para.device_tag)>0)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_TAG].name, (void *)(g_tsg_para.device_tag), TLD_TYPE_STRING);
-	}
-
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_DATA_CENTER].name, (void *)tsg_data_center_get(), TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_TAG].name, (void *)tsg_device_tag_get(), TLD_TYPE_STRING);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_TRAFFIC_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
 
-	set_application_behavior(_instance, _handle, log_msg->a_stream);
+	set_application_behavior(_instance, _handle, a_stream);
 
-	if((log_msg->result[0].service_id==2 || log_msg->result[0].service_id==6 || log_msg->result[0].service_id==7) && log_msg->a_stream!=NULL)		// stream of intercept is NULL
+	struct matched_policy_rules *matched_security_rules=NULL;
+
+	switch(log_type)
 	{
-		set_shaping_rule_ids(_instance, _handle, log_msg->a_stream);
-	}
-
-	send_log(_instance, _handle, log_msg->a_stream, log_msg->result,  log_msg->result_num, thread_id);
-
-	//fetch firewall result
-	if(log_msg->result[0].service_id==2 || log_msg->result[0].service_id==7)
-	{
-		struct policy_priority_label *priority_label=(struct policy_priority_label *)tsg_get_xxx_from_bridge(log_msg->a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id);
-		if(priority_label!=NULL && priority_label->security_result_num>0)
-		{
-			if(priority_label->security_result[0].action!=TSG_ACTION_INTERCEPT)
+		case	LOG_TYPE_SECURITY_EVENT:
+			send_security_event_log(_instance, _handle, a_stream, rules, n_rules, thread_id);
+			break;
+		case	LOG_TYPE_SESSION_RECORD:
+		case	LOG_TYPE_TRANSACTION_RECORD:
+			matched_security_rules=(struct matched_policy_rules *)session_matched_rules_get(a_stream, TSG_SERVICE_SECURITY);
+			if(matched_security_rules!=NULL && matched_security_rules->n_rules>0)
 			{
-				send_log(_instance, _handle, log_msg->a_stream, priority_label->security_result,  priority_label->security_result_num, thread_id);
-				free_policy_label(log_msg->a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, (void *)priority_label);
-				tsg_set_xxx_to_bridge(log_msg->a_stream, g_tsg_para.bridge[BRIDGE_TYPE_POLICY_PRIORITY].id, NULL);
+				if(matched_security_rules->rules[0].action!=TSG_ACTION_INTERCEPT)
+				{
+					send_security_event_log(_instance,	_handle, a_stream, matched_security_rules->rules, matched_security_rules->n_rules, thread_id);
+					session_matched_rules_free(a_stream, TSG_SERVICE_SECURITY, (void *)matched_security_rules);
+					session_matched_rules_async(a_stream, TSG_SERVICE_SECURITY, NULL);
+				}
 			}
-		}
+			// no break;
+		case	LOG_TYPE_INTERIM_SESSION_RECORD:
+			if(tsg_session_record_switch_get()==0)
+			{
+				break;
+			}
+			set_shaping_rule_ids(_instance, _handle, a_stream);
+			set_nat_linkinfo(_instance, _handle, a_stream);
+			send_log_by_type(_instance, _handle, a_stream, log_type, thread_id);
+			break;
+		case	LOG_TYPE_BGP_RECORD:
+		case	LOG_TYPE_VOIP_RECORD:
+		case	LOG_TYPE_GTPC_RECORD:
+		case	LOG_TYPE_INTERNAL_RTP_RECORD:
+			send_log_by_type(_instance, _handle, a_stream, log_type, thread_id);
+			break;
+		default:
+			TLD_cancel(handle);
+			return 0;
 	}
 	
 	TLD_cancel(handle);
@@ -2313,7 +2254,7 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 	{
 		MESA_handle_runtime_log(_instance->logger,
 									RLOG_LV_INFO,
-									"TSG_SEND_LOG",
+									"tsg_send_log",
 									"tsg_send_log to kafka is error (payload==NULL || payload_len<=0 || topic_id<0 || _instance->service2topic[topic_id].topic_rkt==NULL), topic: %s",
 									_instance->service2topic[topic_id].name
 								);
@@ -2327,7 +2268,7 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 		
 		MESA_handle_runtime_log(_instance->logger, 
 									RLOG_LV_INFO, 
-									"TSG_SEND_LOG",
+									"tsg_send_log",
 									"tsg_send_log to kafka is error of code: %d %s(%s), status: %d, topic: %s %s",
 									rd_kafka_last_error(),
 									rd_kafka_err2name(rd_kafka_last_error()),
@@ -2343,7 +2284,7 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 		update_percent(_instance, topic_id, LOG_COLUMN_STATUS_SUCCESS, thread_id);
 		MESA_handle_runtime_log(_instance->logger,
 								RLOG_LV_DEBUG,
-								"TSG_SEND_LOG", 
+								"tsg_send_log", 
 								"log send successfully %s: %s",
 								_instance->service2topic[topic_id].name,
 								payload

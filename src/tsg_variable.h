@@ -1,5 +1,8 @@
 #pragma once
 
+#include "uthash.h"
+#include "tsg_bridge.h"
+
 #include <MESA/stream.h>
 #include <MESA/field_stat2.h>
 #include <ctemplate/template.h>
@@ -72,54 +75,6 @@ enum DEPLOY_MODE
 	DEPLOY_MODE_MAX
 };
 
-enum MASTER_STATIC_TABLE
-{
-	TABLE_SECURITY_COMPILE=0,
-	TABLE_IP_ADDR,
-	TABLE_SUBSCRIBER_ID,
-	TABLE_APP_ID,
-	TABLE_HTTP_HOST,
-	TABLE_SSL_SNI,
-	TABLE_EXCLUSION_SSL_SNI,
-	TABLE_SRC_ASN,
-	TABLE_DST_ASN,
-	TABLE_SRC_LOCATION,
-	TABLE_DST_LOCATION,
-	TABLE_ASN_USER_DEFINED,
-	TABLE_ASN_BUILT_IN,
-	TABLE_LOCATION_USER_DEFINED,
-	TABLE_LOCATION_BUILT_IN,
-	TABLE_QUIC_SNI,
-	TABLE_FQDN_CAT_ID,
-	TABLE_FQDN_CAT_USER_DEFINED,
-	TABLE_FQDN_CAT_BUILT_IN,
-	TABLE_APP_ID_DICT,
-	TABLE_SELECTOR_ID,
-	TABLE_SELECTOR_PROPERTIES,
-	TABLE_GTP_APN,
-	TABLE_GTP_IMSI,
-	TABLE_GTP_PHONE_NUMBER,
-	TABLE_RESPONSE_PAGES,
-	TABLE_DNS_PROFILE_RECORD,
-	TABLE_PROFILE_MIRROR,
-	TABLE_HTTP_URL,
-	TABLE_DTLS_SNI,
-	TABLE_TUNNEL_ID,
-	TABLE_TUNNEL_CATALOG,
-	TABLE_TUNNEL_ENDPOINT,
-	TABLE_TUNNEL_LABEL,
-	TABLE_SESSION_FLAGS,
-	TABLE_SESSION_LOG,
-	TABLE_MAX
-};
-
-enum MASTER_DYNAMIC_TABLE
-{
-	DYN_TABLE_SUBSCRIBER_IP=0,
-	DYN_TABLE_GTP_SIGNALING,
-	DYN_TABLE_MAX
-};
-
 #ifndef MIN
 #define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
 #endif
@@ -136,13 +91,6 @@ enum MASTER_DYNAMIC_TABLE
 #define	MAX_STRING_LEN32	32
 #endif
 
-struct id2field
-{
-	int type;
-	int id;
-	char name[MAX_STRING_LEN32];
-};
-
 struct reset_argv
 {
 	int pkt_num;
@@ -153,22 +101,23 @@ struct reset_argv
 	int remedy;
 };
 
-#ifndef	MAX_TABLE_NAME_LEN
-#define	MAX_TABLE_NAME_LEN	64
-#endif
-
 #ifndef	MAX_STRING_LEN128
 #define	MAX_STRING_LEN128	128
 #endif
 
-typedef	struct tsg_para
+struct id2field
+{
+	int type;
+	int id;
+	char name[MAX_STRING_LEN32];
+};
+
+struct tsg_rt_para
 {
 	int level;
 	short mirror_switch;
 	unsigned short timeout;
 	int dynamic_maat_switch;
-	int location_field_num;
-	int app_dict_field_num;
 	int device_seq_in_dc;
 	int datacenter_id;
 	int scan_signaling_switch;
@@ -178,31 +127,18 @@ typedef	struct tsg_para
 	int feature_tamper;
 	int service_chaining_sid;
 	int shaping_sid;
+	int send_resetall;
 	enum DEPLOY_MODE deploy_mode;
 	int scan_time_interval;
 	int identify_app_max_pkt_num;
 	int unknown_app_id;
-	int hit_path_switch;
-	int session_record_switch;
-	int default_compile_id;
-	int table_id[TABLE_MAX];
-	int dyn_table_id[DYN_TABLE_MAX];
-	int session_attribute_project_id;
-	int proto_flag; //tsg_protocol_t
+	int proto_flag; //enum TSG_PROTOCOL
 	int fs2_field_id[TSG_FS2_MAX];
 	char device_sn[MAX_STRING_LEN128];
 	char log_path[MAX_STRING_LEN128];
 	char device_id_command[MAX_STRING_LEN128];
-	char data_center[MAX_STRING_LEN128];
-	char device_tag[MAX_STRING_LEN128];
-	char table_name[TABLE_MAX][MAX_TABLE_NAME_LEN];	
-	char dyn_table_name[DYN_TABLE_MAX][MAX_TABLE_NAME_LEN];
-	struct bridge_info bridge[BRIDGE_TYPE_MAX];
-	int send_resetall;
 	void *logger;
-	void *maat_logger;
 	struct reset_argv reset;
-	struct mirrored_vlan default_vlan;
 	screen_stat_handle_t fs2_handle;
 	struct l7_protocol *name_by_id;
 	struct l7_protocol *id_by_name;
@@ -210,9 +146,18 @@ typedef	struct tsg_para
 	ctemplate::Template *tpl_403,*tpl_404;
 	ctemplate::Template *tpl_200,*tpl_204;
 	ctemplate::Template *tpl_303;
-}g_tsg_para_t;
+};
 
-extern g_tsg_para_t g_tsg_para;
-extern Maat_feather_t g_tsg_dynamic_maat_feather;
+extern struct tsg_rt_para g_tsg_para;;
 extern struct id2field g_tsg_proto_name2id[PROTO_MAX];
+
+struct l7_protocol 
+{
+	int id;				/* first key */
+	char name[32];		/* second key */
+	UT_hash_handle hh1;	/* handle for first hash table */
+	UT_hash_handle hh2;	/* handle for second hash table */
+};
+
+long long tsg_get_current_time_ms(void);
 
