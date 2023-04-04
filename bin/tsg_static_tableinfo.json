@@ -2,7 +2,7 @@
     {
         "table_id": 0,
         "table_name": "TSG_COMPILE",
-        "db_tables":["TSG_SECURITY_COMPILE", "TRAFFIC_SHAPING_COMPILE", "SERVICE_CHAINING_COMPILE", "PXY_TCP_OPTION_COMPILE", "APP_SELECTOR_COMPILE"],
+        "db_tables":["TSG_SECURITY_COMPILE", "TRAFFIC_SHAPING_COMPILE", "SERVICE_CHAINING_COMPILE", "APP_SIG_COMPILE", "APP_PRE_SIG_COMPILE", "APP_SELECTOR_COMPILE"],
         "table_type": "compile",
         "user_region_encoded": "escape",
         "valid_column": 8,
@@ -15,13 +15,13 @@
             "tags": 6,
             "user_region": 7,
             "clause_num": 9,
-	    "evaluation_order":10
+	        "evaluation_order":10
         }
     },
     {
         "table_id": 1,
         "table_name": "TSG_GROUP_COMPILE_RELATION",
-        "db_tables":["GROUP_SECURITY_COMPILE_RELATION", "GROUP_SHAPING_COMPILE_RELATION", "GROUP_SERVICE_CHAINING_COMPILE_RELATION", "GROUP_PXY_TCP_OPTION_COMPILE_RELATION", "APP_SELECTOR_GROUP_COMPILE_RELATION"],
+        "db_tables":["GROUP_SECURITY_COMPILE_RELATION", "GROUP_SHAPING_COMPILE_RELATION", "GROUP_SERVICE_CHAINING_COMPILE_RELATION", "APP_SIG_GROUP_COMPILE_RELATION", "APP_PRE_SIG_GROUP_COMPILE_RELATION", "APP_SELECTOR_GROUP_COMPILE_RELATION"],
         "table_type": "group2compile",
         "associated_compile_table_id": 0,
         "valid_column": 3,
@@ -36,7 +36,7 @@
     {
         "table_id": 2,
         "table_name": "TSG_GROUP_GROUP_RELATION",
-        "db_tables": ["GROUP_GROUP_RELATION", "APP_SELECTOR_GROUP_GROUP_RELATION"],
+        "db_tables": ["GROUP_GROUP_RELATION", "APP_SIG_GROUP_GROUP_RELATION", "APP_SELECTOR_GROUP_GROUP_RELATION"],
         "table_type": "group2group",
         "valid_column": 3,
         "custom": {
@@ -199,6 +199,7 @@
     {
         "table_id": 13,
         "table_name": "TSG_FIELD_HTTP_HOST",
+        "db_tables": ["TSG_FIELD_HTTP_HOST", "http.host"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_FQDN"
     },
@@ -211,18 +212,21 @@
     {
         "table_id": 15,
         "table_name": "TSG_FIELD_HTTP_URL",
+        "db_tables": ["TSG_FIELD_HTTP_URL", "http.uri"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_URL"
     },
     {
         "table_id": 16,
         "table_name": "TSG_FIELD_HTTP_REQ_HDR",
+        "db_tables": ["TSG_FIELD_HTTP_REQ_HDR", "http.request.header"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_HTTP_SIGNATURE"
     },
     {
         "table_id": 17,
         "table_name": "TSG_FIELD_HTTP_RES_HDR",
+        "db_tables": ["TSG_FIELD_HTTP_RES_HDR", "http.response.header"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_HTTP_SIGNATURE"
     },
@@ -241,6 +245,7 @@
     {
         "table_id": 20,
         "table_name": "TSG_FIELD_SSL_SNI",
+        "db_tables": ["TSG_FIELD_SSL_SNI", "ssl.handshake.extensions_server_name"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_FQDN"
     },
@@ -253,6 +258,7 @@
     {
         "table_id": 22,
         "table_name": "TSG_FIELD_SSL_CN",
+        "db_tables": ["TSG_FIELD_SSL_CN", "ssl.handshake.certificate.subject_common_name"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_FQDN"
     },
@@ -265,6 +271,7 @@
     {
         "table_id": 24,
         "table_name": "TSG_FIELD_SSL_SAN",
+        "db_tables": ["TSG_FIELD_SSL_SAN", "ssl.handshake.certificate.subject_organization_name"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_FQDN"
     },
@@ -277,6 +284,7 @@
     {
         "table_id": 26,
         "table_name": "TSG_FIELD_DNS_QNAME",
+        "db_tables": ["TSG_FIELD_DNS_QNAME", "dns.qry.name"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_FQDN"
     },
@@ -289,6 +297,7 @@
     {
         "table_id": 28,
         "table_name": "TSG_FIELD_QUIC_SNI",
+        "db_tables": ["TSG_FIELD_QUIC_SNI", "quic.sni"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_FQDN"
     },
@@ -361,12 +370,14 @@
     {
         "table_id": 40,
         "table_name": "TSG_SECURITY_SOURCE_ADDR",
+        "db_tables": ["TSG_SECURITY_SOURCE_ADDR", "ip.src", "tcp.srcport", "udp.srcport"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_IP_ADDR"
     },
     {
         "table_id": 41,
         "table_name": "TSG_SECURITY_DESTINATION_ADDR",
+        "db_tables": ["TSG_SECURITY_DESTINATION_ADDR", "ip.dst", "tcp.dstport", "udp.dstport"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_IP_ADDR"
     },
@@ -707,36 +718,12 @@
         "valid_column": 5,
         "custom": {
             "key": 1,
-            "key_type": "integer",
+            "key_type": "pointer",
             "foreign": [
                 2,
                 3
             ]
         }
-    },
-    {
-        "table_id": 74,
-        "table_name": "PXY_TCP_OPTION_SOURCE_ADDR",
-        "table_type": "virtual",
-        "physical_table": "TSG_OBJ_IP_ADDR"
-    },
-    {
-        "table_id": 75,
-        "table_name": "PXY_TCP_OPTION_DESTINATION_ADDR",
-        "table_type": "virtual",
-        "physical_table": "TSG_OBJ_IP_ADDR"
-    },
-    {
-        "table_id": 76,
-        "table_name": "PXY_TCP_OPTION_SERVER_FQDN",
-        "table_type": "virtual",
-        "physical_table": "TSG_OBJ_FQDN"
-    },
-    {
-        "table_id": 77,
-        "table_name": "PXY_TCP_OPTION_SERVER_FQDN",
-        "table_type": "virtual",
-        "physical_table": "TSG_OBJ_FQDN_CAT"
     },
     {
         "table_id": 78,
@@ -822,5 +809,143 @@
         "table_name": "TSG_FIELD_DTLS_SNI_CAT",
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_FQDN_CAT"
+    },
+    {
+        "table_id": 87,
+        "table_name": "tcp.payload.c2s_first_data",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 88,
+        "table_name": "tcp.payload.s2c_first_data",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 89,
+        "table_name": "tcp.payload.c2s_first_data_len",
+        "table_type": "virtual",
+        "physical_table": "tsg_obj_interval"
+    },
+    {
+        "table_id": 90,
+        "table_name": "tcp.payload.s2c_first_data_len",
+        "table_type": "virtual",
+        "physical_table": "tsg_obj_interval"
+    },
+    {
+        "table_id": 91,
+        "table_name": "tcp.payload",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 92,
+        "table_name": "tcp.syn.fingerprint",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 92,
+        "table_name": "tcp.sack.fingerprint",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 93,
+        "table_name": "udp.payload.c2s_first_data",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 94,
+        "table_name": "udp.payload.s2c_first_data",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 95,
+        "table_name": "udp.payload.c2s_first_data_len",
+        "table_type": "virtual",
+        "physical_table": "tsg_obj_interval"
+    },
+    {
+        "table_id": 96,
+        "table_name": "udp.payload.s2c_first_data_len",
+        "table_type": "virtual",
+        "physical_table": "tsg_obj_interval"
+    },
+    {
+        "table_id": 97,
+        "table_name": "udp.payload",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 98,
+        "table_name": "ssl.analysis.ja3",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 98,
+        "table_name": "ssl.handshake.cert.fingerprint",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 99,
+        "table_name": "ssl.handshake.cert.serial_number",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 100,
+        "table_name": "ssl.handshake.certificate.issuer_common_name",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 101,
+        "table_name": "ssl.handshake.certificate.issuer_organization_name",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 102,
+        "table_name": "ssl.handshake.certificate.issuer_country_name",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 104,
+        "table_name": "ssl.handshake.certificate.subject_country_name",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 105,
+        "table_name": "ssl.handshake.certificate.not_valid_before",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 106,
+        "table_name": "ssl.handshake.certificate.not_valid_after",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 107,
+        "table_name": "ssl.handshake.certificate.algorithm_id",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 108,
+        "table_name": "general.session.analysis.app_id",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_APP_ID"
     }
 ]
