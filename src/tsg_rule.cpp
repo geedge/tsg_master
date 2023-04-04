@@ -2700,7 +2700,7 @@ size_t tsg_scan_app_properties_policy(const struct streaminfo *a_stream, struct 
 
 	size_t hit_num=0;
 	struct maat_rule property_result[MAX_RESULT_NUM]={0};
-	maat_state_set_scan_district(s_mid, (const char *)district, strlen(district));
+	maat_state_set_scan_district(s_mid,  g_tsg_maat_rt_para.scan_tb[MAAT_SCAN_SELECTOR_PROPERTIES].id, (const char *)district, strlen(district));
 	size_t ret=tsg_scan_string(a_stream, feather, property, strlen(property), MAAT_SCAN_SELECTOR_PROPERTIES, s_mid, property_result, MAX_RESULT_NUM);
 	for(size_t i=0; i<ret; i++)
 	{
