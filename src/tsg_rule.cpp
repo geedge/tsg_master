@@ -2287,16 +2287,31 @@ size_t tsg_scan_ipv4_address(const struct streaminfo *a_stream, struct maat *fea
 	}
 
 	int is_hited=0;
+	int protocol=-1;
 	size_t n_matched_rules=0;
 	long long matched_rules[MAX_RESULT_NUM];
+
+	switch(a_stream->type)
+	{
+		case	STREAM_TYPE_TCP:
+			protocol=6;
+			break;
+		case	STREAM_TYPE_UDP:
+			protocol=17;
+			break;
+		default:
+			protocol=-1;
+			break;
+	}
+	
 	switch(idx)
 	{
 		case	MAAT_SCAN_SRC_IP_ADDR:
-			is_hited=maat_scan_ipv4(feather, g_tsg_maat_rt_para.scan_tb[idx].id, p_addr->v4->saddr, p_addr->v4->source, -1,
+			is_hited=maat_scan_ipv4(feather, g_tsg_maat_rt_para.scan_tb[idx].id, p_addr->v4->saddr, p_addr->v4->source, protocol,
 											matched_rules+n_matched_rules, MAX_RESULT_NUM, &n_matched_rules, s_mid);
 			break;
 		case	MAAT_SCAN_DST_IP_ADDR:
-			is_hited=maat_scan_ipv4(feather, g_tsg_maat_rt_para.scan_tb[idx].id, p_addr->v4->daddr, p_addr->v4->dest, -1,
+			is_hited=maat_scan_ipv4(feather, g_tsg_maat_rt_para.scan_tb[idx].id, p_addr->v4->daddr, p_addr->v4->dest, protocol,
 											matched_rules+n_matched_rules, MAX_RESULT_NUM, &n_matched_rules, s_mid);
 			break;
 		default:
