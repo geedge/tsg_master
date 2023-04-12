@@ -1419,6 +1419,7 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 
 			if(is_deny_after_N_packets(p_rule))
 			{
+				tsg_set_policy_flow(a_stream, p_rule, a_stream->threadnum);
 				session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, p_rule, 1, a_stream->threadnum);
 				if(a_stream->type==STREAM_TYPE_TCP)
 				{
