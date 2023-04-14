@@ -2320,23 +2320,23 @@ size_t tsg_scan_ipv4_address(const struct streaminfo *a_stream, struct maat *fea
 	
 	if(n_matched_rules>0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger,
+		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
 								RLOG_LV_DEBUG,
 								"SCAN_IPV4",
 								"Hit %s addr: %s return n_rules: %llu",
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_para.level),
+								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
 								n_matched_rules
 							);
 		return matche_rules_convert(feather, matched_rules, n_matched_rules, rules, n_rules);
 	}
 
-	MESA_handle_runtime_log(g_tsg_para.logger,
+	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
 								RLOG_LV_DEBUG,
 								"SCAN_IPV4",
 								"Not hit %s addr: %s Scan return: %d ",
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_para.level),
+								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
 								is_hited
 							);
 
@@ -2369,23 +2369,23 @@ size_t tsg_scan_ipv6_address(const struct streaminfo *a_stream, struct maat *fea
 	
 	if(n_matched_rules>0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger,
+		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
 								RLOG_LV_DEBUG,
 								"SCAN_IPV6",
 								"Hit %s addr: %s return n_rules: %llu",
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_para.level),
+								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
 								n_matched_rules
 							);
 		return matche_rules_convert(feather, matched_rules, n_matched_rules, rules, n_rules);
 	}
 
-	MESA_handle_runtime_log(g_tsg_para.logger,
+	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
 								RLOG_LV_DEBUG,
 								"SCAN_IPV6",
 								"Not hit %s addr: %s Scan return: %d ",
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_para.level),
+								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
 								is_hited
 							);
 
@@ -2443,7 +2443,7 @@ int tsg_scan_intercept_exclusion(const struct streaminfo *a_stream, struct maat 
 
 	if(ret>0)
 	{	
-		MESA_handle_runtime_log(g_tsg_para.logger,
+		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
 									RLOG_LV_DEBUG,
 									"EXCLUSION_SSL_SNI",
 									"Hit %s policy_id: %d service: %d action: %d Decryption Exclusion: [ policy_id: %d service: %d action: %d ] addr: %s",
@@ -2454,19 +2454,19 @@ int tsg_scan_intercept_exclusion(const struct streaminfo *a_stream, struct maat 
 									p_result->rule_id,
 									p_result->service_id,
 									(unsigned char)p_result->action,
-									PRINTADDR(a_stream, g_tsg_para.level)
+									PRINTADDR(a_stream, g_tsg_maat_rt_para.level)
 								);
 					
 		return 1;
 	}
 
-	MESA_handle_runtime_log(g_tsg_para.logger,
+	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
 								RLOG_LV_DEBUG,
 								"EXCLUSION_SSL_SNI",
 								"Not hit %s stream_dir: %d addr: %s  scan ret: %d",
 								domain,
 								a_stream->dir,
-								PRINTADDR(a_stream, g_tsg_para.level),
+								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
 								ret
 							);
 	
