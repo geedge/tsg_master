@@ -834,6 +834,8 @@ int session_set_segment_id_in_activing(const struct streaminfo *a_stream, TSG_SE
 		return 0;
 	}
 
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "set_segment_id", "set in active status , service:%d, sid:%u,session addr:%s", service, segment_id, PRINTADDR(a_stream, g_tsg_para.level));
+
 	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(a_stream);
 	if(segment_ids==NULL)
 	{
@@ -1674,6 +1676,7 @@ static size_t session_pending_state_deal(const struct streaminfo *a_stream, stru
 	
 	if((is_only_monitor(results, hit_num)) && srt_process_context->proto==PROTO_DNS)	// business deal action of monitor 
 	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "pending_state_deal", "is_only_monitor, clean hit_num to 0, :%s", PRINTADDR(a_stream, g_tsg_para.level));
 		hit_num=0;
 	}
 
