@@ -2219,6 +2219,16 @@ size_t tsg_scan_integer(const struct streaminfo *a_stream, struct maat *feather,
 	int is_hited=maat_scan_integer(feather, g_tsg_maat_rt_para.scan_tb[idx].id, s_integer, matched_rules, MAX_RESULT_NUM, &n_matched_rules, s_mid);
 	if(is_hited==MAAT_SCAN_HIT)
 	{
+		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
+								RLOG_LV_DEBUG,
+								"SCAN_INTEGER",
+								"Hit: %lld: scan ret: %d table_name: %s addr: %s, mid: %p",
+								s_integer,
+								is_hited,
+								g_tsg_maat_rt_para.scan_tb[idx].name,
+								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								s_mid
+							);
 		return matche_rules_convert(feather, matched_rules, n_matched_rules, results, n_results);
 	}
 
@@ -2242,6 +2252,16 @@ size_t tsg_scan_flags(const struct streaminfo *a_stream, struct maat *feather, u
 	int is_hited=maat_scan_flag(feather, g_tsg_maat_rt_para.scan_tb[idx].id, flags, matched_rules, MAX_RESULT_NUM, &n_matched_rules, s_mid);
 	if(is_hited==MAAT_SCAN_HIT)
 	{
+		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
+								RLOG_LV_DEBUG,
+								"SCAN_FLAGS",
+								"Hit: %llu scan ret: %d table_name: %s addr: %s, mid: %p",
+								flags,
+								is_hited,
+								g_tsg_maat_rt_para.scan_tb[idx].name,
+								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								s_mid
+							);
 		return matche_rules_convert(feather, matched_rules, n_matched_rules, results, n_results);
 	}
 
