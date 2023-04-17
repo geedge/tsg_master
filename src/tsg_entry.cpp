@@ -349,7 +349,8 @@ static int is_only_monitor(struct maat_rule *result, int hit_cnt)
 
 	for(i=0; i<hit_cnt; i++)
 	{
-		if(result[i].action==TSG_ACTION_BYPASS || result[i].action==TSG_ACTION_INTERCEPT || result[i].action==TSG_ACTION_DENY)
+		//if(result[i].action==TSG_ACTION_BYPASS || result[i].action==TSG_ACTION_INTERCEPT || result[i].action==TSG_ACTION_DENY)
+		if(result[i].action>TSG_ACTION_MONITOR)
 		{
 			return 0;
 		}
