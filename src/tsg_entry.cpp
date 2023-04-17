@@ -1446,7 +1446,7 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 			srt_process_context->hited_result=(struct maat_rule *)dictator_malloc(1, sizeof(struct maat_rule));
 			memcpy(srt_process_context->hited_result, p_rule, sizeof(struct maat_rule));
 			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
-			state=APP_STATE_GIVEME|APP_STATE_KILL_OTHER;
+			state=APP_STATE_GIVEME|APP_STATE_KILL_FOLLOW;
 
 			srt_action_context_set_rule_method(a_stream, TSG_METHOD_TYPE_ALLOW, a_stream->threadnum);
 			break;
