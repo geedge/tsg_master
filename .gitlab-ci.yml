@@ -191,7 +191,7 @@ release_build_release_for_centos7:
     BUILD_TYPE: RelWithDebInfo
     PACKAGE: 1
     UPLOAD_RPM: 1
-    UPLOAD_SYMBOL_FILES: 1
+    UPLOAD_SYMBOL_FILES: 0
     SYMBOL_TARGET: tsg_master
     PULP3_REPO_NAME: tsg-stable-x86_64.el7
     PULP3_DIST_NAME: tsg-stable-x86_64.el7
@@ -282,7 +282,7 @@ release_build_release_for_centos8:
     BUILD_TYPE: RelWithDebInfo
     PACKAGE: 1
     UPLOAD_RPM: 1
-    UPLOAD_SYMBOL_FILES: 1
+    UPLOAD_SYMBOL_FILES: 0
     SYMBOL_TARGET: tsg_master
     PULP3_REPO_NAME: tsg-stable-x86_64.el8
     PULP3_DIST_NAME: tsg-stable-x86_64.el8
