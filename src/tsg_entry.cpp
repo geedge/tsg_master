@@ -1441,6 +1441,12 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 			{
 				break;
 			}
+
+			if (srt_process_context->proto == PROTO_SSH)
+			{
+				tsg_set_policy_flow(a_stream, p_rule, a_stream->threadnum);
+			}
+
 			session_packet_capture_notify(a_stream, security_rules, n_security_rules, a_stream->threadnum);
 			session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, security_rules, n_security_rules, a_stream->threadnum);
 			break;
