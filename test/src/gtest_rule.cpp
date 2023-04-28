@@ -1055,7 +1055,7 @@ TEST(TMAPI, NotifyPacketCaptureByPolicy)
 		"845\t168.50.28yinyong\t[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]\t1",
 		"123\ttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest\t[66]\t1"
 	**************************************************************************************************************************/
-	// int session_packet_capture_notify(const struct streaminfo *a_stream, struct maat_rule *result, int result_num, int thread_seq)
+	// int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, struct maat_rule *rules, int n_rules, int thread_seq)
 }
 
 TEST(TMAPI, ScanNestingAddr)

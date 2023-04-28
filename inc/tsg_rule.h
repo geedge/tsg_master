@@ -67,6 +67,7 @@ struct matched_policy_rules
 	struct maat_rule rules[MAX_RESULT_NUM];
 };
 
+int session_packet_capture_by_rules_notify(const struct streaminfo * a_stream, struct maat_rule * rules, size_t n_rules, int thread_seq);
 void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE service, struct maat_rule *rules, size_t n_rules, int thread_seq);
 size_t tsg_matched_rules_select(struct maat *feather, TSG_SERVICE service, long long *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules);
 size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *feather, enum TSG_PROTOCOL proto, struct maat_state *s_mid, struct maat_rule *rules, size_t n_rules);

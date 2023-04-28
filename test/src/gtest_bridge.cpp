@@ -81,6 +81,21 @@ int tsg_sync_policy_update(const struct streaminfo *a_stream, struct update_poli
 	return 0;
 }
 
+int matched_service_chaining_rules_deal(const struct streaminfo *a_stream, struct maat_rule *s_chaining_rules, size_t n_s_chaining_rules, int thread_seq)
+{
+	return 0;
+}
+
+int matched_shaping_rules_deal(const struct streaminfo * a_stream, struct maat_rule * shaping_results, size_t n_shaping_results, int thread_seq)
+{
+	return 0;
+}
+
+int session_packet_capture_by_rules_notify(const struct streaminfo * a_stream, struct maat_rule * rules, size_t n_rules, int thread_seq)
+{
+	return 0;
+}
+
 TEST(TM_Bridge, HitedSecurityPolicyResult)
 {
 	EXPECT_EQ(1,1);

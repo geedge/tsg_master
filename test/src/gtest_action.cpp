@@ -94,7 +94,7 @@ int tsg_set_statistic_opt(int value, enum _STATISTIC_OPT_TYPE type, int thread_s
 	return 0;
 }
 
-int session_packet_capture_notify(const struct streaminfo * a_stream, struct maat_rule *results, size_t n_results, int thread_seq)
+int session_packet_capture_by_rules_notify(const struct streaminfo * a_stream, struct maat_rule *rules, size_t n_rules, int thread_seq)
 {
 	return 0;
 }

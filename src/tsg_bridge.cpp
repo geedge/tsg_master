@@ -13,6 +13,8 @@
 extern int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data);
 extern int session_flags_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data);
 extern int tm_get_ssl_ja3_fingerprint(const struct streaminfo *a_stream, char **ja3_fingerprint);
+extern int matched_service_chaining_rules_deal(const struct streaminfo *a_stream, struct maat_rule *s_chaining_rules, size_t n_s_chaining_rules, int thread_seq);
+extern int matched_shaping_rules_deal(const struct streaminfo * a_stream, struct maat_rule * shaping_results, size_t n_shaping_results, int thread_seq);
 
 struct bridge_info
 {
@@ -777,10 +779,16 @@ void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE
 		case	TSG_SERVICE_INTERCEPT:
 			bridge_idx=BRIDGE_TYPE_INTERCEPT_RESULT;
 			break;
+		case	TSG_SERVICE_CHAINING:
+			matched_service_chaining_rules_deal(a_stream, rules, n_rules, thread_seq);
+			break;
+		case	TSG_SERVICE_SHAPING:
+			matched_shaping_rules_deal(a_stream, rules, n_rules, thread_seq);
+			break;
 		default:
 			return ;
 	}
-	
+
 	struct matched_policy_rules *matched_policy=(struct matched_policy_rules *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[bridge_idx].id);
 	if(matched_policy==NULL)
 	{
@@ -822,7 +830,7 @@ void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE
 			memcpy(&(matched_policy->rules[matched_policy->n_rules++]), &(rules[i]), sizeof(struct maat_rule));
 		}
 	}
-	
+
 	return ;
 }
 

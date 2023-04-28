@@ -173,5 +173,3 @@ size_t tsg_select_matched_security_rules(struct maat_rule * matched_rules, size_
 size_t tsg_select_matched_shaping_rules(struct maat_rule * matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules);
 size_t tsg_select_matched_service_chaining_rules(struct maat_rule * matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules);
 
-int session_packet_capture_notify(const struct streaminfo *a_stream, struct maat_rule *rules, size_t n_rules, int thread_seq);
-

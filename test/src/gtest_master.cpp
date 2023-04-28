@@ -490,7 +490,7 @@ TEST(TSGMaster, SecurityDuplicatePolicyMultipleNotify)
 	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY));
 }
 
-extern int session_packet_capture_notify(const struct streaminfo *a_stream, struct maat_rule *rules, size_t n_rules, int thread_seq);
+extern int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, struct maat_rule *rules, size_t n_rules, int thread_seq);
 
 TEST(TSGMaster, SecurityPolicyIntercept)
 {

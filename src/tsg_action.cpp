@@ -915,7 +915,7 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 			break;
 	}
 	
-	session_packet_capture_notify(a_stream, p_result, 1, a_stream->threadnum);
+	session_packet_capture_by_rules_notify(a_stream, p_result, 1, a_stream->threadnum);
 
 	if(method_type!=TSG_METHOD_TYPE_DEFAULT && method_type!=TSG_METHOD_TYPE_APP_DROP)
 	{

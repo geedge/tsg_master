@@ -1447,7 +1447,7 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 				tsg_set_policy_flow(a_stream, p_rule, a_stream->threadnum);
 			}
 
-			session_packet_capture_notify(a_stream, security_rules, n_security_rules, a_stream->threadnum);
+			session_packet_capture_by_rules_notify(a_stream, security_rules, n_security_rules, a_stream->threadnum);
 			session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, security_rules, n_security_rules, a_stream->threadnum);
 			break;
 		case	TSG_ACTION_BYPASS:
@@ -1847,7 +1847,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 						session_runtime_process_log_send(a_stream, p_result, 1, NULL, thread_seq);
 						break;
 					case	TSG_ACTION_MONITOR:
-						session_packet_capture_notify(a_stream, security_results, hit_num, thread_seq);
+						session_packet_capture_by_rules_notify(a_stream, security_results, hit_num, thread_seq);
 						session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, security_results, security_result_num,thread_seq);
 						break;
 					default:

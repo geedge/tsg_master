@@ -171,7 +171,7 @@ static int get_column_pos(const char* line, int column_seq, size_t *offset, size
 	return ret;
 }
 
-static char* tm_str_unescape(char* s)
+static char* tsg_str_unescape(char* s)
 {
 	if(s==NULL)
 	{
@@ -436,10 +436,10 @@ void ex_data_gtp_c_new(const char *table_name, int table_id, const char* key, co
 	user_info->apn=column_string_get_value(table_line, apn);
 	user_info->imei=column_string_get_value(table_line, imei);
 	
-	tm_str_unescape(user_info->imsi);
-	tm_str_unescape(user_info->msisdn);
-	tm_str_unescape(user_info->apn);
-	tm_str_unescape(user_info->imei);
+	tsg_str_unescape(user_info->imsi);
+	tsg_str_unescape(user_info->msisdn);
+	tsg_str_unescape(user_info->apn);
+	tsg_str_unescape(user_info->imei);
 	
 	atomic_inc(&user_info->ref_cnt);
 	*ad=(void *)user_info;
@@ -504,8 +504,8 @@ void ex_data_asn_number_new(const char *table_name, int table_id, const char* ke
 		return ;
 	}
 
-	tm_str_unescape(asn->asn_id);
-	tm_str_unescape(asn->organization);
+	tsg_str_unescape(asn->asn_id);
+	tsg_str_unescape(asn->organization);
 
 	atomic_inc(&asn->ref_cnt);
 	*ad=(void *)asn;
@@ -557,14 +557,14 @@ void ex_data_location_new(const char *table_name, int table_id, const char* key,
 	location->country_full=column_string_get_value(table_line, 13);	// country_full
 	location->province_full=column_string_get_value(table_line, 15);	// province_full
 	location->city_full=column_string_get_value(table_line, 16);	// city_full
-	tm_str_unescape(location->country_full);
-	tm_str_unescape(location->province_full);
-	tm_str_unescape(location->city_full);
+	tsg_str_unescape(location->country_full);
+	tsg_str_unescape(location->province_full);
+	tsg_str_unescape(location->city_full);
 			
 	if(g_tsg_maat_rt_para.location_field_num==19)
 	{
 		location->subdivision_addr=column_string_get_value(table_line, 17);	// subdivision_addr
-		tm_str_unescape(location->subdivision_addr);
+		tsg_str_unescape(location->subdivision_addr);
 	}
 	
 	atomic_inc(&location->ref_cnt);
@@ -786,13 +786,13 @@ void ex_data_app_id_dict_new(const char *table_name, int table_id, const char* k
 	tsg_free_field(deny_action_str);
 	deny_action_str=NULL;
 	
-	tm_str_unescape(dict->risk);
-	tm_str_unescape(dict->app_name);
-	tm_str_unescape(dict->parent_app_name);
-	tm_str_unescape(dict->category);
-	tm_str_unescape(dict->subcategory);
-	tm_str_unescape(dict->technology);
-	tm_str_unescape(dict->characteristics);
+	tsg_str_unescape(dict->risk);
+	tsg_str_unescape(dict->app_name);
+	tsg_str_unescape(dict->parent_app_name);
+	tsg_str_unescape(dict->category);
+	tsg_str_unescape(dict->subcategory);
+	tsg_str_unescape(dict->technology);
+	tsg_str_unescape(dict->characteristics);
 
 	atomic_inc(&dict->ref_cnt);
 	*ad=(void *)dict;
@@ -1212,6 +1212,7 @@ void ex_data_security_compile_new(const char *table_name, int table_id, const ch
 
 	if(compile->p_user_region!=NULL && strlen(compile->p_user_region)>2)
 	{
+		tsg_str_unescape(compile->p_user_region);
 		user_region_object=cJSON_Parse(compile->p_user_region);
 		if(user_region_object!=NULL)
 		{			
@@ -2386,16 +2387,31 @@ size_t tsg_scan_ipv6_address(const struct streaminfo *a_stream, struct maat *fea
 	}
 
 	int is_hited=0;
+	int protocol=-1;
 	size_t n_matched_rules=0;
 	long long matched_rules[MAX_RESULT_NUM];
+
+	switch(a_stream->type)
+	{
+		case	STREAM_TYPE_TCP:
+			protocol=6;
+			break;
+		case	STREAM_TYPE_UDP:
+			protocol=17;
+			break;
+		default:
+			protocol=-1;
+			break;
+	}
+		
 	switch(idx)
 	{
 		case	MAAT_SCAN_SRC_IP_ADDR:
-			is_hited=maat_scan_ipv6(feather, g_tsg_maat_rt_para.scan_tb[idx].id, p_addr->v6->saddr, p_addr->v6->source, -1,
+			is_hited=maat_scan_ipv6(feather, g_tsg_maat_rt_para.scan_tb[idx].id, p_addr->v6->saddr, p_addr->v6->source, protocol,
 											matched_rules+n_matched_rules, MAX_RESULT_NUM, &n_matched_rules, s_mid);
 			break;
 		case	MAAT_SCAN_DST_IP_ADDR:
-			is_hited=maat_scan_ipv6(feather, g_tsg_maat_rt_para.scan_tb[idx].id, p_addr->v6->daddr, p_addr->v6->dest, -1,
+			is_hited=maat_scan_ipv6(feather, g_tsg_maat_rt_para.scan_tb[idx].id, p_addr->v6->daddr, p_addr->v6->dest, protocol,
 											matched_rules+n_matched_rules, MAX_RESULT_NUM, &n_matched_rules, s_mid);
 			break;
 		default:
@@ -2936,19 +2952,19 @@ struct maat_compile *matched_rule_cites_security_compile(struct maat *feather, s
 	return (struct maat_compile *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&(result->rule_id));
 }
 
-int session_packet_capture_notify(const struct streaminfo *a_stream, struct maat_rule *results, size_t n_results, int thread_seq)
+int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, struct maat_rule *rules, size_t n_rules, int thread_seq)
 {
 	struct maat_compile *maat_compile=NULL;
 	struct traffic_mirror_profile *mirror_profile=NULL;
 
-	for(size_t i=0; i<n_results; i++)
+	for(size_t i=0; i<n_rules; i++)
 	{
-		if(results[i].action!=TSG_ACTION_MONITOR && results[i].action!=TSG_ACTION_DENY)
+		if(rules[i].action!=TSG_ACTION_MONITOR && rules[i].action!=TSG_ACTION_DENY)
 		{
 			continue;
 		}
 		
-		maat_compile=matched_rule_cites_security_compile(g_tsg_maat_feather, &(results[i]));
+		maat_compile=matched_rule_cites_security_compile(g_tsg_maat_feather, &(rules[i]));
 		if(maat_compile==NULL)
 		{
 			continue;
@@ -2965,18 +2981,18 @@ int session_packet_capture_notify(const struct streaminfo *a_stream, struct maat
 			mirror_profile=(struct traffic_mirror_profile *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_PROFILE_MIRROR].id, (const char *)&(maat_compile->user_region->mirror->profile_id));
 			if(mirror_profile!=NULL)
 			{
-				session_mirror_packets_sync(a_stream, &results[i], &(mirror_profile->vlan));
+				session_mirror_packets_sync(a_stream, &rules[i], &(mirror_profile->vlan));
 				ex_data_mirrored_profile_free(0, (void **)&mirror_profile, 0, NULL);
 			}
 			else
 			{
-				session_mirror_packets_sync(a_stream, &results[i], &(g_tsg_maat_rt_para.default_vlan));
+				session_mirror_packets_sync(a_stream, &rules[i], &(g_tsg_maat_rt_para.default_vlan));
 			}
 		}
 
 		if(maat_compile->user_region->capture.enabled==1)
 		{
-			session_capture_packets_sync(a_stream, &results[i], maat_compile->user_region->capture.depth);
+			session_capture_packets_sync(a_stream, &rules[i], maat_compile->user_region->capture.depth);
 		}
 		
 		plugin_ex_data_security_compile_free(maat_compile);
