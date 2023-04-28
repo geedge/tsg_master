@@ -1517,7 +1517,6 @@ static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_lo
 	cJSON *object=NULL;
 
 	TLD_delete(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name);
-	TLD_delete(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name);
 	TLD_delete(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name);
 
 	if(p_result->action!=TSG_ACTION_NONE)
@@ -1536,11 +1535,10 @@ static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_lo
 	}
 
 	if(object==NULL)
-	{	
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)(_instance->vsystem_id), TLD_TYPE_LONG);
+	{
 		return 0;
 	}
-	
+
 	if(p_result->action==TSG_ACTION_DENY)
 	{
 		item=cJSON_GetObjectItem(object, "method");
@@ -1548,16 +1546,6 @@ static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_lo
 		{
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_SUB_ACTION].name, (void *)item->valuestring, TLD_TYPE_STRING);
 		}
-	}
-	
-	item=cJSON_GetObjectItem(object, "vsys_id");
-	if(item!=NULL)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)item->valueint, TLD_TYPE_LONG);
-	}
-	else
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
 	}
 	
 	cJSON_Delete(object);
@@ -2124,6 +2112,7 @@ int send_security_event_log(struct tsg_log_instance_t *_instance, struct TLD_han
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(rules[i].rule_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(rules[i].service_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)rules[i].action), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)rules[i].vsys_id, TLD_TYPE_LONG);
 
 		set_policy_action_para_exec_result(_instance, _handle, a_stream, &(rules[i]));
 		
@@ -2135,6 +2124,7 @@ int send_security_event_log(struct tsg_log_instance_t *_instance, struct TLD_han
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name);
+		TLD_delete(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name);
 	}
 
 	return 0;
@@ -2173,7 +2163,6 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_DATA_CENTER].name, (void *)tsg_data_center_get(), TLD_TYPE_STRING);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_TAG].name, (void *)tsg_device_tag_get(), TLD_TYPE_STRING);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_TRAFFIC_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
 
 	set_application_behavior(_instance, _handle, a_stream);
 

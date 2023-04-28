@@ -1234,6 +1234,12 @@ void ex_data_security_compile_new(const char *table_name, int table_id, const ch
 					break;
 			}
 
+			cJSON *item=cJSON_GetObjectItem(user_region_object, "vsys_id");
+			if(item!=NULL)
+			{
+				compile->rule.vsys_id=item->valueint;
+			}
+
 			cJSON_Delete(user_region_object);
 			user_region_object=NULL;
 		}

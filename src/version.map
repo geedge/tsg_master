@@ -15,6 +15,7 @@ global:
 		*srt_process_context_*;
 		*session_matched_rules_notify*;
 		*session_matched_rules_copy*;
+		*session_packet_capture_by_rules_notify*;
 		*GIT*;
 	};
   local: *;

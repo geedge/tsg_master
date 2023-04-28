@@ -58,7 +58,8 @@ struct maat_rule
 	unsigned char action;
 	unsigned char service_id;
 	unsigned char do_log;
-	unsigned char padding[5];
+	unsigned char padding;
+	int vsys_id;
 };
 
 struct matched_policy_rules

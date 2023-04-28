@@ -28,18 +28,20 @@ enum metric_tags_index
 {
 	TAG_RULE_ID = 0,
 	TAG_ACTION,
+	TAG_VSYS_ID,
 	TAG_MAX
 };
 
 enum field_type metric_column_type[COLUMN_MAX] = {FIELD_TYPE_COUNTER, FIELD_TYPE_COUNTER, FIELD_TYPE_COUNTER, FIELD_TYPE_COUNTER, FIELD_TYPE_COUNTER};
 const char *metric_column_field[COLUMN_MAX] = {"hit_count", "in_bytes", "out_bytes", "in_pkts", "out_pkts"};
 unsigned int metric_column_array[COLUMN_MAX] = {0};
-struct fieldstat_tag g_metric_tags[TAG_MAX] = {{"rule_id", 0, -1}, {"action", 0, -1}};
+struct fieldstat_tag g_metric_tags[TAG_MAX] = {{"rule_id", 0, -1}, {"action", 0, -1}, {"vsys_id", 0, -1}};
 
 struct fieldstat_tag *tsg_set_metric_tags(struct maat_rule *p_result, int thread_seq)
 {
 	g_tsg_statis_para.metric_tags[thread_seq][TAG_RULE_ID].value_int = p_result->rule_id;
 	g_tsg_statis_para.metric_tags[thread_seq][TAG_ACTION].value_int = p_result->action;
+	g_tsg_statis_para.metric_tags[thread_seq][TAG_VSYS_ID].value_int = p_result->vsys_id;
 
 	return g_tsg_statis_para.metric_tags[thread_seq];
 }
