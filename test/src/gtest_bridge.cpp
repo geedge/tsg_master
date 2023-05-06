@@ -76,7 +76,7 @@ int session_flags_identify_result_cb(const struct streaminfo * a_stream, int bri
 	return 0;
 }
 
-int tsg_sync_policy_update(const struct streaminfo *a_stream, struct update_policy *policy_array, int policy_array_num)
+int tsg_sync_policy_update(const struct streaminfo *a_stream, struct update_policy *policy_update)
 {
 	return 0;
 }

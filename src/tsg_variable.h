@@ -127,6 +127,7 @@ struct tsg_rt_para
 	int feature_tamper;
 	int service_chaining_sid;
 	int shaping_sid;
+	int intercept_sid;
 	int send_resetall;
 	enum DEPLOY_MODE deploy_mode;
 	int scan_time_interval;

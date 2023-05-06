@@ -3075,7 +3075,7 @@ size_t tsg_matched_rules_select(struct maat *feather, TSG_SERVICE service, long 
 	return offset;
 }
 
-size_t tm_select_result_by_service_id(struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules, enum TSG_SERVICE service_id)
+size_t tsg_select_rules_by_service_id(struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules, enum TSG_SERVICE service_id)
 {
 	size_t offset=0;
 	for(size_t i=0; i<n_matched_rules; i++)
@@ -3087,21 +3087,6 @@ size_t tm_select_result_by_service_id(struct maat_rule *matched_rules, size_t n_
 	}
 
 	return offset;
-}
-
-size_t tsg_select_matched_security_rules(struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules)
-{
-	return tm_select_result_by_service_id(matched_rules, n_matched_rules, rules, n_rules, TSG_SERVICE_SECURITY);
-}
-
-size_t tsg_select_matched_shaping_rules(struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules)
-{
-	return tm_select_result_by_service_id(matched_rules, n_matched_rules, rules, n_rules, TSG_SERVICE_SHAPING);
-}
-
-size_t tsg_select_matched_service_chaining_rules(struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules)
-{
-	return tm_select_result_by_service_id(matched_rules, n_matched_rules, rules, n_rules, TSG_SERVICE_CHAINING);
 }
 
 int tsg_table_idx_get_by_protocol(TSG_PROTOCOL proto)

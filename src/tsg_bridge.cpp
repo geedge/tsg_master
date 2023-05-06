@@ -141,6 +141,12 @@ void session_runtime_attribute_free(const struct streaminfo *a_stream, int bridg
 			srt_attribute->ja3_fingerprint=NULL;
 		}
 
+		if(srt_attribute->proxy_tcp_attr != NULL)
+		{
+			dictator_free(a_stream->threadnum, (void *)srt_attribute->proxy_tcp_attr);
+			srt_attribute->proxy_tcp_attr = NULL;
+		}
+
 		dictator_free(a_stream->threadnum, data);
 		data=NULL;
 	}

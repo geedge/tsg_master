@@ -42,11 +42,11 @@ int sapp_inject_pkt(struct streaminfo * stream, enum sapp_inject_opt sio, const 
 
 int sapp_inject_ctrl_pkt(struct streaminfo * stream, enum sapp_inject_opt sio, const void * payload, int payload_len, unsigned char snd_routedir)
 {
-    memset(&ctrl_pkt, 0, 1024);
-    memcpy(ctrl_pkt.buf, payload, payload_len);
-    ctrl_pkt.len = payload_len;
+	memset(&ctrl_pkt, 0, 1050);
+	memcpy(ctrl_pkt.buf, payload, payload_len);
+	ctrl_pkt.len = payload_len;
 
-    return 0;
+	return 0;
 }
 
 int get_ctrl_pkt(char *buf, int len)
@@ -113,6 +113,18 @@ int MESA_get_stream_opt(const struct streaminfo * pstream, enum MESA_stream_opt 
 	return 0;
 }
 
+const void *get_rawpkt_from_streaminfo(const struct streaminfo *pstream)
+{
+    return (void*)1;
+}
+int get_opt_from_rawpkt(const void *rawpkt, int type, void *out_value)
+{
+	if (type > RWA_PKT_GET_SID_LIST) {
+		return -1;
+	}
+
+	return 0;
+}
 
 int sapp_get_platform_opt(enum sapp_platform_opt opt, void * opt_val, int * opt_val_len)
 {

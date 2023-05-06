@@ -31,6 +31,7 @@
 #include "tsg_rule_internal.h"
 #include "tsg_protocol_common.h"
 #include "tsg_sync_state.h"
+#include "tsg_proxy.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -787,7 +788,20 @@ int session_state_sync_in_opening_and_closing(const struct streaminfo *a_stream,
 	return 1;
 }
 
-size_t matched_rules_increase_in_avtiving(const struct matched_policy_rules *matched_rules, struct maat_rule *new_rules, size_t n_new_rules, struct maat_rule *inc_rules, size_t n_inc_rules)
+int session_state_update_policy(struct update_policy *u_policy, struct maat_rule *matched_rules, size_t n_matched_rules, enum policy_type p_type)
+{
+	u_policy->n_ids=n_matched_rules;
+	u_policy->type=p_type;
+	
+	for(size_t i=0; i<n_matched_rules; i++)
+	{
+		u_policy->ids[i]=matched_rules[i].rule_id;
+	}
+
+	return 0;
+}
+
+size_t matched_rules_increase_in_activing(const struct matched_policy_rules *matched_rules, struct maat_rule *new_rules, size_t n_new_rules, struct maat_rule *inc_rules, size_t n_inc_rules)
 {
 	size_t n_inc_rules_offset=0;
 	size_t num=MIN(MAX_RESULT_NUM-matched_rules->n_rules, n_new_rules);
@@ -825,6 +839,10 @@ int session_set_segment_id_in_activing(const struct streaminfo *a_stream, TSG_SE
 		case	TSG_SERVICE_SHAPING:
 			p_type=POLICY_UPDATE_SHAPING;
 			segment_id=(unsigned short)g_tsg_para.shaping_sid;
+			break;
+		case	TSG_SERVICE_INTERCEPT:
+			p_type=POLICY_UPDATE_INTERCEPT;
+			segment_id=(unsigned short)g_tsg_para.intercept_sid;
 			break;
 		default:
 			return 0;
@@ -864,16 +882,23 @@ int session_set_segment_id_in_activing(const struct streaminfo *a_stream, TSG_SE
 	sid_list.sid_list[0]=segment_id;
 	MESA_set_stream_opt(a_stream, MSO_STREAM_PREPLEND_SEGMENT_ID_LIST, (void *)&sid_list, sizeof(struct segment_id_list));
 
-	struct update_policy policy_array;
-	policy_array.n_ids=n_inc_rules;
-	policy_array.type=p_type;
-	
-	for(size_t i=0; i<n_inc_rules; i++)
+	int policy_array_offset=1;
+	struct update_policy policy_array[2];
+	session_state_update_policy(&(policy_array[0]), inc_rules, n_inc_rules, p_type);
+	if(service==TSG_SERVICE_INTERCEPT)
 	{
-		policy_array.ids[i]=inc_rules[i].rule_id;
+		memset(&policy_array[0].cmsg, 0, sizeof(struct proxy_cmsg));
+		tsg_proxy_update_policy_fill(a_stream, &(policy_array[0]));
+
+		struct matched_policy_rules *s_chaining = (struct matched_policy_rules *)session_matched_rules_get(a_stream, TSG_SERVICE_CHAINING);
+		if(s_chaining!=NULL)
+		{
+			policy_array_offset++;
+			session_state_update_policy(&(policy_array[1]), s_chaining->rules, s_chaining->n_rules, POLICY_UPDATE_SERVICE_CHAINING);
+		}
 	}
 
-	tsg_sync_policy_update(a_stream, &policy_array, 1);
+	tsg_sync_policy_update(a_stream, policy_array, policy_array_offset);
 
 	MESA_set_stream_opt(a_stream, MSO_STREAM_PREPLEND_SEGMENT_ID_LIST, (void *)segment_ids, sizeof(struct segment_id_list));
 
@@ -896,7 +921,7 @@ int session_state_sync_in_activing(const struct streaminfo *a_stream, TSG_SERVIC
 	}
 
 	struct maat_rule inc_rules[MAX_RESULT_NUM]={0};
-	size_t n_inc_results=matched_rules_increase_in_avtiving(matched_rules, rules, n_rules, inc_rules, MAX_RESULT_NUM-matched_rules->n_rules);
+	size_t n_inc_results=matched_rules_increase_in_activing(matched_rules, rules, n_rules, inc_rules, MAX_RESULT_NUM-matched_rules->n_rules);
 	if(n_inc_results==0)
 	{
 		return 0;
@@ -1459,19 +1484,6 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 
 			srt_action_context_set_rule_method(a_stream, TSG_METHOD_TYPE_ALLOW, a_stream->threadnum);
 			break;
-		case	TSG_ACTION_INTERCEPT:
-			if(tsg_scan_intercept_exclusion(a_stream, g_tsg_maat_feather, p_rule, srt_process_context->domain, a_stream->threadnum))
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_EXCLUSION], 0, FS_OP_ADD, 1);
-				break;
-			}
-			
-			session_matched_rules_notify(a_stream, TSG_SERVICE_INTERCEPT, p_rule, 1, a_stream->threadnum);
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
-			state=APP_STATE_DROPME|APP_STATE_KILL_OTHER;
-
-			srt_action_context_set_rule_method(a_stream, TSG_METHOD_TYPE_UNKNOWN, a_stream->threadnum);
-			break;
 		default:
 			break;
 	}
@@ -1479,11 +1491,22 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 	return state;
 }
 
-int matched_shaping_rules_deal(const struct streaminfo *a_stream, struct maat_rule *shaping_results, size_t n_shaping_results, int thread_seq)
+int matched_shaping_rules_deal(const struct streaminfo *a_stream, struct maat_rule *shaping_rules, size_t n_shaping_rules, int thread_seq)
 {
-	session_state_sync_in_activing(a_stream, TSG_SERVICE_SHAPING, shaping_results, n_shaping_results, thread_seq);
+	session_state_sync_in_activing(a_stream, TSG_SERVICE_SHAPING, shaping_rules, n_shaping_rules, thread_seq);
 
 	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SHAPING], 0, FS_OP_ADD, 1);
+	srt_action_context_set_rule_method(a_stream, TSG_METHOD_TYPE_UNKNOWN, thread_seq);
+
+	return 0;
+}
+
+int matched_intercept_rules_deal(const struct streaminfo *a_stream, struct maat_rule *intercept_rules, size_t n_intercept_rules, int thread_seq)
+{
+	struct maat_rule *p_rule=matched_rules_decision_criteria(intercept_rules, n_intercept_rules);
+	session_state_sync_in_activing(a_stream, TSG_SERVICE_INTERCEPT, p_rule, 1, thread_seq);
+
+	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
 	srt_action_context_set_rule_method(a_stream, TSG_METHOD_TYPE_UNKNOWN, thread_seq);
 
 	return 0;
@@ -1500,25 +1523,33 @@ int matched_service_chaining_rules_deal(const struct streaminfo *a_stream, struc
 unsigned char session_matched_rules_deal(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, struct maat_rule *rules, size_t n_rules, const void *a_packet)
 {
 	unsigned char state=APP_STATE_GIVEME;
-	struct maat_rule security_rules[MAX_RESULT_NUM]={0};
-	size_t n_security_rules=tsg_select_matched_security_rules(rules, n_rules, security_rules, MAX_RESULT_NUM);
-	if(n_security_rules>0)
+
+	struct maat_rule s_chaining_rules[MAX_RESULT_NUM]={0};
+	size_t n_s_chaining_rules=tsg_select_rules_by_service_id(rules, n_rules, s_chaining_rules, MAX_RESULT_NUM, TSG_SERVICE_CHAINING);
+	if(n_s_chaining_rules>0)
 	{
-		state=matched_security_rules_deal(a_stream, srt_process_context, security_rules, n_security_rules, a_packet, a_stream->threadnum);
+		matched_service_chaining_rules_deal(a_stream, s_chaining_rules, n_s_chaining_rules, a_stream->threadnum);
+	}
+
+	struct maat_rule intercept_rules[MAX_RESULT_NUM]={0};
+	size_t n_intercept_rules=tsg_select_rules_by_service_id(rules, n_rules, intercept_rules, MAX_RESULT_NUM, TSG_SERVICE_INTERCEPT);
+	if(n_intercept_rules>0)
+	{
+		matched_intercept_rules_deal(a_stream, intercept_rules, n_intercept_rules, a_stream->threadnum);
 	}
 	
 	struct maat_rule shaping_rules[MAX_RESULT_NUM]={0};
-	size_t n_shaping_rules=tsg_select_matched_shaping_rules(rules, n_rules, shaping_rules, MAX_RESULT_NUM);
-	if(n_shaping_rules>0 && !(state&APP_STATE_KILL_OTHER))
+	size_t n_shaping_rules=tsg_select_rules_by_service_id(rules, n_rules, shaping_rules, MAX_RESULT_NUM, TSG_SERVICE_SHAPING);
+	if(n_shaping_rules>0)
 	{
 		matched_shaping_rules_deal(a_stream, shaping_rules, n_shaping_rules, a_stream->threadnum);
 	}
 
-	struct maat_rule s_chaining_rules[MAX_RESULT_NUM]={0};
-	size_t n_s_chaining_rules=tsg_select_matched_service_chaining_rules(rules, n_rules, s_chaining_rules, MAX_RESULT_NUM);
-	if(n_s_chaining_rules>0 && !(state&APP_STATE_KILL_OTHER))
+	struct maat_rule security_rules[MAX_RESULT_NUM]={0};
+	size_t n_security_rules=tsg_select_rules_by_service_id(rules, n_rules, security_rules, MAX_RESULT_NUM, TSG_SERVICE_SECURITY);
+	if(n_security_rules>0)
 	{
-		matched_service_chaining_rules_deal(a_stream, s_chaining_rules, n_s_chaining_rules, a_stream->threadnum);
+		state=matched_security_rules_deal(a_stream, srt_process_context, security_rules, n_security_rules, a_packet, a_stream->threadnum);
 	}
 
 	return state;
@@ -1734,6 +1765,10 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			}
 			
 			hit_num+=session_pending_state_deal(a_stream, srt_process_context, matched_rules+hit_num, MAX_TSG_ALL_RESULT_NUM-hit_num, a_packet);
+			if (a_stream->type == STREAM_TYPE_TCP && a_packet != NULL)
+			{
+				tsg_proxy_tcp_options_parse(a_stream, a_packet);
+			}
 			state=session_matched_rules_deal(a_stream, srt_process_context, matched_rules, hit_num, a_packet);
 			srt_process_context->deal_pkt_num++;
 			break;
@@ -1823,6 +1858,11 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 	struct maat_rule shaping_results[MAX_RESULT_NUM]={0};
 	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)(*pme);
 
+	if (a_stream->type == STREAM_TYPE_TCP && a_packet != NULL)
+	{
+		tsg_proxy_tcp_options_parse(a_stream, a_packet);
+	}
+
 	if(stream_state==OP_STATE_PENDING && srt_action_context->method_type!=TSG_METHOD_TYPE_SHUNT && !(srt_action_context->udp_data_dropme))
 	{
 		if(srt_action_context->method_type==TSG_METHOD_TYPE_UNKNOWN)
@@ -1836,7 +1876,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 		int hit_num=tsg_scan_nesting_addr(a_stream, g_tsg_maat_feather, PROTO_UNKONWN, scan_mid, matched_rules, MAX_TSG_ALL_RESULT_NUM);
 		if(hit_num>0)
 		{
-			int security_result_num=tsg_select_matched_security_rules(matched_rules, hit_num, security_results, MAX_RESULT_NUM);
+			int security_result_num = tsg_select_rules_by_service_id(matched_rules, hit_num, security_results, MAX_RESULT_NUM, TSG_SERVICE_SECURITY);
 			p_result=matched_rules_decision_criteria(security_results, security_result_num);
 			if(p_result!=NULL)
 			{
@@ -1855,17 +1895,17 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 				}
 			}
 
-			size_t n_shaping_results=tsg_select_matched_shaping_rules(matched_rules, hit_num, shaping_results, MAX_RESULT_NUM);
-			if(state==APP_STATE_GIVEME && n_shaping_results>0)
-			{
-				matched_shaping_rules_deal(a_stream, shaping_results, n_shaping_results, thread_seq);
-			}
-
 			struct maat_rule s_chaining_result[MAX_RESULT_NUM]={0};
-			size_t n_s_chaining_results=tsg_select_matched_service_chaining_rules(matched_rules, hit_num, s_chaining_result, MAX_RESULT_NUM);
+			size_t n_s_chaining_results=tsg_select_rules_by_service_id(matched_rules, hit_num, s_chaining_result, MAX_RESULT_NUM, TSG_SERVICE_CHAINING);
 			if(state==APP_STATE_GIVEME && n_s_chaining_results>0)
 			{
 				matched_service_chaining_rules_deal(a_stream, s_chaining_result, n_s_chaining_results, thread_seq);
+			}
+
+			size_t n_shaping_results=tsg_select_rules_by_service_id(matched_rules, hit_num, shaping_results, MAX_RESULT_NUM, TSG_SERVICE_SHAPING);
+			if(state==APP_STATE_GIVEME && n_shaping_results>0)
+			{
+				matched_shaping_rules_deal(a_stream, shaping_results, n_shaping_results, thread_seq);
 			}
 		}
 		
@@ -2078,6 +2118,7 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "FEATURE_TAMPER", &g_tsg_para.feature_tamper, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SERVICE_CHAINING_SID", &g_tsg_para.service_chaining_sid, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SHAPING_SID", &g_tsg_para.shaping_sid, 0);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "intercept_sid", &g_tsg_para.intercept_sid, 0);
 
 	ret=MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_SEQ_IN_DATA_CENTER", &g_tsg_para.device_seq_in_dc, 0);
 	if(ret<0)

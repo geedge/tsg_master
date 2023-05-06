@@ -31,6 +31,7 @@ if (CMAKE_CXX_CPPCHECK)
 	    "--suppress=memleakOnRealloc"
 	    "--suppress=redundantAssignment"
 	    "--suppress=constParameter"
+		"--suppress=*:${PROJECT_SOURCE_DIR}/src/mpack.c"
     )
     set(CMAKE_C_CPPCHECK ${CMAKE_CXX_CPPCHECK})
 else()

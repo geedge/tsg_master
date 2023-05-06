@@ -132,6 +132,7 @@ struct session_runtime_attribute
 	struct tunnel_endpoint *client_endpoint;
 	struct tunnel_endpoint *server_endpoint;
 	unsigned long session_flags;
+	struct tsg_proxy_tcp_attribute *proxy_tcp_attr;
 };
 
 

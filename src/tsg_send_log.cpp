@@ -2111,8 +2111,8 @@ int send_security_event_log(struct tsg_log_instance_t *_instance, struct TLD_han
 		
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name, (void *)(long)(rules[i].rule_id), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVICE].name, (void *)(long)(rules[i].service_id), TLD_TYPE_LONG);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)((unsigned char)rules[i].action), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)rules[i].vsys_id, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_ACTION].name, (void *)(long)(rules[i].action), TLD_TYPE_LONG);
 
 		set_policy_action_para_exec_result(_instance, _handle, a_stream, &(rules[i]));
 		

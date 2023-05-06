@@ -18,7 +18,19 @@ endif()
 set_property(TARGET gtest-static PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${INSTALL_DIR}/include)
 set_property(TARGET gtest-static PROPERTY INTERFACE_LINK_LIBRARIES pthread)
 
+# # libmsgpackc
+# ExternalProject_Add(libmsgpackc PREFIX libmsgpackc
+#         URL ${CMAKE_SOURCE_DIR}/vendor/msgpack-c-6.0.0.tar.gz
+#         URL_MD5 adc08f48550ce772fe24c0b41166b0de
+#         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+#         -DMSGPACK_BUILD_TESTS=OFF -DMSGPACK_USE_BOOST=OFF)
+# ExternalProject_Get_Property(libmsgpackc INSTALL_DIR)
+# file(MAKE_DIRECTORY ${INSTALL_DIR}/include)
+# add_library(msgpackc-static STATIC IMPORTED GLOBAL)
+# add_dependencies(msgpackc-static libmsgpackc)
 
+# set_property(TARGET msgpackc-static PROPERTY IMPORTED_LOCATION ${INSTALL_DIR}/lib/libmsgpack-c.a)
+# set_property(TARGET msgpackc-static PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${INSTALL_DIR}/include)
 
 
 

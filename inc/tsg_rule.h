@@ -5,6 +5,7 @@
 #define	TSG_ACTION_NONE			0x00
 #define	TSG_ACTION_MONITOR		0x01
 #define	TSG_ACTION_INTERCEPT	0x02
+#define	TSG_ACTION_NO_INTERCEPT	0x03
 #define	TSG_ACTION_DENY			0x10
 #define	TSG_ACTION_SHAPING		0x20
 #define	TSG_ACTION_MANIPULATE	0x30
@@ -73,7 +74,7 @@ void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE
 size_t tsg_matched_rules_select(struct maat *feather, TSG_SERVICE service, long long *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules);
 size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *feather, enum TSG_PROTOCOL proto, struct maat_state *s_mid, struct maat_rule *rules, size_t n_rules);
 size_t session_matched_rules_copy(const struct streaminfo *a_stream, enum TSG_SERVICE service, struct maat_rule *rules, size_t n_rules);
-
+size_t tsg_select_rules_by_service_id(struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules, enum TSG_SERVICE service_id);
 int tsg_get_fqdn_category_ids(struct maat *feather, char *fqdn, unsigned int *category_ids, int n_category_ids);
 
 unsigned char tsg_enforing_deny(const struct streaminfo *a_stream, struct maat_rule *p_result, enum TSG_PROTOCOL protocol, enum ACTION_RETURN_TYPE type, const void *user_data);
