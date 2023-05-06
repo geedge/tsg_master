@@ -2118,7 +2118,7 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "FEATURE_TAMPER", &g_tsg_para.feature_tamper, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SERVICE_CHAINING_SID", &g_tsg_para.service_chaining_sid, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SHAPING_SID", &g_tsg_para.shaping_sid, 0);
-	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "intercept_sid", &g_tsg_para.intercept_sid, 0);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "PROXY_SID", &g_tsg_para.intercept_sid, 0);
 
 	ret=MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_SEQ_IN_DATA_CENTER", &g_tsg_para.device_seq_in_dc, 0);
 	if(ret<0)
