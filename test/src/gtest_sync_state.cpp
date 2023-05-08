@@ -48,7 +48,7 @@ TEST(SESSION_STATE, OpeningState)
     a_stream.opstate = OP_STATE_PENDING;
     EXPECT_EQ(0, tsg_send_session_state(&a_stream, OP_STATE_PENDING));
 
-    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, 1024);
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
 
     mpack_tree_t tree;
     mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
@@ -59,7 +59,7 @@ TEST(SESSION_STATE, OpeningState)
     EXPECT_EQ(mpack_type_str, mpack_node_type(mpack_node_map_cstr(root, "tsync")));
     memcpy(test_str, mpack_node_str(mpack_node_map_cstr(root, "tsync")), mpack_node_strlen(mpack_node_map_cstr(root, "tsync")));
     EXPECT_STREQ("2.0", test_str);
-    memset(test_str, 0, 256);
+    memset(test_str, 0, sizeof(test_str));
 
     // session_id
     EXPECT_EQ(10, mpack_node_u64(mpack_node_map_cstr(root, "session_id")));
@@ -67,7 +67,7 @@ TEST(SESSION_STATE, OpeningState)
     // state:opening
     memcpy(test_str, mpack_node_str(mpack_node_map_cstr(root, "state")), mpack_node_strlen(mpack_node_map_cstr(root, "state")));
     EXPECT_STREQ("opening", test_str);
-    memset(test_str, 0, 256);
+    memset(test_str, 0, sizeof(test_str));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
 }
@@ -81,7 +81,7 @@ TEST(SESSION_STATE, CloseState)
     a_stream.opstate = OP_STATE_CLOSE;
     EXPECT_EQ(0, tsg_send_session_state(&a_stream, OP_STATE_CLOSE));
 
-    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, 1024);
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
 
     mpack_tree_t tree;
     mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
@@ -92,7 +92,7 @@ TEST(SESSION_STATE, CloseState)
     EXPECT_EQ(mpack_type_str, mpack_node_type(mpack_node_map_cstr(root, "tsync")));
     memcpy(test_str, mpack_node_str(mpack_node_map_cstr(root, "tsync")), mpack_node_strlen(mpack_node_map_cstr(root, "tsync")));
     EXPECT_STREQ("2.0", test_str);
-    memset(test_str, 0, 256);
+    memset(test_str, 0, sizeof(test_str));
 
     // session_id
     EXPECT_EQ(10, mpack_node_u64(mpack_node_map_cstr(root, "session_id")));
@@ -100,7 +100,7 @@ TEST(SESSION_STATE, CloseState)
     // state:colse
     memcpy(test_str, mpack_node_str(mpack_node_map_cstr(root, "state")), mpack_node_strlen(mpack_node_map_cstr(root, "state")));
     EXPECT_STREQ("closing", test_str);
-    memset(test_str, 0, 256);
+    memset(test_str, 0, sizeof(test_str));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
 }
@@ -113,7 +113,7 @@ TEST(SESSION_STATE, ResetAllState)
     int ctrl_pkt_len = 0;
     EXPECT_EQ(0, tsg_sync_resetall_state(&a_stream));
 
-    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, 1024);
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
     mpack_tree_t tree;
     mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
     mpack_tree_parse(&tree);
@@ -122,7 +122,7 @@ TEST(SESSION_STATE, ResetAllState)
     // state:resetall
     memcpy(test_str, mpack_node_str(mpack_node_map_cstr(root, "state")), mpack_node_strlen(mpack_node_map_cstr(root, "state")));
     EXPECT_STREQ("resetall", test_str);
-    memset(test_str, 0, 256);
+    memset(test_str, 0, sizeof(test_str));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
 }
@@ -142,7 +142,7 @@ TEST(POLICY_UPDATE, Sce)
 
     tsg_sync_policy_update(&a_stream, &test, 1);
 
-    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, 1024);
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
     mpack_tree_t tree;
     mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
     mpack_tree_parse(&tree);
@@ -172,7 +172,7 @@ TEST(POLICY_UPDATE, Shaper)
 
     tsg_sync_policy_update(&a_stream, &test, 1);
 
-    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, 1024);
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
     mpack_tree_t tree;
     mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
     mpack_tree_parse(&tree);
@@ -195,10 +195,11 @@ TEST(SESSION_STATE, ActiveStateServiceChainingAndShaping0)
     char ctrl_pkt_buf[1024];
     int ctrl_pkt_len = 0;
     memset(&policy_array, 0, sizeof(struct update_policy) * 2);
-    policy_array[0].type = POLICY_UPDATE_SHAPING;
+    policy_array[0].type = POLICY_UPDATE_SERVICE_CHAINING;
+    policy_array[1].type = POLICY_UPDATE_SHAPING;
     EXPECT_EQ(0, tsg_sync_policy_update(&a_stream, policy_array, 2));
 
-    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, 1024);
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
     mpack_tree_t tree;
     mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
     mpack_tree_parse(&tree);
@@ -208,7 +209,7 @@ TEST(SESSION_STATE, ActiveStateServiceChainingAndShaping0)
     EXPECT_EQ(mpack_type_str, mpack_node_type(mpack_node_map_cstr(root, "tsync")));
     memcpy(test_str, mpack_node_str(mpack_node_map_cstr(root, "tsync")), mpack_node_strlen(mpack_node_map_cstr(root, "tsync")));
     EXPECT_STREQ("2.0", test_str);
-    memset(test_str, 0, 256);
+    memset(test_str, 0, sizeof(test_str));
 
     // session_id
     EXPECT_EQ(10, mpack_node_u64(mpack_node_map_cstr(root, "session_id")));
@@ -217,7 +218,7 @@ TEST(SESSION_STATE, ActiveStateServiceChainingAndShaping0)
     EXPECT_EQ(mpack_type_str, mpack_node_type(mpack_node_map_cstr(root, "state")));
     memcpy(test_str, mpack_node_str(mpack_node_map_cstr(root, "state")), mpack_node_strlen(mpack_node_map_cstr(root, "state")));
     EXPECT_STREQ("active", test_str);
-    memset(test_str, 0, 256);
+    memset(test_str, 0, sizeof(test_str));
 
     // sce
     mpack_node_t policy_sce = mpack_node_map_cstr(mpack_node_map_cstr(root, "params"), "sce");
@@ -249,13 +250,14 @@ TEST(SESSION_STATE, ActiveStateServiceChainingAndShaping1)
     policy_array[0].ids[0] = 1;
     policy_array[0].ids[1] = 2;
     policy_array[0].ids[2] = 3;
+    policy_array[1].type = POLICY_UPDATE_SERVICE_CHAINING;
     policy_array[1].n_ids = 3;
     policy_array[1].ids[0] = 4;
     policy_array[1].ids[1] = 5;
     policy_array[1].ids[2] = 6;
     EXPECT_EQ(0, tsg_sync_policy_update(&a_stream, policy_array, 2));
 
-    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, 1024);
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
     mpack_tree_t tree;
     mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
     mpack_tree_parse(&tree);
@@ -418,7 +420,7 @@ TEST(POLICY_UPDATE, Proxy)
     memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
     tsg_sync_policy_update(&a_stream, &test, 1);
 
-    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, 1024);
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
     mpack_tree_t tree;
     mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
     mpack_tree_parse(&tree);
@@ -442,11 +444,11 @@ TEST(POLICY_UPDATE, Proxy)
 
     memcpy(test_str, mpack_node_str(mpack_node_array_at(tcp_handshake, 17)), mpack_node_strlen(mpack_node_array_at(tcp_handshake, 17)));
     EXPECT_STREQ("thisistest=2", test_str);
-    memset(test_str, 0, 256);
+    memset(test_str, 0, sizeof(test_str));
 
     memcpy(test_str, mpack_node_str(mpack_node_array_at(tcp_handshake, 30)), mpack_node_strlen(mpack_node_array_at(tcp_handshake, 30)));
     EXPECT_STREQ("thisistest=15", test_str);
-    memset(test_str, 0, 256);
+    memset(test_str, 0, sizeof(test_str));
 
     mpack_node_t fqdn_cat_id_vals = mpack_node_array_at(tcp_handshake, 31);
     EXPECT_EQ(4, mpack_node_array_length(fqdn_cat_id_vals));

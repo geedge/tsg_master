@@ -9,7 +9,6 @@
 #include "tsg_send_log.h"
 #include "mpack.h"
 
-const char *policy_key[POLICY_UPDATE_MAX] = {"sce", "shaper", "proxy"};
 char *mpack_data = NULL;
 size_t mpack_size = 0;
 static int tsg_mpack_init_map(const struct streaminfo *a_stream, mpack_writer_t *writer, const char *state)
@@ -232,7 +231,20 @@ static void tsg_mpack_append_cmsg_value(mpack_writer_t *writer, struct proxy_cms
 
 static void tsg_mpack_append_update_policy(mpack_writer_t *writer, struct update_policy *policy_update, enum policy_type type)
 {
-	mpack_write_cstr(writer, policy_key[type]);
+	switch (type)
+	{
+		case POLICY_UPDATE_INTERCEPT:
+			mpack_write_cstr(writer, "proxy");
+			break;
+		case POLICY_UPDATE_SERVICE_CHAINING:
+			mpack_write_cstr(writer, "sce");
+			break;
+		case POLICY_UPDATE_SHAPING:
+			mpack_write_cstr(writer, "shaper");
+			break;
+		default:
+			return;
+	}
 
 	mpack_build_map(writer); // update_policy_type
 	mpack_write_cstr(writer, "rule_ids");
