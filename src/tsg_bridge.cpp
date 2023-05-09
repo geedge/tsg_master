@@ -179,7 +179,7 @@ void *session_async_bridge_get_data(const struct streaminfo *a_stream, int bridg
 	return NULL;
 }
 
-const struct session_runtime_attribute *session_runtime_attribute_get(const struct streaminfo *a_stream)
+const struct session_runtime_attribute *session_runtime_attribute_new(const struct streaminfo *a_stream)
 {
 	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ATTRIBUTE].id);
 	if(srt_attribute==NULL)
@@ -197,6 +197,11 @@ const struct session_runtime_attribute *session_runtime_attribute_get(const stru
 	}
 
 	return (const struct session_runtime_attribute *)srt_attribute;
+}
+
+const struct session_runtime_attribute *session_runtime_attribute_get(const struct streaminfo *a_stream)
+{
+	return (struct session_runtime_attribute *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ATTRIBUTE].id);
 }
 
 int srt_attribute_set_establish_latecy(const struct streaminfo *a_stream)
@@ -218,7 +223,7 @@ int srt_attribute_set_establish_latecy(const struct streaminfo *a_stream)
 		return 0;
 	}
 	
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
 		srt_attribute->establish_latency_ms=current_time-create_time;
@@ -230,7 +235,7 @@ int srt_attribute_set_establish_latecy(const struct streaminfo *a_stream)
 
 int srt_attribute_set_protocol(const struct streaminfo *a_stream, TSG_PROTOCOL protocol)
 {
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
 		srt_attribute->proto=protocol;
@@ -242,7 +247,7 @@ int srt_attribute_set_protocol(const struct streaminfo *a_stream, TSG_PROTOCOL p
 
 int srt_attribute_set_reponse_size(const struct streaminfo *a_stream, int http_action_file_size)
 {
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
 		srt_attribute->http_action_file_size=http_action_file_size;
@@ -254,7 +259,7 @@ int srt_attribute_set_reponse_size(const struct streaminfo *a_stream, int http_a
 
 int srt_attribute_set_ja3_fingprint(const struct streaminfo *a_stream, const char *ja3_fingerprint)
 {
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
 		srt_attribute->ja3_fingerprint=ja3_fingerprint;
@@ -266,7 +271,7 @@ int srt_attribute_set_ja3_fingprint(const struct streaminfo *a_stream, const cha
 
 int srt_atttribute_set_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info *user_info)
 {
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
 		srt_attribute->user_info=user_info;
@@ -278,7 +283,7 @@ int srt_atttribute_set_umts_user_info(const struct streaminfo *a_stream, struct 
 
 int srt_atttribute_set_subscriber_id(const struct streaminfo *a_stream, struct subscribe_id_info *c_subscribe_id, struct subscribe_id_info *s_subscribe_id)
 {
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
 		srt_attribute->client_subscribe_id=c_subscribe_id;
@@ -291,7 +296,7 @@ int srt_atttribute_set_subscriber_id(const struct streaminfo *a_stream, struct s
 
 int srt_atttribute_set_ip_asn(const struct streaminfo *a_stream, struct asn_info *c_asn, struct asn_info *s_asn)
 {
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
 		srt_attribute->client_asn=c_asn;
@@ -304,7 +309,7 @@ int srt_atttribute_set_ip_asn(const struct streaminfo *a_stream, struct asn_info
 
 int srt_atttribute_set_ip_location(const struct streaminfo *a_stream, struct location_info *c_location, struct location_info *s_location)
 {
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
 		srt_attribute->client_location=c_location;
@@ -317,7 +322,7 @@ int srt_atttribute_set_ip_location(const struct streaminfo *a_stream, struct loc
 
 int srt_attribute_set_category_ids(const struct streaminfo *a_stream, unsigned int *category_ids, int n_category_ids)
 {
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
 		if(n_category_ids<=0 || n_category_ids>MAX_CATEGORY_ID_NUM)
@@ -335,7 +340,7 @@ int srt_attribute_set_category_ids(const struct streaminfo *a_stream, unsigned i
 
 int srt_attribute_set_flags(const struct streaminfo *a_stream, unsigned long s_flags)
 {
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
 		srt_attribute->session_flags=s_flags;
@@ -431,7 +436,7 @@ int session_runtime_process_context_async(const struct streaminfo *a_stream, voi
 	return session_async_bridge_set_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, data);
 }
 
-const struct session_runtime_process_context *session_runtime_process_context_get(const struct streaminfo *a_stream)
+const struct session_runtime_process_context *session_runtime_process_context_new(const struct streaminfo *a_stream)
 {
 	struct session_runtime_process_context *srt_attribute=(struct session_runtime_process_context *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id);
 	if(srt_attribute==NULL)
@@ -449,6 +454,11 @@ const struct session_runtime_process_context *session_runtime_process_context_ge
 	}
 
 	return (const struct session_runtime_process_context *)srt_attribute;
+}
+
+const struct session_runtime_process_context *session_runtime_process_context_get(const struct streaminfo *a_stream)
+{
+	return (struct session_runtime_process_context *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id);
 }
 
 enum TSG_PROTOCOL srt_process_context_get_protocol(const struct session_runtime_process_context *srt_process_context)
@@ -496,6 +506,26 @@ int session_runtime_action_context_async(const struct streaminfo *a_stream, void
 	return session_async_bridge_set_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id, data);
 }
 
+const struct session_runtime_action_context *session_runtime_action_context_new(const struct streaminfo *a_stream)
+{
+	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id);
+	if(srt_action_context==NULL)
+	{
+		srt_action_context=(struct session_runtime_action_context *)dictator_malloc(a_stream->threadnum, sizeof(struct session_runtime_action_context));
+		memset(srt_action_context, 0, sizeof(struct session_runtime_action_context));
+
+		int ret=session_async_bridge_set_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id, (void *)srt_action_context);
+		if(ret<0)
+		{
+			session_runtime_attribute_free(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id, (void *)srt_action_context);
+			srt_action_context=NULL;
+			return NULL;
+		}
+	}
+
+	return (const struct session_runtime_action_context *)srt_action_context;
+}
+
 const struct session_runtime_action_context *session_runtime_action_context_get(const struct streaminfo *a_stream)
 {
 	return (const struct session_runtime_action_context *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id);
@@ -503,7 +533,7 @@ const struct session_runtime_action_context *session_runtime_action_context_get(
 
 int srt_action_context_set_after_n_packet(const struct streaminfo *a_stream, int after_n_packets, int thread_seq)
 {
-	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_get(a_stream);
+	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_new(a_stream);
 	if(srt_action_context==NULL)
 	{
 		srt_action_context=(struct session_runtime_action_context *)dictator_malloc(thread_seq, sizeof(struct session_runtime_action_context));
@@ -518,7 +548,7 @@ int srt_action_context_set_after_n_packet(const struct streaminfo *a_stream, int
 
 int srt_action_context_set_hitted_app_id(const struct streaminfo *a_stream, int hited_app_id, int thread_seq)
 {
-	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_get(a_stream);
+	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_new(a_stream);
 	if(srt_action_context==NULL)
 	{
 		srt_action_context=(struct session_runtime_action_context *)dictator_malloc(thread_seq, sizeof(struct session_runtime_action_context));
@@ -533,7 +563,7 @@ int srt_action_context_set_hitted_app_id(const struct streaminfo *a_stream, int 
 
 int srt_action_context_set_l7_protocol(const struct streaminfo *a_stream, enum TSG_PROTOCOL protocol, int thread_seq)
 {
-	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_get(a_stream);
+	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_new(a_stream);
 	if(srt_action_context==NULL)
 	{
 		srt_action_context=(struct session_runtime_action_context *)dictator_malloc(thread_seq, sizeof(struct session_runtime_action_context));
@@ -548,7 +578,7 @@ int srt_action_context_set_l7_protocol(const struct streaminfo *a_stream, enum T
 
 int srt_action_context_set_rule_method(const struct streaminfo *a_stream, enum TSG_METHOD_TYPE method_type, int thread_seq)
 {
-	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_get(a_stream);
+	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_new(a_stream);
 	if(srt_action_context==NULL)
 	{
 		srt_action_context=(struct session_runtime_action_context *)dictator_malloc(thread_seq, sizeof(struct session_runtime_action_context));
@@ -583,7 +613,7 @@ int srt_action_context_set_rule_method(const struct streaminfo *a_stream, enum T
 
 int srt_action_context_set_leaky_bucket(const struct streaminfo *a_stream, struct leaky_bucket *bucket, int thread_seq)
 {
-	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_get(a_stream);
+	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_new(a_stream);
 	if(srt_action_context==NULL)
 	{
 		srt_action_context=(struct session_runtime_action_context *)dictator_malloc(thread_seq, sizeof(struct session_runtime_action_context));
@@ -783,14 +813,14 @@ void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE
 			bridge_idx=BRIDGE_TYPE_SECURITY_RESULT;
 			break;
 		case	TSG_SERVICE_INTERCEPT:
-			bridge_idx=BRIDGE_TYPE_INTERCEPT_RESULT;
-			break;
+			//bridge_idx=BRIDGE_TYPE_INTERCEPT_RESULT;
+			return;
 		case	TSG_SERVICE_CHAINING:
 			matched_service_chaining_rules_deal(a_stream, rules, n_rules, thread_seq);
-			break;
+			return;
 		case	TSG_SERVICE_SHAPING:
 			matched_shaping_rules_deal(a_stream, rules, n_rules, thread_seq);
-			break;
+			return;
 		default:
 			return ;
 	}

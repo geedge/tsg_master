@@ -190,7 +190,7 @@ TEST(POLICY_UPDATE, Shaper)
 TEST(SESSION_STATE, ActiveStateServiceChainingAndShaping0)
 {
     struct streaminfo a_stream = {0};
-    struct update_policy policy_array[2];
+    struct update_policy policy_array[POLICY_UPDATE_MAX];
     char test_str[256] = {0};
     char ctrl_pkt_buf[1024];
     int ctrl_pkt_len = 0;

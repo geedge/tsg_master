@@ -50,4 +50,4 @@ void tsg_proxy_tcp_parse(struct tsg_proxy_tcp_attribute *tcp_attr, struct pkt_in
 void tsg_proxy_first_data_process(const struct streaminfo *stream, struct tsg_proxy_tcp_attribute *tcp_attr, struct pkt_info *pktinfo);
 
 void tsg_proxy_tcp_options_parse(const struct streaminfo *stream, const void *a_packet);
-void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update_policy *policy);
+void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update_policy *policy, struct segment_id_list *segment_ids);

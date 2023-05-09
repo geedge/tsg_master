@@ -163,6 +163,7 @@ int session_mirror_packets_sync(const struct streaminfo *a_stream, struct maat_r
 void session_matched_rules_notify(const struct streaminfo * a_stream, TSG_SERVICE service, struct maat_rule *results, size_t n_results, int thread_seq);
 
 // session runtime attribute
+const struct session_runtime_attribute *session_runtime_attribute_new(const struct streaminfo *a_stream);
 int srt_attribute_set_protocol(const struct streaminfo * a_stream, TSG_PROTOCOL protocol);
 int srt_attribute_set_flags(const struct streaminfo * a_stream, unsigned long s_flags);
 int srt_attribute_set_establish_latecy(const struct streaminfo * a_stream);
@@ -175,6 +176,7 @@ void *session_gather_app_results_get(const struct streaminfo * a_stream);
 
 // session runtime do action context
 int session_runtime_action_context_async(const struct streaminfo *a_stream, void *data);
+const struct session_runtime_action_context *session_runtime_action_context_new(const struct streaminfo *a_stream);
 const struct session_runtime_action_context *session_runtime_action_context_get(const struct streaminfo *a_stream);
 int srt_action_context_set_leaky_bucket(const struct streaminfo * a_stream, struct leaky_bucket * bucket, int thread_seq);
 int srt_action_context_set_l7_protocol(const struct streaminfo * a_stream, TSG_PROTOCOL protocol, int thread_seq);

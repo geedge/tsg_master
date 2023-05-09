@@ -10,7 +10,8 @@
 extern int rd_kafka_get_sendlog_cnt(void);
 extern const char *rd_kafka_get_sendlog_payload(int idx);
 extern int matched_shaping_rules_deal(const struct streaminfo *a_stream, struct maat_rule *shaping_rules, size_t n_shaping_rules, int thread_seq);;
-extern int matched_service_chaining_rules_deal(const struct streaminfo *a_stream, struct maat_rule *service_chaining_rules, size_t n_service_chaining_rules, int thread_seq);;
+extern int matched_service_chaining_rules_deal(const struct streaminfo *a_stream, struct maat_rule *service_chaining_rules, size_t n_service_chaining_rules, int thread_seq);
+extern int matched_intercept_rules_deal(const struct streaminfo * a_stream, struct maat_rule * intercept_rules, size_t n_intercept_rules, int thread_seq);
 
 extern void session_segment_id_free(const struct streaminfo * a_stream, int bridge_id, void * data);
 
@@ -492,28 +493,37 @@ TEST(TSGMaster, SecurityDuplicatePolicyMultipleNotify)
 
 extern int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, struct maat_rule *rules, size_t n_rules, int thread_seq);
 
-TEST(TSGMaster, SecurityPolicyIntercept)
+TEST(TSGMaster, InterceptPolicyNotify)
 {
 	const struct streaminfo a_stream={0};
 	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
 
 	matched_policy[1].action=TSG_ACTION_INTERCEPT;
 	matched_policy[1].rule_id=TSG_ACTION_INTERCEPT;
+	matched_policy[1].service_id=TSG_SERVICE_INTERCEPT;
 
 	// Set Intercept
-	session_matched_rules_notify(&a_stream, TSG_SERVICE_SECURITY, &matched_policy[1], 1, 0);
+	matched_intercept_rules_deal(&a_stream, &matched_policy[1], 1, 0);
 
-	const struct matched_policy_rules *hited_security=session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
-	EXPECT_NE(nullptr, hited_security);
-	EXPECT_EQ(1, hited_security->n_rules);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_security->rules[0].action);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_security->rules[0].rule_id);
+	const struct matched_policy_rules *hited_intercept=session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT);
+	EXPECT_NE(nullptr, hited_intercept);
+	EXPECT_EQ(1, hited_intercept->n_rules);
+	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].rule_id);
+	EXPECT_EQ(TSG_SERVICE_INTERCEPT, hited_intercept->rules[0].service_id);
 
-	session_matched_rules_free(&a_stream, TSG_SERVICE_SECURITY, (void *)hited_security);
-	session_matched_rules_async(&a_stream, TSG_SERVICE_SECURITY, NULL);
-	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY));
+	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(1, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.intercept_sid, segment_ids->sid_list[0]);
+
+	session_segment_id_free(&a_stream, 0, (void *)segment_ids);
+	session_control_segment_ids_async(&a_stream, NULL);
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_INTERCEPT, (void *)hited_intercept);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT));
 }
-
 
 TEST(TSGMaster, SecurityMultiplePolicyMonitorToIntercept)
 {
@@ -522,9 +532,11 @@ TEST(TSGMaster, SecurityMultiplePolicyMonitorToIntercept)
 
 	matched_policy[0].action=TSG_ACTION_MONITOR;
 	matched_policy[0].rule_id=TSG_ACTION_MONITOR;
+	matched_policy[0].service_id=TSG_SERVICE_SECURITY;
 
 	matched_policy[1].action=TSG_ACTION_INTERCEPT;
 	matched_policy[1].rule_id=TSG_ACTION_INTERCEPT;
+	matched_policy[1].service_id=TSG_SERVICE_INTERCEPT;
 
 	// First Monitor, second Intercpt
 	session_matched_rules_notify(&a_stream, TSG_SERVICE_SECURITY, &matched_policy[0], 1, 0);
@@ -553,12 +565,13 @@ TEST(TSGMaster, SecurityMultiplePolicyMonitorToIntercept)
 	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY));
 
 	// Set Intercept
-	session_matched_rules_notify(&a_stream, TSG_SERVICE_INTERCEPT, &matched_policy[1], 1, 0);
+	matched_intercept_rules_deal(&a_stream, &matched_policy[1], 1, 0);
 
 	ret=session_matched_rules_copy(&a_stream, TSG_SERVICE_INTERCEPT, &(matched_policy[2]), 1);
 	EXPECT_EQ(1, ret);
 	EXPECT_EQ(TSG_ACTION_INTERCEPT, matched_policy[2].action);
 	EXPECT_EQ(TSG_ACTION_INTERCEPT, matched_policy[2].rule_id);
+	EXPECT_EQ(TSG_SERVICE_INTERCEPT,  matched_policy[2].service_id);
 	
 	ret=session_matched_rules_copy(&a_stream, TSG_SERVICE_INTERCEPT, &(matched_policy[2]), 1);
 	EXPECT_EQ(1, ret);
@@ -571,11 +584,18 @@ TEST(TSGMaster, SecurityMultiplePolicyMonitorToIntercept)
 	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].action);
 	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].rule_id);
 
+	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(1, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.intercept_sid, segment_ids->sid_list[0]);
+	
+	session_segment_id_free(&a_stream, 0, (void *)segment_ids);
+	session_control_segment_ids_async(&a_stream, NULL);
+
 	session_matched_rules_free(&a_stream, TSG_SERVICE_INTERCEPT, (void *)hited_intercept);
 	session_matched_rules_async(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
 	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT));
 }
-
 
 TEST(TSGMaster, ShapingAndServiceChainingPolicyNotify)
 {
@@ -633,6 +653,198 @@ TEST(TSGMaster, ShapingAndServiceChainingPolicyNotify)
 	session_matched_rules_free(&a_stream, TSG_SERVICE_CHAINING, (void *)hitted_service_chaining);
 	session_matched_rules_async(&a_stream, TSG_SERVICE_CHAINING, NULL);
 	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_CHAINING));
+}
+
+TEST(TSGMaster, InterceptPolicy)
+{
+	const struct streaminfo a_stream={0};
+	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
+
+	matched_policy[1].action=TSG_ACTION_INTERCEPT;
+	matched_policy[1].rule_id=TSG_ACTION_INTERCEPT;
+	matched_policy[1].service_id=TSG_SERVICE_INTERCEPT;
+
+	// Set Intercept
+	matched_intercept_rules_deal(&a_stream, &matched_policy[1], 1, 0);
+	const struct matched_policy_rules *hited_intercept=session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT);
+	EXPECT_NE(nullptr, hited_intercept);
+	EXPECT_EQ(1, hited_intercept->n_rules);
+	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].rule_id);
+	EXPECT_EQ(TSG_SERVICE_INTERCEPT, hited_intercept->rules[0].service_id);
+
+	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(1, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.intercept_sid, segment_ids->sid_list[0]);
+	
+	session_segment_id_free(&a_stream, 0, (void *)segment_ids);
+	session_control_segment_ids_async(&a_stream, NULL);
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_INTERCEPT, (void *)hited_intercept);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT));
+}
+
+TEST(TSGMaster, InterceptAndNOInterceptPolicy)
+{
+	const struct streaminfo a_stream={0};
+	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
+
+	matched_policy[0].action=TSG_ACTION_NO_INTERCEPT;
+	matched_policy[0].rule_id=TSG_ACTION_NO_INTERCEPT;
+	matched_policy[0].service_id=TSG_SERVICE_INTERCEPT;
+
+	matched_policy[1].action=TSG_ACTION_INTERCEPT;
+	matched_policy[1].rule_id=TSG_ACTION_INTERCEPT;
+	matched_policy[1].service_id=TSG_SERVICE_INTERCEPT;
+
+	// Set Intercept And NO Intercept
+	matched_intercept_rules_deal(&a_stream, matched_policy, 2, 0);
+	const struct matched_policy_rules *hited_intercept=session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT);
+	EXPECT_NE(nullptr, hited_intercept);
+	EXPECT_EQ(1, hited_intercept->n_rules);
+	EXPECT_EQ(TSG_ACTION_NO_INTERCEPT, hited_intercept->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_NO_INTERCEPT, hited_intercept->rules[0].rule_id);
+	EXPECT_EQ(TSG_SERVICE_INTERCEPT, hited_intercept->rules[0].service_id);
+
+	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(1, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.intercept_sid, segment_ids->sid_list[0]);
+	
+	session_segment_id_free(&a_stream, 0, (void *)segment_ids);
+	session_control_segment_ids_async(&a_stream, NULL);
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_INTERCEPT, (void *)hited_intercept);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT));
+}
+
+TEST(TSGMaster, ServiceChainingAndInterceptPolicy)
+{
+	const struct streaminfo a_stream={0};
+	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
+
+	matched_policy[0].action=TSG_ACTION_S_CHAINING;
+	matched_policy[0].rule_id=TSG_ACTION_S_CHAINING;
+
+	// Set Service chaining
+	matched_service_chaining_rules_deal(&a_stream, &matched_policy[0], 1, 0);
+	const struct matched_policy_rules *hited_s_chaining=session_matched_rules_get(&a_stream, TSG_SERVICE_CHAINING);
+	EXPECT_NE(nullptr, hited_s_chaining);
+	EXPECT_EQ(1, hited_s_chaining->n_rules);
+	EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->rules[0].rule_id);
+
+	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(1, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.service_chaining_sid, segment_ids->sid_list[0]);
+
+	// Set Intercept
+	matched_policy[1].action=TSG_ACTION_INTERCEPT;
+	matched_policy[1].rule_id=TSG_ACTION_INTERCEPT;
+	matched_policy[1].service_id=TSG_SERVICE_INTERCEPT;
+	
+	matched_intercept_rules_deal(&a_stream, &matched_policy[1], 1, 0);
+	const struct matched_policy_rules *hited_intercept=session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT);
+	EXPECT_NE(nullptr, hited_intercept);
+	EXPECT_EQ(1, hited_intercept->n_rules);
+	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].rule_id);
+	EXPECT_EQ(TSG_SERVICE_INTERCEPT, hited_intercept->rules[0].service_id);
+
+	segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(2, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.intercept_sid, segment_ids->sid_list[0]);
+	EXPECT_EQ(g_tsg_para.service_chaining_sid, segment_ids->sid_list[1]);
+		
+	session_segment_id_free(&a_stream, 0, (void *)segment_ids);
+	session_control_segment_ids_async(&a_stream, NULL);
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_CHAINING, (void *)hited_s_chaining);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_CHAINING, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_CHAINING));
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_INTERCEPT, (void *)hited_intercept);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT));
+}
+
+TEST(TSGMaster, ServiceChainingAndShapingAndInterceptPolicy)
+{
+	const struct streaminfo a_stream={0};
+	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
+
+	// Set Shaping
+	matched_policy[0].action=TSG_ACTION_SHAPING;
+	matched_policy[0].rule_id=TSG_ACTION_SHAPING;
+	
+	matched_shaping_rules_deal(&a_stream, &matched_policy[0], 1, 0);
+	const struct matched_policy_rules *hited_shaping=session_matched_rules_get(&a_stream, TSG_SERVICE_SHAPING);
+	EXPECT_NE(nullptr, hited_shaping);
+	EXPECT_EQ(1, hited_shaping->n_rules);
+	EXPECT_EQ(TSG_ACTION_SHAPING, hited_shaping->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_SHAPING, hited_shaping->rules[0].rule_id);
+
+	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(1, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.shaping_sid, segment_ids->sid_list[0]);
+
+	// Set Service chaining
+	matched_policy[0].action=TSG_ACTION_S_CHAINING;
+	matched_policy[0].rule_id=TSG_ACTION_S_CHAINING;
+	
+	matched_service_chaining_rules_deal(&a_stream, &matched_policy[0], 1, 0);
+	const struct matched_policy_rules *hited_s_chaining=session_matched_rules_get(&a_stream, TSG_SERVICE_CHAINING);
+	EXPECT_NE(nullptr, hited_s_chaining);
+	EXPECT_EQ(1, hited_s_chaining->n_rules);
+	EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->rules[0].rule_id);
+
+	segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(2, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.service_chaining_sid, segment_ids->sid_list[0]);
+	EXPECT_EQ(g_tsg_para.shaping_sid, segment_ids->sid_list[1]);
+	
+	// Set Intercept
+	matched_policy[1].action=TSG_ACTION_INTERCEPT;
+	matched_policy[1].rule_id=TSG_ACTION_INTERCEPT;
+	matched_policy[1].service_id=TSG_SERVICE_INTERCEPT;
+	
+	matched_intercept_rules_deal(&a_stream, &matched_policy[1], 1, 0);
+	const struct matched_policy_rules *hited_intercept=session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT);
+	EXPECT_NE(nullptr, hited_intercept);
+	EXPECT_EQ(1, hited_intercept->n_rules);
+	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].rule_id);
+	EXPECT_EQ(TSG_SERVICE_INTERCEPT, hited_intercept->rules[0].service_id);
+
+	segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(3, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.intercept_sid, segment_ids->sid_list[0]);
+	EXPECT_EQ(g_tsg_para.service_chaining_sid, segment_ids->sid_list[1]);
+	EXPECT_EQ(g_tsg_para.shaping_sid, segment_ids->sid_list[2]);
+	
+	session_segment_id_free(&a_stream, 0, (void *)segment_ids);
+	session_control_segment_ids_async(&a_stream, NULL);
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_SHAPING, (void *)hited_shaping);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_SHAPING, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_SHAPING));
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_CHAINING, (void *)hited_s_chaining);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_CHAINING, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_CHAINING));
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_INTERCEPT, (void *)hited_intercept);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT));
 }
 
 int main(int argc, char *argv[])

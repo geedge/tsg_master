@@ -739,6 +739,11 @@ int session_state_sync_in_opening_and_closing(const struct streaminfo *a_stream,
 {
 	struct segment_id_list sid_list={0};
 
+	if(g_tsg_para.intercept_sid>0)
+	{
+		sid_list.sid_list[sid_list.sz_sidlist++]=(unsigned short)g_tsg_para.intercept_sid;
+	}
+
 	if(g_tsg_para.service_chaining_sid>0)
 	{
 		sid_list.sid_list[sid_list.sz_sidlist++]=(unsigned short)g_tsg_para.service_chaining_sid;
@@ -801,6 +806,95 @@ int session_state_update_policy(struct update_policy *u_policy, struct maat_rule
 	return 0;
 }
 
+enum policy_type session_state_get_policy_type(TSG_SERVICE service)
+{
+	enum policy_type p_type=POLICY_UPDATE_MAX;
+	switch(service)
+	{
+		case	TSG_SERVICE_CHAINING:
+			if(g_tsg_para.service_chaining_sid==0)
+			{
+				break;
+			}
+			return POLICY_UPDATE_SERVICE_CHAINING;
+		case	TSG_SERVICE_SHAPING:
+			if(g_tsg_para.shaping_sid==0)
+			{
+				break;
+			}
+			return POLICY_UPDATE_SHAPING;
+		case	TSG_SERVICE_INTERCEPT:
+			if(g_tsg_para.intercept_sid==0)
+			{
+				break;
+			}
+			return POLICY_UPDATE_INTERCEPT;
+		default:
+			break;
+	}
+
+	return p_type;
+}
+
+unsigned short session_state_update_segment_sids(struct segment_id_list *segment_ids, enum policy_type p_type)
+{
+	unsigned short segment_id=0;
+	unsigned short tmp_sids[POLICY_UPDATE_MAX]={0};
+
+	switch(p_type)
+	{
+		case	POLICY_UPDATE_SHAPING:
+			segment_id=g_tsg_para.shaping_sid;
+			break;
+		case	POLICY_UPDATE_INTERCEPT:
+			segment_id=g_tsg_para.intercept_sid;
+			break;
+		case	POLICY_UPDATE_SERVICE_CHAINING:
+			segment_id=g_tsg_para.service_chaining_sid;
+			break;
+		default:
+			return 0;
+	}
+	
+	for(size_t i=0; i<segment_ids->sz_sidlist; i++)
+	{
+		if(segment_ids->sid_list[i]==segment_id || segment_id==0)
+		{
+			return segment_id;
+		}
+
+		if(segment_ids->sid_list[i]==g_tsg_para.intercept_sid)
+		{
+			tmp_sids[POLICY_UPDATE_INTERCEPT]=segment_ids->sid_list[i];
+			continue;
+		}
+
+		if(segment_ids->sid_list[i]==g_tsg_para.service_chaining_sid)
+		{
+			tmp_sids[POLICY_UPDATE_SERVICE_CHAINING]=segment_ids->sid_list[i];
+			continue;
+		}
+
+		if(segment_ids->sid_list[i]==g_tsg_para.shaping_sid)
+		{
+			tmp_sids[POLICY_UPDATE_SHAPING]=segment_ids->sid_list[i];
+			continue;
+		}
+	}
+
+	tmp_sids[p_type]=segment_id;
+	segment_ids->sz_sidlist=0;
+	for(int i=0; i<POLICY_UPDATE_MAX; i++)
+	{
+		if(tmp_sids[i]!=0)
+		{
+			segment_ids->sid_list[segment_ids->sz_sidlist++]=tmp_sids[i];
+		}
+	}
+	
+	return segment_id;
+}
+
 size_t matched_rules_increase_in_activing(const struct matched_policy_rules *matched_rules, struct maat_rule *new_rules, size_t n_new_rules, struct maat_rule *inc_rules, size_t n_inc_rules)
 {
 	size_t n_inc_rules_offset=0;
@@ -828,32 +922,11 @@ size_t matched_rules_increase_in_activing(const struct matched_policy_rules *mat
 
 int session_set_segment_id_in_activing(const struct streaminfo *a_stream, TSG_SERVICE service, struct maat_rule *inc_rules, size_t n_inc_rules)
 {
-	unsigned short segment_id=0;
-	enum policy_type p_type=POLICY_UPDATE_MAX;
-	switch(service)
-	{
-		case	TSG_SERVICE_CHAINING:
-			p_type=POLICY_UPDATE_SERVICE_CHAINING;
-			segment_id=(unsigned short)g_tsg_para.service_chaining_sid;
-			break;
-		case	TSG_SERVICE_SHAPING:
-			p_type=POLICY_UPDATE_SHAPING;
-			segment_id=(unsigned short)g_tsg_para.shaping_sid;
-			break;
-		case	TSG_SERVICE_INTERCEPT:
-			p_type=POLICY_UPDATE_INTERCEPT;
-			segment_id=(unsigned short)g_tsg_para.intercept_sid;
-			break;
-		default:
-			return 0;
-	}
-
-	if(segment_id==0)
+	enum policy_type p_type=session_state_get_policy_type(service);
+	if(p_type>=POLICY_UPDATE_MAX)
 	{
 		return 0;
 	}
-
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "set_segment_id", "set in active status , service:%d, sid:%u,session addr:%s", service, segment_id, PRINTADDR(a_stream, g_tsg_para.level));
 
 	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(a_stream);
 	if(segment_ids==NULL)
@@ -862,21 +935,15 @@ int session_set_segment_id_in_activing(const struct streaminfo *a_stream, TSG_SE
 		memset(segment_ids, 0, sizeof(struct segment_id_list));
 	}
 
-	int add_sid=1;
-	for(size_t i=0; i<segment_ids->sz_sidlist; i++)
+	unsigned short segment_id=session_state_update_segment_sids(segment_ids, p_type);
+	if(segment_id==0)
 	{
-		if(segment_ids->sid_list[i]==segment_id)
-		{
-			add_sid=0;
-			break;
-		}
+		dictator_free(a_stream->threadnum, (void *)segment_ids);
+		return 0;
 	}
 
-	if(add_sid==1)
-	{
-		segment_ids->sid_list[segment_ids->sz_sidlist++]=segment_id;
-	}
-	
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "set_segment_id", "set in active status , service:%d, sid:%u,session addr:%s", service, segment_id, PRINTADDR(a_stream, g_tsg_para.level));
+
 	struct segment_id_list sid_list;
 	sid_list.sz_sidlist=1;
 	sid_list.sid_list[0]=segment_id;
@@ -888,7 +955,7 @@ int session_set_segment_id_in_activing(const struct streaminfo *a_stream, TSG_SE
 	if(service==TSG_SERVICE_INTERCEPT)
 	{
 		memset(&policy_array[0].cmsg, 0, sizeof(struct proxy_cmsg));
-		tsg_proxy_update_policy_fill(a_stream, &(policy_array[0]));
+		tsg_proxy_update_policy_fill(a_stream, &(policy_array[0]), segment_ids);
 
 		struct matched_policy_rules *s_chaining = (struct matched_policy_rules *)session_matched_rules_get(a_stream, TSG_SERVICE_CHAINING);
 		if(s_chaining!=NULL)
@@ -1336,7 +1403,7 @@ static int session_l7_protocol_idnetify(const struct streaminfo *a_stream, struc
 
 static size_t tsg_scan_fqdn_category_id(const struct streaminfo *a_stream, struct maat *feather, char *domain, int table_idx, struct maat_state *s_mid, maat_rule *results, size_t n_result)
 {
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute!=NULL && domain!=NULL && table_idx>=0)
 	{
 		srt_attribute->n_fqdn_category_ids=tsg_get_fqdn_category_ids(g_tsg_maat_feather, domain, srt_attribute->fqdn_category_ids, MAX_CATEGORY_ID_NUM);
@@ -1530,19 +1597,19 @@ unsigned char session_matched_rules_deal(const struct streaminfo *a_stream, stru
 	{
 		matched_service_chaining_rules_deal(a_stream, s_chaining_rules, n_s_chaining_rules, a_stream->threadnum);
 	}
-
-	struct maat_rule intercept_rules[MAX_RESULT_NUM]={0};
-	size_t n_intercept_rules=tsg_select_rules_by_service_id(rules, n_rules, intercept_rules, MAX_RESULT_NUM, TSG_SERVICE_INTERCEPT);
-	if(n_intercept_rules>0)
-	{
-		matched_intercept_rules_deal(a_stream, intercept_rules, n_intercept_rules, a_stream->threadnum);
-	}
 	
 	struct maat_rule shaping_rules[MAX_RESULT_NUM]={0};
 	size_t n_shaping_rules=tsg_select_rules_by_service_id(rules, n_rules, shaping_rules, MAX_RESULT_NUM, TSG_SERVICE_SHAPING);
 	if(n_shaping_rules>0)
 	{
 		matched_shaping_rules_deal(a_stream, shaping_rules, n_shaping_rules, a_stream->threadnum);
+	}
+
+	struct maat_rule intercept_rules[MAX_RESULT_NUM]={0};
+	size_t n_intercept_rules=tsg_select_rules_by_service_id(rules, n_rules, intercept_rules, MAX_RESULT_NUM, TSG_SERVICE_INTERCEPT);
+	if(n_intercept_rules>0)
+	{
+		matched_intercept_rules_deal(a_stream, intercept_rules, n_intercept_rules, a_stream->threadnum);
 	}
 
 	struct maat_rule security_rules[MAX_RESULT_NUM]={0};

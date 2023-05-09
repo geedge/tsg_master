@@ -6,6 +6,7 @@
 #include "tsg_send_log.h"
 #include "tsg_sync_state.h"
 #include "tsg_proxy.h"
+#include "tsg_bridge.h"
 
 #define DEFAULT_WINSCLE		0
 #define DEFAULT_MSS			1460
@@ -19,6 +20,21 @@ enum tsg_proxy_ipv6hdr_parse_error{
 	TSG_PROXY_IPV6HDR_NO_TCPHDR = -2,
 	TSG_PROXY_IPV6HDR_INVALID_TYPE = -3,
 };
+
+int update_segment_sids(struct cmsg_int16_array *d_sids_array, unsigned short *s_sids, unsigned int n_s_sids)
+{
+	for(unsigned int i=0; i<n_s_sids; i++)
+	{
+		if(d_sids_array->num>=8)
+		{
+			break;
+		}
+		
+		d_sids_array->value[d_sids_array->num++]=s_sids[i];
+	}
+
+	return 1;
+}
 
 int tsg_proxy_ipv6_header_parse(const void *a_packet, struct pkt_info *pktinfo){
 	if(a_packet == NULL){
@@ -233,7 +249,7 @@ void tsg_proxy_tcp_parse(struct tsg_proxy_tcp_attribute *tcp_attr, struct pkt_in
 
 static struct tsg_proxy_tcp_attribute *tsg_proxy_tcp_attribute_get(const struct streaminfo *stream)
 {
-    struct session_runtime_attribute *srt_attribute = (struct session_runtime_attribute *)session_runtime_attribute_get(stream);
+    struct session_runtime_attribute *srt_attribute = (struct session_runtime_attribute *)session_runtime_attribute_new(stream);
     if (srt_attribute == NULL) {
         MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROXY", "Failed to get session runtime attribute, stream treaceid = %llu", tsg_get_stream_trace_id(stream));
         return NULL;
@@ -497,7 +513,7 @@ static void tsg_proxy_tcp_attribute_dump(tsg_proxy_tcp_attribute *tcp_attr, stru
     return;
 }
 
-void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update_policy *policy)
+void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update_policy *policy, struct segment_id_list *segment_ids)
 {
     struct proxy_cmsg *cmsg = &policy->cmsg;
     struct tsg_proxy_tcp_attribute *tcp_attr = tsg_proxy_tcp_attribute_get(stream);
@@ -524,10 +540,8 @@ void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update
     cmsg->tcp_seq_route_ctx.num = client->route_ctx_len;
     memcpy(cmsg->tcp_seq_route_ctx.value, client->route_ctx, client->route_ctx_len);
 
-    cmsg->tcp_seq_sids.num = client->sid_list.sz_sidlist;
-    for (unsigned int i = 0; i < client->sid_list.sz_sidlist; i++) {
-        cmsg->tcp_seq_sids.value[i] = client->sid_list.sid_list[i];
-    }
+	update_segment_sids(&cmsg->tcp_seq_sids, segment_ids->sid_list+1, segment_ids->sz_sidlist-1);  // delete intercept sid
+	update_segment_sids(&cmsg->tcp_seq_sids, client->sid_list.sid_list, client->sid_list.sz_sidlist);
 
     cmsg->tcp_mss_server = server->mss;
     cmsg->tcp_sack_server = server->sack;
@@ -538,10 +552,8 @@ void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update
     cmsg->tcp_ack_route_ctx.num = server->route_ctx_len;
     memcpy(cmsg->tcp_ack_route_ctx.value, server->route_ctx, server->route_ctx_len);
 
-    cmsg->tcp_ack_sids.num = server->sid_list.sz_sidlist;
-    for (unsigned int i = 0; i < server->sid_list.sz_sidlist; i++) {
-        cmsg->tcp_ack_sids.value[i] = server->sid_list.sid_list[i];
-    }
+	update_segment_sids(&cmsg->tcp_seq_sids, segment_ids->sid_list+1, segment_ids->sz_sidlist-1);  // delete intercept sid
+	update_segment_sids(&cmsg->tcp_ack_sids, server->sid_list.sid_list, server->sid_list.sz_sidlist);
 
     if (client->wscale_set && server->wscale_set) {
         cmsg->tcp_wsacle_exist = 1;
