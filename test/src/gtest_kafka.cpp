@@ -1,6 +1,8 @@
 #include <string.h>
 #include <librdkafka/rdkafka.h>
 
+#include <MESA/cJSON.h>
+
 #ifndef	MIN
 #define	MIN(a,b)	((a)>(b) ? (b) : (a))
 #endif
@@ -56,14 +58,41 @@ const char *rd_kafka_err2str(rd_kafka_resp_err_t err)
 
 int rd_kafka_produce(rd_kafka_topic_t *rkt, int32_t partitition, int msgflags, void *payload, size_t len, const void *key, size_t keylen, void *msg_opaque)
 {
-	int length=MIN(len, sizeof(g_kafka_sendlog[g_kafka_sendlog_cnt]));
-	memcpy((void *)(g_kafka_sendlog[g_kafka_sendlog_cnt++]), payload, length);
+	cJSON *object=cJSON_Parse((const char *)payload);
+	if(object!=NULL)
+	{
+		cJSON_DeleteItemFromObject(object, "common_start_time");
+		cJSON_DeleteItemFromObject(object, "common_end_time");
+		char *result=cJSON_PrintUnformatted(object);
+
+		int length=MIN(strlen(result), sizeof(g_kafka_sendlog[g_kafka_sendlog_cnt]));		
+		memset(g_kafka_sendlog[g_kafka_sendlog_cnt], 0, sizeof(g_kafka_sendlog[g_kafka_sendlog_cnt]));
+		memcpy((void *)(g_kafka_sendlog[g_kafka_sendlog_cnt++]), result, length);
+
+		cJSON_free(result);
+		result=NULL;
+		
+		cJSON_Delete(object);
+		object=NULL;
+	}
+	else
+	{
+		int length=MIN(len, sizeof(g_kafka_sendlog[g_kafka_sendlog_cnt]));
+		memset(g_kafka_sendlog[g_kafka_sendlog_cnt], 0, sizeof(g_kafka_sendlog[g_kafka_sendlog_cnt]));
+		memcpy((void *)(g_kafka_sendlog[g_kafka_sendlog_cnt++]), payload, length);
+	}
+	
 	return 0;
 }
 
 int rd_kafka_get_sendlog_cnt(void)
 {
 	return g_kafka_sendlog_cnt;
+}
+
+void rd_kafka_clean_sendlog_cnt(void)
+{
+	g_kafka_sendlog_cnt=0;
 }
 
 const char *rd_kafka_get_sendlog_payload(int idx)

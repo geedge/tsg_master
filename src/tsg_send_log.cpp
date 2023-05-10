@@ -21,6 +21,7 @@
 #include "tsg_entry.h"
 #include "tsg_bridge.h"
 #include "tsg_send_log.h"
+#include "tsg_sync_state.h"
 #include "tsg_rule_internal.h"
 #include "tsg_send_log_internal.h"
 
@@ -392,7 +393,7 @@ static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle
 static int set_address_list(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	unsigned short tunnel_type=0;
-	char nest_addr_buf[1024];
+	char nest_addr_buf[1024]={0};
 	int tunnel_type_size=sizeof(tunnel_type);
 	
 	MESA_get_stream_opt(a_stream, MSO_STREAM_TUNNEL_TYPE, &tunnel_type, &tunnel_type_size);
@@ -1362,6 +1363,58 @@ int set_session_flags(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 	return 0;
 }
 
+int set_sce_profile_ids(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
+{
+	struct sce_log_update *sce = (struct sce_log_update *)session_log_update_data_get(a_stream, TSG_SERVICE_CHAINING);
+	if(sce==NULL)
+	{
+		return 0;
+	}
+
+	Value sce_profile_ids_array(kArrayType);
+	for(size_t i=0; i<sce->n_profile_ids; i++)
+	{
+		sce_profile_ids_array.PushBack((unsigned int)(sce->profile_ids[i]), _handle->document->GetAllocator());
+	}
+
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_SCE_PROFILE_IDS].name, (void *) &sce_profile_ids_array, TLD_TYPE_OBJECT);
+
+	return 0;
+}
+
+int set_shaping_profile_ids(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
+{
+	struct shaper_log_update *shaping = (struct shaper_log_update *)session_log_update_data_get(a_stream, TSG_SERVICE_SHAPING);
+	if(shaping==NULL)
+	{
+		return 0;
+	}
+
+	Value shaping_object(kObjectType);
+
+	Value shaping_array(kArrayType);
+	for(size_t i=0; i<shaping->n_shaper_rule; i++)
+	{
+		Value object(kObjectType);
+		object.AddMember("rule_id", (unsigned int)shaping->shaper_rules[i].rule_id, _handle->document->GetAllocator());
+
+		Value shaping_profile_ids_array(kArrayType);
+		for(size_t j=0; j<shaping->shaper_rules[i].n_profile_ids; j++)
+		{
+			shaping_profile_ids_array.PushBack((unsigned long)(shaping->shaper_rules[i].profile_ids[j]), _handle->document->GetAllocator());
+		}
+
+		add_object_member(_handle, &object, "profile_ids", shaping_profile_ids_array)
+		shaping_array.PushBack(object, _handle->document->GetAllocator());
+	}
+
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_SHAPING_PROFILE_IDS].name, &shaping_array, TLD_TYPE_OBJECT);
+
+	//add_object_member(_handle, &shaping_object, _instance->id2field[LOG_COMMON_SHAPING_PROFILE_IDS].name, shaping_array);
+
+	return 0;
+}
+
 int set_shaping_rule_ids(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	if(a_stream==NULL)
@@ -1378,7 +1431,7 @@ int set_shaping_rule_ids(struct tsg_log_instance_t *_instance, struct TLD_handle
 	Value shaping_rule_ids_array(kArrayType);
 	for(size_t i=0; i<hited_shaping->n_rules; i++)
 	{
-		shaping_rule_ids_array.PushBack((unsigned int)(hited_shaping->rules[i].rule_id), _handle->document->GetAllocator());
+		shaping_rule_ids_array.PushBack((unsigned long)(hited_shaping->rules[i].rule_id), _handle->document->GetAllocator());
 	}
 
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SHAPING_RULE_IDS].name, (void *) &shaping_rule_ids_array, TLD_TYPE_OBJECT);
@@ -1684,6 +1737,25 @@ int set_lua_scripts_result(struct tsg_log_instance_t *_instance, struct TLD_hand
 		}
 
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_EXTRACT_INFO].name, &array, TLD_TYPE_OBJECT);
+	}
+
+	return 0;
+}
+
+int set_intercept_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
+{
+	struct proxy_log_update *proxy = (struct proxy_log_update *)session_log_update_data_get(a_stream, TSG_SERVICE_INTERCEPT);
+	if(proxy!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SSL_PINNING_STATE].name, (void *)(long)proxy->ssl_pinning_state, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SSL_CERT_VERIFY].name, (void *)(long)proxy->ssl_cert_verify, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SSL_INTERCEPT_STATE].name, (void *)(long)proxy->ssl_intercept_state, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SSL_UPSTREAM_LATENCY].name, (void *)(long)proxy->ssl_upstream_latency, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SSL_DOWNSTREAM_LATENCY].name, (void *)(long)proxy->ssl_downstream_latency, TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SSL_UPSTREAM_VERSION].name, proxy->ssl_upstream_version, TLD_TYPE_STRING);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SSL_DOWNSTREAM_VERSION].name, proxy->ssl_downstream_version, TLD_TYPE_STRING);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SSL_ERROR].name, proxy->ssl_error, TLD_TYPE_STRING);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SSL_PASSTHROUGHT_REASON].name, proxy->ssl_passthrough_reason, TLD_TYPE_STRING);
 	}
 
 	return 0;
@@ -2056,7 +2128,7 @@ int send_log_by_type(struct tsg_log_instance_t *_instance, struct TLD_handle_t *
 	return 0;
 }
 
-int send_security_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, struct maat_rule *rules, size_t n_rules, int thread_id)
+int send_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, LOG_TYPE log_type, struct maat_rule *rules, size_t n_rules, int thread_id)
 {
 	int fs_id=0,repeat_cnt=0;
 	int policy_id[MAX_RESULT_NUM]={0};
@@ -2118,7 +2190,7 @@ int send_security_event_log(struct tsg_log_instance_t *_instance, struct TLD_han
 		
 		set_xxxx_from_user_region(_handle, _instance, &(rules[i]), thread_id);
 
-		send_log_by_type(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, thread_id);
+		send_log_by_type(_instance, _handle, a_stream, log_type, thread_id);
 
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_POLICY_ID].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_SERVICE].name);
@@ -2166,24 +2238,32 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 
 	set_application_behavior(_instance, _handle, a_stream);
 
-	struct matched_policy_rules *matched_security_rules=NULL;
+	struct matched_policy_rules *matched_rules=NULL;
 
 	switch(log_type)
 	{
 		case	LOG_TYPE_SECURITY_EVENT:
-			send_security_event_log(_instance, _handle, a_stream, rules, n_rules, thread_id);
+			send_event_log(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, rules, n_rules, thread_id);
 			break;
 		case	LOG_TYPE_SESSION_RECORD:
 		case	LOG_TYPE_TRANSACTION_RECORD:
-			matched_security_rules=(struct matched_policy_rules *)session_matched_rules_get(a_stream, TSG_SERVICE_SECURITY);
-			if(matched_security_rules!=NULL && matched_security_rules->n_rules>0)
+			matched_rules=(struct matched_policy_rules *)session_matched_rules_get(a_stream, TSG_SERVICE_SECURITY);
+			if(matched_rules!=NULL && matched_rules->n_rules>0)
 			{
-				if(matched_security_rules->rules[0].action!=TSG_ACTION_INTERCEPT)
-				{
-					send_security_event_log(_instance,	_handle, a_stream, matched_security_rules->rules, matched_security_rules->n_rules, thread_id);
-					session_matched_rules_free(a_stream, TSG_SERVICE_SECURITY, (void *)matched_security_rules);
-					session_matched_rules_async(a_stream, TSG_SERVICE_SECURITY, NULL);
-				}
+				send_event_log(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, matched_rules->rules, matched_rules->n_rules, thread_id);
+				session_matched_rules_free(a_stream, TSG_SERVICE_SECURITY, (void *)matched_rules);
+				session_matched_rules_async(a_stream, TSG_SERVICE_SECURITY, NULL);
+				matched_rules=NULL;
+			}
+
+			matched_rules=(struct matched_policy_rules *)session_matched_rules_get(a_stream, TSG_SERVICE_INTERCEPT);
+			if(matched_rules!=NULL && matched_rules->n_rules>0)
+			{
+				set_intercept_info(instance, handle, a_stream);
+				send_event_log(_instance, _handle, a_stream, LOG_TYPE_INTERCEPT_ENEVT, matched_rules->rules, matched_rules->n_rules, thread_id);
+				session_matched_rules_free(a_stream, TSG_SERVICE_INTERCEPT, (void *)matched_rules);
+				session_matched_rules_async(a_stream, TSG_SERVICE_INTERCEPT, NULL);
+				matched_rules=NULL;
 			}
 			// no break;
 		case	LOG_TYPE_INTERIM_SESSION_RECORD:
@@ -2191,6 +2271,8 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 			{
 				break;
 			}
+			set_sce_profile_ids(_instance, _handle, a_stream);
+			set_shaping_profile_ids(_instance, _handle, a_stream);
 			set_shaping_rule_ids(_instance, _handle, a_stream);
 			set_nat_linkinfo(_instance, _handle, a_stream);
 			send_log_by_type(_instance, _handle, a_stream, log_type, thread_id);

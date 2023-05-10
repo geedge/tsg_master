@@ -735,6 +735,30 @@ int session_app_gather_results_update_matched_app_id(const struct streaminfo *a_
 	return 1;
 }
 
+int session_state_control_packet(const struct streaminfo *a_stream, void *payload, unsigned int payload_len)
+{
+	if(payload==NULL || payload_len==0)
+	{
+		return 0;
+	}
+	
+	int is_ctrl_pkt=0;
+	const void *raw_pkt = get_rawpkt_from_streaminfo(a_stream);
+	int ret=get_opt_from_rawpkt(raw_pkt, RAW_PKT_GET_IS_CTRL_PKT, (void *)&is_ctrl_pkt);
+	if(ret<0 || is_ctrl_pkt==0)
+	{
+		return 0;
+	}
+
+	ret=tsg_parse_log_update_payload(a_stream, (const void *)payload, payload_len);
+	if(ret>=0)
+	{
+		return 1;
+	}
+	
+	return 0;
+}
+
 int session_state_sync_in_opening_and_closing(const struct streaminfo *a_stream, unsigned char state)
 {
 	struct segment_id_list sid_list={0};
@@ -2060,6 +2084,12 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 	unsigned char state2=APP_STATE_GIVEME;
 	struct udp_session_runtime_context *udp_srt_context=(struct udp_session_runtime_context *)(*pme);
 
+	int is_ctrl_pkt=session_state_control_packet(a_udp, a_udp->pudpdetail->pdata, a_udp->pudpdetail->datalen);
+	if(is_ctrl_pkt==1)
+	{
+		return APP_STATE_DROPPKT;
+	}
+
 	if(*pme==NULL)
 	{
 		unsigned short tunnel_type=0;
@@ -2114,6 +2144,12 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 {
 	struct session_runtime_action_context *_context=(struct session_runtime_action_context *)(*pme);
 
+	int is_ctrl_pkt=session_state_control_packet(a_tcp, a_tcp->ptcpdetail->pdata, a_tcp->ptcpdetail->datalen);
+	if(is_ctrl_pkt==1)
+	{
+		return APP_STATE_DROPPKT;
+	}
+	
 	if(*pme==NULL)
 	{
 		session_state_sync_in_opening_and_closing(a_tcp, a_tcp->pktstate);

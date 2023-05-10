@@ -4,17 +4,18 @@
 
 #include "gtest_common.h"
 #include "tsg_entry.h"
+#include "tsg_sync_state.h"
 #include "tsg_rule_internal.h"
 #include <gtest/gtest.h>
 
 extern int rd_kafka_get_sendlog_cnt(void);
+extern void rd_kafka_clean_sendlog_cnt(void);
 extern const char *rd_kafka_get_sendlog_payload(int idx);
 extern int matched_shaping_rules_deal(const struct streaminfo *a_stream, struct maat_rule *shaping_rules, size_t n_shaping_rules, int thread_seq);;
 extern int matched_service_chaining_rules_deal(const struct streaminfo *a_stream, struct maat_rule *service_chaining_rules, size_t n_service_chaining_rules, int thread_seq);
 extern int matched_intercept_rules_deal(const struct streaminfo * a_stream, struct maat_rule * intercept_rules, size_t n_intercept_rules, int thread_seq);
 
 extern void session_segment_id_free(const struct streaminfo * a_stream, int bridge_id, void * data);
-
 
 TEST(TSGMaster, SetAPPIDHttp)
 {
@@ -299,15 +300,17 @@ TEST(TSGMaster, SecurityPolicySendlog)
 
 	int sendlog_cnt=rd_kafka_get_sendlog_cnt();
 	EXPECT_EQ(9, sendlog_cnt);
-	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(0));
-	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(1));
-	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(2));
-	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(3));
-	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(4));
-	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(5));
-	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(6));
-	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(7));
-	//EXPECT_STREQ("{}", rd_kafka_get_sendlog_payload(8));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":1,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(0));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":2,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(1));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":3,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(2));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":4,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(3));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":5,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(4));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":6,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(5));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":7,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(6));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":8,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(7));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1}", rd_kafka_get_sendlog_payload(8));
+
+	rd_kafka_clean_sendlog_cnt();
 
 	hited_security=session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
 	EXPECT_EQ(nullptr, hited_security);
@@ -655,37 +658,6 @@ TEST(TSGMaster, ShapingAndServiceChainingPolicyNotify)
 	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_CHAINING));
 }
 
-TEST(TSGMaster, InterceptPolicy)
-{
-	const struct streaminfo a_stream={0};
-	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
-
-	matched_policy[1].action=TSG_ACTION_INTERCEPT;
-	matched_policy[1].rule_id=TSG_ACTION_INTERCEPT;
-	matched_policy[1].service_id=TSG_SERVICE_INTERCEPT;
-
-	// Set Intercept
-	matched_intercept_rules_deal(&a_stream, &matched_policy[1], 1, 0);
-	const struct matched_policy_rules *hited_intercept=session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT);
-	EXPECT_NE(nullptr, hited_intercept);
-	EXPECT_EQ(1, hited_intercept->n_rules);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].action);
-	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].rule_id);
-	EXPECT_EQ(TSG_SERVICE_INTERCEPT, hited_intercept->rules[0].service_id);
-
-	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
-	EXPECT_NE(nullptr, segment_ids);
-	EXPECT_EQ(1, segment_ids->sz_sidlist);
-	EXPECT_EQ(g_tsg_para.intercept_sid, segment_ids->sid_list[0]);
-	
-	session_segment_id_free(&a_stream, 0, (void *)segment_ids);
-	session_control_segment_ids_async(&a_stream, NULL);
-
-	session_matched_rules_free(&a_stream, TSG_SERVICE_INTERCEPT, (void *)hited_intercept);
-	session_matched_rules_async(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
-	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT));
-}
-
 TEST(TSGMaster, InterceptAndNOInterceptPolicy)
 {
 	const struct streaminfo a_stream={0};
@@ -845,6 +817,160 @@ TEST(TSGMaster, ServiceChainingAndShapingAndInterceptPolicy)
 	session_matched_rules_free(&a_stream, TSG_SERVICE_INTERCEPT, (void *)hited_intercept);
 	session_matched_rules_async(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
 	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT));
+}
+
+TEST(TSGMaster, InterceptPolicySendLog)
+{
+	const struct streaminfo a_stream={0};
+	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
+	
+	matched_policy[1].do_log=1;
+	matched_policy[1].action=TSG_ACTION_INTERCEPT;
+	matched_policy[1].rule_id=TSG_ACTION_INTERCEPT;
+	matched_policy[1].service_id=TSG_SERVICE_INTERCEPT;
+
+	// Set Intercept
+	matched_intercept_rules_deal(&a_stream, &matched_policy[1], 1, 0);
+	const struct matched_policy_rules *hited_intercept=session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT);
+	EXPECT_NE(nullptr, hited_intercept);
+	EXPECT_EQ(1, hited_intercept->n_rules);
+	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_INTERCEPT, hited_intercept->rules[0].rule_id);
+	EXPECT_EQ(TSG_SERVICE_INTERCEPT, hited_intercept->rules[0].service_id);
+
+	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(1, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.intercept_sid, segment_ids->sid_list[0]);
+
+	session_segment_id_free(&a_stream, 0, (void *)segment_ids);
+	session_control_segment_ids_async(&a_stream, NULL);
+
+	struct proxy_log_update proxy={0, 1, 1, 10, 20, (char*)"upstream_version", (char*)"downstream_version", (char*)"error", (char*)"passthrough_reason"};
+	session_log_update_data_put(&a_stream, TSG_SERVICE_INTERCEPT, (void *)&proxy);
+
+	struct TLD_handle_t *handle=TLD_create(0);
+	matched_policy[0].action=0;
+	matched_policy[0].rule_id=0;
+	matched_policy[0].service_id=0;
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &(matched_policy[0]), 1, 0);
+
+	int sendlog_cnt=rd_kafka_get_sendlog_cnt();
+	EXPECT_EQ(2, sendlog_cnt);
+	// intercept
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"ssl_pinningst\":0,\"ssl_cert_verify\":1,\"ssl_intercept_state\":1,\"ssl_server_side_latency\":10,\"ssl_client_side_latency\":20,\"ssl_server_side_version\":\"upstream_version\",\"ssl_client_side_version\":\"downstream_version\",\"ssl_error\":\"error\",\"ssl_passthrough_reason\":\"passthrough_reason\"}", rd_kafka_get_sendlog_payload(1));
+	// session record
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"ssl_pinningst\":0,\"ssl_cert_verify\":1,\"ssl_intercept_state\":1,\"ssl_server_side_latency\":10,\"ssl_client_side_latency\":20,\"ssl_server_side_version\":\"upstream_version\",\"ssl_client_side_version\":\"downstream_version\",\"ssl_error\":\"error\",\"ssl_passthrough_reason\":\"passthrough_reason\",\"common_policy_id\":2,\"common_service\":3,\"common_vsys_id\":0,\"common_action\":2}", rd_kafka_get_sendlog_payload(0));
+
+	session_log_update_data_put(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
+	rd_kafka_clean_sendlog_cnt();
+
+	hited_intercept=session_matched_rules_get(&a_stream, TSG_SERVICE_INTERCEPT);
+	EXPECT_EQ(nullptr, hited_intercept);
+}
+
+TEST(TSGMaster, ServiceChainingPolicySendLog)
+{
+	const struct streaminfo a_stream={0};
+	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
+	
+	matched_policy[1].do_log=1;
+	matched_policy[1].action=TSG_ACTION_S_CHAINING;
+	matched_policy[1].rule_id=TSG_ACTION_S_CHAINING;
+	matched_policy[1].service_id=TSG_SERVICE_CHAINING;
+
+	// Set Intercept
+	matched_service_chaining_rules_deal(&a_stream, &matched_policy[1], 1, 0);
+	const struct matched_policy_rules *hited_s_chaining=session_matched_rules_get(&a_stream, TSG_SERVICE_CHAINING);
+	EXPECT_NE(nullptr, hited_s_chaining);
+	EXPECT_EQ(1, hited_s_chaining->n_rules);
+	EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_S_CHAINING, hited_s_chaining->rules[0].rule_id);
+	EXPECT_EQ(TSG_SERVICE_CHAINING, hited_s_chaining->rules[0].service_id);
+
+	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(1, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.service_chaining_sid, segment_ids->sid_list[0]);
+
+	session_segment_id_free(&a_stream, 0, (void *)segment_ids);
+	session_control_segment_ids_async(&a_stream, NULL);
+
+	struct sce_log_update sce={8, {1,2,3,4,5,6,7,8}};
+	session_log_update_data_put(&a_stream, TSG_SERVICE_CHAINING, (void *)&sce);
+
+	struct TLD_handle_t *handle=TLD_create(0);
+	matched_policy[0].action=0;
+	matched_policy[0].rule_id=0;
+	matched_policy[0].service_id=0;
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &(matched_policy[0]), 1, 0);
+
+	int sendlog_cnt=rd_kafka_get_sendlog_cnt();
+	EXPECT_EQ(1, sendlog_cnt);
+	// session record
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"sce_profile_ids\":[1,2,3,4,5,6,7,8]}", rd_kafka_get_sendlog_payload(0));
+
+	session_log_update_data_put(&a_stream, TSG_SERVICE_CHAINING, NULL);
+	rd_kafka_clean_sendlog_cnt();
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_CHAINING, (void *)hited_s_chaining);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_CHAINING, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_CHAINING));
+
+	hited_s_chaining=session_matched_rules_get(&a_stream, TSG_SERVICE_CHAINING);
+	EXPECT_EQ(nullptr, hited_s_chaining);
+}
+
+TEST(TSGMaster, ShapingPolicySendLog)
+{
+	const struct streaminfo a_stream={0};
+	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
+	
+	matched_policy[1].do_log=1;
+	matched_policy[1].action=TSG_ACTION_SHAPING;
+	matched_policy[1].rule_id=TSG_ACTION_SHAPING;
+	matched_policy[1].service_id=TSG_SERVICE_SHAPING;
+
+	// Set Intercept
+	matched_shaping_rules_deal(&a_stream, &matched_policy[1], 1, 0);
+	const struct matched_policy_rules *hited_shaping=session_matched_rules_get(&a_stream, TSG_SERVICE_SHAPING);
+	EXPECT_NE(nullptr, hited_shaping);
+	EXPECT_EQ(1, hited_shaping->n_rules);
+	EXPECT_EQ(TSG_ACTION_SHAPING, hited_shaping->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_SHAPING, hited_shaping->rules[0].rule_id);
+	EXPECT_EQ(TSG_SERVICE_SHAPING, hited_shaping->rules[0].service_id);
+
+	struct segment_id_list *segment_ids=(struct segment_id_list *)session_control_segment_ids_get(&a_stream);
+	EXPECT_NE(nullptr, segment_ids);
+	EXPECT_EQ(1, segment_ids->sz_sidlist);
+	EXPECT_EQ(g_tsg_para.shaping_sid, segment_ids->sid_list[0]);
+
+	session_segment_id_free(&a_stream, 0, (void *)segment_ids);
+	session_control_segment_ids_async(&a_stream, NULL);
+
+	struct shaper_log_update shaping={1, {TSG_ACTION_SHAPING, 8, {1,2,3,4,5,6,7,8}}};
+	session_log_update_data_put(&a_stream, TSG_SERVICE_SHAPING, (void *)&shaping);
+
+	struct TLD_handle_t *handle=TLD_create(0);
+	matched_policy[0].action=0;
+	matched_policy[0].rule_id=0;
+	matched_policy[0].service_id=0;
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &(matched_policy[0]), 1, 0);
+
+	int sendlog_cnt=rd_kafka_get_sendlog_cnt();
+	EXPECT_EQ(1, sendlog_cnt);
+	// session record
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"shaping_profile_ids\":[{\"rule_id\":32,\"profile_ids\":[1,2,3,4,5,6,7,8]}],\"common_shaping_rule_ids\":[32]}", rd_kafka_get_sendlog_payload(0));
+
+	session_log_update_data_put(&a_stream, TSG_SERVICE_SHAPING, NULL);
+	rd_kafka_clean_sendlog_cnt();
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_SHAPING, (void *)hited_shaping);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_SHAPING, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_SHAPING));
+
+	hited_shaping=session_matched_rules_get(&a_stream, TSG_SERVICE_SHAPING);
+	EXPECT_EQ(nullptr, hited_shaping);
 }
 
 int main(int argc, char *argv[])

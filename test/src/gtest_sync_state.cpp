@@ -19,6 +19,41 @@ unsigned long long tsg_get_stream_trace_id(const struct streaminfo *a_stream)
     return 10;
 }
 
+void *session_log_update_data_get(const struct streaminfo *a_stream, enum TSG_SERVICE service)
+{
+    switch (service)
+    {
+    case TSG_SERVICE_INTERCEPT:
+        return stream_bridge_async_data_get(a_stream, BRIDGE_TYPE_LOG_UPDATE_PROXY);
+
+    case TSG_SERVICE_CHAINING:
+        return stream_bridge_async_data_get(a_stream, BRIDGE_TYPE_LOG_UPDATE_SCE);
+
+    case TSG_SERVICE_SHAPING:
+        return stream_bridge_async_data_get(a_stream, BRIDGE_TYPE_LOG_UPDATE_SHAPER);
+    default:
+        return NULL;
+    }
+}
+
+int session_log_update_data_put(const struct streaminfo *a_stream, enum TSG_SERVICE service, void *data)
+{
+    switch (service)
+    {
+    case TSG_SERVICE_INTERCEPT:
+        return stream_bridge_async_data_put(a_stream, BRIDGE_TYPE_LOG_UPDATE_PROXY, data);
+
+    case TSG_SERVICE_CHAINING:
+        return stream_bridge_async_data_put(a_stream, BRIDGE_TYPE_LOG_UPDATE_SCE, data);
+
+    case TSG_SERVICE_SHAPING:
+        return stream_bridge_async_data_put(a_stream, BRIDGE_TYPE_LOG_UPDATE_SHAPER, data);
+
+    default:
+        return 0;
+    }
+}
+
 TEST(SESSION_STATE, IllegalPara)
 {
     struct streaminfo a_stream = {0};
@@ -139,7 +174,6 @@ TEST(POLICY_UPDATE, Sce)
     {
         test.ids[i] = 100 + i;
     }
-
     tsg_sync_policy_update(&a_stream, &test, 1);
 
     ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
@@ -157,6 +191,35 @@ TEST(POLICY_UPDATE, Sce)
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
 }
 
+TEST(POLICY_UPDATE, SceOverLimitIds)
+{
+    char ctrl_pkt_buf[1024] = {0};
+    int ctrl_pkt_len = 0;
+    struct streaminfo a_stream = {0};
+    struct update_policy test;
+    memset(&test, 0, sizeof(test));
+    test.type = POLICY_UPDATE_SERVICE_CHAINING;
+    test.n_ids = 4;
+    for (int i = 0; i < test.n_ids; i++)
+    {
+        test.ids[i] = 100 + i;
+    }
+    test.n_ids += UPDATE_POLICY_RULE_IDS;
+    tsg_sync_policy_update(&a_stream, &test, 1);
+
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
+    mpack_tree_t tree;
+    mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
+    mpack_tree_parse(&tree);
+    mpack_node_t root = mpack_tree_root(&tree);
+
+    mpack_node_t sce_map = mpack_node_map_cstr(mpack_node_map_cstr(root, "params"), "sce");
+    EXPECT_EQ(mpack_node_array_length(mpack_node_map_cstr(sce_map, "rule_ids")), UPDATE_POLICY_RULE_IDS);
+    EXPECT_EQ(0, mpack_node_i64(mpack_node_array_at(mpack_node_map_cstr(sce_map, "rule_ids"), 5)));
+
+    EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
+}
+
 TEST(POLICY_UPDATE, Shaper)
 {
     char ctrl_pkt_buf[1024] = {0};
@@ -169,7 +232,6 @@ TEST(POLICY_UPDATE, Shaper)
     {
         test.ids[i] = 10000 + i;
     }
-
     tsg_sync_policy_update(&a_stream, &test, 1);
 
     ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
@@ -187,7 +249,36 @@ TEST(POLICY_UPDATE, Shaper)
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
 }
 
-TEST(SESSION_STATE, ActiveStateServiceChainingAndShaping0)
+TEST(POLICY_UPDATE, ShaperOverLimitIds)
+{
+    char ctrl_pkt_buf[1024] = {0};
+    int ctrl_pkt_len = 0;
+    struct streaminfo a_stream = {0};
+    struct update_policy test;
+    memset(&test, 0, sizeof(test));
+    test.type = POLICY_UPDATE_SHAPING;
+    test.n_ids = 6;
+    for (int i = 0; i < test.n_ids; i++)
+    {
+        test.ids[i] = 10000 + i;
+    }
+    test.n_ids += UPDATE_POLICY_RULE_IDS;
+    tsg_sync_policy_update(&a_stream, &test, 1);
+
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
+    mpack_tree_t tree;
+    mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
+    mpack_tree_parse(&tree);
+    mpack_node_t root = mpack_tree_root(&tree);
+
+    mpack_node_t shaper_map = mpack_node_map_cstr(mpack_node_map_cstr(root, "params"), "shaper");
+    EXPECT_EQ(mpack_node_array_length(mpack_node_map_cstr(shaper_map, "rule_ids")), UPDATE_POLICY_RULE_IDS);
+    EXPECT_EQ(0, mpack_node_i64(mpack_node_array_at(mpack_node_map_cstr(shaper_map, "rule_ids"), 7)));
+
+    EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
+}
+
+TEST(POLICY_UPDATE, ActiveStateServiceChainingAndShaping0)
 {
     struct streaminfo a_stream = {0};
     struct update_policy policy_array[POLICY_UPDATE_MAX];
@@ -238,7 +329,7 @@ TEST(SESSION_STATE, ActiveStateServiceChainingAndShaping0)
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
 }
 
-TEST(SESSION_STATE, ActiveStateServiceChainingAndShaping1)
+TEST(POLICY_UPDATE, ActiveStateServiceChainingAndShaping1)
 {
     struct streaminfo a_stream = {0};
     struct update_policy policy_array[2];
@@ -349,10 +440,10 @@ static void gtest_cmsg_init(struct proxy_cmsg *cmsg)
     cmsg->ssl_client_ja3_fingerprint = (char *)calloc(1, 256);
     snprintf(cmsg->ssl_client_ja3_fingerprint, 256, "thisistest=%d", 15);
 
-    cmsg->fqdn_cat_id_val.num = 4;
+    cmsg->fqdn_cat_ids.num = 4;
     for (size_t i = 0; i < 4; i++)
     {
-        cmsg->fqdn_cat_id_val.value[i] = i + 1;
+        cmsg->fqdn_cat_ids.value[i] = i + 1;
     }
 
     cmsg->tcp_seq_sids.num = 5;
@@ -408,6 +499,7 @@ TEST(POLICY_UPDATE, Proxy)
     int ctrl_pkt_len = 0;
     struct streaminfo a_stream = {0};
     struct update_policy test;
+    memset(&test, 0, sizeof(test));
     struct proxy_cmsg cmsg;
     test.type = POLICY_UPDATE_INTERCEPT;
     test.n_ids = 6;
@@ -464,20 +556,598 @@ TEST(POLICY_UPDATE, Proxy)
         EXPECT_EQ(i + 5, mpack_node_u8(mpack_node_array_at(tcp_ack_route_ctxs, i)));
     }
 
-    // // sce
-    // EXPECT_EQ(mpack_type_nil, mpack_node_type(mpack_node_map_cstr(params, "sce")));
+    EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
+    gtest_cmsg_destroy(&cmsg);
+}
 
-    // // shaper
-    // EXPECT_EQ(mpack_type_nil, mpack_node_type(mpack_node_map_cstr(params, "shaper")));
+TEST(POLICY_UPDATE, ProxyOverLimit)
+{
+    char ctrl_pkt_buf[1024] = {0};
+    int ctrl_pkt_len = 0;
+    struct streaminfo a_stream = {0};
+    struct update_policy test;
+    struct proxy_cmsg cmsg;
+    test.type = POLICY_UPDATE_INTERCEPT;
+    test.n_ids = 6;
+    for (int i = 0; i < test.n_ids; i++)
+    {
+        test.ids[i] = 10000 + i;
+    }
+
+    gtest_cmsg_init(&cmsg);
+    memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
+    test.cmsg.fqdn_cat_ids.num += FQDN_CAT_ID_VALS;
+    test.cmsg.tcp_ack_sids.num += TCP_XXX_SIDS;
+    test.cmsg.tcp_seq_sids.num += TCP_XXX_SIDS;
+    test.cmsg.tcp_seq_route_ctx.num += TCP_XXX_ROUTE_CTX;
+    test.cmsg.tcp_ack_route_ctx.num += TCP_XXX_ROUTE_CTX;
+    tsg_sync_policy_update(&a_stream, &test, 1);
+
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
+    mpack_tree_t tree;
+    mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
+    mpack_tree_parse(&tree);
+    mpack_node_t root = mpack_tree_root(&tree);
+    mpack_node_t params = mpack_node_map_cstr(root, "params");
+
+    // proxy
+    EXPECT_EQ(mpack_type_map, mpack_node_type(mpack_node_map_cstr(params, "proxy")));
+    mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
+
+    mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
+
+    mpack_node_t fqdn_cat_id_vals = mpack_node_array_at(tcp_handshake, 31);
+    EXPECT_EQ(FQDN_CAT_ID_VALS, mpack_node_array_length(fqdn_cat_id_vals));
+
+    mpack_node_t tcp_seq_sids = mpack_node_array_at(tcp_handshake, 32);
+    EXPECT_EQ(TCP_XXX_SIDS, mpack_node_array_length(tcp_seq_sids));
+
+    mpack_node_t tcp_ack_sids = mpack_node_array_at(tcp_handshake, 33);
+    EXPECT_EQ(TCP_XXX_SIDS, mpack_node_array_length(tcp_ack_sids));
+
+    mpack_node_t tcp_seq_route_ctxs = mpack_node_array_at(tcp_handshake, 34);
+    EXPECT_EQ(TCP_XXX_ROUTE_CTX, mpack_node_array_length(tcp_seq_route_ctxs));
+
+    mpack_node_t tcp_ack_route_ctxs = mpack_node_array_at(tcp_handshake, 35);
+    EXPECT_EQ(TCP_XXX_ROUTE_CTX, mpack_node_array_length(tcp_ack_route_ctxs));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
     gtest_cmsg_destroy(&cmsg);
 }
 
+void gtest_get_sce_mpack_date(char **mpack_data, size_t *mpack_size, uint64_t session_id, char *method, int n_ids)
+{
+    mpack_writer_t writer;
+    mpack_writer_init_growable(&writer, mpack_data, mpack_size);
+    mpack_build_map(&writer);
+
+    // tsync : 2.0
+    mpack_write_cstr(&writer, "tsync");
+    mpack_write_cstr(&writer, "2.0");
+
+    // session_id
+    mpack_write_cstr(&writer, "session_id");
+    mpack_write_u64(&writer, session_id);
+
+    // state
+    mpack_write_cstr(&writer, "state");
+    mpack_write_cstr(&writer, "active");
+
+    // method: log_update
+    mpack_write_cstr(&writer, "method");
+    mpack_write_cstr(&writer, method);
+
+    // params
+    mpack_write_cstr(&writer, "params");
+    mpack_build_map(&writer);
+    {
+        mpack_write_cstr(&writer, "sce");
+        mpack_build_map(&writer);
+        {
+            mpack_write_cstr(&writer, "sf_profile_ids");
+
+            if (n_ids == 0)
+            {
+                mpack_write_nil(&writer);
+            }
+            else
+            {
+                mpack_build_array(&writer);
+                for (int i = 0; i < n_ids; i++)
+                {
+                    mpack_write_u32(&writer, i + 1);
+                }
+                mpack_complete_array(&writer);
+            }
+        }
+        mpack_complete_map(&writer);
+    }
+    mpack_complete_map(&writer);
+    mpack_complete_map(&writer);
+    // printf("mpack_size = %lu\n", (unsigned long)mpack_size);
+    // for (int i = 0; i < mpack_size; i++)
+    // {
+    //     printf("%x ", mpack_data[i]);
+    // }
+    EXPECT_EQ(mpack_writer_destroy(&writer), mpack_ok);
+}
+
+TEST(LOG_UPDATE, SceIllegalLog)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+
+    // error session
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 123456789, (char *)"log_update", 3);
+    EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
+    EXPECT_FALSE(result);
+    free(mpack_data);
+    mpack_data = NULL;
+    mpack_size = 0;
+
+    // error method
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"policy_update", 3);
+    EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+    result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
+    EXPECT_FALSE(result);
+    free(mpack_data);
+    mpack_data = NULL;
+    mpack_size = 0;
+
+    // n_profile_ids = 0
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 0);
+    EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+    result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
+    EXPECT_FALSE(result);
+    free(mpack_data);
+    mpack_data = NULL;
+    mpack_size = 0;
+}
+
+TEST(LOG_UPDATE, SceNormal)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 3);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
+    EXPECT_TRUE(result);
+
+    struct sce_log_update *sce = (struct sce_log_update *)result;
+    EXPECT_EQ(3, sce->n_profile_ids);
+    for (int i = 0; i < (int)sce->n_profile_ids; i++)
+    {
+        EXPECT_EQ(i + 1, sce->profile_ids[i]);
+    }
+
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_INTERCEPT));
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_SHAPING));
+
+    free(result);
+    result = NULL;
+    session_log_update_data_put(&a_stream, TSG_SERVICE_CHAINING, NULL);
+    free(mpack_data);
+    mpack_data = NULL;
+}
+
+TEST(LOG_UPDATE, SceTwice)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 3);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
+    EXPECT_TRUE(result);
+    free(mpack_data);
+    mpack_data = NULL;
+    mpack_size = 0;
+
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 5);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result_2 = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
+    EXPECT_EQ(result_2, result);
+
+    struct sce_log_update *sce = (struct sce_log_update *)result_2;
+    EXPECT_EQ(5, sce->n_profile_ids);
+    for (int i = 0; i < (int)sce->n_profile_ids; i++)
+    {
+        EXPECT_EQ(i + 1, sce->profile_ids[i]);
+    }
+
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_INTERCEPT));
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_SHAPING));
+
+    free(result);
+    result = NULL;
+    session_log_update_data_put(&a_stream, TSG_SERVICE_CHAINING, NULL);
+    free(mpack_data);
+    mpack_data = NULL;
+}
+
+TEST(LOG_UPDATE, SceOverLimitProfileIds)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 3 + SCE_PROFILE_IDS);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
+    EXPECT_TRUE(result);
+
+    struct sce_log_update *sce = (struct sce_log_update *)result;
+    EXPECT_EQ(SCE_PROFILE_IDS, sce->n_profile_ids);
+    for (int i = 0; i < (int)sce->n_profile_ids; i++)
+    {
+        EXPECT_EQ(i + 1, sce->profile_ids[i]);
+    }
+
+    free(result);
+    result = NULL;
+    session_log_update_data_put(&a_stream, TSG_SERVICE_CHAINING, NULL);
+    free(mpack_data);
+    mpack_data = NULL;
+}
+
+void gtest_get_shaper_mpack_date(char **mpack_data, size_t *mpack_size, uint64_t session_id, int n_sh_profile_ids, long long *rules, int n_profile_ids)
+{
+    mpack_writer_t writer;
+    mpack_writer_init_growable(&writer, mpack_data, mpack_size);
+    mpack_build_map(&writer);
+
+    // tsync : 2.0
+    mpack_write_cstr(&writer, "tsync");
+    mpack_write_cstr(&writer, "2.0");
+
+    // session_id
+    mpack_write_cstr(&writer, "session_id");
+    mpack_write_u64(&writer, session_id);
+
+    // state
+    mpack_write_cstr(&writer, "state");
+    mpack_write_cstr(&writer, "active");
+
+    // method: log_update
+    mpack_write_cstr(&writer, "method");
+    mpack_write_cstr(&writer, "log_update");
+
+    // params
+    mpack_write_cstr(&writer, "params");
+    mpack_build_map(&writer);
+    {
+        mpack_write_cstr(&writer, "shaper");
+        mpack_build_array(&writer);
+        for (int i = 0; i < n_sh_profile_ids; i++)
+        {
+            mpack_build_map(&writer);
+            {
+                mpack_write_cstr(&writer, "rule_id");
+                mpack_write_i64(&writer, rules[i]);
+                mpack_write_cstr(&writer, "profile_ids");
+                mpack_build_array(&writer);
+                for (int j = 0; j < n_profile_ids; j++)
+                {
+                    mpack_write_u32(&writer, j + 1);
+                }
+                mpack_complete_array(&writer);
+            }
+            mpack_complete_map(&writer);
+        }
+        mpack_complete_array(&writer);
+    }
+    mpack_complete_map(&writer);
+    mpack_complete_map(&writer);
+    // printf("mpack_size = %lu\n", (unsigned long)mpack_size);
+    // for (int i = 0; i < mpack_size; i++)
+    // {
+    //     printf("%x ", mpack_data[i]);
+    // }
+    EXPECT_EQ(mpack_writer_destroy(&writer), mpack_ok);
+}
+
+TEST(LOG_UPDATE, ShaperNormal)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+    long long rule[4] = {2, 3, 4, 5};
+
+    gtest_get_shaper_mpack_date(&mpack_data, &mpack_size, 10, 4, rule, 3);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_SHAPING);
+    EXPECT_TRUE(result);
+
+    struct shaper_log_update *shaper = (struct shaper_log_update *)result;
+    for (int i = 0; i < (int)shaper->n_shaper_rule; i++)
+    {
+        EXPECT_EQ(i + 2, shaper->shaper_rules[i].rule_id);
+        EXPECT_EQ(3, shaper->shaper_rules[i].n_profile_ids);
+        for (int j = 0; j < (int)shaper->shaper_rules[i].n_profile_ids; j++)
+        {
+            EXPECT_EQ(j + 1, shaper->shaper_rules[i].profile_ids[j]);
+        }
+    }
+
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_INTERCEPT));
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING));
+
+    free(result);
+    result = NULL;
+    session_log_update_data_put(&a_stream, TSG_SERVICE_SHAPING, NULL);
+    free(mpack_data);
+    mpack_data = NULL;
+}
+
+TEST(LOG_UPDATE, ShaperTwice)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+    long long rule[4] = {2, 3, 4, 5};
+
+    gtest_get_shaper_mpack_date(&mpack_data, &mpack_size, 10, 4, rule, 3);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_SHAPING);
+    EXPECT_TRUE(result);
+    free(mpack_data);
+    mpack_data = NULL;
+    mpack_size = 0;
+
+    gtest_get_shaper_mpack_date(&mpack_data, &mpack_size, 10, 3, rule, 4);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result_2 = session_log_update_data_get(&a_stream, TSG_SERVICE_SHAPING);
+    EXPECT_EQ(result_2, result);
+
+    struct shaper_log_update *shaper = (struct shaper_log_update *)result;
+    EXPECT_EQ(3, shaper->n_shaper_rule);
+    for (int i = 0; i < (int)shaper->n_shaper_rule; i++)
+    {
+        EXPECT_EQ(i + 2, shaper->shaper_rules[i].rule_id);
+        EXPECT_EQ(4, shaper->shaper_rules[i].n_profile_ids);
+        for (int j = 0; j < (int)shaper->shaper_rules[i].n_profile_ids; j++)
+        {
+            EXPECT_EQ(j + 1, shaper->shaper_rules[i].profile_ids[j]);
+        }
+    }
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_INTERCEPT));
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING));
+
+    free(result);
+    result = NULL;
+    session_log_update_data_put(&a_stream, TSG_SERVICE_SHAPING, NULL);
+    free(mpack_data);
+    mpack_data = NULL;
+}
+
+TEST(LOG_UPDATE, ShaperOverLimitProfileIds)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+    long long rule[4 + SHAPR_RULE_IDS] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
+
+    gtest_get_shaper_mpack_date(&mpack_data, &mpack_size, 10, 4 + SHAPR_RULE_IDS, rule, 3 + SHAPR_PROFILE_IDS);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_SHAPING);
+    EXPECT_TRUE(result);
+
+    struct shaper_log_update *shaper = (struct shaper_log_update *)result;
+    EXPECT_EQ(shaper->n_shaper_rule, SHAPR_RULE_IDS);
+    for (int i = 0; i < (int)shaper->n_shaper_rule; i++)
+    {
+        EXPECT_EQ(i + 2, shaper->shaper_rules[i].rule_id);
+        EXPECT_EQ(SHAPR_PROFILE_IDS, shaper->shaper_rules[i].n_profile_ids);
+        for (int j = 0; j < (int)shaper->shaper_rules[i].n_profile_ids; j++)
+        {
+            EXPECT_EQ(j + 1, shaper->shaper_rules[i].profile_ids[j]);
+        }
+    }
+
+    free(result);
+    result = NULL;
+    session_log_update_data_put(&a_stream, TSG_SERVICE_SHAPING, NULL);
+    free(mpack_data);
+    mpack_data = NULL;
+}
+
+// if flag = 0 nil  flag = 1 array  flag = 2 ssl_upstream_version = thisisssl_upstream_version_for_test_twice
+void gtest_get_proxy_mpack_date(char **mpack_data, size_t *mpack_size, uint64_t session_id, int flag)
+{
+    mpack_writer_t writer;
+    mpack_writer_init_growable(&writer, mpack_data, mpack_size);
+    mpack_build_map(&writer);
+
+    // tsync : 2.0
+    mpack_write_cstr(&writer, "tsync");
+    mpack_write_cstr(&writer, "2.0");
+
+    // session_id
+    mpack_write_cstr(&writer, "session_id");
+    mpack_write_u64(&writer, session_id);
+
+    // state
+    mpack_write_cstr(&writer, "state");
+    mpack_write_cstr(&writer, "active");
+
+    // method: log_update
+    mpack_write_cstr(&writer, "method");
+    mpack_write_cstr(&writer, "log_update");
+
+    // params
+    mpack_write_cstr(&writer, "params");
+    mpack_build_map(&writer);
+    {
+        mpack_write_cstr(&writer, "proxy");
+        mpack_build_map(&writer);
+        mpack_write_cstr(&writer, "ssl_intercept_info");
+        {
+            if (flag == 0)
+            {
+                mpack_write_nil(&writer);
+            }
+            else
+            {
+                mpack_build_array(&writer);
+                {
+                    mpack_write_u8(&writer, 1);
+                    mpack_write_u64(&writer, 2);
+                    mpack_write_u64(&writer, 3);
+                    if (flag == 2)
+                    {
+                        mpack_write_cstr(&writer, "thisisssl_upstream_version_for_test_twice");
+                        mpack_write_cstr(&writer, "thisisssl_downstream_version_for_test_twice");
+                        mpack_write_u8(&writer, 7);
+                    }
+                    else
+                    {
+                        mpack_write_cstr(&writer, "thisisssl_upstream_version");
+                        mpack_write_cstr(&writer, "thisisssl_downstream_version");
+                        mpack_write_u8(&writer, 4);
+                    }
+
+                    mpack_write_u8(&writer, 5);
+                    mpack_write_cstr(&writer, "thisisssl_error");
+                    mpack_write_cstr(&writer, "thisisssl_passthrough_reason");
+                }
+                mpack_complete_array(&writer);
+            }
+        }
+        mpack_complete_map(&writer);
+    }
+    mpack_complete_map(&writer);
+    mpack_complete_map(&writer);
+    // printf("mpack_size = %lu\n", (unsigned long)mpack_size);
+    // for (int i = 0; i < mpack_size; i++)
+    // {
+    //     printf("%x ", mpack_data[i]);
+    // }
+    EXPECT_EQ(mpack_writer_destroy(&writer), mpack_ok);
+}
+
+TEST(LOG_UPDATE, ProxyIllegalLog)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+
+    gtest_get_proxy_mpack_date(&mpack_data, &mpack_size, 10, 0);
+    EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_INTERCEPT);
+    EXPECT_FALSE(result);
+    free(mpack_data);
+    mpack_data = NULL;
+}
+
+TEST(LOG_UPDATE, ProxyNormal)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+
+    gtest_get_proxy_mpack_date(&mpack_data, &mpack_size, 10, 1);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_INTERCEPT);
+    EXPECT_TRUE(result);
+
+    struct proxy_log_update *proxy = (struct proxy_log_update *)result;
+
+    EXPECT_EQ(1, proxy->ssl_intercept_state);
+    EXPECT_EQ(2, proxy->ssl_upstream_latency);
+    EXPECT_EQ(3, proxy->ssl_downstream_latency);
+    EXPECT_STREQ("thisisssl_upstream_version", proxy->ssl_upstream_version);
+    EXPECT_STREQ("thisisssl_downstream_version", proxy->ssl_downstream_version);
+    EXPECT_EQ(4, proxy->ssl_pinning_state);
+    EXPECT_EQ(5, proxy->ssl_cert_verify);
+    EXPECT_STREQ("thisisssl_error", proxy->ssl_error);
+    EXPECT_STREQ("thisisssl_passthrough_reason", proxy->ssl_passthrough_reason);
+
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING));
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_SHAPING));
+
+    free(proxy->ssl_downstream_version);
+    free(proxy->ssl_error);
+    free(proxy->ssl_passthrough_reason);
+    free(proxy->ssl_upstream_version);
+    free(result);
+    result = NULL;
+    session_log_update_data_put(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
+    free(mpack_data);
+    mpack_data = NULL;
+}
+
+TEST(LOG_UPDATE, ProxyTwice)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+
+    gtest_get_proxy_mpack_date(&mpack_data, &mpack_size, 10, 1);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_INTERCEPT);
+    EXPECT_TRUE(result);
+    free(mpack_data);
+    mpack_data = NULL;
+    mpack_size = 0;
+
+    struct proxy_log_update *proxy = (struct proxy_log_update *)result;
+    char *ssl_upstream_version = proxy->ssl_upstream_version;
+    char *ssl_downstream_version = proxy->ssl_upstream_version;
+    EXPECT_STREQ("thisisssl_upstream_version", proxy->ssl_upstream_version);
+    EXPECT_STREQ("thisisssl_downstream_version", proxy->ssl_downstream_version);
+    EXPECT_EQ(4, proxy->ssl_pinning_state);
+
+    // second
+    gtest_get_proxy_mpack_date(&mpack_data, &mpack_size, 10, 2);
+    EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+
+    void *result_2 = session_log_update_data_get(&a_stream, TSG_SERVICE_INTERCEPT);
+    EXPECT_EQ(result_2, result);
+
+    proxy = (struct proxy_log_update *)result_2;
+    char *ssl_upstream_version_2 = proxy->ssl_upstream_version;
+    char *ssl_downstream_version_2 = proxy->ssl_upstream_version;
+    EXPECT_NE(ssl_upstream_version_2, ssl_upstream_version);
+    EXPECT_NE(ssl_downstream_version_2, ssl_downstream_version);
+
+    EXPECT_STREQ("thisisssl_upstream_version_for_test_twice", proxy->ssl_upstream_version);
+    EXPECT_STREQ("thisisssl_downstream_version_for_test_twice", proxy->ssl_downstream_version);
+    EXPECT_EQ(7, proxy->ssl_pinning_state);
+
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING));
+    EXPECT_FALSE(session_log_update_data_get(&a_stream, TSG_SERVICE_SHAPING));
+
+    free(proxy->ssl_downstream_version);
+    free(proxy->ssl_error);
+    free(proxy->ssl_passthrough_reason);
+    free(proxy->ssl_upstream_version);
+    free(result);
+    result = NULL;
+    session_log_update_data_put(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
+    free(mpack_data);
+    mpack_data = NULL;
+}
+
 int main(int argc, char *argv[])
 {
     g_tsg_para.logger = MESA_create_runtime_log_handle("log/tsg_sync_state", 10);
-
+    // tsg_bridge_init("tsgconf/main.conf");
     testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();
     MESA_destroy_runtime_log_handle(g_tsg_para.logger);

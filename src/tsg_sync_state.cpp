@@ -11,7 +11,7 @@
 
 char *mpack_data = NULL;
 size_t mpack_size = 0;
-static int tsg_mpack_init_map(const struct streaminfo *a_stream, mpack_writer_t *writer, const char *state)
+static int mpack_init_map(const struct streaminfo *a_stream, mpack_writer_t *writer, const char *state)
 {
 	mpack_writer_init_growable(writer, &mpack_data, &mpack_size);
 	mpack_build_map(writer);
@@ -31,9 +31,9 @@ static int tsg_mpack_init_map(const struct streaminfo *a_stream, mpack_writer_t 
 	return 0;
 }
 
-static int tsg_mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *writer)
+static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *writer)
 {
-	mpack_complete_map(writer); // tsg_mpack_init_map
+	mpack_complete_map(writer); // mpack_init_map
 	if (mpack_writer_destroy(writer) != mpack_ok)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "MPACK_WRITER", "An error occurred encoding the data!");
@@ -58,18 +58,18 @@ int tsg_send_session_state(const struct streaminfo *a_stream, unsigned char stat
 	mpack_writer_t writer;
 	if (state == OP_STATE_PENDING)
 	{
-		tsg_mpack_init_map(a_stream, &writer, "opening");
+		mpack_init_map(a_stream, &writer, "opening");
 	}
 	else if (state == OP_STATE_CLOSE)
 	{
-		tsg_mpack_init_map(a_stream, &writer, "closing");
+		mpack_init_map(a_stream, &writer, "closing");
 	}
 	else
 	{
 		return -1;
 	}
 
-	return tsg_mpack_send_pkt(a_stream, &writer);
+	return mpack_send_pkt(a_stream, &writer);
 }
 
 int tsg_sync_resetall_state(const struct streaminfo *a_stream)
@@ -80,12 +80,12 @@ int tsg_sync_resetall_state(const struct streaminfo *a_stream)
 	}
 
 	mpack_writer_t writer;
-	tsg_mpack_init_map(a_stream, &writer, "resetall");
+	mpack_init_map(a_stream, &writer, "resetall");
 
-	return tsg_mpack_send_pkt(a_stream, &writer);
+	return mpack_send_pkt(a_stream, &writer);
 }
 
-static void tsg_mpack_append_str(mpack_writer_t *writer, char *str)
+static void mpack_append_string(mpack_writer_t *writer, char *str)
 {
 	if (str)
 	{
@@ -99,64 +99,67 @@ static void tsg_mpack_append_str(mpack_writer_t *writer, char *str)
 	return;
 }
 
-static void tsg_mpack_append_array_u32(mpack_writer_t *writer, struct cmsg_int32_array *array)
+static void mpack_append_fqdn_cat_ids(mpack_writer_t *writer, struct fqdn_cat_id_val *array)
 {
     if (array->num > 0)
     {
-        mpack_build_array(writer);
-        for (size_t i = 0; i < array->num; i++)
-        {
-            mpack_write_u32(writer, array->value[i]);
-        }
-        mpack_complete_array(writer);
-    }
-    else
-    {
-        mpack_write_nil(writer);
-    }
+		int num = MIN(array->num, FQDN_CAT_ID_VALS);
+		mpack_build_array(writer);
+		for (int i = 0; i < num; i++)
+		{
+			mpack_write_u32(writer, array->value[i]);
+		}
+		mpack_complete_array(writer);
+	}
+	else
+	{
+		mpack_write_nil(writer);
+	}
 
-    return;
+	return;
 }
 
-static void tsg_mpack_append_array_u16(mpack_writer_t *writer, struct cmsg_int16_array *array)
+static void mpack_append_tcp_sids(mpack_writer_t *writer, struct tcp_sids *array)
 {
     if (array->num > 0)
     {
-        mpack_build_array(writer);
-        for (size_t i = 0; i < array->num; i++)
-        {
-            mpack_write_u16(writer, array->value[i]);
-        }
-        mpack_complete_array(writer);
-    }
-    else
-    {
-        mpack_write_nil(writer);
-    }
+		int num = MIN(array->num, TCP_XXX_SIDS);
+		mpack_build_array(writer);
+		for (int i = 0; i < num; i++)
+		{
+			mpack_write_u16(writer, array->value[i]);
+		}
+		mpack_complete_array(writer);
+	}
+	else
+	{
+		mpack_write_nil(writer);
+	}
 
-    return;
+	return;
 }
 
-static void tsg_mpack_append_array_u8(mpack_writer_t *writer, struct cmsg_int8_array *array)
+static void mpack_append_route_ctx(mpack_writer_t *writer, struct tcp_route_ctx *array)
 {
     if (array->num > 0)
     {
-        mpack_build_array(writer);
-        for (size_t i = 0; i < array->num; i++)
-        {
-            mpack_write_u8(writer, array->value[i]);
-        }
-        mpack_complete_array(writer);
-    }
-    else
-    {
-        mpack_write_nil(writer);
-    }
+		int num = MIN(array->num, TCP_XXX_ROUTE_CTX);
+		mpack_build_array(writer);
+		for (int i = 0; i < num; i++)
+		{
+			mpack_write_u8(writer, array->value[i]);
+		}
+		mpack_complete_array(writer);
+	}
+	else
+	{
+		mpack_write_nil(writer);
+	}
 
-    return;
+	return;
 }
 
-static void tsg_mpack_append_cmsg_value(mpack_writer_t *writer, struct proxy_cmsg *cmsg)
+static void mpack_append_cmsg_value(mpack_writer_t *writer, struct proxy_cmsg *cmsg)
 {
 	if (cmsg == NULL)
 	{
@@ -192,44 +195,44 @@ static void tsg_mpack_append_cmsg_value(mpack_writer_t *writer, struct proxy_cms
 		mpack_write_u32(writer, cmsg->tcp_ts_server_val);
 		mpack_write_u8(writer, cmsg->tcp_info_packet_cur_dir);
 
-		tsg_mpack_append_str(writer, cmsg->src_sub_id);
-		tsg_mpack_append_str(writer, cmsg->dst_sub_id);
-		tsg_mpack_append_str(writer, cmsg->src_asn);
-		tsg_mpack_append_str(writer, cmsg->dst_asn);
-		tsg_mpack_append_str(writer, cmsg->src_organization);
-		tsg_mpack_append_str(writer, cmsg->dst_organization);
-		tsg_mpack_append_str(writer, cmsg->src_ip_location_country);
-		tsg_mpack_append_str(writer, cmsg->dst_ip_location_country);
-		tsg_mpack_append_str(writer, cmsg->src_ip_location_provine);
-		tsg_mpack_append_str(writer, cmsg->dst_ip_location_provine);
-		tsg_mpack_append_str(writer, cmsg->src_ip_location_city);
-		tsg_mpack_append_str(writer, cmsg->dst_ip_location_city);
-		tsg_mpack_append_str(writer, cmsg->src_ip_location_subdivision);
-		tsg_mpack_append_str(writer, cmsg->dst_ip_location_subdivision);
-		tsg_mpack_append_str(writer, cmsg->ssl_client_ja3_fingerprint);
+		mpack_append_string(writer, cmsg->src_sub_id);
+		mpack_append_string(writer, cmsg->dst_sub_id);
+		mpack_append_string(writer, cmsg->src_asn);
+		mpack_append_string(writer, cmsg->dst_asn);
+		mpack_append_string(writer, cmsg->src_organization);
+		mpack_append_string(writer, cmsg->dst_organization);
+		mpack_append_string(writer, cmsg->src_ip_location_country);
+		mpack_append_string(writer, cmsg->dst_ip_location_country);
+		mpack_append_string(writer, cmsg->src_ip_location_provine);
+		mpack_append_string(writer, cmsg->dst_ip_location_provine);
+		mpack_append_string(writer, cmsg->src_ip_location_city);
+		mpack_append_string(writer, cmsg->dst_ip_location_city);
+		mpack_append_string(writer, cmsg->src_ip_location_subdivision);
+		mpack_append_string(writer, cmsg->dst_ip_location_subdivision);
+		mpack_append_string(writer, cmsg->ssl_client_ja3_fingerprint);
 
         // fqdn_cat_id_val
-        tsg_mpack_append_array_u32(writer, &cmsg->fqdn_cat_id_val);
+		mpack_append_fqdn_cat_ids(writer, &cmsg->fqdn_cat_ids);
 
-        // tcp_seq_sids
-        tsg_mpack_append_array_u16(writer, &cmsg->tcp_seq_sids);
+		// tcp_seq_sids
+		mpack_append_tcp_sids(writer, &cmsg->tcp_seq_sids);
 
-        // tcp_ack_sids
-        tsg_mpack_append_array_u16(writer, &cmsg->tcp_ack_sids);
+		// tcp_ack_sids
+		mpack_append_tcp_sids(writer, &cmsg->tcp_ack_sids);
 
-        // tcp_seq_route_ctx
-        tsg_mpack_append_array_u8(writer, &cmsg->tcp_seq_route_ctx);
+		// tcp_seq_route_ctx
+		mpack_append_route_ctx(writer, &cmsg->tcp_seq_route_ctx);
 
-        // tcp_ack_route_ctx
-        tsg_mpack_append_array_u8(writer, &cmsg->tcp_ack_route_ctx);
+		// tcp_ack_route_ctx
+		mpack_append_route_ctx(writer, &cmsg->tcp_ack_route_ctx);
 
-        mpack_complete_array(writer); // array
-    }
+		mpack_complete_array(writer); // array
+	}
 
-    return;
+	return;
 }
 
-static void tsg_mpack_append_update_policy(mpack_writer_t *writer, struct update_policy *policy_update, enum policy_type type)
+static void mpack_append_update_policy(mpack_writer_t *writer, struct update_policy *policy_update, enum policy_type type)
 {
 	switch (type)
 	{
@@ -250,8 +253,9 @@ static void tsg_mpack_append_update_policy(mpack_writer_t *writer, struct update
 	mpack_write_cstr(writer, "rule_ids");
 	if (policy_update->n_ids > 0)
 	{
+		int n_ids = MIN(policy_update->n_ids, UPDATE_POLICY_RULE_IDS);
 		mpack_build_array(writer); // rule_ids
-		for (int i = 0; i < policy_update->n_ids; i++)
+		for (int i = 0; i < n_ids; i++)
 		{
 			mpack_write_i64(writer, policy_update->ids[i]);
 		}
@@ -265,7 +269,7 @@ static void tsg_mpack_append_update_policy(mpack_writer_t *writer, struct update
 	if (type == POLICY_UPDATE_INTERCEPT)
 	{
 		mpack_write_cstr(writer, "tcp_handshake");
-		tsg_mpack_append_cmsg_value(writer, &policy_update->cmsg);
+		mpack_append_cmsg_value(writer, &policy_update->cmsg);
 	}
 	mpack_complete_map(writer); // update_policy_type
 
@@ -281,7 +285,7 @@ int tsg_sync_policy_update(const struct streaminfo *a_stream, struct update_poli
 
 	mpack_writer_t writer;
 
-	tsg_mpack_init_map((struct streaminfo *)a_stream, &writer, "active");
+	mpack_init_map((struct streaminfo *)a_stream, &writer, "active");
 
 	// method: policy_update
 	mpack_write_cstr(&writer, "method");
@@ -292,11 +296,11 @@ int tsg_sync_policy_update(const struct streaminfo *a_stream, struct update_poli
 	mpack_build_map(&writer);
 	for (int i = 0; i < (int)n_policy_update; i++)
 	{
-		tsg_mpack_append_update_policy(&writer, &policy_update[i], policy_update[i].type);
+		mpack_append_update_policy(&writer, &policy_update[i], policy_update[i].type);
 	}
 	mpack_complete_map(&writer); // params
 
-	return tsg_mpack_send_pkt(a_stream, &writer);
+	return mpack_send_pkt(a_stream, &writer);
 }
 
 int tsg_sync_closing_state(const struct streaminfo *a_stream, unsigned char state)
@@ -309,4 +313,207 @@ int tsg_sync_opening_state(const struct streaminfo *a_stream, unsigned char stat
 	tsg_send_session_state(a_stream, state);
 
 	return 0;
+}
+
+static char *mpack_parse_get_string(mpack_node_t node, char *p_str, int thread_seq)
+{
+	if (p_str != NULL)
+	{
+		dictator_free(thread_seq, p_str);
+		p_str = NULL;
+	}
+
+	int str_len = 0;
+	const char *str = NULL;
+	char *result = NULL;
+
+	str = mpack_node_str(node);
+	str_len = mpack_node_strlen(node);
+
+	result = (char *)dictator_malloc(thread_seq, str_len + 1);
+	memset(result, 0, str_len + 1);
+	memcpy(result, str, str_len);
+
+	return result;
+}
+
+static void mpack_parse_intercept_info(mpack_node_t node, struct proxy_log_update *proxy, int thread_seq)
+{
+	if (mpack_node_array_length(node) != (size_t)(SSL_INTERCEPT_MAX_INDEX))
+	{
+		return;
+	}
+
+	proxy->ssl_intercept_state = mpack_node_u8(mpack_node_array_at(node, SSL_INTERCEPT_STATE));
+	proxy->ssl_upstream_latency = mpack_node_u64(mpack_node_array_at(node, SSL_UPSTREAM_LATENCY));
+	proxy->ssl_downstream_latency = mpack_node_u64(mpack_node_array_at(node, SSL_DOWNSTREAM_LATENCY));
+	proxy->ssl_upstream_version = mpack_parse_get_string(mpack_node_array_at(node, SSL_UPSTREAM_VERSION), proxy->ssl_upstream_version, thread_seq);
+	proxy->ssl_downstream_version = mpack_parse_get_string(mpack_node_array_at(node, SSL_DOWNSTREAM_VERSION), proxy->ssl_downstream_version, thread_seq);
+	proxy->ssl_pinning_state = mpack_node_u8(mpack_node_array_at(node, SSL_PINNING_STATE));
+	proxy->ssl_cert_verify = mpack_node_u8(mpack_node_array_at(node, SSL_CERT_VERIFY));
+	proxy->ssl_error = mpack_parse_get_string(mpack_node_array_at(node, SSL_ERROR), proxy->ssl_error, thread_seq);
+	proxy->ssl_passthrough_reason = mpack_parse_get_string(mpack_node_array_at(node, SSL_PASSTHROUGH_REASON), proxy->ssl_passthrough_reason, thread_seq);
+
+	return;
+}
+
+static void mpack_parse_append_profile_id(mpack_node_t profile_ids_node, uint32_t *ids, size_t *n_id, size_t max)
+{
+	*n_id = MIN(mpack_node_array_length(profile_ids_node), max);
+	for (int i = 0; i < (int)(*n_id); i++)
+	{
+		ids[i] = mpack_node_u32(mpack_node_array_at(profile_ids_node, i));
+	}
+
+	return;
+}
+
+int mpack_parse_sce_profile_ids(const struct streaminfo *a_stream, mpack_tree_t tree, mpack_node_t sce_node)
+{
+	mpack_node_t sf_profile_ids = mpack_node_map_cstr(sce_node, "sf_profile_ids");
+	if (mpack_node_type(sf_profile_ids) != mpack_type_array)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_SCE", "sf_profile_ids error! mpack_node_type(sf_profile_ids): %d", (int)mpack_node_type(sf_profile_ids));
+		mpack_tree_destroy(&tree);
+		return -1;
+	}
+
+	struct sce_log_update *sce_handle = (struct sce_log_update *)session_log_update_data_get(a_stream, TSG_SERVICE_CHAINING);
+	if (sce_handle == NULL)
+	{
+		sce_handle = (struct sce_log_update *)dictator_malloc(a_stream->threadnum, sizeof(struct sce_log_update));
+		memset(sce_handle, 0, sizeof(struct sce_log_update));
+		session_log_update_data_put(a_stream, TSG_SERVICE_CHAINING, (void *)sce_handle);
+	}
+	mpack_parse_append_profile_id(sf_profile_ids, sce_handle->profile_ids, &sce_handle->n_profile_ids, SCE_PROFILE_IDS);
+
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PARSE_SCE", "n_profile_ids: %lu;", sce_handle->n_profile_ids);
+	mpack_tree_destroy(&tree);
+	return 0;
+}
+
+int mpack_parse_shaper_profile_ids(const struct streaminfo *a_stream, mpack_tree_t tree, mpack_node_t shaper_node)
+{
+	struct shaper_log_update *shaper_handle = (struct shaper_log_update *)session_log_update_data_get(a_stream, TSG_SERVICE_SHAPING);
+	if (shaper_handle == NULL)
+	{
+		shaper_handle = (struct shaper_log_update *)dictator_malloc(a_stream->threadnum, sizeof(struct shaper_log_update));
+		memset(shaper_handle, 0, sizeof(struct shaper_log_update));
+		session_log_update_data_put(a_stream, TSG_SERVICE_SHAPING, (void *)shaper_handle);
+	}
+
+	shaper_handle->n_shaper_rule = MIN(mpack_node_array_length(shaper_node), SHAPR_RULE_IDS);
+	mpack_node_t sh_ids_node;
+	for (int i = 0; i < (int)shaper_handle->n_shaper_rule; i++)
+	{
+		sh_ids_node = mpack_node_array_at(shaper_node, i);
+		shaper_handle->shaper_rules[i].rule_id = mpack_node_i64(mpack_node_map_cstr(sh_ids_node, "rule_id"));
+
+		mpack_parse_append_profile_id(mpack_node_map_cstr(sh_ids_node, "profile_ids"), shaper_handle->shaper_rules[i].profile_ids, &shaper_handle->shaper_rules[i].n_profile_ids, SHAPR_PROFILE_IDS);
+	}
+
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PARSE_SHAPER", "n_sh_profile_ids: %lu;", shaper_handle->n_shaper_rule);
+	mpack_tree_destroy(&tree);
+	return 0;
+}
+
+int mpack_parse_proxy_intercept_info(const struct streaminfo *a_stream, mpack_tree_t tree, mpack_node_t proxy_node)
+{
+	mpack_node_t ssl_intercept_info = mpack_node_map_str_optional(proxy_node, "ssl_intercept_info", 18);
+	if (mpack_node_type(ssl_intercept_info) != mpack_type_array)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_PROXY", "ssl_intercept_info error! mpack_node_type(ssl_intercept_info): %d", (int)mpack_node_type(ssl_intercept_info));
+		mpack_tree_destroy(&tree);
+		return -1;
+	}
+
+	struct proxy_log_update *proxy_handle = (struct proxy_log_update *)session_log_update_data_get(a_stream, TSG_SERVICE_INTERCEPT);
+	if (proxy_handle == NULL)
+	{
+		proxy_handle = (struct proxy_log_update *)dictator_malloc(a_stream->threadnum, sizeof(struct proxy_log_update));
+		memset(proxy_handle, 0, sizeof(struct proxy_log_update));
+		session_log_update_data_put(a_stream, TSG_SERVICE_INTERCEPT, (void *)proxy_handle);
+	}
+	mpack_parse_intercept_info(ssl_intercept_info, proxy_handle, a_stream->threadnum);
+
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG,
+							"PARSE_PROXY",
+							"ssl_intercept_state: %u; ssl_upstream_latency: %llu; ssl_downstream_latency: %llu; ssl_upstream_version: %s; ssl_downstream_version: %s; ssl_pinning_state: %u; ssl_cert_verify: %u; ssl_error: %s; ssl_passthrough_reason: %s;",
+							proxy_handle->ssl_intercept_state,
+							proxy_handle->ssl_upstream_latency,
+							proxy_handle->ssl_downstream_latency,
+							proxy_handle->ssl_upstream_version,
+							proxy_handle->ssl_downstream_version,
+							proxy_handle->ssl_pinning_state,
+							proxy_handle->ssl_cert_verify,
+							proxy_handle->ssl_error,
+							proxy_handle->ssl_passthrough_reason);
+
+	mpack_tree_destroy(&tree);
+	return 0;
+}
+
+int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *payload, unsigned int payload_len)
+{
+	if (a_stream == NULL || payload == NULL || payload_len == 0)
+	{
+		return -1;
+	}
+
+	mpack_tree_t tree;
+	mpack_tree_init_data(&tree, (const char *)payload, payload_len);
+	mpack_tree_parse(&tree);
+	mpack_node_t root = mpack_tree_root(&tree);
+
+	mpack_node_t method = mpack_node_map_cstr(root, "method");
+	if (mpack_node_type(method) != mpack_type_str)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "method error! mpack_node_type(method) = %d", (int)mpack_node_type(method));
+		mpack_tree_destroy(&tree);
+		return -1;
+	}
+
+	if (mpack_node_strlen(method) != strlen("log_update") || memcmp("log_update", mpack_node_str(method), strlen("log_update")) != 0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "method error! mpack_node_strlen(method) = %lu", mpack_node_strlen(method));
+		mpack_tree_destroy(&tree);
+		return -1;
+	}
+
+	uint64_t session_id = mpack_node_u64(mpack_node_map_cstr(root, "session_id"));
+	if (session_id != tsg_get_stream_trace_id(a_stream))
+	{
+		// if session_id = 0, it's could be mpack_node_type(root) = nil
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "session_id error! session_id: %llu, real session_id: %llu", session_id, tsg_get_stream_trace_id(a_stream));
+		mpack_tree_destroy(&tree);
+		return -1;
+	}
+
+	mpack_node_t params_node = mpack_node_map_cstr(root, "params");
+	if (mpack_node_type(params_node) == mpack_type_nil)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "params_node error!");
+		mpack_tree_destroy(&tree);
+		return -1;
+	}
+
+	mpack_node_t temp_node = mpack_node_map_str_optional(params_node, "sce", 3);
+	if (mpack_node_type(temp_node) != mpack_type_nil && mpack_node_type(temp_node) != mpack_type_missing)
+	{
+		return mpack_parse_sce_profile_ids(a_stream, tree, temp_node);
+	}
+
+	temp_node = mpack_node_map_str_optional(params_node, "shaper", 6);
+	if (mpack_node_type(temp_node) != mpack_type_nil && mpack_node_type(temp_node) != mpack_type_missing)
+	{
+		return mpack_parse_shaper_profile_ids(a_stream, tree, temp_node);
+	}
+
+	temp_node = mpack_node_map_str_optional(params_node, "proxy", 5);
+	if (mpack_node_type(temp_node) != mpack_type_nil && mpack_node_type(temp_node) != mpack_type_missing)
+	{
+		return mpack_parse_proxy_intercept_info(a_stream, tree, temp_node);
+	}
+
+	return -1;
 }

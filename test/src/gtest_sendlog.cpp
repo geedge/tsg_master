@@ -34,6 +34,10 @@ void *session_mac_linkinfo_get(const struct streaminfo * a_stream)
 {
 	return NULL;
 }
+void *session_log_update_data_get(const struct streaminfo *a_stream, enum TSG_SERVICE service)
+{
+	return NULL;
+}
 
 void *session_gather_app_results_get(const struct streaminfo * a_stream)
 {

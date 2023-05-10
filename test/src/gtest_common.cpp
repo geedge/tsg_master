@@ -119,7 +119,7 @@ const void *get_rawpkt_from_streaminfo(const struct streaminfo *pstream)
 }
 int get_opt_from_rawpkt(const void *rawpkt, int type, void *out_value)
 {
-	if (type > RWA_PKT_GET_SID_LIST) {
+	if (type > RAW_PKT_GET_SID_LIST) {
 		return -1;
 	}
 

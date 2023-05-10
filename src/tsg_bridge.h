@@ -13,18 +13,18 @@
 
 enum BRIDGE_TYPE
 {
-	BRIDGE_TYPE_SEND_CONN_SKETCH_DATA=0,
+	BRIDGE_TYPE_SEND_CONN_SKETCH_DATA = 0,
 	BRIDGE_TYPE_RECV_CONN_SKETCH_DATA,
 	BRIDGE_TYPE_SYNC_APP_IDENTIFY_RESULT,
 	BRIDGE_TYPE_SYNC_SESSION_FLAGS,
-	BRIDGE_TYPE_SHAPING_RESULT,	//sync and async
-	BRIDGE_TYPE_SESSION_PROCESS_CONTEXT,		//async
-	BRIDGE_TYPE_SESSION_ACTION_CONTEXT,		//async
-	BRIDGE_TYPE_GATHER_APP_RESULT,	//async
-	BRIDGE_TYPE_SERVICE_CHAINING_RESULT,	//async
-	BRIDGE_TYPE_SECURITY_RESULT,	//async
-	BRIDGE_TYPE_SESSION_ATTRIBUTE,	//async
-	BRIDGE_TYPE_MAC_LINKINFO,	//async
+	BRIDGE_TYPE_SHAPING_RESULT,			 // sync and async
+	BRIDGE_TYPE_SESSION_PROCESS_CONTEXT, // async
+	BRIDGE_TYPE_SESSION_ACTION_CONTEXT,	 // async
+	BRIDGE_TYPE_GATHER_APP_RESULT,		 // async
+	BRIDGE_TYPE_SERVICE_CHAINING_RESULT, // async
+	BRIDGE_TYPE_SECURITY_RESULT,		 // async
+	BRIDGE_TYPE_SESSION_ATTRIBUTE,		 // async
+	BRIDGE_TYPE_MAC_LINKINFO,			 // async
 	BRIDGE_TYPE_NAT_C2S_LINKINFO,
 	BRIDGE_TYPE_NAT_S2C_LINKINFO,
 	BRIDGE_TYPE_APP_LUA_RESULT,
@@ -33,8 +33,12 @@ enum BRIDGE_TYPE
 	BRIDGE_TYPE_POLICY_ACTION_PARA_EXEC_RESULT,
 	BRIDGE_TYPE_ASYNC_SESSION_FLAGS,
 	BRIDGE_TYPE_APP_SIGNATURE_RESULT,
-	BRIDGE_TYPE_INTERCEPT_RESULT,	//sync and async
-	BRIDGE_TYPE_SEGMENT_IDS,	//async service_chaining or shping SID
+	BRIDGE_TYPE_INTERCEPT_RESULT, // sync and async
+	BRIDGE_TYPE_SEGMENT_IDS,	  // async service_chaining or shping SID
+	BRIDGE_TYPE_LOG_UPDATE_SCE,
+	BRIDGE_TYPE_LOG_UPDATE_SHAPER,
+	BRIDGE_TYPE_LOG_UPDATE_PROXY,
+
 	BRIDGE_TYPE_MAX
 };
 
@@ -138,6 +142,10 @@ struct session_runtime_attribute
 
 // init
 int tsg_bridge_init(const char *conffile);
+
+// tsg_parse_log_update
+void *session_log_update_data_get(const struct streaminfo *a_stream, enum TSG_SERVICE service);
+int session_log_update_data_put(const struct streaminfo *a_stream, enum TSG_SERVICE service, void *data);
 
 //send log
 void *session_mac_linkinfo_get(const struct streaminfo * a_stream);

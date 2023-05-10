@@ -26,6 +26,66 @@ struct bridge_info
 
 struct bridge_info g_tm_bridge_para[BRIDGE_TYPE_MAX];
 
+void session_sce_log_update_free(const struct streaminfo *a_stream, int bridge_id, void *data)
+{
+	if (data != NULL)
+	{
+		dictator_free(a_stream->threadnum, data);
+		data = NULL;
+	}
+
+	return;
+}
+
+void session_shaper_log_update_free(const struct streaminfo *a_stream, int bridge_id, void *data)
+{
+	if (data != NULL)
+	{
+		dictator_free(a_stream->threadnum, data);
+		data = NULL;
+	}
+
+	return;
+}
+
+void session_proxy_log_update_free(const struct streaminfo *a_stream, int bridge_id, void *data)
+{
+	struct proxy_log_update *proxy = (struct proxy_log_update *)data;
+	if (proxy != NULL)
+	{
+
+		if (proxy->ssl_downstream_version != NULL)
+		{
+			dictator_free(a_stream->threadnum, (void *)proxy->ssl_downstream_version);
+			proxy->ssl_downstream_version = NULL;
+		}
+
+		if (proxy->ssl_error != NULL)
+		{
+			dictator_free(a_stream->threadnum, (void *)proxy->ssl_error);
+			proxy->ssl_error = NULL;
+		}
+
+		if (proxy->ssl_passthrough_reason != NULL)
+		{
+			dictator_free(a_stream->threadnum, (void *)proxy->ssl_passthrough_reason);
+			proxy->ssl_passthrough_reason = NULL;
+		}
+
+		if (proxy->ssl_upstream_version != NULL)
+		{
+			dictator_free(a_stream->threadnum, (void *)proxy->ssl_upstream_version);
+			proxy->ssl_upstream_version = NULL;
+		}
+
+		dictator_free(a_stream->threadnum, (void *)proxy);
+		proxy = NULL;
+	}
+
+	data = NULL;
+	return;
+}
+
 void session_runtime_process_context_free(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
 	struct session_runtime_process_context *srt_process_context=(struct session_runtime_process_context *)data;
@@ -222,7 +282,7 @@ int srt_attribute_set_establish_latecy(const struct streaminfo *a_stream)
 	{
 		return 0;
 	}
-	
+
 	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
@@ -935,6 +995,42 @@ void *session_lua_user_defined_attribute_get(const struct streaminfo *a_stream)
 	return session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_APP_LUA_RESULT].id);
 }
 
+void *session_log_update_data_get(const struct streaminfo *a_stream, enum TSG_SERVICE service)
+{
+	switch (service)
+	{
+		case TSG_SERVICE_INTERCEPT:
+			return stream_bridge_async_data_get(a_stream, g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_PROXY].id);
+
+		case TSG_SERVICE_CHAINING:
+			return stream_bridge_async_data_get(a_stream, g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_SCE].id);
+
+		case TSG_SERVICE_SHAPING:
+			return stream_bridge_async_data_get(a_stream, g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_SHAPER].id);
+			
+		default:
+			return NULL;
+	}
+}
+
+int session_log_update_data_put(const struct streaminfo *a_stream, enum TSG_SERVICE service, void *data)
+{
+	switch (service)
+	{
+		case TSG_SERVICE_INTERCEPT:
+			return stream_bridge_async_data_put(a_stream, g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_PROXY].id, data);
+
+		case TSG_SERVICE_CHAINING:
+			return stream_bridge_async_data_put(a_stream, g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_SCE].id, data);
+
+		case TSG_SERVICE_SHAPING:
+			return stream_bridge_async_data_put(a_stream, g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_SHAPER].id, data);
+
+		default:
+			return 0;
+		}
+}
+
 int tsg_bridge_init(const char *conffile)
 {
 	MESA_load_profile_string_def(conffile, "BRIDGE", "APP_IDENTIFY_RESULT_BRIDGE", g_tm_bridge_para[BRIDGE_TYPE_SYNC_APP_IDENTIFY_RESULT].name, MAX_BRIDGE_NAME_LEN, "APP_IDENTIFY_RESULT_BRIDGE");
@@ -983,6 +1079,15 @@ int tsg_bridge_init(const char *conffile)
 
 	MESA_load_profile_string_def(conffile, "BRIDGE", "SEGMENT_IDS_BRIDGE_NAME",g_tm_bridge_para[BRIDGE_TYPE_SEGMENT_IDS].name, MAX_BRIDGE_NAME_LEN, "SEGMENT_IDS");
 	g_tm_bridge_para[BRIDGE_TYPE_SEGMENT_IDS].free_cb=session_segment_id_free;
+
+	MESA_load_profile_string_def(conffile, "BRIDGE", "SCE_LOG_UPDATE_BRIDGE_NAME", g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_SCE].name, MAX_BRIDGE_NAME_LEN, "SCE_LOG_UPDATE");
+	g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_SCE].free_cb = session_sce_log_update_free;
+
+	MESA_load_profile_string_def(conffile, "BRIDGE", "SHAPER_LOG_UPDATE_BRIDGE_NAME", g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_SHAPER].name, MAX_BRIDGE_NAME_LEN, "SHAPER_LOG_UPDATE");
+	g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_SHAPER].free_cb = session_shaper_log_update_free;
+
+	MESA_load_profile_string_def(conffile, "BRIDGE", "PROXY_LOG_UPDATE_BRIDGE_NAME", g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_PROXY].name, MAX_BRIDGE_NAME_LEN, "PROXY_LOG_UPDATE");
+	g_tm_bridge_para[BRIDGE_TYPE_LOG_UPDATE_PROXY].free_cb = session_proxy_log_update_free;
 
 	for(int i=0; i<BRIDGE_TYPE_MAX; i++)
 	{

@@ -21,7 +21,7 @@ enum tsg_proxy_ipv6hdr_parse_error{
 	TSG_PROXY_IPV6HDR_INVALID_TYPE = -3,
 };
 
-int update_segment_sids(struct cmsg_int16_array *d_sids_array, unsigned short *s_sids, unsigned int n_s_sids)
+int update_segment_sids(struct tcp_sids *d_sids_array, unsigned short *s_sids, unsigned int n_s_sids)
 {
 	for(unsigned int i=0; i<n_s_sids; i++)
 	{
@@ -209,7 +209,7 @@ static int tsg_proxy_rawpkt_info_get(const void *raw_pkt, struct tsg_proxy_tcp_o
     int ret;
     struct segment_id_list *sids = NULL;
 
-    ret = get_rawpkt_opt_from_streaminfo(stream, RWA_PKT_GET_SID_LIST, &sids);
+    ret = get_rawpkt_opt_from_streaminfo(stream, RAW_PKT_GET_SID_LIST, &sids);
     if (ret != sizeof(struct segment_id_list)) {
         MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROXY", "Failed to get sid list, stream treaceid = %llu, %s", tsg_get_stream_trace_id(stream), printaddr(&stream->addr, stream->threadnum));
         return -1;
@@ -436,8 +436,8 @@ static void tsg_proxy_cmsg_fqdn_category_fill(struct session_runtime_attribute *
 {
     size_t n_category_ids = 0;
 	uint32_t category_ids[8] = {0};
-    struct cmsg_int32_array *fqdn_cat_ids = &cmsg->fqdn_cat_id_val;
-    
+    struct fqdn_cat_id_val *fqdn_cat_ids = &cmsg->fqdn_cat_ids;
+
     n_category_ids = srt_attribute_get_category_ids(session_attr, category_ids, sizeof(category_ids)/sizeof(category_ids[0]));
     if (n_category_ids > 0 && n_category_ids <= 8) {
         fqdn_cat_ids->num = n_category_ids;
