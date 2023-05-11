@@ -1017,21 +1017,21 @@ int session_state_sync_in_activing(const struct streaminfo *a_stream, TSG_SERVIC
 	{
 		return 0;
 	}
-	
-	int ret=session_set_segment_id_in_activing(a_stream, service, inc_rules, n_inc_results);
-	if(ret==0)
-	{
-		return 0;
-	}
-	
+
 	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_CTRL_ACTIVE], 0, FS_OP_ADD, 1);
 
 	memcpy(matched_rules->rules+matched_rules->n_rules, inc_rules, n_inc_results*sizeof(struct maat_rule));
 	matched_rules->n_rules+=n_inc_results;
-	ret=session_matched_rules_async(a_stream, service, (void *)matched_rules);
+	int ret=session_matched_rules_async(a_stream, service, (void *)matched_rules);
 	if(ret<0)
 	{
 		session_matched_rules_free(a_stream, service, (void *)matched_rules);
+		return 0;
+	}
+	
+	ret=session_set_segment_id_in_activing(a_stream, service, inc_rules, n_inc_results);
+	if(ret==0)
+	{
 		return 0;
 	}
 
