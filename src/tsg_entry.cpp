@@ -1499,7 +1499,12 @@ size_t session_app_id_and_properties_scan(const struct streaminfo *a_stream, str
 			srt_process_context->hited_para.after_n_packets=after_n_packets;
 		}
 	}
-		
+
+	if(srt_process_context!=NULL && srt_process_context->hited_app_id>0)
+	{		
+		session_app_gather_results_update_matched_app_id(a_stream, srt_process_context->hited_app_id);
+	}
+
 	return hit_num;
 }
 

@@ -2800,7 +2800,7 @@ size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *fea
 		return 0;
 	}
 
-	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	srt_attribute_set_ip_asn(a_stream, feather, &(srt_attribute->client_asn), &(srt_attribute->server_asn));
 	srt_attribute_set_ip_location(a_stream, feather, &(srt_attribute->client_location), &(srt_attribute->server_location));
 

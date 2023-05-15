@@ -14,6 +14,11 @@
 
 extern struct maat_runtime_para g_tsg_maat_rt_para;
 
+const struct session_runtime_attribute *session_runtime_attribute_new(const struct streaminfo * a_stream)
+{
+	return NULL;
+}
+
 const struct session_runtime_attribute *session_runtime_attribute_get(const struct streaminfo * a_stream)
 {
 	return 0;

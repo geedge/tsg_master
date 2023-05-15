@@ -568,7 +568,7 @@ int session_runtime_action_context_async(const struct streaminfo *a_stream, void
 
 const struct session_runtime_action_context *session_runtime_action_context_new(const struct streaminfo *a_stream)
 {
-	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id);
+	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id);
 	if(srt_action_context==NULL)
 	{
 		srt_action_context=(struct session_runtime_action_context *)dictator_malloc(a_stream->threadnum, sizeof(struct session_runtime_action_context));
