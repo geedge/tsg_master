@@ -2271,6 +2271,9 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 			{
 				break;
 			}
+
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
+			
 			set_sce_profile_ids(_instance, _handle, a_stream);
 			set_shaping_profile_ids(_instance, _handle, a_stream);
 			set_shaping_rule_ids(_instance, _handle, a_stream);
