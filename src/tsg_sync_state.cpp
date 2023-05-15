@@ -9,11 +9,9 @@
 #include "tsg_send_log.h"
 #include "mpack.h"
 
-char *mpack_data = NULL;
-size_t mpack_size = 0;
-static int mpack_init_map(const struct streaminfo *a_stream, mpack_writer_t *writer, const char *state)
+static int mpack_init_map(const struct streaminfo *a_stream, mpack_writer_t *writer, const char *state, char **mpack_data, size_t *mpack_size)
 {
-	mpack_writer_init_growable(writer, &mpack_data, &mpack_size);
+	mpack_writer_init_growable(writer, mpack_data, mpack_size);
 	mpack_build_map(writer);
 
 	// tsync : 2.0
@@ -31,7 +29,7 @@ static int mpack_init_map(const struct streaminfo *a_stream, mpack_writer_t *wri
 	return 0;
 }
 
-static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *writer)
+static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *writer, char **mpack_data, size_t *mpack_size)
 {
 	mpack_complete_map(writer); // mpack_init_map
 	if (mpack_writer_destroy(writer) != mpack_ok)
@@ -40,11 +38,11 @@ static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *wri
 		return -1;
 	}
 
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "MSGPACK_PROXY_BUFF", "send buff_len = %lu", mpack_size);
-	sapp_inject_ctrl_pkt((struct streaminfo *)a_stream, SIO_DEFAULT, mpack_data, mpack_size, a_stream->routedir);
-	free(mpack_data);
-	mpack_data = NULL;
-	mpack_size = 0;
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "MSGPACK_PROXY_BUFF", "send buff_len = %lu", *mpack_size);
+	sapp_inject_ctrl_pkt((struct streaminfo *)a_stream, SIO_DEFAULT, *mpack_data, *mpack_size, a_stream->routedir);
+	free(*mpack_data);
+	*mpack_data = NULL;
+	*mpack_size = 0;
 	return 0;
 }
 
@@ -55,21 +53,23 @@ int tsg_send_session_state(const struct streaminfo *a_stream, unsigned char stat
 		return -1;
 	}
 
+	char *mpack_data = NULL;
+	size_t mpack_size = 0;
 	mpack_writer_t writer;
 	if (state == OP_STATE_PENDING)
 	{
-		mpack_init_map(a_stream, &writer, "opening");
+		mpack_init_map(a_stream, &writer, "opening", &mpack_data, &mpack_size);
 	}
 	else if (state == OP_STATE_CLOSE)
 	{
-		mpack_init_map(a_stream, &writer, "closing");
+		mpack_init_map(a_stream, &writer, "closing", &mpack_data, &mpack_size);
 	}
 	else
 	{
 		return -1;
 	}
 
-	return mpack_send_pkt(a_stream, &writer);
+	return mpack_send_pkt(a_stream, &writer, &mpack_data, &mpack_size);
 }
 
 int tsg_sync_resetall_state(const struct streaminfo *a_stream)
@@ -79,10 +79,12 @@ int tsg_sync_resetall_state(const struct streaminfo *a_stream)
 		return -1;
 	}
 
+	char *mpack_data = NULL;
+	size_t mpack_size = 0;
 	mpack_writer_t writer;
-	mpack_init_map(a_stream, &writer, "resetall");
+	mpack_init_map(a_stream, &writer, "resetall", &mpack_data, &mpack_size);
 
-	return mpack_send_pkt(a_stream, &writer);
+	return mpack_send_pkt(a_stream, &writer, &mpack_data, &mpack_size);
 }
 
 static void mpack_append_string(mpack_writer_t *writer, char *str)
@@ -283,9 +285,10 @@ int tsg_sync_policy_update(const struct streaminfo *a_stream, struct update_poli
 		return -1;
 	}
 
+	char *mpack_data = NULL;
+	size_t mpack_size = 0;
 	mpack_writer_t writer;
-
-	mpack_init_map((struct streaminfo *)a_stream, &writer, "active");
+	mpack_init_map((struct streaminfo *)a_stream, &writer, "active", &mpack_data, &mpack_size);
 
 	// method: policy_update
 	mpack_write_cstr(&writer, "method");
@@ -300,7 +303,7 @@ int tsg_sync_policy_update(const struct streaminfo *a_stream, struct update_poli
 	}
 	mpack_complete_map(&writer); // params
 
-	return mpack_send_pkt(a_stream, &writer);
+	return mpack_send_pkt(a_stream, &writer, &mpack_data, &mpack_size);
 }
 
 int tsg_sync_closing_state(const struct streaminfo *a_stream, unsigned char state)
@@ -371,9 +374,9 @@ static void mpack_parse_append_profile_id(mpack_node_t profile_ids_node, uint32_
 int mpack_parse_sce_profile_ids(const struct streaminfo *a_stream, mpack_tree_t tree, mpack_node_t sce_node)
 {
 	mpack_node_t sf_profile_ids = mpack_node_map_cstr(sce_node, "sf_profile_ids");
-	if (mpack_node_type(sf_profile_ids) != mpack_type_array)
+	if (mpack_node_type(sf_profile_ids) != mpack_type_array || mpack_node_array_length(sf_profile_ids) == 0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_SCE", "sf_profile_ids error! mpack_node_type(sf_profile_ids): %d", (int)mpack_node_type(sf_profile_ids));
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_SCE", "sf_profile_ids error! mpack_node_type(sf_profile_ids): %d, n_sf_profile_ids = 0", (int)mpack_node_type(sf_profile_ids));
 		mpack_tree_destroy(&tree);
 		return -1;
 	}
@@ -387,13 +390,21 @@ int mpack_parse_sce_profile_ids(const struct streaminfo *a_stream, mpack_tree_t 
 	}
 	mpack_parse_append_profile_id(sf_profile_ids, sce_handle->profile_ids, &sce_handle->n_profile_ids, SCE_PROFILE_IDS);
 
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PARSE_SCE", "n_profile_ids: %lu;", sce_handle->n_profile_ids);
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PARSE_SCE", "n_profile_ids: %lu", sce_handle->n_profile_ids);
 	mpack_tree_destroy(&tree);
 	return 0;
 }
 
 int mpack_parse_shaper_profile_ids(const struct streaminfo *a_stream, mpack_tree_t tree, mpack_node_t shaper_node)
 {
+	size_t n_shaper_rule = mpack_node_array_length(shaper_node);
+	if (n_shaper_rule == 0)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_SHAPER", "n_sh_profile_ids: 0");
+		mpack_tree_destroy(&tree);
+		return -1;
+	}
+
 	struct shaper_log_update *shaper_handle = (struct shaper_log_update *)session_log_update_data_get(a_stream, TSG_SERVICE_SHAPING);
 	if (shaper_handle == NULL)
 	{
@@ -402,7 +413,7 @@ int mpack_parse_shaper_profile_ids(const struct streaminfo *a_stream, mpack_tree
 		session_log_update_data_put(a_stream, TSG_SERVICE_SHAPING, (void *)shaper_handle);
 	}
 
-	shaper_handle->n_shaper_rule = MIN(mpack_node_array_length(shaper_node), SHAPR_RULE_IDS);
+	shaper_handle->n_shaper_rule = MIN(n_shaper_rule, SHAPR_RULE_IDS);
 	mpack_node_t sh_ids_node;
 	for (int i = 0; i < (int)shaper_handle->n_shaper_rule; i++)
 	{
@@ -465,6 +476,13 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 	mpack_tree_parse(&tree);
 	mpack_node_t root = mpack_tree_root(&tree);
 
+	if (mpack_node_type(root) == mpack_type_nil)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "mpack_tree_parse error! payload_len = %u", payload_len);
+		mpack_tree_destroy(&tree);
+		return -1;
+	}
+
 	mpack_node_t method = mpack_node_map_cstr(root, "method");
 	if (mpack_node_type(method) != mpack_type_str)
 	{
@@ -475,6 +493,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 
 	if (mpack_node_strlen(method) != strlen("log_update") || memcmp("log_update", mpack_node_str(method), strlen("log_update")) != 0)
 	{
+		// mpack_node_str(method) is contiguous memory
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "method error! mpack_node_strlen(method) = %lu", mpack_node_strlen(method));
 		mpack_tree_destroy(&tree);
 		return -1;
@@ -515,5 +534,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 		return mpack_parse_proxy_intercept_info(a_stream, tree, temp_node);
 	}
 
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PDARSE_LOG_UPDATE", "pkt error! there is no log!");
+	mpack_tree_destroy(&tree);
 	return -1;
 }

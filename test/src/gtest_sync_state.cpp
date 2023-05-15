@@ -615,7 +615,7 @@ TEST(POLICY_UPDATE, ProxyOverLimit)
     gtest_cmsg_destroy(&cmsg);
 }
 
-void gtest_get_sce_mpack_date(char **mpack_data, size_t *mpack_size, uint64_t session_id, char *method, int n_ids)
+void gtest_get_sce_mpack_date(char **mpack_data, size_t *mpack_size, uint64_t session_id, char *method, int n_ids, const char *sce)
 {
     mpack_writer_t writer;
     mpack_writer_init_growable(&writer, mpack_data, mpack_size);
@@ -641,7 +641,7 @@ void gtest_get_sce_mpack_date(char **mpack_data, size_t *mpack_size, uint64_t se
     mpack_write_cstr(&writer, "params");
     mpack_build_map(&writer);
     {
-        mpack_write_cstr(&writer, "sce");
+        mpack_write_cstr(&writer, sce);
         mpack_build_map(&writer);
         {
             mpack_write_cstr(&writer, "sf_profile_ids");
@@ -678,17 +678,26 @@ TEST(LOG_UPDATE, SceIllegalLog)
     size_t mpack_size = 0;
     const struct streaminfo a_stream = {0};
 
-    // error session
-    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 123456789, (char *)"log_update", 3);
-    EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+    // error payload_len
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 123456789, (char *)"log_update", 3, "sce");
+    EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size - 1));
     void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
     EXPECT_FALSE(result);
     free(mpack_data);
     mpack_data = NULL;
     mpack_size = 0;
 
+    // error session
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 123456789, (char *)"log_update", 3, "sce");
+    EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+    result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
+    EXPECT_FALSE(result);
+    free(mpack_data);
+    mpack_data = NULL;
+    mpack_size = 0;
+
     // error method
-    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"policy_update", 3);
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"policy_update", 3, "sce");
     EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
     result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
     EXPECT_FALSE(result);
@@ -697,7 +706,16 @@ TEST(LOG_UPDATE, SceIllegalLog)
     mpack_size = 0;
 
     // n_profile_ids = 0
-    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 0);
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 0, "sce");
+    EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+    result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
+    EXPECT_FALSE(result);
+    free(mpack_data);
+    mpack_data = NULL;
+    mpack_size = 0;
+
+     // no sce proxy shaper
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 0, "sce_test_no_log");
     EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
     result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
     EXPECT_FALSE(result);
@@ -712,7 +730,7 @@ TEST(LOG_UPDATE, SceNormal)
     size_t mpack_size = 0;
     const struct streaminfo a_stream = {0};
 
-    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 3);
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 3, "sce");
     EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
 
     void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
@@ -741,7 +759,7 @@ TEST(LOG_UPDATE, SceTwice)
     size_t mpack_size = 0;
     const struct streaminfo a_stream = {0};
 
-    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 3);
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 3, "sce");
     EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
 
     void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
@@ -750,7 +768,7 @@ TEST(LOG_UPDATE, SceTwice)
     mpack_data = NULL;
     mpack_size = 0;
 
-    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 5);
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 5, "sce");
     EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
 
     void *result_2 = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
@@ -779,7 +797,7 @@ TEST(LOG_UPDATE, SceOverLimitProfileIds)
     size_t mpack_size = 0;
     const struct streaminfo a_stream = {0};
 
-    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 3 + SCE_PROFILE_IDS);
+    gtest_get_sce_mpack_date(&mpack_data, &mpack_size, 10, (char *)"log_update", 3 + SCE_PROFILE_IDS, "sce");
     EXPECT_EQ(0, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
 
     void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
@@ -853,6 +871,23 @@ void gtest_get_shaper_mpack_date(char **mpack_data, size_t *mpack_size, uint64_t
     //     printf("%x ", mpack_data[i]);
     // }
     EXPECT_EQ(mpack_writer_destroy(&writer), mpack_ok);
+}
+
+TEST(LOG_UPDATE, ShaperIllegalLog)
+{
+    char *mpack_data = NULL;
+    size_t mpack_size = 0;
+    const struct streaminfo a_stream = {0};
+    long long rule[4] = {2, 3, 4, 5};
+
+    // n_sh_profile_ids = 0;
+    gtest_get_shaper_mpack_date(&mpack_data, &mpack_size, 10, 0, rule, 3);
+    EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, mpack_data, mpack_size));
+    void *result = session_log_update_data_get(&a_stream, TSG_SERVICE_SHAPING);
+    EXPECT_FALSE(result);
+    free(mpack_data);
+    mpack_data = NULL;
+    mpack_size = 0;
 }
 
 TEST(LOG_UPDATE, ShaperNormal)
