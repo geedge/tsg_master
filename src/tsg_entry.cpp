@@ -1226,7 +1226,7 @@ struct maat_rule *matched_rules_decision_criteria(struct maat_rule *rules, size_
 	return p_result;
 }
 
-static int session_l7_protocol_idnetify(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, void *a_packet)
+static int session_l7_protocol_identify(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, void *a_packet)
 {
 	int ret=0;
 
@@ -1746,7 +1746,7 @@ int session_flags_identify_result_cb(const struct streaminfo *a_stream, int brid
 static size_t session_pending_state_deal(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, struct maat_rule *results, int n_results, void *a_packet)
 {
 	size_t hit_num=0;
-	int ret=session_l7_protocol_idnetify(a_stream, srt_process_context, a_packet);
+	int ret=session_l7_protocol_identify(a_stream, srt_process_context, a_packet);
 	if(ret==1)
 	{
 		session_app_gather_results_set_l7_protocol(a_stream, srt_process_context->proto);
@@ -1842,27 +1842,31 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 			srt_process_context->mid=maat_state_new(g_tsg_maat_feather, thread_seq);
 		}
 	}
+
+	if(srt_process_context->first_origin_pkt==0)
+	{
+		srt_process_context->first_origin_pkt=1;
+
+		if(a_stream->type==STREAM_TYPE_TCP)
+		{
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1);
+		}
+		else
+		{
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);
+		}
+		
+		hit_num+=session_pending_state_deal(a_stream, srt_process_context, matched_rules+hit_num, MAX_TSG_ALL_RESULT_NUM-hit_num, a_packet);
+		if (a_stream->type == STREAM_TYPE_TCP && a_packet != NULL)
+		{
+			tsg_proxy_tcp_options_parse(a_stream, a_packet);
+		}
+		state=session_matched_rules_deal(a_stream, srt_process_context, matched_rules, hit_num, a_packet);
+		srt_process_context->deal_pkt_num++;
+	}
 	
 	switch(a_stream->opstate)
 	{
-		case	OP_STATE_PENDING:
-			if(a_stream->type==STREAM_TYPE_TCP)
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1);
-			}
-			else
-			{
-				FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);
-			}
-			
-			hit_num+=session_pending_state_deal(a_stream, srt_process_context, matched_rules+hit_num, MAX_TSG_ALL_RESULT_NUM-hit_num, a_packet);
-			if (a_stream->type == STREAM_TYPE_TCP && a_packet != NULL)
-			{
-				tsg_proxy_tcp_options_parse(a_stream, a_packet);
-			}
-			state=session_matched_rules_deal(a_stream, srt_process_context, matched_rules, hit_num, a_packet);
-			srt_process_context->deal_pkt_num++;
-			break;
 		case	OP_STATE_DATA:
 			if(srt_process_context->is_app_link==FLAG_FALSE && (srt_process_context->deal_pkt_num++) == (g_tsg_para.identify_app_max_pkt_num+1))
 			{
@@ -2075,6 +2079,12 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 
 extern "C" unsigned char TSG_MASTER_TCP_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq,void *a_packet)
 {
+	int is_ctrl_pkt=session_state_control_packet(a_tcp, a_tcp->pudpdetail->pdata, a_tcp->pudpdetail->datalen);
+	if(is_ctrl_pkt==1)
+	{
+		return APP_STATE_DROPPKT;
+	}
+
 	return tsg_master_data_entry(a_tcp, pme, thread_seq, a_packet);
 }
 

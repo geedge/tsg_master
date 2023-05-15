@@ -69,6 +69,7 @@ struct session_runtime_process_context
 	unsigned char deal_pkt_num;
 	unsigned char is_app_link;
 	unsigned char sync_cb_state;
+	unsigned char first_origin_pkt;
 	unsigned short timeout;
 	enum TSG_PROTOCOL proto;
 	int hited_app_id;		// only app
