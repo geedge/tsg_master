@@ -318,7 +318,7 @@ void tsg_proxy_tcp_options_parse(const struct streaminfo *stream, const void *a_
         return;
     }
 
-    if (tcp_attr->ignore) {
+    if (tcp_attr->first_data_pkt_processed) {
         return;
     }
 
@@ -330,18 +330,8 @@ void tsg_proxy_tcp_options_parse(const struct streaminfo *stream, const void *a_
     }
 
     if(stream->ptcpdetail->datalen > 0) {
-        if (tcp_attr->first_data_pkt_processed) {
-            struct maat_rule maat_rule;
-            int rule_num;
-            rule_num = session_matched_rules_copy(stream, TSG_SERVICE_INTERCEPT, &maat_rule, 1);
-            if (rule_num == 0) {
-                tcp_attr->ignore = 1;
-            }
-        } else {
-            tsg_proxy_first_data_process(stream, tcp_attr, &pktinfo);
-            tcp_attr->first_data_pkt_processed = 1;
-        }
-
+        tsg_proxy_first_data_process(stream, tcp_attr, &pktinfo);
+        tcp_attr->first_data_pkt_processed = 1;
         return;
     }
 

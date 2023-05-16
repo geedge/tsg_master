@@ -1958,11 +1958,6 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 	struct maat_rule shaping_results[MAX_RESULT_NUM]={0};
 	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)(*pme);
 
-	if (a_stream->type == STREAM_TYPE_TCP && a_packet != NULL)
-	{
-		tsg_proxy_tcp_options_parse(a_stream, a_packet);
-	}
-
 	if(stream_state==OP_STATE_PENDING && srt_action_context->method_type!=TSG_METHOD_TYPE_SHUNT && !(srt_action_context->udp_data_dropme))
 	{
 		if(srt_action_context->method_type==TSG_METHOD_TYPE_UNKNOWN)
@@ -2183,6 +2178,11 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 	if(_context->set_latency_flag==0)
 	{
 		_context->set_latency_flag=session_tcp_establish_latency_ms_set(a_tcp, thread_seq, a_packet);
+	}
+
+	if (a_packet != NULL)
+	{
+		tsg_proxy_tcp_options_parse(a_tcp, a_packet);
 	}
 	
 	unsigned char state=tsg_master_all_entry(a_tcp, a_tcp->pktstate, pme, thread_seq, a_packet);

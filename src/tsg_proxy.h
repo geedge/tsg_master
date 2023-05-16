@@ -20,7 +20,6 @@ struct tsg_proxy_tcp_option
 struct tsg_proxy_tcp_attribute
 {
     uint8_t first_data_pkt_processed;
-    uint8_t ignore;
 	uint32_t tcp_seq;
     uint32_t tcp_ack;
     uint8_t tcp_protocol;
