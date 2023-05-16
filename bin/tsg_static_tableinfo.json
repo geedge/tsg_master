@@ -272,7 +272,7 @@
     {
         "table_id": 24,
         "table_name": "TSG_FIELD_SSL_SAN",
-        "db_tables": ["TSG_FIELD_SSL_SAN", "ssl.handshake.certificate.subject_organization_name"],
+        "db_tables": ["TSG_FIELD_SSL_SAN"],
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_FQDN"
     },
@@ -827,13 +827,13 @@
         "table_id": 85,
         "table_name": "tcp.payload.c2s_first_data_len",
         "table_type": "virtual",
-        "physical_table": "tsg_obj_interval"
+        "physical_table": "TSG_OBJ_INTERVAL"
     },
     {
         "table_id": 86,
         "table_name": "tcp.payload.s2c_first_data_len",
         "table_type": "virtual",
-        "physical_table": "tsg_obj_interval"
+        "physical_table": "TSG_OBJ_INTERVAL"
     },
     {
         "table_id": 87,
@@ -869,13 +869,13 @@
         "table_id": 92,
         "table_name": "udp.payload.c2s_first_data_len",
         "table_type": "virtual",
-        "physical_table": "tsg_obj_interval"
+        "physical_table": "TSG_OBJ_INTERVAL"
     },
     {
         "table_id": 93,
         "table_name": "udp.payload.s2c_first_data_len",
         "table_type": "virtual",
-        "physical_table": "tsg_obj_interval"
+        "physical_table": "TSG_OBJ_INTERVAL"
     },
     {
         "table_id": 94,
@@ -927,30 +927,36 @@
     },
     {
         "table_id": 102,
-        "table_name": "ssl.handshake.certificate.not_valid_before",
+        "table_name": "ssl.handshake.certificate.subject_organization_name",
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_KEYWORDS"
     },
     {
         "table_id": 103,
-        "table_name": "ssl.handshake.certificate.not_valid_after",
+        "table_name": "ssl.handshake.certificate.not_valid_before",
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_KEYWORDS"
     },
     {
         "table_id": 104,
-        "table_name": "ssl.handshake.certificate.algorithm_id",
+        "table_name": "ssl.handshake.certificate.not_valid_after",
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_KEYWORDS"
     },
     {
         "table_id": 105,
+        "table_name": "ssl.handshake.certificate.algorithm_id",
+        "table_type": "virtual",
+        "physical_table": "TSG_OBJ_KEYWORDS"
+    },
+    {
+        "table_id": 106,
         "table_name": "general.session.analysis.app_id",
         "table_type": "virtual",
         "physical_table": "TSG_OBJ_APP_ID"
     },
     {
-        "table_id":106,
+        "table_id":107,
         "table_name":"APP_SIG_SESSION_ATTRIBUTE_STRING",
         "table_type":"expr_plus",
         "valid_column":8,
@@ -965,7 +971,7 @@
         }
     },
     {
-        "table_id":107,
+        "table_id":108,
         "table_name":"APP_SIG_SESSION_ATTRIBUTE_FLAG",
         "table_type":"expr",
         "valid_column":7,
@@ -979,7 +985,7 @@
         }
     },
     {
-        "table_id":108,
+        "table_id":109,
         "table_name":"APP_SIG_SESSION_ATTRIBUTE_INTEGER",
         "table_type":"intval_plus",
         "valid_column":6,
@@ -989,6 +995,18 @@
             "district":3,
             "low_bound":4,
             "up_bound":5
+        }
+    },
+    {
+        "table_id": 110,
+        "table_name": "TSG_OBJ_INTERVAL",
+        "table_type": "intval",
+        "valid_column": 5,
+        "custom": {
+            "item_id": 1,
+            "group_id": 2,
+            "low_bound": 3,
+            "up_bound": 4
         }
     }
 ]
