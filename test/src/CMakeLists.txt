@@ -12,6 +12,10 @@ LINK_DIRECTORIES(/opt/MESA/lib)
 add_executable(gtest_rule ${PROJECT_SOURCE_DIR}/src/tsg_rule.cpp ${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp gtest_common.cpp gtest_rule.cpp)
 target_link_libraries(gtest_rule gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger maat4)
 
+
+add_executable(gtest_tableinfo ${PROJECT_SOURCE_DIR}/src/tsg_rule.cpp ${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp gtest_common.cpp gtest_tableinfo.cpp)
+target_link_libraries(gtest_tableinfo gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger maat4)
+
 add_executable(gtest_bridge ${PROJECT_SOURCE_DIR}/src/tsg_bridge.cpp ${PROJECT_SOURCE_DIR}/src/tsg_protocol.cpp ${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp gtest_common.cpp gtest_bridge.cpp)
 target_link_libraries(gtest_bridge gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger maat4)
 

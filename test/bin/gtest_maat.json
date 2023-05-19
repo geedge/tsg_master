@@ -128,6 +128,2180 @@
                     ]
                 }
             ]
+        },
+        {
+            "compile_id": 5,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"HTTP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_HTTP_HOST",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_FQDN",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "http_host_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 6,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"HTTP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_HTTP_HOST_CAT",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_FQDN_CAT",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1002,
+                                "up_boundary": 1003
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 7,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"HTTP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_HTTP_URL",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_URL",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "http_url_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 8,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"HTTP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_HTTP_REQ_HDR",
+                    "regions": [
+                        {
+                            "table_type": "expr_plus",
+                            "table_name": "TSG_OBJ_HTTP_SIGNATURE",
+                            "table_content": {
+                                "district": "Content-Type",
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "application/json;charset=UTF-8",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 9,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"HTTP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_HTTP_RES_HDR",
+                    "regions": [
+                        {
+                            "table_type": "expr_plus",
+                            "table_name": "TSG_OBJ_HTTP_SIGNATURE",
+                            "table_content": {
+                                "district": "Cookie",
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "GeoIP=HK:::22.26:114.17:v4;enwikimwuser-sessionId=d8fe6d620b7c8db3e5db;WMF-Last-Access=16-Jan-2023;WMF-Last-Access-Global=16-Jan-2023;",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 10,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 2,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"HTTP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_HTTP_REQ_BODY",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "TSG_FIELD_HTTP_REQ_BODY_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 11,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 2,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"HTTP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_HTTP_RES_BODY",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "TSG_FIELD_HTTP_RES_BODY_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 12,
+            "service": 3,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_SSL_SNI",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_FQDN",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_sni_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 13,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_SSL_SNI_CAT",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_FQDN_CAT",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1002,
+                                "up_boundary": 1003
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 14,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_SSL_CN",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_FQDN",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_cn_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 15,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_SSL_CN_CAT",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_FQDN_CAT",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1005,
+                                "up_boundary": 1006
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 16,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_SSL_SAN",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_FQDN",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_san_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 17,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_SSL_SAN_CAT",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_FQDN_CAT",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1007,
+                                "up_boundary": 1008
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 18,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"DNS\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_DNS_QNAME",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_FQDN",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "dns_qname_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 19,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"DNS\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_DNS_QNAME_CAT",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_FQDN_CAT",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1009,
+                                "up_boundary": 1010
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 20,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"QUIC\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_QUIC_SNI",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_FQDN",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "quic_sni_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 21,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"QUIC\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_QUIC_SNI_CAT",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_FQDN_CAT",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1011,
+                                "up_boundary": 1012
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 22,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"MAIL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_MAIL_ACCOUNT",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_ACCOUNT",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "username_policy_id_1@gtest.com",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 23,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"MAIL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_MAIL_FROM",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_ACCOUNT",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "username_policy_id_1@gtest.com_from",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 24,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"MAIL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_MAIL_TO",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_ACCOUNT",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "username_policy_id_1@gtest.com_to",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 25,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"MAIL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_MAIL_SUBJECT",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "subjet_policy_id_25_gtest.com",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 26,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"MAIL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_MAIL_CONTENT",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "subjet_policy_id_26_gtest.com",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 27,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"MAIL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_MAIL_ATT_NAME",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "subjet_policy_id_27_gtest.com",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 28,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"MAIL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_MAIL_ATT_CONTENT",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "subjet_policy_id_28_gtest.com",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 29,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"FTP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_FTP_URI",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_URL",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ftp_url_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 30,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"MAIL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_FTP_CONTENT",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "subjet_policy_id_30_gtest.com",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 31,
+            "service": 3,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"FTP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_FTP_ACCOUNT",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_ACCOUNT",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "subjet_policy_id_31_gtest.com",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 32,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "2.111",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_SECURITY_SOURCE_ADDR",
+                    "regions": [
+                        {
+                            "table_type": "ip_plus",
+                            "table_name": "TSG_OBJ_IP_ADDR",
+                            "table_content": {
+                                "addr_type": "ipv4",
+                                "addr_format": "range",
+                                "ip1": "255.255.255.254",
+                                "ip2": "255.255.255.254",
+                                "port_format": "range",
+                                "port1": "0",
+                                "port2": "30001",
+                                "protocol": 6
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 33,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "2.111",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_SECURITY_SOURCE_ADDR",
+                    "regions": [
+                        {
+                            "table_type": "ip_plus",
+                            "table_name": "TSG_OBJ_IP_ADDR",
+                            "table_content": {
+                                "addr_type": "ipv4",
+                                "addr_format": "range",
+                                "ip1": "255.255.255.254",
+                                "ip2": "255.255.255.254",
+                                "port_format": "range",
+                                "port1": "30001",
+                                "port2": "65535",
+                                "protocol": 17
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 34,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "2.111",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_SECURITY_DESTINATION_ADDR",
+                    "regions": [
+                        {
+                            "table_type": "ip_plus",
+                            "table_name": "TSG_OBJ_IP_ADDR",
+                            "table_content": {
+                                "addr_type": "ipv4",
+                                "addr_format": "range",
+                                "ip1": "255.255.255.253",
+                                "ip2": "255.255.255.253",
+                                "port_format": "range",
+                                "port1": "0",
+                                "port2": "30000",
+                                "protocol": 6
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 35,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "2.111",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_SECURITY_DESTINATION_ADDR",
+                    "regions": [
+                        {
+                            "table_type": "ip_plus",
+                            "table_name": "TSG_OBJ_IP_ADDR",
+                            "table_content": {
+                                "addr_type": "ipv4",
+                                "addr_format": "range",
+                                "ip1": "255.255.255.253",
+                                "ip2": "255.255.255.253",
+                                "port_format": "range",
+                                "port1": "30001",
+                                "port2": "65535",
+                                "protocol": 17
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 36,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_SECURITY_SOURCE_ASN",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_AS_NUMBER",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "source_asn_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 37,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_SECURITY_DESTINATION_ASN",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_AS_NUMBER",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "destination_asn_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 38,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_SECURITY_SOURCE_LOCATION",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_GEO_LOCATION",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "country_full_test.city_full_test.",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 39,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_SECURITY_DESTINATION_LOCATION",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_GEO_LOCATION",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "country_full_test.city_full_test.",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 40,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"VOIP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_SIP_ORIGINATOR_DESCRIPTION",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_ACCOUNT",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "sip_region_buff_SIP_ORIGINATOR_DESCRIPTION",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 41,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"VOIP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_SIP_RESPONDER_DESCRIPTION",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_ACCOUNT",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "sip_region_buff_SIP_RESPONDER_DESCRIPTION",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 42,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FILED_GTP_IMSI",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_IMSI",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "gtp_imsi_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 43,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FILED_GTP_PHONE_NUMBER",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_PHONE_NUMBER",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "13766688899",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 44,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FILED_GTP_APN",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_APN",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "gtp_apn_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 45,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_DECYPTION_EXCLUSION_SSL_SNI",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_FQDN",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "DECYPTION_EXCLUSION_SSL_SNI_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 46,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "0.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_SECURITY_TUNNEL",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_TUNNEL_ID",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 4,
+                                "up_boundary": 6
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 47,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "0.0",
+            "groups": [
+                {
+                    "group_name": "flags",
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_SECURITY_FLAG",
+                    "regions": [
+                        {
+                            "table_type": "flag",
+                            "table_name": "TSG_OBJ_FLAG",
+                            "table_content": {
+                                "flag": 8,
+                                "flag_mask": 8
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 48,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "virtual_table": "TSG_FIELD_DTLS_SNI",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_FQDN",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "dtls_sni_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 49,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"DTLS\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "TSG_FIELD_DTLS_SNI_CAT",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_FQDN_CAT",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1007,
+                                "up_boundary": 1008
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 50,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"TCP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "tcp.payload.c2s_first_data",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "test_tcp_c2s_first_payload",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 51,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"TCP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "tcp.payload.s2c_first_data",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "test_tcp_s2c_first_payload",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 52,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"TCP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "tcp.payload.c2s_first_data_len",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_INTERVAL",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1007,
+                                "up_boundary": 1008
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 53,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"TCP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "tcp.payload.s2c_first_data_len",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_INTERVAL",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1007,
+                                "up_boundary": 1008
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 54,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"TCP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "tcp.payload",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "test_tcp_payload",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 55,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"TCP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "tcp.syn.fingerprint",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "test_tcp_syn_fingerprint",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 56,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"TCP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "tcp.sack.fingerprint",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "test_tcp_sack_fingerprint",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 57,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"UDP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "udp.payload.c2s_first_data",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "test_udp_payload_c2s_first_data",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 58,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"UDP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "udp.payload.s2c_first_data",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "test_udp_payload_s2c_first_data",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 59,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"UDP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "udp.payload.c2s_first_data_len",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_INTERVAL",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1007,
+                                "up_boundary": 1008
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 60,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{\"protocol\":\"UDP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "udp.payload.s2c_first_data_len",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_INTERVAL",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1007,
+                                "up_boundary": 1008
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 61,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"UDP\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "udp.payload",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "test_udp_payload",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 62,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.analysis.ja3",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_analysis_ja3_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 63,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.handshake.cert.fingerprint",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_handshake_cert_fingerprint_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 64,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.handshake.cert.serial_number",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_handshake_cert_serial_number_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 65,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.handshake.certificate.issuer_common_name",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_handshake_certificate_issuer_common_name_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 66,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.handshake.certificate.issuer_organization_name",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_handshake_certificate_issuer_organization_name_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 67,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.handshake.certificate.issuer_country_name",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_handshake_certificate_issuer_country_name_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 68,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.handshake.certificate.subject_country_name",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_handshake_certificate_subject_country_name_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 69,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.handshake.certificate.subject_organization_name",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_handshake_certificate_subject_organization_name_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 70,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.handshake.certificate.not_valid_before",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_handshake_certificate_not_valid_before_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 71,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.handshake.certificate.not_valid_after",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_handshake_certificate_not_valid_after_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 72,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "effective_rage": 0,
+            "user_region": "{\"protocol\":\"SSL\"}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "ssl.handshake.certificate.algorithm_id",
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "TSG_OBJ_KEYWORDS",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "ssl_handshake_certificate_algorithm_id_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 73,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "virtual_table": "general.session.analysis.app_id",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_APP_ID",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 1007,
+                                "up_boundary": 1008
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 74,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "regions": [
+                        {
+                            "table_type": "expr_plus",
+                            "table_name": "APP_SIG_SESSION_ATTRIBUTE_STRING",
+                            "table_content": {
+                                "district": "SIG_SEESION",
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "sig_session_attribute_string_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 75,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "regions": [
+                        {
+                            "table_type": "expr",
+                            "table_name": "APP_SIG_SESSION_ATTRIBUTE_FLAG",
+                            "table_content": {
+                                "format": "uncase plain",
+                                "match_method": "complete",
+                                "keywords": "sig_session_attribute_flag_test",
+                                "expr_type": "none"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "compile_id": 76,
+            "service": 2,
+            "action": 1,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "not_flag": 0,
+                    "clause_index": 0,
+                    "regions": [
+                        {
+                            "table_name": "APP_SIG_SESSION_ATTRIBUTE_INTEGER",
+                            "table_type": "intval_plus",
+                            "table_content": {
+                                "district": "SIG_SEESION",
+                                "low_boundary": 1007,
+                                "up_boundary": 1008
+                            }
+                        }
+                    ]
+                }
+            ]
         }
     ],
     "plugin_table": [

@@ -12,6 +12,7 @@ add_test(NAME COPY_GTEST_MAAT_RULE COMMAND sh -c "cp -r ${CMAKE_SOURCE_DIR}/test
 add_test(NAME COPY_GTEST_PROFILE_RESPONSE_PAGES COMMAND sh -c "cp -r ${CMAKE_SOURCE_DIR}/test/bin/foreign_files ${CMAKE_BINARY_DIR}/testing/")
 add_test(NAME COPY_GTEST_PROXY_PCAP COMMAND sh -c "cp -r ${CMAKE_SOURCE_DIR}/test/pcap ${CMAKE_BINARY_DIR}/testing/")
 
+add_test(NAME COPY_GTEST_TABLEINFO_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/test/src/gtest_tableinfo ${CMAKE_BINARY_DIR}/testing/")
 add_test(NAME COPY_GTEST_RULE_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/test/src/gtest_rule ${CMAKE_BINARY_DIR}/testing/")
 add_test(NAME COPY_GTEST_BRIDGE_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/test/src/gtest_bridge ${CMAKE_BINARY_DIR}/testing/")
 add_test(NAME COPY_GTEST_ACTION_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/test/src/gtest_action ${CMAKE_BINARY_DIR}/testing/")
@@ -22,6 +23,7 @@ add_test(NAME COPY_GTEST_FIELDSTAT3_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/te
 add_test(NAME COPY_GTEST_PROXY_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/test/src/gtest_proxy ${CMAKE_BINARY_DIR}/testing/")
 
 set(GTEST_RUN_DIR ${CMAKE_BINARY_DIR}/testing)
+add_test(NAME GTEST_TABLEINFO COMMAND gtest_tableinfo WORKING_DIRECTORY ${GTEST_RUN_DIR})
 add_test(NAME GTEST_RULE COMMAND gtest_rule WORKING_DIRECTORY ${GTEST_RUN_DIR})
 add_test(NAME GTEST_BRIDGE COMMAND gtest_bridge WORKING_DIRECTORY ${GTEST_RUN_DIR})
 add_test(NAME GTEST_ACTION COMMAND gtest_action WORKING_DIRECTORY ${GTEST_RUN_DIR})
