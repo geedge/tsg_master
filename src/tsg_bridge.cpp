@@ -507,7 +507,7 @@ const struct session_runtime_process_context *session_runtime_process_context_ne
 		int ret=session_async_bridge_set_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_attribute);
 		if(ret<0)
 		{
-			session_runtime_attribute_free(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_attribute);
+			session_runtime_process_context_free(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_attribute);
 			srt_attribute=NULL;
 			return NULL;
 		}
@@ -577,7 +577,7 @@ const struct session_runtime_action_context *session_runtime_action_context_new(
 		int ret=session_async_bridge_set_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id, (void *)srt_action_context);
 		if(ret<0)
 		{
-			session_runtime_attribute_free(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id, (void *)srt_action_context);
+			session_runtime_action_context_free(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id, (void *)srt_action_context);
 			srt_action_context=NULL;
 			return NULL;
 		}
@@ -784,6 +784,8 @@ const struct matched_policy_rules *session_matched_rules_get(const struct stream
 			return (struct matched_policy_rules *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SHAPING_RESULT].id);
 		case	TSG_SERVICE_INTERCEPT:
 			return (struct matched_policy_rules *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_INTERCEPT_RESULT].id);
+		case 	TSG_SERVICE_SIGNATURE:
+			return (struct matched_policy_rules *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_APP_SIGNATURE_RESULT].id);
 		default:
 			break;
 	}
@@ -802,7 +804,7 @@ int session_matched_rules_sync(const struct streaminfo *a_stream, TSG_SERVICE se
 		case	TSG_SERVICE_SHAPING:
 			return stream_bridge_sync_data_put(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SHAPING_RESULT].id, data);
 		case	TSG_SERVICE_INTERCEPT:
-			return stream_bridge_sync_data_put(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SECURITY_RESULT].id, data);
+			return stream_bridge_sync_data_put(a_stream, g_tm_bridge_para[BRIDGE_TYPE_INTERCEPT_RESULT].id, data);
 		case	TSG_SERVICE_SIGNATURE:
 			return stream_bridge_sync_data_put(a_stream, g_tm_bridge_para[BRIDGE_TYPE_APP_SIGNATURE_RESULT].id, data);
 		default:

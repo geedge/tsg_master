@@ -31,6 +31,7 @@ static int mpack_init_map(const struct streaminfo *a_stream, mpack_writer_t *wri
 
 static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *writer, char **mpack_data, size_t *mpack_size)
 {
+	int ret = 0;
 	mpack_complete_map(writer); // mpack_init_map
 	if (mpack_writer_destroy(writer) != mpack_ok)
 	{
@@ -38,12 +39,17 @@ static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *wri
 		return -1;
 	}
 
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "MSGPACK_PROXY_BUFF", "send buff_len = %lu", *mpack_size);
-	sapp_inject_ctrl_pkt((struct streaminfo *)a_stream, SIO_DEFAULT, *mpack_data, *mpack_size, a_stream->routedir);
+	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "MSGPACK_BUFF", "send buff_len = %lu, state: %u", *mpack_size, (uint8_t)a_stream->opstate);
+	ret = sapp_inject_ctrl_pkt((struct streaminfo *)a_stream, SIO_DEFAULT, *mpack_data, *mpack_size, a_stream->routedir);
+	if (ret == -1)
+	{
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "MSGPACK_BUFF_SEND", "An error occurred injecting the data!");
+	}
+
 	free(*mpack_data);
 	*mpack_data = NULL;
 	*mpack_size = 0;
-	return 0;
+	return ret;
 }
 
 int tsg_send_session_state(const struct streaminfo *a_stream, unsigned char state)
