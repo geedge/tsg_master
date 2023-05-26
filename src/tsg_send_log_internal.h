@@ -205,6 +205,7 @@ struct tsg_log_instance_t
 	int unknown_app_id;
 	int send_user_region;
 	int send_app_id;
+	int send_intercept_log;
 	int send_nat_linkinfo;
 	int send_data_center;
 	int recovery_interval;

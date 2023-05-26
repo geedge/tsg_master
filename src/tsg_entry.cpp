@@ -1903,8 +1903,7 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 
 			if(srt_process_context->mid!=NULL)
 			{
-				maat_state_free(srt_process_context->mid);
-				srt_process_context->mid=NULL;
+				maat_state_reset(srt_process_context->mid);
 			}
 			
 			srt_process_context->last_scan_time=tsg_get_current_time_ms();

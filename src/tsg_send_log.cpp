@@ -1944,6 +1944,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_USER_REGION", &(_instance->send_user_region), 0);		
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_DATA_CENTER_SWITCH", &(_instance->send_data_center), 0);
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_APP_ID_SWITCH", &(_instance->send_app_id), 0);
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_INTERCEPT_LOG", &(_instance->send_intercept_log), 0);
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_NAT_LINKINFO_SWITCH", &(_instance->send_nat_linkinfo), 0);
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "RAPIDJSON_CHUNK_CAPACITY", &(_instance->rapidjson_chunk_capacity), 8192);
 
@@ -2202,6 +2203,26 @@ int send_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_h
 	return 0;
 }
 
+int deal_event_rules(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, LOG_TYPE log_type, TSG_SERVICE service, int thread_id)
+{
+	struct matched_policy_rules *matched_rules=(struct matched_policy_rules *)session_matched_rules_get(a_stream, service);
+	if(matched_rules==NULL || matched_rules->n_rules==0)
+	{
+		return 0;
+	}
+
+	if(service==TSG_SERVICE_INTERCEPT)
+	{
+		set_intercept_info(_instance, _handle, a_stream);
+	}
+	
+	send_event_log(_instance, _handle, a_stream, log_type, matched_rules->rules, matched_rules->n_rules, thread_id);
+	session_matched_rules_free(a_stream, service, (void *)matched_rules);
+	session_matched_rules_async(a_stream, service, NULL);
+
+	return 1;
+}
+
 int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, const struct streaminfo *a_stream, enum LOG_TYPE log_type, struct maat_rule *rules, size_t n_rules, int thread_id)
 {	
 	if(instance==NULL || handle==NULL || rules==NULL || n_rules==0)
@@ -2238,32 +2259,21 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 
 	set_application_behavior(_instance, _handle, a_stream);
 
-	struct matched_policy_rules *matched_rules=NULL;
-
 	switch(log_type)
 	{
 		case	LOG_TYPE_SECURITY_EVENT:
 			send_event_log(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, rules, n_rules, thread_id);
 			break;
+		case	LOG_TYPE_INTERCEPT_EVENT:
+			send_event_log(_instance, _handle, a_stream, LOG_TYPE_INTERCEPT_EVENT, rules, n_rules, thread_id);
+			break;
 		case	LOG_TYPE_SESSION_RECORD:
 		case	LOG_TYPE_TRANSACTION_RECORD:
-			matched_rules=(struct matched_policy_rules *)session_matched_rules_get(a_stream, TSG_SERVICE_SECURITY);
-			if(matched_rules!=NULL && matched_rules->n_rules>0)
-			{
-				send_event_log(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, matched_rules->rules, matched_rules->n_rules, thread_id);
-				session_matched_rules_free(a_stream, TSG_SERVICE_SECURITY, (void *)matched_rules);
-				session_matched_rules_async(a_stream, TSG_SERVICE_SECURITY, NULL);
-				matched_rules=NULL;
-			}
+			deal_event_rules(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, TSG_SERVICE_SECURITY, thread_id);
 
-			matched_rules=(struct matched_policy_rules *)session_matched_rules_get(a_stream, TSG_SERVICE_INTERCEPT);
-			if(matched_rules!=NULL && matched_rules->n_rules>0)
+			if(_instance->send_intercept_log==1)
 			{
-				set_intercept_info(instance, handle, a_stream);
-				send_event_log(_instance, _handle, a_stream, LOG_TYPE_INTERCEPT_ENEVT, matched_rules->rules, matched_rules->n_rules, thread_id);
-				session_matched_rules_free(a_stream, TSG_SERVICE_INTERCEPT, (void *)matched_rules);
-				session_matched_rules_async(a_stream, TSG_SERVICE_INTERCEPT, NULL);
-				matched_rules=NULL;
+				deal_event_rules(_instance, _handle, a_stream, LOG_TYPE_INTERCEPT_EVENT, TSG_SERVICE_INTERCEPT, thread_id);
 			}
 			// no break;
 		case	LOG_TYPE_INTERIM_SESSION_RECORD:
