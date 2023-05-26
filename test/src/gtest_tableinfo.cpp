@@ -72,15 +72,12 @@ TEST(TSG_Table, http_host)
 TEST(TSG_Table, TSG_FIELD_HTTP_HOST_CAT)
 {
     const struct streaminfo a_stream = {0};
-    long long integer = 1003;
+    unsigned int integer = 1003;
     struct maat_state *mid = maat_state_new(g_tsg_maat_feather, a_stream.threadnum);
 
-    size_t n_matched_rules = 0;
-    long long matched_rules[MAX_RESULT_NUM];
-    int is_hited = maat_scan_integer(g_tsg_maat_feather, maat_get_table_id(g_tsg_maat_feather, "TSG_FIELD_HTTP_HOST_CAT"), integer, matched_rules, MAX_RESULT_NUM, &n_matched_rules, mid);
-    EXPECT_EQ(is_hited, MAAT_SCAN_HIT);
-    EXPECT_EQ(n_matched_rules, 1);
-    EXPECT_EQ(matched_rules[0], 6);
+    struct maat_rule matched_rules[MAX_RESULT_NUM];
+    EXPECT_EQ(1, tsg_scan_fqdn_category_id(&a_stream, g_tsg_maat_feather, &integer, 1, MAAT_SCAN_HTTP_HOST_CAT, mid, matched_rules, MAX_RESULT_NUM));
+    EXPECT_EQ(matched_rules[0].rule_id, 6);
     maat_state_free(mid);
     mid = NULL;
 }
@@ -239,15 +236,12 @@ TEST(TSG_Table, ssl_handshake_extensions_server_name)
 TEST(TSG_Table, TSG_FIELD_SSL_SNI_CAT)
 {
     const struct streaminfo a_stream = {0};
-    long long integer = 1002;
+    unsigned int integer = 1002;
     struct maat_state *mid = maat_state_new(g_tsg_maat_feather, a_stream.threadnum);
 
-    size_t n_matched_rules = 0;
-    long long matched_rules[MAX_RESULT_NUM];
-    int is_hited = maat_scan_integer(g_tsg_maat_feather, maat_get_table_id(g_tsg_maat_feather, "TSG_FIELD_SSL_SNI_CAT"), integer, matched_rules, MAX_RESULT_NUM, &n_matched_rules, mid);
-    EXPECT_EQ(is_hited, MAAT_SCAN_HIT);
-    EXPECT_EQ(n_matched_rules, 1);
-    EXPECT_EQ(matched_rules[0], 13);
+    struct maat_rule matched_rules[MAX_RESULT_NUM];
+    EXPECT_EQ(1, tsg_scan_fqdn_category_id(&a_stream, g_tsg_maat_feather, &integer, 1, MAAT_SCAN_SSL_SNI_CAT, mid, matched_rules, MAX_RESULT_NUM));
+    EXPECT_EQ(matched_rules[0].rule_id, 13);
     maat_state_free(mid);
     mid = NULL;
 }
@@ -392,12 +386,9 @@ TEST(TSG_Table, TSG_FIELD_QUIC_SNI)
     size_t s_data_len = strlen(s_data);
     struct maat_state *mid = maat_state_new(g_tsg_maat_feather, a_stream.threadnum);
 
-    size_t n_matched_rules = 0;
-    long long matched_rules[MAX_RESULT_NUM];
-    int is_hited = maat_scan_string(g_tsg_maat_feather, maat_get_table_id(g_tsg_maat_feather, "TSG_FIELD_QUIC_SNI"), s_data, s_data_len, matched_rules, MAX_RESULT_NUM, &n_matched_rules, mid);
-    EXPECT_EQ(is_hited, MAAT_SCAN_HIT);
-    EXPECT_EQ(n_matched_rules, 1);
-    EXPECT_EQ(matched_rules[0], 20);
+    struct maat_rule matched_rules[MAX_RESULT_NUM];
+	EXPECT_EQ(1, tsg_scan_string(&a_stream, g_tsg_maat_feather, s_data, s_data_len, MAAT_SCAN_QUIC_SNI, mid, matched_rules, MAX_RESULT_NUM));
+    EXPECT_EQ(matched_rules[0].rule_id, 20);
     maat_state_free(mid);
     mid = NULL;
 }
@@ -422,15 +413,12 @@ TEST(TSG_Table, quic_sni)
 TEST(TSG_Table, TSG_FIELD_QUIC_SNI_CAT)
 {
     const struct streaminfo a_stream = {0};
-    long long integer = 1011;
+    unsigned int integer = 1011;
     struct maat_state *mid = maat_state_new(g_tsg_maat_feather, a_stream.threadnum);
 
-    size_t n_matched_rules = 0;
-    long long matched_rules[MAX_RESULT_NUM];
-    int is_hited = maat_scan_integer(g_tsg_maat_feather, maat_get_table_id(g_tsg_maat_feather, "TSG_FIELD_QUIC_SNI_CAT"), integer, matched_rules, MAX_RESULT_NUM, &n_matched_rules, mid);
-    EXPECT_EQ(is_hited, MAAT_SCAN_HIT);
-    EXPECT_EQ(n_matched_rules, 1);
-    EXPECT_EQ(matched_rules[0], 21);
+    struct maat_rule matched_rules[MAX_RESULT_NUM];
+    EXPECT_EQ(1, tsg_scan_fqdn_category_id(&a_stream, g_tsg_maat_feather, &integer, 1, MAAT_SCAN_QUIC_SNI_CAT, mid, matched_rules, MAX_RESULT_NUM));
+    EXPECT_EQ(matched_rules[0].rule_id, 21);
     maat_state_free(mid);
     mid = NULL;
 }
@@ -927,15 +915,12 @@ TEST(TSG_Table, TSG_FIELD_DTLS_SNI)
 TEST(TSG_Table, TSG_FIELD_DTLS_SNI_CAT)
 {
     const struct streaminfo a_stream = {0};
-    long long integer = 1007;
+    unsigned int integer = 1007;
     struct maat_state *mid = maat_state_new(g_tsg_maat_feather, a_stream.threadnum);
 
-    size_t n_matched_rules = 0;
-    long long matched_rules[MAX_RESULT_NUM];
-    int is_hited = maat_scan_integer(g_tsg_maat_feather, maat_get_table_id(g_tsg_maat_feather, "TSG_FIELD_DTLS_SNI_CAT"), integer, matched_rules, MAX_RESULT_NUM, &n_matched_rules, mid);
-    EXPECT_EQ(is_hited, MAAT_SCAN_HIT);
-    EXPECT_EQ(n_matched_rules, 1);
-    EXPECT_EQ(matched_rules[0], 49);
+    struct maat_rule matched_rules[MAX_RESULT_NUM];
+    EXPECT_EQ(1, tsg_scan_fqdn_category_id(&a_stream, g_tsg_maat_feather, &integer, 1, MAAT_SCAN_DTLS_SNI_CAT, mid, matched_rules, MAX_RESULT_NUM));
+    EXPECT_EQ(matched_rules[0].rule_id, 49);
     maat_state_free(mid);
     mid = NULL;
 }

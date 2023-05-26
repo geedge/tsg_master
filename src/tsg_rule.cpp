@@ -1805,6 +1805,11 @@ int init_scan_table(struct maat *feather, const char *conffile)
 	MESA_load_profile_string_def(conffile, "MAAT", "TUNNEL_ID_TABLE", g_tsg_maat_rt_para.scan_tb[MAAT_SCAN_TUNNEL_ID].name, MAX_TABLE_NAME_LEN, "TSG_SECURITY_TUNNEL");
 	MESA_load_profile_string_def(conffile, "MAAT", "SESSION_FLAG_TABLE", g_tsg_maat_rt_para.scan_tb[MAAT_SCAN_SESSION_FLAGS].name, MAX_TABLE_NAME_LEN, "TSG_SECURITY_FLAG");
 
+	MESA_load_profile_string_def(conffile, "MAAT", "HTTP_HOST_CAT", g_tsg_maat_rt_para.scan_tb[MAAT_SCAN_HTTP_HOST_CAT].name, MAX_TABLE_NAME_LEN, "TSG_FIELD_HTTP_HOST_CAT");
+	MESA_load_profile_string_def(conffile, "MAAT", "SSL_SNI_CAT", g_tsg_maat_rt_para.scan_tb[MAAT_SCAN_SSL_SNI_CAT].name, MAX_TABLE_NAME_LEN, "TSG_FIELD_SSL_SNI_CAT");
+	MESA_load_profile_string_def(conffile, "MAAT", "QUIC_SNI_CAT", g_tsg_maat_rt_para.scan_tb[MAAT_SCAN_QUIC_SNI_CAT].name, MAX_TABLE_NAME_LEN, "TSG_FIELD_QUIC_SNI_CAT");
+	MESA_load_profile_string_def(conffile, "MAAT", "DTLS_SNI_CAT", g_tsg_maat_rt_para.scan_tb[MAAT_SCAN_DTLS_SNI_CAT].name, MAX_TABLE_NAME_LEN, "TSG_FIELD_DTLS_SNI_CAT");
+
 	for(int i=0; i<MAAT_SCAN_MAX; i++)
 	{
 		g_tsg_maat_rt_para.scan_tb[i].id=maat_get_table_id(feather, g_tsg_maat_rt_para.scan_tb[i].name);
@@ -3089,7 +3094,7 @@ size_t tsg_select_rules_by_service_id(struct maat_rule *matched_rules, size_t n_
 	return offset;
 }
 
-int tsg_table_idx_get_by_protocol(TSG_PROTOCOL proto)
+int tsg_domain_table_idx_get(enum TSG_PROTOCOL proto)
 {
 	switch(proto)
 	{
@@ -3101,6 +3106,25 @@ int tsg_table_idx_get_by_protocol(TSG_PROTOCOL proto)
 			return MAAT_SCAN_QUIC_SNI;
 		case	PROTO_DTLS:
 			return MAAT_SCAN_DTLS_SNI;
+		default:
+			break;
+	}
+
+	return -1;
+}
+
+int tsg_fqdn_category_table_idx_get(enum TSG_PROTOCOL proto)
+{
+	switch(proto)
+	{
+		case	PROTO_HTTP:
+			return MAAT_SCAN_HTTP_HOST_CAT;
+		case	PROTO_SSL:
+			return MAAT_SCAN_SSL_SNI_CAT;
+		case	PROTO_QUIC:
+			return MAAT_SCAN_QUIC_SNI_CAT;
+		case	PROTO_DTLS:
+			return MAAT_SCAN_DTLS_SNI_CAT;
 		default:
 			break;
 	}

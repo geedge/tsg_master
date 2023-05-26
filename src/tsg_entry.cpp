@@ -1773,8 +1773,10 @@ static size_t session_pending_state_deal(const struct streaminfo *a_stream, stru
 			}
 		}
 		
-		int table_idx=tsg_table_idx_get_by_protocol(srt_process_context->proto);
+		int table_idx=tsg_domain_table_idx_get(srt_process_context->proto);
 		hit_num+=tsg_scan_shared_policy(a_stream, g_tsg_maat_feather, srt_process_context->domain, table_idx, (srt_process_context->mid), results+hit_num, n_results-hit_num);
+		
+		table_idx=tsg_fqdn_category_table_idx_get(srt_process_context->proto);
 		hit_num+=tsg_scan_fqdn_category_id(a_stream, g_tsg_maat_feather, srt_process_context->domain, table_idx, (srt_process_context->mid), results+hit_num, n_results-hit_num);
 		if(srt_process_context->is_esni)
 		{

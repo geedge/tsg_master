@@ -88,6 +88,10 @@ enum MAAT_SCAN_TB
 	MAAT_SCAN_DTLS_SNI,
 	MAAT_SCAN_TUNNEL_ID,
 	MAAT_SCAN_SESSION_FLAGS,
+	MAAT_SCAN_HTTP_HOST_CAT,
+	MAAT_SCAN_SSL_SNI_CAT,
+	MAAT_SCAN_QUIC_SNI_CAT,
+	MAAT_SCAN_DTLS_SNI_CAT,
 	MAAT_SCAN_MAX
 };
 
@@ -148,7 +152,8 @@ char *tsg_data_center_get(void);
 char *tsg_device_tag_get(void);
 int tsg_location_type_get(void);
 int tsg_session_record_switch_get(void);
-int tsg_table_idx_get_by_protocol(enum TSG_PROTOCOL proto);
+int tsg_domain_table_idx_get(enum TSG_PROTOCOL proto);
+int tsg_fqdn_category_table_idx_get(enum TSG_PROTOCOL proto);
 int tsg_http_url_table_idx_get(void);
 long long tsg_default_compile_id_get(void);
 
