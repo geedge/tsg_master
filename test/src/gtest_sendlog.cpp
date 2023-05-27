@@ -122,6 +122,11 @@ void plugin_ex_data_security_compile_free(struct maat_compile * maat_compile)
 {
 }
 
+int tsg_set_policy_flow(const struct streaminfo * a_stream, struct maat_rule * p_result, int thread_seq)
+{
+	return 0;
+}
+
 TEST(MasterTest, SetVlan)
 {
 	//int ret=set_vlan(NULL, NULL, NULL, 0, NULL, LOG_COMMON_TUNNELS_VLAN_SRC_ID);

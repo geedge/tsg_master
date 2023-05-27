@@ -113,8 +113,6 @@ struct id2field g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"
 										 {0, TSG_FS2_TUNNEL_LABEL_DEL, "t_label_del"}
 										};
 
-#define	DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID	1
-
 static int init_page_template(const char *conffile)
 {
 	char page_path[256];
@@ -1066,7 +1064,6 @@ static int session_runtime_process_log_send(const struct streaminfo *a_stream, s
 						if (TLD_handle!=NULL)
 						{
 							tsg_send_log(g_tsg_log_instance, TLD_handle, a_stream, LOG_TYPE_SECURITY_EVENT, rules, n_rules, thread_seq);
-							tsg_set_policy_flow(a_stream, rules, thread_seq);
 							return 1;
 						}
 					}
@@ -1156,11 +1153,6 @@ static int session_runtime_process_log_send(const struct streaminfo *a_stream, s
 	}
 	
 	tsg_send_log(g_tsg_log_instance, TLD_handle, a_stream, LOG_TYPE_SECURITY_EVENT, rules, n_rules, thread_seq);
-	
-	if(rules->rule_id!=DECCRYPTION_EXCLUSION_ALLOW_POLICY_ID)
-	{
-		tsg_set_policy_flow(a_stream, rules, thread_seq);
-	}
 	
 	return 1;
 }
@@ -1543,7 +1535,6 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 
 			if(is_deny_after_N_packets(p_rule))
 			{
-				tsg_set_policy_flow(a_stream, p_rule, a_stream->threadnum);
 				session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, p_rule, 1, a_stream->threadnum);
 				if(a_stream->type==STREAM_TYPE_TCP)
 				{
@@ -1561,11 +1552,6 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 			if(srt_process_context->proto==PROTO_RTP)
 			{
 				break;
-			}
-
-			if (srt_process_context->proto == PROTO_SSH)
-			{
-				tsg_set_policy_flow(a_stream, p_rule, a_stream->threadnum);
 			}
 
 			session_packet_capture_by_rules_notify(a_stream, security_rules, n_security_rules, a_stream->threadnum);
