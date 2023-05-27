@@ -9,7 +9,6 @@
 
 #define	STATE_GIVEME		1
 #define	STATE_DROPME		2
-#define	STATE_DROPPKT		4
 #define	STATE_KILL_OTHER	8
 
 enum TSG_DENY_TYPE

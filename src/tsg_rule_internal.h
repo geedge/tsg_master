@@ -171,5 +171,6 @@ size_t tsg_scan_fqdn_category_id(const struct streaminfo * a_stream, struct maat
 int tsg_scan_intercept_exclusion(const struct streaminfo *a_stream, struct maat *feather, struct maat_rule *p_result, char *domain, int thread_seq);
 
 struct maat_rule *tsg_select_deny_rule(struct maat_rule *rules, size_t n_rules);
+size_t tsg_select_rules_by_action(struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules, unsigned char action);
 
 struct umts_user_info *tsg_get_umts_user_info_form_redis(struct maat *feather, long long teid);

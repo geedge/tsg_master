@@ -184,4 +184,5 @@ const char *srt_process_context_get_domain(const struct session_runtime_process_
 const char *srt_process_context_get_http_url(const struct session_runtime_process_context *srt_process_context);
 const char *srt_process_context_get_quic_ua(const struct session_runtime_process_context *srt_process_context);
 enum TSG_PROTOCOL srt_process_context_get_protocol(const struct session_runtime_process_context *srt_process_context);
+unsigned char srt_process_context_get_hitted_allow_flag(const struct session_runtime_process_context *srt_process_context);
 

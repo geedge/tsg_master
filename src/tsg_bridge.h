@@ -65,7 +65,7 @@ struct hited_app_para
 struct session_runtime_process_context
 {
 	unsigned char is_esni;
-	unsigned char is_hited_allow;
+	unsigned char is_hitted_allow;
 	unsigned char deal_pkt_num;
 	unsigned char is_app_link;
 	unsigned char sync_cb_state;
@@ -92,7 +92,6 @@ struct session_runtime_process_context
 	struct maat_state *mid;
 	struct hited_app_para hited_para;  // l7 protocol and app
 	long long last_scan_time;
-	struct maat_rule *hited_result;
 };
 
 struct session_runtime_action_context
@@ -194,4 +193,7 @@ int srt_action_context_set_after_n_packet(const struct streaminfo * a_stream, in
 int srt_action_context_set_hitted_app_id(const struct streaminfo * a_stream, int hited_app_id, int thread_seq);
 
 char srt_action_context_get_direction(const struct streaminfo * a_stream);
+
+
+const struct session_runtime_process_context *session_runtime_process_context_new(const struct streaminfo * a_stream);
 

@@ -32,6 +32,7 @@
 #include "tsg_protocol_common.h"
 #include "tsg_sync_state.h"
 #include "tsg_proxy.h"
+#include "tsg_bridge.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -179,14 +180,6 @@ static int init_fs2_handle(const char *conffile)
 		g_tsg_para.fs2_field_id[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, g_tsg_fs2_field[i].name);
 	}
 
-	return 0;
-}
-
-static int init_context(void **pme, int thread_seq)
-{
-	*pme=dictator_malloc(thread_seq, sizeof(struct session_runtime_process_context));
-	memset(*pme, 0, sizeof(struct session_runtime_process_context));
-	
 	return 0;
 }
 
@@ -1036,127 +1029,6 @@ int session_state_sync_in_activing(const struct streaminfo *a_stream, TSG_SERVIC
 	return 1;
 }
 
-static int session_runtime_process_log_send(const struct streaminfo *a_stream, struct maat_rule *rules, int n_rules, struct session_runtime_process_context *srt_process_context, int thread_seq)
-{
-	char *domain_field_name=NULL;
-	char *schema_field_name=NULL;
-	char *quic_ua_field_name=NULL;
-	char *quic_version_field_name=NULL;
-	struct TLD_handle_t *TLD_handle=NULL;
-	enum TSG_PROTOCOL proto=PROTO_UNKONWN;
-	struct tsg_conn_sketch_notify_data *notify=NULL;
-	if(srt_process_context!=NULL)
-	{
-		proto=srt_process_context->proto;
-	}
-
-	if(rules[0].action==TSG_ACTION_MONITOR)
-	{
-		switch(proto)
-		{
-			case	PROTO_SSH:
-			case	PROTO_RDP:
-			case	PROTO_STRATUM:
-					notify=(struct tsg_conn_sketch_notify_data *)session_conn_sketch_notify_data_get(a_stream);
-					if (notify != NULL && notify->pdata.TLD_handle!=NULL && (notify->protocol== PROTO_SSH || notify->protocol== PROTO_STRATUM  || notify->protocol== PROTO_RDP))
-					{
-						TLD_handle = TLD_duplicate(notify->pdata.TLD_handle);
-						if (TLD_handle!=NULL)
-						{
-							tsg_send_log(g_tsg_log_instance, TLD_handle, a_stream, LOG_TYPE_SECURITY_EVENT, rules, n_rules, thread_seq);
-							return 1;
-						}
-					}
-				break;
-			default:
-				break;
-		}
-	}
-
-	TLD_handle=TLD_create(thread_seq);
-	schema_field_name=log_field_id2name(g_tsg_log_instance, LOG_COMMON_SCHAME_TYPE);
-	
-	if(proto>PROTO_UNKONWN && proto<PROTO_MAX)
-	{
-		if(proto==PROTO_IMAP || proto==PROTO_SMTP || proto==PROTO_POP3)
-		{
-			TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[PROTO_MAIL].name, TLD_TYPE_STRING);
-			TLD_append(TLD_handle, (char *)"mail_protocol_type", (void *)g_tsg_proto_name2id[proto].name, TLD_TYPE_STRING);
-		}
-		else
-		{			
-			TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[proto].name, TLD_TYPE_STRING);
-		}
-
-		
-		if(proto==PROTO_HTTP)
-		{
-			TLD_append(TLD_handle, (char *)"http_version", (void *)"http1", TLD_TYPE_STRING);
-			TLD_append(TLD_handle, (char *)"http_sequence", (void *)1, TLD_TYPE_LONG);
-		}
-
-		if(srt_process_context!=NULL && srt_process_context->domain!=NULL)
-		{
-			switch(proto)
-			{
-				case	PROTO_HTTP:
-					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_HTTP_HOST);
-					TLD_append(TLD_handle, domain_field_name, (void *)srt_process_context->domain, TLD_TYPE_STRING);
-
-					if(srt_process_context->http_url!=NULL)
-					{
-						domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_HTTP_URL);
-						TLD_append(TLD_handle, domain_field_name, (void *)srt_process_context->http_url, TLD_TYPE_STRING);
-					}
-					break;
-				case	PROTO_SSL:
-					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_SSL_SNI);
-					TLD_append(TLD_handle, domain_field_name, (void *)srt_process_context->domain, TLD_TYPE_STRING);
-					break;
-				case	PROTO_QUIC:
-					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_QUIC_SNI);
-					TLD_append(TLD_handle, domain_field_name, (void *)srt_process_context->domain, TLD_TYPE_STRING);
-					break;
-				case	PROTO_DTLS:
-					domain_field_name=log_field_id2name(g_tsg_log_instance, LOG_DTLS_SNI);
-					TLD_append(TLD_handle, domain_field_name, (void *)srt_process_context->domain, TLD_TYPE_STRING);
-					break;
-				default:
-					break;
-			}
-		}
-		
-		if(srt_process_context!=NULL && srt_process_context->quic_version>0)
-		{
-			char quic_version[64]={0};
-			if(quic_version_int2string(srt_process_context->quic_version, quic_version, sizeof(quic_version)))
-			{
-				quic_version_field_name=log_field_id2name(g_tsg_log_instance, LOG_QUIC_VERSION);
-				TLD_append(TLD_handle, quic_version_field_name, (void *)quic_version, TLD_TYPE_STRING);
-			}
-
-			if(srt_process_context->quic_ua!=NULL)
-			{
-				quic_ua_field_name=log_field_id2name(g_tsg_log_instance, LOG_QUIC_USER_AGENT);
-				TLD_append(TLD_handle, quic_ua_field_name, (void *)srt_process_context->quic_ua, TLD_TYPE_STRING);
-			}
-		}
-	}
-	else
-	{
-		TLD_append(TLD_handle, schema_field_name, (void *)g_tsg_proto_name2id[PROTO_APP].name, TLD_TYPE_STRING);
-	}	
-
-	if(srt_process_context!=NULL && srt_process_context->hited_app_id>0)
-	{		
-		session_app_gather_results_update_matched_app_id(a_stream, srt_process_context->hited_app_id);
-	}
-	
-	tsg_send_log(g_tsg_log_instance, TLD_handle, a_stream, LOG_TYPE_SECURITY_EVENT, rules, n_rules, thread_seq);
-	
-	return 1;
-}
-
 static char session_tcp_establish_latency_ms_set(const struct streaminfo *a_tcp, int thread_seq,const void *ip_hdr)
 {
 	struct tcphdr *tcp=NULL;
@@ -1506,6 +1378,7 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 	struct maat_rule *p_rule=matched_rules_decision_criteria(security_rules, n_security_rules);
 	if(p_rule->action==TSG_ACTION_SHUNT)
 	{
+		tsg_set_policy_flow(a_stream, p_rule, a_stream->threadnum);
 		srt_action_context_set_rule_method(a_stream, TSG_METHOD_TYPE_SHUNT, a_stream->threadnum);
 		return APP_STATE_DROPME|APP_STATE_KILL_OTHER;
 	}
@@ -1542,32 +1415,30 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 				}
 			}
 
-			if(srt_process_context->hited_result==NULL)
+			if(srt_process_context->proto==PROTO_HTTP || srt_process_context->proto==PROTO_SSL)
 			{
-				srt_process_context->hited_result=(struct maat_rule *)dictator_malloc(1, sizeof(struct maat_rule));
-				memcpy(srt_process_context->hited_result, p_rule, sizeof(struct maat_rule));
-			}
-			break;
-		case	TSG_ACTION_MONITOR:
-			if(srt_process_context->proto==PROTO_RTP)
-			{
-				break;
+				state|=APP_STATE_KILL_OTHER;
 			}
 
-			session_packet_capture_by_rules_notify(a_stream, security_rules, n_security_rules, a_stream->threadnum);
-			session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, security_rules, n_security_rules, a_stream->threadnum);
+			session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, p_rule, 1, a_stream->threadnum);
 			break;
 		case	TSG_ACTION_BYPASS:
-			srt_process_context->is_hited_allow=1;
-			srt_process_context->hited_result=(struct maat_rule *)dictator_malloc(1, sizeof(struct maat_rule));
-			memcpy(srt_process_context->hited_result, p_rule, sizeof(struct maat_rule));
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
-			state=APP_STATE_GIVEME|APP_STATE_KILL_FOLLOW;
+			srt_process_context->is_hitted_allow=1;
+			session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, p_rule, 1, a_stream->threadnum);
 
+			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 			srt_action_context_set_rule_method(a_stream, TSG_METHOD_TYPE_ALLOW, a_stream->threadnum);
 			break;
 		default:
 			break;
+	}
+
+	struct maat_rule monitor_rules[MAX_RESULT_NUM]={0};
+	size_t n_monitor_rules=tsg_select_rules_by_action(security_rules, n_security_rules, monitor_rules, MAX_RESULT_NUM, TSG_ACTION_MONITOR);
+	if(n_monitor_rules>0)
+	{
+		session_packet_capture_by_rules_notify(a_stream, monitor_rules, n_monitor_rules, a_stream->threadnum);
+		session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, monitor_rules, n_monitor_rules, a_stream->threadnum);
 	}
 	
 	return state;
@@ -1647,8 +1518,7 @@ int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge
 	struct session_runtime_process_context *srt_process_context=(struct session_runtime_process_context *)session_runtime_process_context_get(a_stream);
 	if(srt_process_context==NULL)
 	{
-		init_context((void **)(&srt_process_context), a_stream->threadnum);
-		session_runtime_process_context_async(a_stream, (void *)srt_process_context);
+		srt_process_context=(struct session_runtime_process_context *)session_runtime_process_context_new(a_stream);
 	}
 
 	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(a_stream);
@@ -1715,8 +1585,7 @@ int session_flags_identify_result_cb(const struct streaminfo *a_stream, int brid
 	struct session_runtime_process_context *srt_process_context=(struct session_runtime_process_context *)session_runtime_process_context_get(a_stream);
 	if(srt_process_context==NULL)
 	{
-		init_context((void **)(&srt_process_context), a_stream->threadnum);
-		session_runtime_process_context_async(a_stream, (void *)srt_process_context);
+		srt_process_context=(struct session_runtime_process_context *)session_runtime_process_context_new(a_stream);
 	}
 
 	srt_process_context->session_flag=*(unsigned long *)(data);
@@ -1820,9 +1689,8 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		srt_process_context=(struct session_runtime_process_context *)session_runtime_process_context_get(a_stream);
 		if(srt_process_context==NULL)
 		{
-			init_context(pme, thread_seq);
-			srt_process_context=(struct session_runtime_process_context *)*pme;
-			session_runtime_process_context_async(a_stream, *pme);
+			srt_process_context=(struct session_runtime_process_context *)session_runtime_process_context_new(a_stream);
+			*pme=(void *)srt_process_context;
 		}
 		else
 		{
@@ -1871,9 +1739,9 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 				session_app_identify_result_cb(a_stream, 0, (void *)&unknown_result);
 			}
 		
-			if(srt_process_context->is_hited_allow)
+			if(srt_process_context->is_hitted_allow)
 			{
-				state=APP_STATE_KILL_OTHER|APP_STATE_GIVEME;
+				state=APP_STATE_GIVEME;
 				break;
 			}
 
@@ -1924,10 +1792,6 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		
 	if((a_stream->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
-		if(srt_process_context->hited_result)
-		{
-			session_runtime_process_log_send(a_stream, srt_process_context->hited_result, 1, srt_process_context, thread_seq);
-		}
 		*pme=NULL;
 	}
 
@@ -1938,11 +1802,10 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 {
 	int ret=0;
 	int eth_rawpkt_len=0;
-	struct maat_rule *p_result=NULL;
 	unsigned char state=APP_STATE_GIVEME;
 	struct maat_rule matched_rules[MAX_TSG_ALL_RESULT_NUM]={0};
-	struct maat_rule security_results[MAX_RESULT_NUM]={0};	
-	struct maat_rule shaping_results[MAX_RESULT_NUM]={0};
+	struct maat_rule security_rules[MAX_RESULT_NUM]={0};	
+	struct maat_rule shaping_rules[MAX_RESULT_NUM]={0};
 	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)(*pme);
 
 	if(stream_state==OP_STATE_PENDING && srt_action_context->method_type!=TSG_METHOD_TYPE_SHUNT && !(srt_action_context->udp_data_dropme))
@@ -1953,41 +1816,28 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			srt_action_context->default_policy_after_n_packets=get_default_para(a_stream);
 		}
 
-		
 		struct maat_state *scan_mid=maat_state_new(g_tsg_maat_feather, thread_seq);
 		int hit_num=tsg_scan_nesting_addr(a_stream, g_tsg_maat_feather, PROTO_UNKONWN, scan_mid, matched_rules, MAX_TSG_ALL_RESULT_NUM);
 		if(hit_num>0)
 		{
-			int security_result_num = tsg_select_rules_by_service_id(matched_rules, hit_num, security_results, MAX_RESULT_NUM, TSG_SERVICE_SECURITY);
-			p_result=matched_rules_decision_criteria(security_results, security_result_num);
-			if(p_result!=NULL)
+			int n_security_rules=tsg_select_rules_by_service_id(matched_rules, hit_num, security_rules, MAX_RESULT_NUM, TSG_SERVICE_SECURITY);
+			if(n_security_rules>0)
 			{
-				switch(p_result->action)
-				{
-					case	TSG_ACTION_DENY:
-						state=tsg_enforing_deny(a_stream, p_result, PROTO_UNKONWN, ACTION_RETURN_TYPE_TCPALL, a_packet);
-						session_runtime_process_log_send(a_stream, p_result, 1, NULL, thread_seq);
-						break;
-					case	TSG_ACTION_MONITOR:
-						session_packet_capture_by_rules_notify(a_stream, security_results, hit_num, thread_seq);
-						session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, security_results, security_result_num,thread_seq);
-						break;
-					default:
-						break;
-				}
+				struct session_runtime_process_context *srt_process_context=(struct session_runtime_process_context *)session_runtime_process_context_new(a_stream);
+				state=matched_security_rules_deal(a_stream, srt_process_context, security_rules, n_security_rules, a_packet, thread_seq);
+			}
+			
+			struct maat_rule s_chaining_rules[MAX_RESULT_NUM]={0};
+			size_t n_s_chaining_rules=tsg_select_rules_by_service_id(matched_rules, hit_num, s_chaining_rules, MAX_RESULT_NUM, TSG_SERVICE_CHAINING);
+			if(state==APP_STATE_GIVEME && n_s_chaining_rules>0)
+			{
+				matched_service_chaining_rules_deal(a_stream, s_chaining_rules, n_s_chaining_rules, thread_seq);
 			}
 
-			struct maat_rule s_chaining_result[MAX_RESULT_NUM]={0};
-			size_t n_s_chaining_results=tsg_select_rules_by_service_id(matched_rules, hit_num, s_chaining_result, MAX_RESULT_NUM, TSG_SERVICE_CHAINING);
-			if(state==APP_STATE_GIVEME && n_s_chaining_results>0)
+			size_t n_shaping_rules=tsg_select_rules_by_service_id(matched_rules, hit_num, shaping_rules, MAX_RESULT_NUM, TSG_SERVICE_SHAPING);
+			if(state==APP_STATE_GIVEME && n_shaping_rules>0)
 			{
-				matched_service_chaining_rules_deal(a_stream, s_chaining_result, n_s_chaining_results, thread_seq);
-			}
-
-			size_t n_shaping_results=tsg_select_rules_by_service_id(matched_rules, hit_num, shaping_results, MAX_RESULT_NUM, TSG_SERVICE_SHAPING);
-			if(state==APP_STATE_GIVEME && n_shaping_results>0)
-			{
-				matched_shaping_rules_deal(a_stream, shaping_results, n_shaping_results, thread_seq);
+				matched_shaping_rules_deal(a_stream, shaping_rules, n_shaping_rules, thread_seq);
 			}
 		}
 		
@@ -2022,10 +1872,10 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 				break;
 			}
 			
-			if(get_default_policy(&security_results[0]))
+			if(get_default_policy(&security_rules[0]))
 			{
-				state=tsg_enforing_deny(a_stream, &security_results[0], PROTO_UNKONWN, ACTION_RETURN_TYPE_TCPALL, a_packet);
-				session_runtime_process_log_send(a_stream, &security_results[0], 1, NULL, thread_seq);
+				state=tsg_enforing_deny(a_stream, &security_rules[0], PROTO_UNKONWN, ACTION_RETURN_TYPE_TCPALL, a_packet);
+				session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, &security_rules[0], 1, thread_seq);
 			}
 			break;
 		case	TSG_METHOD_TYPE_DROP:
@@ -2038,20 +1888,20 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 				srt_action_context->hited_para.after_n_packets--;
 				break;
 			}
-			ret=session_matched_rules_copy(a_stream, TSG_SERVICE_SECURITY, &(security_results[0]), 1);
+			ret=session_matched_rules_copy(a_stream, TSG_SERVICE_SECURITY, &(security_rules[0]), 1);
 			//ret=tsg_pull_policy_result((struct streaminfo *)a_stream,PULL_FW_RESULT, &security_result[0], 1, &tmp_identify_info);
-			if(ret<=0 || security_results[0].action!=TSG_ACTION_DENY)
+			if(ret<=0 || security_rules[0].action!=TSG_ACTION_DENY)
 			{
 				break;
 			}
 
 			if(srt_action_context->hited_para.hited_app_id<=0)
 			{
-				state=tsg_enforing_deny(a_stream, &(security_results[0]), srt_action_context->protocol, ACTION_RETURN_TYPE_TCPALL, a_packet);
+				state=tsg_enforing_deny(a_stream, &(security_rules[0]), srt_action_context->protocol, ACTION_RETURN_TYPE_TCPALL, a_packet);
 			}
 			else
 			{
-				state=tsg_enforing_deny_application(a_stream, &(security_results[0]), srt_action_context->protocol, srt_action_context->hited_para.hited_app_id, ACTION_RETURN_TYPE_TCPALL, a_packet);
+				state=tsg_enforing_deny_application(a_stream, &(security_rules[0]), srt_action_context->protocol, srt_action_context->hited_para.hited_app_id, ACTION_RETURN_TYPE_TCPALL, a_packet);
 			}
 			break;
 		case	TSG_METHOD_TYPE_SHUNT:

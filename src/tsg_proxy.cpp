@@ -310,24 +310,29 @@ void tsg_proxy_first_data_process(const struct streaminfo *stream, struct tsg_pr
 
 void tsg_proxy_tcp_options_parse(const struct streaminfo *stream, const void *a_packet)
 {
-    struct pkt_info pktinfo;
-    struct tsg_proxy_tcp_attribute *tcp_attr = tsg_proxy_tcp_attribute_get(stream);
+	if(a_packet==NULL)
+	{
+		return ;
+	}
+	
+	struct pkt_info pktinfo;
+	struct tsg_proxy_tcp_attribute *tcp_attr = tsg_proxy_tcp_attribute_get(stream);
 
 
-    if (tcp_attr == NULL) {
-        return;
-    }
+	if (tcp_attr == NULL) {
+		return;
+	}
 
     if (tcp_attr->first_data_pkt_processed) {
         return;
     }
 
-    memset(&pktinfo, 0, sizeof(struct pkt_info));
-    tsg_proxy_ip_header_parse(a_packet, (enum addr_type_t)stream->addr.addrtype, stream, &pktinfo);
-    if (pktinfo.parse_failed) {
-        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROXY", "invalid ip header, bypass pkt");
-        return;
-    }
+	memset(&pktinfo, 0, sizeof(struct pkt_info));
+	tsg_proxy_ip_header_parse(a_packet, (enum addr_type_t)stream->addr.addrtype, stream, &pktinfo);
+	if (pktinfo.parse_failed) {
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROXY", "invalid ip header, bypass pkt");
+		return;
+	}
 
     if(stream->ptcpdetail->datalen > 0) {
         tsg_proxy_first_data_process(stream, tcp_attr, &pktinfo);
@@ -337,7 +342,7 @@ void tsg_proxy_tcp_options_parse(const struct streaminfo *stream, const void *a_
 
     tsg_proxy_tcp_parse(tcp_attr, &pktinfo, stream);
 
-    return;
+	return;
 }
 
 static void tsg_proxy_cmsg_subscriber_fill(struct session_runtime_attribute *session_attr, struct proxy_cmsg *cmsg)

@@ -109,12 +109,6 @@ void session_runtime_process_context_free(const struct streaminfo *a_stream, int
 			srt_process_context->mid=NULL;
 		}
 
-		if(srt_process_context->hited_result!=NULL)
-		{
-			dictator_free(a_stream->threadnum, (void *)srt_process_context->hited_result);
-			srt_process_context->hited_result=NULL;
-		}
-
 		dictator_free(a_stream->threadnum, (void *)srt_process_context);
 		srt_process_context=NULL;
 	}
@@ -561,6 +555,16 @@ const char *srt_process_context_get_quic_ua(const struct session_runtime_process
 	return NULL;
 }
 
+unsigned char srt_process_context_get_hitted_allow_flag(const struct session_runtime_process_context *srt_process_context)
+{
+	if(srt_process_context!=NULL)
+	{
+		return srt_process_context->is_hitted_allow;
+	}
+	
+	return 0;
+}
+
 int session_runtime_action_context_async(const struct streaminfo *a_stream, void *data)
 {
 	return session_async_bridge_set_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id, data);
@@ -898,16 +902,6 @@ void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE
 		{
 			session_matched_rules_free_by_bridge(a_stream, g_tm_bridge_para[bridge_idx].id, (void *)matched_policy);
 		}
-	}
-
-	if(rules[0].action<matched_policy->rules[0].action)
-	{
-		return ;
-	}
-
-	if(rules[0].action>matched_policy->rules[0].action)
-	{
-		matched_policy->n_rules=0;
 	}
 	
 	size_t num=MIN(MAX_RESULT_NUM-matched_policy->n_rules, n_rules);

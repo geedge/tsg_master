@@ -552,11 +552,6 @@ TEST(TSGMaster, SecurityMultiplePolicyMonitorToIntercept)
 	EXPECT_EQ(TSG_ACTION_MONITOR, matched_policy[2].action);
 	EXPECT_EQ(TSG_ACTION_MONITOR, matched_policy[2].rule_id);
 
-	ret=session_matched_rules_copy(&a_stream, TSG_SERVICE_SECURITY, &(matched_policy[2]), 1);
-	EXPECT_EQ(1, ret);
-	EXPECT_EQ(TSG_ACTION_MONITOR, matched_policy[2].action);
-	EXPECT_EQ(TSG_ACTION_MONITOR, matched_policy[2].rule_id);
-
 	const struct matched_policy_rules *hited_security=session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
 	EXPECT_NE(nullptr, hited_security);
 	EXPECT_EQ(1, hited_security->n_rules);

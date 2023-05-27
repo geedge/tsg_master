@@ -75,6 +75,8 @@ size_t tsg_matched_rules_select(struct maat *feather, TSG_SERVICE service, long 
 size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *feather, enum TSG_PROTOCOL proto, struct maat_state *s_mid, struct maat_rule *rules, size_t n_rules);
 size_t session_matched_rules_copy(const struct streaminfo *a_stream, enum TSG_SERVICE service, struct maat_rule *rules, size_t n_rules);
 size_t tsg_select_rules_by_service_id(struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules, enum TSG_SERVICE service_id);
+size_t tsg_select_rules_by_action(struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules, unsigned char action);
+
 int tsg_get_fqdn_category_ids(struct maat *feather, char *fqdn, unsigned int *category_ids, int n_category_ids);
 
 unsigned char tsg_enforing_deny(const struct streaminfo *a_stream, struct maat_rule *p_result, enum TSG_PROTOCOL protocol, enum ACTION_RETURN_TYPE type, const void *user_data);

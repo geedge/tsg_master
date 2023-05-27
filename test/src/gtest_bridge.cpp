@@ -389,9 +389,6 @@ static void tsg_bridge_test_init_process_ctx(const struct streaminfo *a_stream, 
 	process_ctx->http_url = (char *)dictator_malloc(a_stream->threadnum, strlen("thisishttp_url") + 1);
 	memset(process_ctx->http_url, 0, strlen("thisishttp_url") + 1);
 	memcpy(process_ctx->http_url, "thisishttp_url", strlen("thisishttp_url"));
-
-	process_ctx->hited_result = (struct maat_rule *)dictator_malloc(a_stream->threadnum, sizeof(struct maat_rule));
-	process_ctx->hited_result->rule_id = 10;
 }
 
 TEST(TSG_Bridge, ProcessAndActionContextAsync)
@@ -403,7 +400,6 @@ TEST(TSG_Bridge, ProcessAndActionContextAsync)
 
 	EXPECT_EQ(session_runtime_action_context_get(&a_stream), action_ctx);
 	struct session_runtime_process_context *process_test = (struct session_runtime_process_context *)session_runtime_process_context_get(&a_stream);
-	EXPECT_EQ(process_test->hited_result[0].rule_id, 10);
 	EXPECT_STREQ(process_test->domain, "thisisdomain");
 	EXPECT_STREQ(process_test->http_url, "thisishttp_url");
 	session_runtime_action_context_free(&a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id, (void *)action_ctx);

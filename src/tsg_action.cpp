@@ -90,7 +90,7 @@ static int set_drop_stream(const struct streaminfo *a_stream, enum TSG_PROTOCOL 
 			break;
 	}
 
-	return STATE_DROPME|STATE_DROPPKT;
+	return STATE_DROPME;
 }
 
 static int get_http_header(char *buff, int len, int code, char *user_define)
@@ -564,21 +564,24 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, struct m
 		set_drop_stream(a_stream, protocol);
 	}
 
-	return STATE_DROPPKT|STATE_DROPME;
+	return STATE_DROPME;
 }
 
 static unsigned char do_action_drop(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum TSG_PROTOCOL protocol, const void *a_packet)
 {
+	int opt_value=1;
+
 	switch(protocol)
-    {		
+	{
 		case	PROTO_DNS:
-			return STATE_GIVEME|STATE_DROPPKT;
+			MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
+			return STATE_GIVEME;
 		default:
 			set_drop_stream(a_stream, protocol);
 			break;
 	}
 	
-	return STATE_DROPME|STATE_DROPPKT;
+	return STATE_DROPME;
 }
 
 static unsigned char do_action_tamper(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum TSG_PROTOCOL protocol, const void *user_data, enum ACTION_RETURN_TYPE type)
@@ -586,7 +589,7 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, struct 
 	if(g_tsg_para.feature_tamper==0)
 	{
 		do_action_drop(a_stream, p_result, user_region, protocol, user_data);
-		return STATE_DROPME|STATE_DROPPKT;
+		return STATE_DROPME;
 	}
 
 	struct session_runtime_action_context * _context=(struct session_runtime_action_context *)session_runtime_action_context_get(a_stream);
@@ -606,7 +609,9 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, struct 
 
 	if(ACTION_RETURN_TYPE_APP == type)
 	{
-		return STATE_GIVEME|STATE_DROPPKT|STATE_KILL_OTHER;
+		int opt_value=1;
+		MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
+		return STATE_GIVEME;
 	}
 
 	if(a_stream->type == STREAM_TYPE_UDP) 
@@ -614,16 +619,18 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, struct 
 		send_tamper_xxx(a_stream, &_context->tamper_count, user_data);
 	}
 	
-	return STATE_DROPME|STATE_DROPPKT;
+	return STATE_DROPME;
 }
 
 static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum TSG_PROTOCOL protocol, const void *user_data)
 {
+	int opt_value=1;
 	struct deny_user_region *deny_region=NULL;
 
 	if(user_region->session_para==NULL)
 	{
-		return STATE_DROPME|STATE_DROPPKT;
+		MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
+		return STATE_DROPME;
 	}
 	
 	switch(a_stream->type)
@@ -635,7 +642,8 @@ static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, st
 			deny_region=&(user_region->session_para->udp);
 			break;
 		default:
-			return STATE_DROPME|STATE_DROPPKT;
+			MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
+			return STATE_DROPME;
 			break;
 	}
 
@@ -656,7 +664,7 @@ static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, st
 			break;
 	}
 	
-	return STATE_DROPME|STATE_DROPPKT;
+	return STATE_DROPME;
 }
 
 static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum ACTION_RETURN_TYPE type)
@@ -677,15 +685,16 @@ static unsigned char do_action_ratelimit(const struct streaminfo *a_stream, stru
 
 	if(type==ACTION_RETURN_TYPE_APP)
 	{		
-		return STATE_DROPME|STATE_KILL_OTHER;
+		return STATE_DROPME;
 	}
 
-	return STATE_GIVEME|STATE_KILL_OTHER;
+	return STATE_GIVEME;
 }
 
 static unsigned char do_action_block_sip(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, const void *user_data)
 {
 	int offset=0;
+	int opt_value=1;
 	char payload[1024]={0};
 	switch(user_region->deny->code)
 	{
@@ -700,14 +709,17 @@ static unsigned char do_action_block_sip(const struct streaminfo *a_stream, stru
 			memcpy(payload, "SIP/2.0 500 Server Internal Error\r\n", offset);
 			break;
 		default:
-			return STATE_DROPME|STATE_DROPPKT;
+			MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
+			return STATE_DROPME;
 	}
 	
 	memcpy(payload+offset, user_data, strlen((const char*)user_data));
 	unsigned char raw_route_dir=(a_stream->curdir==DIR_C2S) ? MESA_dir_reverse(a_stream->routedir) : a_stream->routedir;
 	tsg_send_inject_packet(a_stream, SIO_DEFAULT, payload, strlen(payload), raw_route_dir);
 
-	return STATE_DROPME|STATE_DROPPKT;
+	MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
+
+	return STATE_DROPME;
 }
 
 static unsigned char do_action_block_mail(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region)
@@ -731,8 +743,11 @@ static unsigned char do_action_block_mail(const struct streaminfo *a_stream, str
 		unsigned char raw_route_dir=(a_stream->curdir==DIR_C2S) ? MESA_dir_reverse(a_stream->routedir) : a_stream->routedir;
 		tsg_send_inject_packet(a_stream, SIO_DEFAULT, payload, strlen(payload), raw_route_dir);
 	}
+
+	int opt_value=1;
+	MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
 	
-	return STATE_DROPME|STATE_DROPPKT;
+	return STATE_DROPME;
 }
 
 static unsigned char do_action_block_http(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, const void *a_packet)
@@ -758,8 +773,11 @@ static unsigned char do_action_block_http(const struct streaminfo *a_stream, str
 		opt_value=1;
 		MESA_set_stream_opt(a_stream, MSO_TCP_RST_REMEDY, (void *)&opt_value, sizeof(opt_value));
 	}
-	
-	return STATE_DROPME|STATE_DROPPKT;
+
+	opt_value=1;
+	MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
+
+	return STATE_DROPME;
 }
 
 static unsigned char do_action_block_xxx(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum TSG_PROTOCOL protocol, const void *user_data)
@@ -789,11 +807,12 @@ static unsigned char do_action_block_xxx(const struct streaminfo *a_stream, stru
 
 	set_drop_stream(a_stream, protocol);
 
-	return STATE_DROPME|STATE_DROPPKT;
+	return STATE_DROPME;
 }
 
 static unsigned char do_action_redirect_http(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region)
 {
+	int opt_value=1;
 	int used_http_hdr_len=0;
 	char http_hdr[1024]={0};
 	unsigned char raw_route_dir=0;
@@ -805,14 +824,17 @@ static unsigned char do_action_redirect_http(const struct streaminfo *a_stream, 
 			used_http_hdr_len=http_get_redirect_url(a_stream, p_result, user_region->deny->redirect_url_to, user_region->deny->code, http_hdr, sizeof(http_hdr));
 			break;
 		default:
-			return STATE_DROPME|STATE_DROPPKT;
+			MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
+			return STATE_DROPME;
 			break;
 	}
 	
 	raw_route_dir=(a_stream->curdir==DIR_C2S) ? MESA_dir_reverse(a_stream->routedir) : a_stream->routedir;
 	tsg_send_inject_packet( a_stream, SIO_DEFAULT, http_hdr, used_http_hdr_len, raw_route_dir);
 
-	return STATE_DROPME|STATE_DROPPKT;
+	MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
+
+	return STATE_DROPME;
 }
 
 static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, enum TSG_PROTOCOL protocol, const void *user_data)
@@ -835,7 +857,7 @@ static unsigned char do_action_redirect_xxx(const struct streaminfo *a_stream, s
 			break;
 	}
 
-	return STATE_DROPME|STATE_DROPPKT;
+	return STATE_DROPME;
 }
 
 static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struct compile_user_region *user_region, struct maat_rule *p_result, enum TSG_PROTOCOL protocol, enum ACTION_RETURN_TYPE type, const void *user_data)
@@ -926,9 +948,8 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_DROPME ? PROT_STATE_DROPME : 0) : (local_state&STATE_DROPME ? APP_STATE_DROPME : 0));
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_GIVEME ? PROT_STATE_GIVEME: 0) : 0);
 	//state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_GIVEME ? PROT_STATE_GIVEME: 0) : (local_state&STATE_GIVEME ? APP_STATE_GIVEME: 0));
-	state|=((type==ACTION_RETURN_TYPE_PROT) ? (local_state&STATE_DROPPKT ? PROT_STATE_DROPPKT : 0) : (local_state&STATE_DROPPKT ? APP_STATE_DROPPKT: 0));
 	state|=((type==ACTION_RETURN_TYPE_PROT) ? (0) : (local_state&STATE_KILL_OTHER ? APP_STATE_KILL_OTHER : 0));
-	
+
 	return state;
 }
 
