@@ -203,6 +203,12 @@ struct tsg_log_instance_t
 	int max_service;
 	int vsystem_id;
 	int unknown_app_id;
+	int tcp_min_log_pkts;
+	int tcp_min_log_bytes;
+	int udp_min_log_pkts;
+	int udp_min_log_bytes;
+	int send_interim_log;
+	int send_transcation_log;
 	int send_user_region;
 	int send_app_id;
 	int send_intercept_log;

@@ -22,7 +22,7 @@ target_link_libraries(gtest_bridge gtest-static ctemplate-static cjson MESA_prof
 add_executable(gtest_action ${PROJECT_SOURCE_DIR}/src/tsg_action.cpp ${PROJECT_SOURCE_DIR}/src/tsg_leaky_bucket.cpp ${PROJECT_SOURCE_DIR}/src/tsg_dns.cpp ${PROJECT_SOURCE_DIR}/src/tsg_icmp.cpp ${PROJECT_SOURCE_DIR}/src/tsg_tamper.cpp ${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp gtest_common.cpp gtest_action.cpp)
 target_link_libraries(gtest_action gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger maat4 MESA_field_stat2)
 
-add_executable(gtest_sendlog ${PROJECT_SOURCE_DIR}/src/tsg_send_log.cpp ${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp gtest_common.cpp gtest_sendlog.cpp)
+add_executable(gtest_sendlog ${PROJECT_SOURCE_DIR}/src/tsg_send_log.cpp ${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp gtest_common.cpp gtest_kafka.cpp gtest_sendlog.cpp)
 target_link_libraries(gtest_sendlog gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger maat4 rdkafka MESA_field_stat2)
 
 set(TSG_MASTER_SRC ${PROJECT_SOURCE_DIR}/src/tsg_entry.cpp 

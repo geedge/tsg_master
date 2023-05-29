@@ -1808,6 +1808,56 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	return 0;
 }
 
+static int session_record_limit(struct tsg_log_instance_t *_instance, const struct streaminfo *a_stream, enum LOG_TYPE log_type)
+{
+	if(tsg_session_record_switch_get()==0)
+	{
+		return 1;
+	}
+	
+	if(log_type==LOG_TYPE_SESSION_RECORD)
+	{
+		if(a_stream==NULL || a_stream->pdetail==NULL)
+		{
+			return 0;
+		}
+
+		switch(a_stream->type)
+		{
+			case	STREAM_TYPE_TCP:
+				if((a_stream->ptcpdetail->clientbytes + a_stream->ptcpdetail->serverbytes < (unsigned int)_instance->tcp_min_log_bytes) ||
+					(a_stream->ptcpdetail->clientpktnum + a_stream->ptcpdetail->serverpktnum < (unsigned int)_instance->tcp_min_log_pkts))
+				{
+					return 1;
+				}
+				break;
+			case	STREAM_TYPE_UDP:
+				if((a_stream->pudpdetail->clientbytes + a_stream->pudpdetail->serverbytes < (unsigned int)_instance->udp_min_log_bytes) ||
+					(a_stream->pudpdetail->clientpktnum + a_stream->pudpdetail->serverpktnum < (unsigned int)_instance->udp_min_log_pkts))
+				{
+					return 1;
+				}
+				break;
+			default:
+				break;
+		}
+		
+		return 0;
+	}
+	
+	if(log_type==LOG_TYPE_INTERIM_SESSION_RECORD && _instance->send_interim_log==0)
+	{
+		return 1;
+	}
+	
+	if(log_type==LOG_TYPE_TRANSACTION_RECORD && _instance->send_transcation_log==0)
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
 int log_common_fields_new(const char *filename, id2field_t *id2field, struct topic_stat **service2topic, int *max_service)
 {
 	int i=0,flag=0;
@@ -1939,9 +1989,9 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	
 	_instance->sum_line_id=FS_register(_instance->fs2_handle, FS_STYLE_LINE, FS_CALC_SPEED, "SUM");
 
-	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(_instance->level), 30);	
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(_instance->level), 30);
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", log_path, sizeof(log_path), "./log/tsglog");
-	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_USER_REGION", &(_instance->send_user_region), 0);		
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_USER_REGION", &(_instance->send_user_region), 0);
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_DATA_CENTER_SWITCH", &(_instance->send_data_center), 0);
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_APP_ID_SWITCH", &(_instance->send_app_id), 0);
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_INTERCEPT_LOG", &(_instance->send_intercept_log), 0);
@@ -1950,6 +2000,13 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "VSYSTEM_ID", &(_instance->vsystem_id), 1);
 	MESA_load_profile_int_def(conffile, "SYSTEM","UNKNOWN_APP_ID", &_instance->unknown_app_id, 4);
+
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_INTERIM_RECORD", &(_instance->send_interim_log), 1);
+	MESA_load_profile_int_def(conffile, "TSG_LOG", "SEND_TRANSCATION_RECORD", &(_instance->send_transcation_log), 1);
+	MESA_load_profile_int_def(conffile, "TSG_LOG","TCP_MIN_PKTS", &_instance->tcp_min_log_pkts, 3);
+	MESA_load_profile_int_def(conffile, "TSG_LOG","TCP_MIN_BYTES", &_instance->tcp_min_log_bytes, 5);
+	MESA_load_profile_int_def(conffile, "TSG_LOG","UDP_MIN_PKTS", &_instance->udp_min_log_pkts, 3);
+	MESA_load_profile_int_def(conffile, "TSG_LOG","UDP_MIN_BYTES", &_instance->udp_min_log_bytes, 5);
 
 	_instance->logger=MESA_create_runtime_log_handle(log_path, _instance->level);
 	if(_instance->logger==NULL)
@@ -2282,7 +2339,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 			}
 			// no break;
 		case	LOG_TYPE_INTERIM_SESSION_RECORD:
-			if(tsg_session_record_switch_get()==0)
+			if(session_record_limit(_instance, a_stream, log_type))
 			{
 				break;
 			}
@@ -2302,7 +2359,6 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 			send_log_by_type(_instance, _handle, a_stream, log_type, thread_id);
 			break;
 		default:
-			TLD_cancel(handle);
 			return 0;
 	}
 	
