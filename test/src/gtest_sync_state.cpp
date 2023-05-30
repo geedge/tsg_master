@@ -565,6 +565,167 @@ TEST(POLICY_UPDATE, Proxy)
     gtest_cmsg_destroy(&cmsg);
 }
 
+
+TEST(POLICY_UPDATE, ProxyTcpWsacleExist0)
+{
+    char ctrl_pkt_buf[1024] = {0};
+    int ctrl_pkt_len = 0;
+    struct streaminfo a_stream = {0};
+    struct update_policy test;
+    memset(&test, 0, sizeof(test));
+    struct proxy_cmsg cmsg;
+    test.type = POLICY_UPDATE_INTERCEPT;
+    test.n_ids = 6;
+    for (int i = 0; i < test.n_ids; i++)
+    {
+        test.ids[i] = 10000 + i;
+    }
+
+    gtest_cmsg_init(&cmsg);
+    cmsg.tcp_wsacle_exist = 0;
+    memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
+    tsg_sync_policy_update(&a_stream, &test, 1);
+
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
+    mpack_tree_t tree;
+    mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
+    mpack_tree_parse(&tree);
+    mpack_node_t root = mpack_tree_root(&tree);
+    mpack_node_t params = mpack_node_map_cstr(root, "params");
+
+    // proxy
+    EXPECT_EQ(mpack_type_map, mpack_node_type(mpack_node_map_cstr(params, "proxy")));
+    mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
+
+    mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
+    EXPECT_EQ(1, mpack_node_u32(mpack_node_array_at(tcp_handshake, 0)));
+    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 4)));
+    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 5)));
+
+    EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
+    gtest_cmsg_destroy(&cmsg);
+}
+
+
+TEST(POLICY_UPDATE, ProxyFqdnCatIds0)
+{
+    char ctrl_pkt_buf[1024] = {0};
+    int ctrl_pkt_len = 0;
+    struct streaminfo a_stream = {0};
+    struct update_policy test;
+    memset(&test, 0, sizeof(test));
+    struct proxy_cmsg cmsg;
+    test.type = POLICY_UPDATE_INTERCEPT;
+    test.n_ids = 6;
+    for (int i = 0; i < test.n_ids; i++)
+    {
+        test.ids[i] = 10000 + i;
+    }
+
+    gtest_cmsg_init(&cmsg);
+    cmsg.fqdn_cat_ids.num = 0;
+    memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
+    tsg_sync_policy_update(&a_stream, &test, 1);
+
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
+    mpack_tree_t tree;
+    mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
+    mpack_tree_parse(&tree);
+    mpack_node_t root = mpack_tree_root(&tree);
+    mpack_node_t params = mpack_node_map_cstr(root, "params");
+
+    // proxy
+    EXPECT_EQ(mpack_type_map, mpack_node_type(mpack_node_map_cstr(params, "proxy")));
+    mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
+
+    mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
+    mpack_node_t fqdn_cat_id_vals = mpack_node_array_at(tcp_handshake, 31);
+    EXPECT_EQ(0, mpack_node_array_length(fqdn_cat_id_vals));
+
+    EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
+    gtest_cmsg_destroy(&cmsg);
+}
+
+
+TEST(POLICY_UPDATE, ProxyTcpAckRouteCtxs0)
+{
+    char ctrl_pkt_buf[1024] = {0};
+    int ctrl_pkt_len = 0;
+    struct streaminfo a_stream = {0};
+    struct update_policy test;
+    memset(&test, 0, sizeof(test));
+    struct proxy_cmsg cmsg;
+    test.type = POLICY_UPDATE_INTERCEPT;
+    test.n_ids = 6;
+    for (int i = 0; i < test.n_ids; i++)
+    {
+        test.ids[i] = 10000 + i;
+    }
+
+    gtest_cmsg_init(&cmsg);
+    cmsg.tcp_ack_route_ctx.num = 0;
+    memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
+    tsg_sync_policy_update(&a_stream, &test, 1);
+
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
+    mpack_tree_t tree;
+    mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
+    mpack_tree_parse(&tree);
+    mpack_node_t root = mpack_tree_root(&tree);
+    mpack_node_t params = mpack_node_map_cstr(root, "params");
+
+    // proxy
+    EXPECT_EQ(mpack_type_map, mpack_node_type(mpack_node_map_cstr(params, "proxy")));
+    mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
+
+    mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
+    mpack_node_t tcp_ack_route_ctxs = mpack_node_array_at(tcp_handshake, 35);
+    EXPECT_EQ(0, mpack_node_array_length(tcp_ack_route_ctxs));
+
+    EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
+    gtest_cmsg_destroy(&cmsg);
+}
+
+
+TEST(POLICY_UPDATE, ProxyTcpSeqSids0)
+{
+    char ctrl_pkt_buf[1024] = {0};
+    int ctrl_pkt_len = 0;
+    struct streaminfo a_stream = {0};
+    struct update_policy test;
+    memset(&test, 0, sizeof(test));
+    struct proxy_cmsg cmsg;
+    test.type = POLICY_UPDATE_INTERCEPT;
+    test.n_ids = 6;
+    for (int i = 0; i < test.n_ids; i++)
+    {
+        test.ids[i] = 10000 + i;
+    }
+
+    gtest_cmsg_init(&cmsg);
+    cmsg.tcp_seq_sids.num = 0;
+    memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
+    tsg_sync_policy_update(&a_stream, &test, 1);
+
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
+    mpack_tree_t tree;
+    mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
+    mpack_tree_parse(&tree);
+    mpack_node_t root = mpack_tree_root(&tree);
+    mpack_node_t params = mpack_node_map_cstr(root, "params");
+
+    // proxy
+    EXPECT_EQ(mpack_type_map, mpack_node_type(mpack_node_map_cstr(params, "proxy")));
+    mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
+
+    mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
+    mpack_node_t tcp_seq_sids = mpack_node_array_at(tcp_handshake, 32);
+    EXPECT_EQ(0, mpack_node_array_length(tcp_seq_sids));
+
+    EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
+    gtest_cmsg_destroy(&cmsg);
+}
+
 TEST(POLICY_UPDATE, ProxyOverLimit)
 {
     char ctrl_pkt_buf[1024] = {0};

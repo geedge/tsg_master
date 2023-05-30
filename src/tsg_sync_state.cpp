@@ -114,61 +114,41 @@ static void mpack_append_string(mpack_writer_t *writer, char *str)
 
 static void mpack_append_fqdn_cat_ids(mpack_writer_t *writer, struct fqdn_cat_id_val *array)
 {
-    if (array->num > 0)
-    {
-		int num = MIN(array->num, FQDN_CAT_ID_VALS);
-		mpack_build_array(writer);
-		for (int i = 0; i < num; i++)
-		{
-			mpack_write_u32(writer, array->value[i]);
-		}
-		mpack_complete_array(writer);
-	}
-	else
+	int num = MIN(array->num, FQDN_CAT_ID_VALS);
+	mpack_build_array(writer);
+	for (int i = 0; i < num; i++)
 	{
-		mpack_write_nil(writer);
+		mpack_write_u32(writer, array->value[i]);
 	}
+	mpack_complete_array(writer);
 
 	return;
 }
 
 static void mpack_append_tcp_sids(mpack_writer_t *writer, struct tcp_sids *array)
 {
-    if (array->num > 0)
-    {
-		int num = MIN(array->num, TCP_XXX_SIDS);
-		mpack_build_array(writer);
-		for (int i = 0; i < num; i++)
-		{
-			mpack_write_u16(writer, array->value[i]);
-		}
-		mpack_complete_array(writer);
-	}
-	else
+	int num = MIN(array->num, TCP_XXX_SIDS);
+	mpack_build_array(writer);
+	for (int i = 0; i < num; i++)
 	{
-		mpack_write_nil(writer);
+		mpack_write_u16(writer, array->value[i]);
 	}
-
+	mpack_complete_array(writer);
+	
 	return;
 }
 
 static void mpack_append_route_ctx(mpack_writer_t *writer, struct tcp_route_ctx *array)
 {
-    if (array->num > 0)
-    {
-		int num = MIN(array->num, TCP_XXX_ROUTE_CTX);
-		mpack_build_array(writer);
-		for (int i = 0; i < num; i++)
-		{
-			mpack_write_u8(writer, array->value[i]);
-		}
-		mpack_complete_array(writer);
-	}
-	else
+    
+	int num = MIN(array->num, TCP_XXX_ROUTE_CTX);
+	mpack_build_array(writer);
+	for (int i = 0; i < num; i++)
 	{
-		mpack_write_nil(writer);
+		mpack_write_u8(writer, array->value[i]);
 	}
-
+	mpack_complete_array(writer);
+	
 	return;
 }
 
@@ -194,8 +174,8 @@ static void mpack_append_cmsg_value(mpack_writer_t *writer, struct proxy_cmsg *c
 		}
 		else
 		{
-			mpack_write_nil(writer);
-			mpack_write_nil(writer);
+			mpack_write_u8(writer, 0);
+			mpack_write_u8(writer, 0);
 		}
 		mpack_write_u8(writer, cmsg->tcp_sack_client);
 		mpack_write_u8(writer, cmsg->tcp_sack_server);
