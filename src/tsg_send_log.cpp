@@ -809,9 +809,14 @@ int set_app_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_han
 		{
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_full_path, TLD_TYPE_STRING);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_full_path, TLD_TYPE_STRING);
+			return 1;
 		}
-		
-		return 1;
+		else
+		{
+			MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "APP_FULL_PATH", "app_full_path is null, combined_num=0");
+		}
+
+		return 0;
 	}
 
 	for(int i=0; i<combined_num; i++)
@@ -838,8 +843,12 @@ int set_app_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_han
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_full_path, TLD_TYPE_STRING);
 		}
 	}
-			
-	return 1;	
+	else
+	{
+		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "APP_FULL_PATH", "app_full_path is null, combined_num=%d", combined_num);
+	}
+
+	return 1;
 }
 
 int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
