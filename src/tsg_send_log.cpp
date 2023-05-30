@@ -2205,7 +2205,7 @@ int send_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_h
 			continue;
 		}
 
-		if(a_stream!=NULL)
+		if(a_stream!=NULL && rules[i].service_id!=TSG_SERVICE_INTERCEPT)
 		{
 			tsg_set_policy_flow(a_stream, &(rules[i]), thread_id);
 		}

@@ -48,7 +48,7 @@ int tsg_set_statistic_opt(int value, enum _STATISTIC_OPT_TYPE type, int thread_s
 
 int tsg_set_intercept_flow(struct maat_rule *p_result, struct _traffic_info *traffic_info, int thread_seq)
 {
-	if (p_result == NULL || traffic_info == NULL || thread_seq < 0 || thread_seq >= get_thread_count() || p_result->action != TSG_ACTION_INTERCEPT)
+	if (p_result == NULL || traffic_info == NULL || thread_seq < 0 || thread_seq >= get_thread_count() || p_result->service_id != TSG_SERVICE_INTERCEPT)
 	{
 		return -1;
 	}
