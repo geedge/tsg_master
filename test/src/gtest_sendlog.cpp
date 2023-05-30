@@ -211,7 +211,7 @@ TEST(Master, SendSessionRecord)
 	//pkts=3, bytes=0
 	pdetail={NULL, 0, 0, 0, 0, 3, 0, 0, 1};
 	a_stream.ptcpdetail=&pdetail;
-	a_stream.type=STREAM_TYPE_TCP;
+	a_stream.type=STREAM_TYPE_TCP;
 	handle=TLD_create(0);
 	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &rules, 1, 0);
 	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
@@ -219,7 +219,7 @@ TEST(Master, SendSessionRecord)
 	//pkts=2, bytes=1500
 	pdetail={NULL, 0, 0, 0, 0, 2, 1500, 0, 1};
 	a_stream.ptcpdetail=&pdetail;
-	a_stream.type=STREAM_TYPE_TCP;
+	a_stream.type=STREAM_TYPE_TCP;
 	handle=TLD_create(0);
 	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &rules, 1, 0);
 	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
@@ -245,8 +245,118 @@ TEST(Master, SendSessionRecordWithHittedShunt)
 	handle=TLD_create(0);
 	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &rules, 1, 0);
 	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
+	g_session_runtime_action_context.method_type=TSG_METHOD_TYPE_UNKNOWN;
 }
 
+TEST(Master, SendInternalRtpRecord)
+{
+	struct streaminfo a_stream={0};
+	struct tcpdetail pdetail={NULL, 0, 0, 3, 50, 3, 50, 0, 1};
+	a_stream.ptcpdetail=&pdetail;
+	a_stream.type=STREAM_TYPE_UDP;
+
+	struct maat_rule rules={0, 0, 0, 0, 0, 0};
+
+	struct TLD_handle_t * handle=TLD_create(0);
+	g_tsg_log_instance->vsystem_id=23;
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_INTERNAL_RTP_RECORD, &rules, 1, 0);
+	EXPECT_EQ(1, rd_kafka_get_sendlog_cnt());
+	EXPECT_STREQ("{\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_t_vsys_id\":23,\"common_vsys_id\":23}",rd_kafka_get_sendlog_payload(0));
+	rd_kafka_clean_sendlog_cnt();
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
+	g_tsg_log_instance->vsystem_id=1;
+}
+
+TEST(Master, SendSecurityEvent)
+{
+	struct streaminfo a_stream={0};
+	struct tcpdetail pdetail={NULL, 0, 0, 3, 50, 3, 50, 0, 1};
+	a_stream.ptcpdetail=&pdetail;
+	a_stream.type=STREAM_TYPE_TCP;
+
+	struct maat_rule rules={25, 1, TSG_SERVICE_SECURITY, 2, 0, 25};
+
+	struct TLD_handle_t * handle=TLD_create(0);
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SECURITY_EVENT, &rules, 1, 0);
+	EXPECT_EQ(1, rd_kafka_get_sendlog_cnt());
+	EXPECT_STREQ("{\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_t_vsys_id\":1,\"common_policy_id\":25,\"common_service\":2,\"common_vsys_id\":25,\"common_action\":1}",rd_kafka_get_sendlog_payload(0));
+	rd_kafka_clean_sendlog_cnt();
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
+}
+
+TEST(Master, SendInterceptEvent)
+{
+	struct streaminfo a_stream={0};
+	struct tcpdetail pdetail={NULL, 0, 0, 3, 50, 3, 50, 0, 1};
+	a_stream.ptcpdetail=&pdetail;
+	a_stream.type=STREAM_TYPE_TCP;
+
+	struct maat_rule rules={26, 2, TSG_SERVICE_INTERCEPT, 2, 0, 26};
+
+	struct TLD_handle_t * handle=TLD_create(0);
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_INTERCEPT_EVENT, &rules, 1, 0);
+	EXPECT_EQ(1, rd_kafka_get_sendlog_cnt());
+	EXPECT_STREQ("{\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_t_vsys_id\":1,\"common_policy_id\":26,\"common_service\":3,\"common_vsys_id\":26,\"common_action\":2}",rd_kafka_get_sendlog_payload(0));
+	rd_kafka_clean_sendlog_cnt();
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
+}
+
+TEST(Master, SendVoipRecord)
+{
+	struct streaminfo a_stream={0};
+	struct tcpdetail pdetail={NULL, 0, 0, 3, 50, 3, 50, 0, 1};
+	a_stream.ptcpdetail=&pdetail;
+	a_stream.type=STREAM_TYPE_TCP;
+
+	struct maat_rule rules={0, 0, 0, 2, 0, 1};
+
+	struct TLD_handle_t * handle=TLD_create(0);
+	g_tsg_log_instance->vsystem_id=27;
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_VOIP_RECORD, &rules, 1, 0);
+	EXPECT_EQ(1, rd_kafka_get_sendlog_cnt());
+	EXPECT_STREQ("{\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_t_vsys_id\":27,\"common_vsys_id\":27}",rd_kafka_get_sendlog_payload(0));
+	rd_kafka_clean_sendlog_cnt();
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
+	g_tsg_log_instance->vsystem_id=1;
+}
+
+TEST(Master, SendGtpCRecord)
+{
+	struct streaminfo a_stream={0};
+	struct tcpdetail pdetail={NULL, 0, 0, 3, 50, 3, 50, 0, 1};
+	a_stream.ptcpdetail=&pdetail;
+	a_stream.type=STREAM_TYPE_TCP;
+
+	struct maat_rule rules={0, 0, 0, 2, 0, 1};
+
+	struct TLD_handle_t * handle=TLD_create(0);
+	g_tsg_log_instance->vsystem_id=28;
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_GTPC_RECORD, &rules, 1, 0);
+	EXPECT_EQ(1, rd_kafka_get_sendlog_cnt());
+	EXPECT_STREQ("{\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_t_vsys_id\":28,\"common_vsys_id\":28}",rd_kafka_get_sendlog_payload(0));
+	rd_kafka_clean_sendlog_cnt();
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
+	g_tsg_log_instance->vsystem_id=1;
+}
+
+TEST(Master, SendBgpRecord)
+{
+	struct streaminfo a_stream={0};
+	struct tcpdetail pdetail={NULL, 0, 0, 3, 50, 3, 50, 0, 1};
+	a_stream.ptcpdetail=&pdetail;
+	a_stream.type=STREAM_TYPE_TCP;
+
+	struct maat_rule rules={0, 0, 0, 2, 0, 1};
+
+	struct TLD_handle_t * handle=TLD_create(0);
+	g_tsg_log_instance->vsystem_id=29;
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_BGP_RECORD, &rules, 1, 0);
+	EXPECT_EQ(1, rd_kafka_get_sendlog_cnt());
+	EXPECT_STREQ("{\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_t_vsys_id\":29,\"common_vsys_id\":29}",rd_kafka_get_sendlog_payload(0));
+	rd_kafka_clean_sendlog_cnt();
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
+	g_tsg_log_instance->vsystem_id=1;
+}
 
 int main(int argc, char *argv[])
 {

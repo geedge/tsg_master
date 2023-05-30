@@ -2394,6 +2394,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		case	LOG_TYPE_VOIP_RECORD:
 		case	LOG_TYPE_GTPC_RECORD:
 		case	LOG_TYPE_INTERNAL_RTP_RECORD:
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
 			send_log_by_type(_instance, _handle, a_stream, log_type, thread_id);
 			break;
 		default:
