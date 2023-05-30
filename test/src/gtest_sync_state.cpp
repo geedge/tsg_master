@@ -54,6 +54,11 @@ int session_log_update_data_put(const struct streaminfo *a_stream, enum TSG_SERV
     }
 }
 
+int FS_operate(screen_stat_handle_t handle,int id,int column_id,enum field_op op,long long value)
+{
+    return 0;
+}
+
 TEST(SESSION_STATE, IllegalPara)
 {
     struct streaminfo a_stream = {0};

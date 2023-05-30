@@ -43,9 +43,14 @@ static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *wri
 	ret = sapp_inject_ctrl_pkt((struct streaminfo *)a_stream, SIO_DEFAULT, *mpack_data, *mpack_size, a_stream->routedir);
 	if (ret == -1)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "MSGPACK_BUFF_SEND", "An error occurred injecting the data!");
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INJECT_CTRL_FAILED], 0, FS_OP_ADD, 1);
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "MSGPACK_BUFF_SEND", "An error occurred injecting the data! addr: %s", PRINTADDR(a_stream, g_tsg_para.level));
 	}
-
+	else
+	{
+		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INJECT_CTRL_SUCCESS], 0, FS_OP_ADD, 1);
+	}
+	
 	free(*mpack_data);
 	*mpack_data = NULL;
 	*mpack_size = 0;

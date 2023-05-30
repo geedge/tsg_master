@@ -70,6 +70,8 @@ struct id2field g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"
 										 {0, TSG_FS2_CTRL_CLOSING, "ctrl_close"},
 										 {0, TSG_FS2_CTRL_ACTIVE, "ctrl_active"},
 										 {0, TSG_FS2_CTRL_RESETALL, "ctrl_rstall"},
+										 {0, TSG_FS2_INJECT_CTRL_SUCCESS, "inject_ctrl_succuess"},
+										 {0, TSG_FS2_INJECT_CTRL_FAILED, "inject_ctrl_failed"},
 										 {0, TSG_FS2_EXCLUSION, "exclusion"},
 										 {0, TSG_FS2_APP_DPKT_RESULT, "D_result"},
 										 {0, TSG_FS2_APP_Q_RESULT, "Q_result"},
