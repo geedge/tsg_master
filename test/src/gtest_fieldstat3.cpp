@@ -59,7 +59,7 @@ TEST(FIELDSATA3, Intercept)
     p_result.action = TSG_ACTION_INTERCEPT;
     p_result.rule_id = 95536;
     p_result.do_log = 1;
-    p_result.service_id = 10;
+    p_result.service_id = TSG_SERVICE_INTERCEPT;
 
     for (int i = 0; i < 50000; i++)
     {
@@ -78,6 +78,7 @@ TEST(FIELDSATA3, PolicyFlow)
 
     p_result.action = TSG_ACTION_MONITOR;
     p_result.rule_id = 95500;
+	p_result.service_id=TSG_SERVICE_SECURITY;
 
     for (int i = 0; i < 50000; i++)
     {
