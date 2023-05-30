@@ -380,7 +380,13 @@ static int set_location(struct TLD_handle_t *_handle,  const struct streaminfo *
 
 static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle,  const struct streaminfo *a_stream)
 {
-	char direction=srt_action_context_get_direction(a_stream);
+	const struct session_runtime_action_context *srt_action_context=session_runtime_action_context_get(a_stream);
+	if(srt_action_context==NULL)
+	{
+		return 0;
+	}
+	
+	char direction=srt_action_context_get_direction(srt_action_context);
 	if(direction>0)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);	
@@ -1573,6 +1579,23 @@ int is_multi_hit_same_policy(struct maat_rule *result, int *policy_id, int *poli
 	return 0;
 }
 
+static int is_hitted_shunt(const struct streaminfo *a_stream)
+{
+	if(a_stream==NULL)
+	{
+		return 0;
+	}
+	
+	const struct session_runtime_action_context *srt_action_context=session_runtime_action_context_get(a_stream);
+	enum TSG_METHOD_TYPE method_type=srt_action_context_get_method_type(srt_action_context);
+	if(method_type==TSG_METHOD_TYPE_SHUNT)
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
 static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_log_instance_t *_instance, struct maat_rule *p_result, int thread_seq)
 {
 	cJSON *item=NULL;
@@ -2316,7 +2339,13 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO, "tsg_send_log", "Disable tsg_send_log.");
 		return 0;
 	}
-	
+
+	if(is_hitted_shunt(a_stream))
+	{
+		TLD_cancel(handle);
+		return 0;
+	}
+
 	TLD_append_streaminfo(instance, handle, a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
 	if(strlen(g_tsg_para.device_sn)>0)

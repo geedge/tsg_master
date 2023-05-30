@@ -704,15 +704,24 @@ int srt_action_context_set_leaky_bucket(const struct streaminfo *a_stream, struc
 	return 1;
 }
 
-char srt_action_context_get_direction(const struct streaminfo *a_stream)
+char srt_action_context_get_direction(const struct session_runtime_action_context *srt_action_context)
 {
-	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id);
 	if(srt_action_context!=NULL)
 	{
 		return srt_action_context->direction;
 	}
 
 	return -1;
+}
+
+enum TSG_METHOD_TYPE srt_action_context_get_method_type(const struct session_runtime_action_context *srt_action_context)
+{
+	if(srt_action_context!=NULL)
+	{
+		return srt_action_context->method_type;
+	}
+
+	return TSG_METHOD_TYPE_UNKNOWN;
 }
 
 

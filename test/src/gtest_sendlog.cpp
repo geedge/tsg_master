@@ -6,6 +6,7 @@
 #include <MESA/stream.h>
 
 #include "tsg_rule.h"
+#include "tsg_bridge.h"
 #include "tsg_send_log.h"
 #include "tsg_send_log_internal.h"
 
@@ -106,9 +107,21 @@ void session_matched_rules_free(const struct streaminfo * a_stream, TSG_SERVICE 
 {
 }
 
-char srt_action_context_get_direction(const struct streaminfo * a_stream)
+struct session_runtime_action_context g_session_runtime_action_context;
+
+const struct session_runtime_action_context *session_runtime_action_context_get(const struct streaminfo *a_stream)
 {
-	return 0;
+	return (const struct session_runtime_action_context *)&(g_session_runtime_action_context);
+}
+
+char srt_action_context_get_direction(const struct session_runtime_action_context * srt_action_context)
+{
+	return g_session_runtime_action_context.direction;
+}
+
+enum TSG_METHOD_TYPE srt_action_context_get_method_type(const struct session_runtime_action_context * srt_action_context)
+{
+	return g_session_runtime_action_context.method_type;
 }
 
 int tsg_get_app_name_by_id(struct maat *feahter, int app_id, char * app_name, int app_name_len, int is_joint_parent)
@@ -146,8 +159,7 @@ TEST(Master, SendInterimRecord)
 
 	struct TLD_handle_t * handle=TLD_create(0);
 	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_INTERIM_SESSION_RECORD, &rules, 1, 0);
-	int sendlog_cnt=rd_kafka_get_sendlog_cnt();
-	EXPECT_EQ(1, sendlog_cnt);
+	EXPECT_EQ(1, rd_kafka_get_sendlog_cnt());
 	EXPECT_STREQ("{\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_t_vsys_id\":1,\"common_vsys_id\":1}",rd_kafka_get_sendlog_payload(0));
 	rd_kafka_clean_sendlog_cnt();
 	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
@@ -155,8 +167,7 @@ TEST(Master, SendInterimRecord)
 	g_tsg_log_instance->send_interim_log=0;
 	handle=TLD_create(0);
 	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_INTERIM_SESSION_RECORD, &rules, 1, 0);
-	sendlog_cnt=rd_kafka_get_sendlog_cnt();
-	EXPECT_EQ(0, sendlog_cnt);
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
 }
 
 TEST(Master, SendTranscationRecord)
@@ -170,8 +181,7 @@ TEST(Master, SendTranscationRecord)
 
 	struct TLD_handle_t * handle=TLD_create(0);
 	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_TRANSACTION_RECORD, &rules, 1, 0);
-	int sendlog_cnt=rd_kafka_get_sendlog_cnt();
-	EXPECT_EQ(1, sendlog_cnt);
+	EXPECT_EQ(1, rd_kafka_get_sendlog_cnt());
 	EXPECT_STREQ("{\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_t_vsys_id\":1,\"common_vsys_id\":1}",rd_kafka_get_sendlog_payload(0));
 	rd_kafka_clean_sendlog_cnt();
 	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
@@ -179,8 +189,7 @@ TEST(Master, SendTranscationRecord)
 	g_tsg_log_instance->send_transcation_log=0;
 	handle=TLD_create(0);
 	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_TRANSACTION_RECORD, &rules, 1, 0);
-	sendlog_cnt=rd_kafka_get_sendlog_cnt();
-	EXPECT_EQ(0, sendlog_cnt);
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
 }
 
 TEST(Master, SendSessionRecord)
@@ -194,8 +203,7 @@ TEST(Master, SendSessionRecord)
 
 	struct TLD_handle_t * handle=TLD_create(0);
 	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &rules, 1, 0);
-	int sendlog_cnt=rd_kafka_get_sendlog_cnt();
-	EXPECT_EQ(1, sendlog_cnt);
+	EXPECT_EQ(1, rd_kafka_get_sendlog_cnt());
 	EXPECT_STREQ("{\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_t_vsys_id\":1,\"common_vsys_id\":1}",rd_kafka_get_sendlog_payload(0));
 	rd_kafka_clean_sendlog_cnt();
 	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
@@ -206,8 +214,7 @@ TEST(Master, SendSessionRecord)
 	a_stream.type=STREAM_TYPE_TCP;
 	handle=TLD_create(0);
 	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &rules, 1, 0);
-	sendlog_cnt=rd_kafka_get_sendlog_cnt();
-	EXPECT_EQ(0, sendlog_cnt);
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
 
 	//pkts=2, bytes=1500
 	pdetail={NULL, 0, 0, 0, 0, 2, 1500, 0, 1};
@@ -215,9 +222,31 @@ TEST(Master, SendSessionRecord)
 	a_stream.type=STREAM_TYPE_TCP;
 	handle=TLD_create(0);
 	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &rules, 1, 0);
-	sendlog_cnt=rd_kafka_get_sendlog_cnt();
-	EXPECT_EQ(0, sendlog_cnt);
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
 }
+
+TEST(Master, SendSessionRecordWithHittedShunt)
+{
+	struct streaminfo a_stream={0};
+	struct tcpdetail pdetail={NULL, 0, 0, 3, 50, 3, 50, 0, 1};
+	a_stream.ptcpdetail=&pdetail;
+	a_stream.type=STREAM_TYPE_TCP;
+
+	struct maat_rule rules={0, 0, 0, 2, 0, 1};
+
+	struct TLD_handle_t * handle=TLD_create(0);
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &rules, 1, 0);
+	EXPECT_EQ(1, rd_kafka_get_sendlog_cnt());
+	EXPECT_STREQ("{\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_t_vsys_id\":1,\"common_vsys_id\":1}",rd_kafka_get_sendlog_payload(0));
+	rd_kafka_clean_sendlog_cnt();
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
+
+	g_session_runtime_action_context.method_type=TSG_METHOD_TYPE_SHUNT;
+	handle=TLD_create(0);
+	tsg_send_log(g_tsg_log_instance, handle, &a_stream, LOG_TYPE_SESSION_RECORD, &rules, 1, 0);
+	EXPECT_EQ(0, rd_kafka_get_sendlog_cnt());
+}
+
 
 int main(int argc, char *argv[])
 {

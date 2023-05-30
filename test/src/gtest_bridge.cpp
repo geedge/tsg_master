@@ -374,7 +374,7 @@ TEST(TSG_Bridge, SessionActionContextAsync)
 	EXPECT_EQ(session_runtime_action_context_get(&a_stream), context);
 	EXPECT_EQ(session_runtime_action_context_get(&a_stream), session_runtime_action_context_new(&a_stream));
 	context->direction = DIR_S2C;
-	EXPECT_EQ(srt_action_context_get_direction(&a_stream), DIR_S2C);
+	EXPECT_EQ(srt_action_context_get_direction(context), DIR_S2C);
 	session_runtime_action_context_free(&a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id, (void *)context);
 	session_runtime_action_context_async(&a_stream, NULL);
 	EXPECT_EQ(nullptr, session_runtime_action_context_get(&a_stream));
