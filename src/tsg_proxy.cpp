@@ -211,7 +211,7 @@ static int tsg_proxy_rawpkt_info_get(const void *raw_pkt, struct tsg_proxy_tcp_o
 
     ret = get_rawpkt_opt_from_streaminfo(stream, RAW_PKT_GET_SID_LIST, &sids);
     if (ret != sizeof(struct segment_id_list)) {
-        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROXY", "Failed to get sid list, stream treaceid = %llu, %s", tsg_get_stream_trace_id(stream), printaddr(&stream->addr, stream->threadnum));
+        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PROXY", "Failed to get sid list, stream treaceid = %llu, %s", tsg_get_stream_trace_id(stream), PRINTADDR(stream, g_tsg_para.level));
         return -1;
     }
     memcpy(&tcp_opt->sid_list, sids, sizeof(struct segment_id_list));
@@ -219,7 +219,7 @@ static int tsg_proxy_rawpkt_info_get(const void *raw_pkt, struct tsg_proxy_tcp_o
     void *route_ctx = NULL;
     ret = get_rawpkt_opt_from_streaminfo(stream, RAW_PKT_GET_ROUTE_CTX, &route_ctx);
     if (ret < 0) {
-        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROXY", "Failed to get route ctx, stream treaceid = %llu, %s", tsg_get_stream_trace_id(stream), printaddr(&stream->addr, stream->threadnum));
+        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PROXY", "Failed to get route ctx, stream treaceid = %llu, %s", tsg_get_stream_trace_id(stream), PRINTADDR(stream, g_tsg_para.level));
         return -1;
     }
     tcp_opt->route_ctx_len = ret;
