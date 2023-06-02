@@ -443,6 +443,46 @@ static void tsg_proxy_cmsg_fqdn_category_fill(struct session_runtime_attribute *
     return;
 }
 
+static void tsg_proxy_cmsg_tcp_is_intercept(const struct streaminfo *stream, struct proxy_cmsg *cmsg)
+{
+    if (stream->dir == DIR_C2S || stream->dir == DIR_S2C)
+    {
+        cmsg->tcp_is_intercept |= TCP_IS_INTERCEPT_SINGLE;
+    }
+
+    unsigned short tunnel_type=0;
+	int tunnel_type_len=sizeof(tunnel_type);
+	int ret=MESA_get_stream_opt(stream, MSO_STREAM_UP_LAYER_TUNNEL_TYPE, (void *)&tunnel_type, &tunnel_type_len);
+    if(ret==0 && tunnel_type != STREAM_TUNNLE_NON)
+	{
+        cmsg->tcp_is_intercept |= TCP_IS_INTERCEPT_TUNNEL;
+    }
+
+    return;
+}
+
+static void tsg_proxy_cmsg_c2s_rpkt_header(const struct streaminfo *stream, struct cmsg_buff *c2s_rpkt_header)
+{
+    c2s_rpkt_header->len = sizeof(int);
+    if (MESA_get_stream_opt(stream, MSO_STREAM_C2S_RAWPKT_HDR, (void *)&c2s_rpkt_header->buff, &c2s_rpkt_header->len) == -1)
+    {
+        c2s_rpkt_header->len = 0;
+    }
+
+    return;
+}
+
+static void tsg_proxy_cmsg_s2c_rpkt_header(const struct streaminfo *stream, struct cmsg_buff *s2c_rpkt_header)
+{
+    s2c_rpkt_header->len = sizeof(int);
+    if (MESA_get_stream_opt(stream, MSO_STREAM_S2C_RAWPKT_HDR, (void *)&s2c_rpkt_header->buff, &s2c_rpkt_header->len) == -1)
+    {
+        s2c_rpkt_header->len = 0;
+    }
+
+    return;
+}
+
 static void tsg_proxy_tcp_attribute_dump(tsg_proxy_tcp_attribute *tcp_attr, struct proxy_cmsg *cmsg, const struct streaminfo *stream)
 {
     struct tsg_proxy_tcp_option *client = &tcp_attr->tcp_opt_client;
@@ -489,7 +529,11 @@ static void tsg_proxy_tcp_attribute_dump(tsg_proxy_tcp_attribute *tcp_attr, stru
                                                                        "server ip city: %s\n"\
                                                                        "client ip subdevision: %s\n"\
                                                                        "server ip subdevision: %s\n"\
-                                                                       "ssl ja3 fingerprint:%s\n",
+                                                                       "ssl ja3 fingerprint:%s\n"\
+                                                                       "tcp_seq_route_ctx len: %d\n"\
+                                                                       "tcp_ack_route_ctx len: %d\n"\
+                                                                       "tcp_c2s_rpkt_header len: %d\n"\
+                                                                       "tcp_s2c_rpkt_header len: %d\n",
                                                                        cmsg->src_sub_id,
                                                                        cmsg->dst_sub_id,
                                                                        cmsg->src_asn,
@@ -504,7 +548,11 @@ static void tsg_proxy_tcp_attribute_dump(tsg_proxy_tcp_attribute *tcp_attr, stru
                                                                        cmsg->dst_ip_location_city,
                                                                        cmsg->src_ip_location_subdivision,
                                                                        cmsg->dst_ip_location_subdivision,
-                                                                       cmsg->ssl_client_ja3_fingerprint);
+                                                                       cmsg->ssl_client_ja3_fingerprint,
+                                                                       cmsg->tcp_seq_route_ctx.len,
+                                                                       cmsg->tcp_ack_route_ctx.len,
+                                                                       cmsg->tcp_c2s_rpkt_header.len,
+                                                                       cmsg->tcp_s2c_rpkt_header.len);
     return;
 }
 
@@ -532,8 +580,8 @@ void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update
     cmsg->tcp_window_client = client->window;
     cmsg->tcp_ts_client_val = client->ts_val;
 
-    cmsg->tcp_seq_route_ctx.num = client->route_ctx_len;
-    memcpy(cmsg->tcp_seq_route_ctx.value, client->route_ctx, client->route_ctx_len);
+    cmsg->tcp_seq_route_ctx.len = client->route_ctx_len;
+    cmsg->tcp_seq_route_ctx.buff = (char *)client->route_ctx;
 
 	update_segment_sids(&cmsg->tcp_seq_sids, segment_ids->sid_list+1, segment_ids->sz_sidlist-1);  // delete intercept sid
 	update_segment_sids(&cmsg->tcp_seq_sids, client->sid_list.sid_list, client->sid_list.sz_sidlist);
@@ -544,8 +592,8 @@ void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update
     cmsg->tcp_window_server = server->window;
     cmsg->tcp_ts_server_val = server->ts_val;
 
-    cmsg->tcp_ack_route_ctx.num = server->route_ctx_len;
-    memcpy(cmsg->tcp_ack_route_ctx.value, server->route_ctx, server->route_ctx_len);
+    cmsg->tcp_ack_route_ctx.len = server->route_ctx_len;
+    cmsg->tcp_ack_route_ctx.buff = (char *)server->route_ctx;
 
 	update_segment_sids(&cmsg->tcp_seq_sids, segment_ids->sid_list+1, segment_ids->sz_sidlist-1);  // delete intercept sid
 	update_segment_sids(&cmsg->tcp_ack_sids, server->sid_list.sid_list, server->sid_list.sz_sidlist);
@@ -561,6 +609,11 @@ void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update
     tsg_proxy_cmsg_ip_location_fill(session_attr, cmsg);
     tsg_proxy_cmsg_ja3_fingerprint_fill(session_attr, cmsg);
     tsg_proxy_cmsg_fqdn_category_fill(session_attr, cmsg);
+
+    tsg_proxy_cmsg_c2s_rpkt_header(stream, &cmsg->tcp_c2s_rpkt_header);
+    tsg_proxy_cmsg_s2c_rpkt_header(stream, &cmsg->tcp_s2c_rpkt_header);
+
+    tsg_proxy_cmsg_tcp_is_intercept(stream, cmsg);
 
     tsg_proxy_tcp_attribute_dump(tcp_attr, cmsg, stream);
 

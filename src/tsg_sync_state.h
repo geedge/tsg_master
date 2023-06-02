@@ -40,12 +40,14 @@ struct tcp_sids
     uint16_t value[TCP_XXX_SIDS];
 };
 
-#define TCP_XXX_ROUTE_CTX 64
-struct tcp_route_ctx
+struct cmsg_buff
 {
-    size_t num;
-    uint8_t value[TCP_XXX_ROUTE_CTX];
+    char *buff;
+    int len;
 };
+
+#define TCP_IS_INTERCEPT_SINGLE 0X01
+#define TCP_IS_INTERCEPT_TUNNEL 0X02
 
 struct proxy_cmsg
 {
@@ -58,6 +60,7 @@ struct proxy_cmsg
     uint8_t tcp_ts_client;
     uint8_t tcp_ts_server;
     uint8_t tcp_protocol;
+    uint8_t tcp_is_intercept;  // 1: single  2: tunnel
     uint16_t tcp_mss_client;
     uint16_t tcp_mss_server;
     uint16_t tcp_window_client;
@@ -65,7 +68,7 @@ struct proxy_cmsg
     uint32_t tcp_ts_client_val;
     uint32_t tcp_ts_server_val;
     uint32_t tcp_seq;
-    uint32_t tcp_ack;
+    uint32_t tcp_ack;    
 
     char *src_sub_id;
     char *dst_sub_id;
@@ -85,8 +88,11 @@ struct proxy_cmsg
     struct fqdn_cat_id_val fqdn_cat_ids;
     struct tcp_sids tcp_seq_sids;
     struct tcp_sids tcp_ack_sids;
-    struct tcp_route_ctx tcp_seq_route_ctx;
-    struct tcp_route_ctx tcp_ack_route_ctx;
+    struct cmsg_buff tcp_seq_route_ctx;
+    struct cmsg_buff tcp_ack_route_ctx;
+
+    struct cmsg_buff tcp_c2s_rpkt_header;
+    struct cmsg_buff tcp_s2c_rpkt_header;
 };
 
 #define UPDATE_POLICY_RULE_IDS 8

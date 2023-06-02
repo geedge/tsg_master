@@ -138,16 +138,18 @@ static void mpack_append_tcp_sids(mpack_writer_t *writer, struct tcp_sids *array
 	return;
 }
 
-static void mpack_append_route_ctx(mpack_writer_t *writer, struct tcp_route_ctx *array)
+static void mpack_append_cmsg_buff_bin(mpack_writer_t *writer, struct cmsg_buff *p_buff)
 {
-    
-	int num = MIN(array->num, TCP_XXX_ROUTE_CTX);
-	mpack_build_array(writer);
-	for (int i = 0; i < num; i++)
+	
+	if (p_buff->buff == NULL || p_buff->len == 0)
 	{
-		mpack_write_u8(writer, array->value[i]);
+		mpack_start_bin(writer, 0);
+    	mpack_finish_bin(writer);
 	}
-	mpack_complete_array(writer);
+	else
+	{
+		mpack_write_bin(writer, p_buff->buff, p_buff->len);
+	}
 	
 	return;
 }
@@ -214,10 +216,17 @@ static void mpack_append_cmsg_value(mpack_writer_t *writer, struct proxy_cmsg *c
 		mpack_append_tcp_sids(writer, &cmsg->tcp_ack_sids);
 
 		// tcp_seq_route_ctx
-		mpack_append_route_ctx(writer, &cmsg->tcp_seq_route_ctx);
+		mpack_append_cmsg_buff_bin(writer, &cmsg->tcp_seq_route_ctx);
 
 		// tcp_ack_route_ctx
-		mpack_append_route_ctx(writer, &cmsg->tcp_ack_route_ctx);
+		mpack_append_cmsg_buff_bin(writer, &cmsg->tcp_ack_route_ctx);
+		
+		// raw_packet_header
+		mpack_append_cmsg_buff_bin(writer, &cmsg->tcp_c2s_rpkt_header);
+		mpack_append_cmsg_buff_bin(writer, &cmsg->tcp_s2c_rpkt_header);
+
+		// tcp_is_intercept
+		mpack_write_u8(writer, cmsg->tcp_is_intercept);
 
 		mpack_complete_array(writer); // array
 	}

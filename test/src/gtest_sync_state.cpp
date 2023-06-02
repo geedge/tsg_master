@@ -463,17 +463,21 @@ static void gtest_cmsg_init(struct proxy_cmsg *cmsg)
         cmsg->tcp_ack_sids.value[i] = i + 3;
     }
 
-    cmsg->tcp_seq_route_ctx.num = 7;
-    for (size_t i = 0; i < 7; i++)
-    {
-        cmsg->tcp_seq_route_ctx.value[i] = i + 4;
-    }
+    cmsg->tcp_seq_route_ctx.buff = (char *)calloc(1, 256);
+    snprintf(cmsg->tcp_seq_route_ctx.buff, 256, "test: tcp_seq_route_ctx");
+    cmsg->tcp_seq_route_ctx.len = strlen("test: tcp_seq_route_ctx");
 
-    cmsg->tcp_ack_route_ctx.num = 8;
-    for (size_t i = 0; i < 8; i++)
-    {
-        cmsg->tcp_ack_route_ctx.value[i] = i + 5;
-    }
+    cmsg->tcp_ack_route_ctx.buff = (char *)calloc(1, 256);
+    snprintf(cmsg->tcp_ack_route_ctx.buff, 256, "test: tcp_ack_route_ctx");
+    cmsg->tcp_ack_route_ctx.len = strlen("test: tcp_ack_route_ctx");
+
+    cmsg->tcp_s2c_rpkt_header.buff = (char *)calloc(1, 256);
+    snprintf(cmsg->tcp_s2c_rpkt_header.buff, 256, "test: s2c_rawpkt_header");
+    cmsg->tcp_s2c_rpkt_header.len = strlen("test: s2c_rawpkt_header");
+
+    cmsg->tcp_c2s_rpkt_header.buff = (char *)calloc(1, 256);
+    snprintf(cmsg->tcp_c2s_rpkt_header.buff, 256, "test: c2s_rawpkt_header");
+    cmsg->tcp_c2s_rpkt_header.len = strlen("test: c2s_rawpkt_header");
 
     return;
 }
@@ -495,6 +499,28 @@ static void gtest_cmsg_destroy(struct proxy_cmsg *cmsg)
     free(cmsg->src_ip_location_subdivision);
     free(cmsg->dst_ip_location_subdivision);
     free(cmsg->ssl_client_ja3_fingerprint);
+    
+    if (cmsg->tcp_seq_route_ctx.buff)
+    {
+        free(cmsg->tcp_seq_route_ctx.buff);
+    }
+
+    if (cmsg->tcp_ack_route_ctx.buff)
+    {
+        free(cmsg->tcp_ack_route_ctx.buff);
+    }
+
+    if (cmsg->tcp_s2c_rpkt_header.buff)
+    {
+        free(cmsg->tcp_s2c_rpkt_header.buff);
+    }
+
+    if (cmsg->tcp_c2s_rpkt_header.buff)
+    {
+        free(cmsg->tcp_c2s_rpkt_header.buff);
+    }
+        
+    return;
 }
 
 TEST(POLICY_UPDATE, Proxy)
@@ -505,7 +531,7 @@ TEST(POLICY_UPDATE, Proxy)
     struct streaminfo a_stream = {0};
     struct update_policy test;
     memset(&test, 0, sizeof(test));
-    struct proxy_cmsg cmsg;
+    struct proxy_cmsg cmsg = {0};
     test.type = POLICY_UPDATE_INTERCEPT;
     test.n_ids = 6;
     for (int i = 0; i < test.n_ids; i++)
@@ -555,11 +581,110 @@ TEST(POLICY_UPDATE, Proxy)
     }
 
     mpack_node_t tcp_ack_route_ctxs = mpack_node_array_at(tcp_handshake, 35);
-    EXPECT_EQ(8, mpack_node_array_length(tcp_ack_route_ctxs));
-    for (int i = 0; i < 8; i++)
+    EXPECT_EQ(mpack_type_bin, mpack_node_type(tcp_ack_route_ctxs));
+    memcpy(test_str, mpack_node_bin_data(tcp_ack_route_ctxs), mpack_node_bin_size(tcp_ack_route_ctxs));
+    EXPECT_STREQ("test: tcp_ack_route_ctx", test_str);
+    memset(test_str, 0, sizeof(test_str));
+
+    mpack_node_t tcp_seq_pkg_header = mpack_node_array_at(tcp_handshake, 36);
+    EXPECT_EQ(mpack_type_bin, mpack_node_type(tcp_seq_pkg_header));
+    memcpy(test_str, mpack_node_bin_data(tcp_seq_pkg_header), mpack_node_bin_size(tcp_seq_pkg_header));
+    EXPECT_STREQ("test: c2s_rawpkt_header", test_str);
+    memset(test_str, 0, sizeof(test_str));
+
+    mpack_node_t tcp_ack_pkg_header = mpack_node_array_at(tcp_handshake, 37);
+    EXPECT_EQ(mpack_type_bin, mpack_node_type(tcp_ack_pkg_header));
+    memcpy(test_str, mpack_node_bin_data(tcp_ack_pkg_header), mpack_node_bin_size(tcp_ack_pkg_header));
+    EXPECT_STREQ("test: s2c_rawpkt_header", test_str);
+    memset(test_str, 0, sizeof(test_str));
+
+    mpack_node_t tcp_is_intercept = mpack_node_array_at(tcp_handshake, 38);
+    EXPECT_EQ(0, mpack_node_u8(tcp_is_intercept));
+    EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
+    gtest_cmsg_destroy(&cmsg);
+}
+
+TEST(POLICY_UPDATE, ProxyTcpIsIntercept)
+{
+    char ctrl_pkt_buf[1024] = {0};
+    int ctrl_pkt_len = 0;
+    struct streaminfo a_stream = {0};
+    struct update_policy test;
+    memset(&test, 0, sizeof(test));
+    struct proxy_cmsg cmsg = {0};
+    test.type = POLICY_UPDATE_INTERCEPT;
+    test.n_ids = 6;
+    for (int i = 0; i < test.n_ids; i++)
     {
-        EXPECT_EQ(i + 5, mpack_node_u8(mpack_node_array_at(tcp_ack_route_ctxs, i)));
+        test.ids[i] = 10000 + i;
     }
+
+    gtest_cmsg_init(&cmsg);
+    cmsg.tcp_is_intercept |=TCP_IS_INTERCEPT_SINGLE;
+    cmsg.tcp_is_intercept |=TCP_IS_INTERCEPT_TUNNEL;
+    memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
+    tsg_sync_policy_update(&a_stream, &test, 1);
+
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
+    mpack_tree_t tree;
+    mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
+    mpack_tree_parse(&tree);
+    mpack_node_t root = mpack_tree_root(&tree);
+    mpack_node_t params = mpack_node_map_cstr(root, "params");
+
+    // proxy
+    EXPECT_EQ(mpack_type_map, mpack_node_type(mpack_node_map_cstr(params, "proxy")));
+    mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
+
+    mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
+    mpack_node_t tcp_is_intercept = mpack_node_array_at(tcp_handshake, 38);
+    EXPECT_EQ(3, mpack_node_u8(tcp_is_intercept));
+
+    EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
+    gtest_cmsg_destroy(&cmsg);
+}
+
+TEST(POLICY_UPDATE, ProxyPkgHeader0)
+{
+    char ctrl_pkt_buf[1024] = {0};
+    int ctrl_pkt_len = 0;
+    struct streaminfo a_stream = {0};
+    struct update_policy test;
+    memset(&test, 0, sizeof(test));
+    struct proxy_cmsg cmsg = {0};
+    test.type = POLICY_UPDATE_INTERCEPT;
+    test.n_ids = 6;
+    for (int i = 0; i < test.n_ids; i++)
+    {
+        test.ids[i] = 10000 + i;
+    }
+
+    gtest_cmsg_init(&cmsg);
+    cmsg.tcp_s2c_rpkt_header.len = 0;
+    cmsg.tcp_c2s_rpkt_header.len = 0;
+    cmsg.tcp_wsacle_exist = 0;
+    memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
+    tsg_sync_policy_update(&a_stream, &test, 1);
+
+    ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
+    mpack_tree_t tree;
+    mpack_tree_init_data(&tree, ctrl_pkt_buf, ctrl_pkt_len);
+    mpack_tree_parse(&tree);
+    mpack_node_t root = mpack_tree_root(&tree);
+    mpack_node_t params = mpack_node_map_cstr(root, "params");
+
+    // proxy
+    EXPECT_EQ(mpack_type_map, mpack_node_type(mpack_node_map_cstr(params, "proxy")));
+    mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
+
+    mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
+    EXPECT_EQ(1, mpack_node_u32(mpack_node_array_at(tcp_handshake, 0)));
+    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 4)));
+    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 5)));
+    EXPECT_EQ(0, mpack_node_bin_size(mpack_node_array_at(tcp_handshake, 36)));
+    EXPECT_NE(nullptr, mpack_node_bin_data(mpack_node_array_at(tcp_handshake, 36)));
+    EXPECT_EQ(0, mpack_node_bin_size(mpack_node_array_at(tcp_handshake, 37)));
+    EXPECT_NE(nullptr, mpack_node_bin_data(mpack_node_array_at(tcp_handshake, 37)));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
     gtest_cmsg_destroy(&cmsg);
@@ -573,7 +698,7 @@ TEST(POLICY_UPDATE, ProxyTcpWsacleExist0)
     struct streaminfo a_stream = {0};
     struct update_policy test;
     memset(&test, 0, sizeof(test));
-    struct proxy_cmsg cmsg;
+    struct proxy_cmsg cmsg = {0};
     test.type = POLICY_UPDATE_INTERCEPT;
     test.n_ids = 6;
     for (int i = 0; i < test.n_ids; i++)
@@ -614,7 +739,7 @@ TEST(POLICY_UPDATE, ProxyFqdnCatIds0)
     struct streaminfo a_stream = {0};
     struct update_policy test;
     memset(&test, 0, sizeof(test));
-    struct proxy_cmsg cmsg;
+    struct proxy_cmsg cmsg = {0};
     test.type = POLICY_UPDATE_INTERCEPT;
     test.n_ids = 6;
     for (int i = 0; i < test.n_ids; i++)
@@ -654,7 +779,7 @@ TEST(POLICY_UPDATE, ProxyTcpAckRouteCtxs0)
     struct streaminfo a_stream = {0};
     struct update_policy test;
     memset(&test, 0, sizeof(test));
-    struct proxy_cmsg cmsg;
+    struct proxy_cmsg cmsg = {0};
     test.type = POLICY_UPDATE_INTERCEPT;
     test.n_ids = 6;
     for (int i = 0; i < test.n_ids; i++)
@@ -663,7 +788,7 @@ TEST(POLICY_UPDATE, ProxyTcpAckRouteCtxs0)
     }
 
     gtest_cmsg_init(&cmsg);
-    cmsg.tcp_ack_route_ctx.num = 0;
+    cmsg.tcp_ack_route_ctx.len = 0;
     memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
     tsg_sync_policy_update(&a_stream, &test, 1);
 
@@ -680,7 +805,7 @@ TEST(POLICY_UPDATE, ProxyTcpAckRouteCtxs0)
 
     mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
     mpack_node_t tcp_ack_route_ctxs = mpack_node_array_at(tcp_handshake, 35);
-    EXPECT_EQ(0, mpack_node_array_length(tcp_ack_route_ctxs));
+    EXPECT_EQ(0, mpack_node_bin_size(tcp_ack_route_ctxs));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
     gtest_cmsg_destroy(&cmsg);
@@ -694,7 +819,7 @@ TEST(POLICY_UPDATE, ProxyTcpSeqSids0)
     struct streaminfo a_stream = {0};
     struct update_policy test;
     memset(&test, 0, sizeof(test));
-    struct proxy_cmsg cmsg;
+    struct proxy_cmsg cmsg = {0};
     test.type = POLICY_UPDATE_INTERCEPT;
     test.n_ids = 6;
     for (int i = 0; i < test.n_ids; i++)
@@ -732,7 +857,7 @@ TEST(POLICY_UPDATE, ProxyOverLimit)
     int ctrl_pkt_len = 0;
     struct streaminfo a_stream = {0};
     struct update_policy test;
-    struct proxy_cmsg cmsg;
+    struct proxy_cmsg cmsg = {0};
     test.type = POLICY_UPDATE_INTERCEPT;
     test.n_ids = 6;
     for (int i = 0; i < test.n_ids; i++)
@@ -745,8 +870,6 @@ TEST(POLICY_UPDATE, ProxyOverLimit)
     test.cmsg.fqdn_cat_ids.num += FQDN_CAT_ID_VALS;
     test.cmsg.tcp_ack_sids.num += TCP_XXX_SIDS;
     test.cmsg.tcp_seq_sids.num += TCP_XXX_SIDS;
-    test.cmsg.tcp_seq_route_ctx.num += TCP_XXX_ROUTE_CTX;
-    test.cmsg.tcp_ack_route_ctx.num += TCP_XXX_ROUTE_CTX;
     tsg_sync_policy_update(&a_stream, &test, 1);
 
     ctrl_pkt_len = get_ctrl_pkt(ctrl_pkt_buf, sizeof(ctrl_pkt_buf));
@@ -770,12 +893,6 @@ TEST(POLICY_UPDATE, ProxyOverLimit)
 
     mpack_node_t tcp_ack_sids = mpack_node_array_at(tcp_handshake, 33);
     EXPECT_EQ(TCP_XXX_SIDS, mpack_node_array_length(tcp_ack_sids));
-
-    mpack_node_t tcp_seq_route_ctxs = mpack_node_array_at(tcp_handshake, 34);
-    EXPECT_EQ(TCP_XXX_ROUTE_CTX, mpack_node_array_length(tcp_seq_route_ctxs));
-
-    mpack_node_t tcp_ack_route_ctxs = mpack_node_array_at(tcp_handshake, 35);
-    EXPECT_EQ(TCP_XXX_ROUTE_CTX, mpack_node_array_length(tcp_ack_route_ctxs));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
     gtest_cmsg_destroy(&cmsg);
