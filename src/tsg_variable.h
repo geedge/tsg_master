@@ -131,6 +131,7 @@ struct tsg_rt_para
 	int shaping_sid;
 	int intercept_sid;
 	int send_resetall;
+	int app_metric_update_interval_ms;
 	enum DEPLOY_MODE deploy_mode;
 	int scan_time_interval;
 	int identify_app_max_pkt_num;

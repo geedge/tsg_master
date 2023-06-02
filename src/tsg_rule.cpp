@@ -126,8 +126,7 @@ unsigned short get_redis_port(char *redis_port_range)
 		}
 		else
 		{
-			int ret=sscanf(buf, "%hu-%hu", &s_port, &e_port);
-			assert(ret==2);
+			sscanf(buf, "%hu-%hu", &s_port, &e_port);
 		}
 		
 		for(int i=s_port; i<=e_port && port_num<32; i++)

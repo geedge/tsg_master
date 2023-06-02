@@ -148,6 +148,11 @@ int tsg_set_policy_flow(const struct streaminfo * a_stream, struct maat_rule * p
 	return 0;
 }
 
+int session_application_full_path_update(const struct streaminfo * a_stream, char * app_full_path, int app_full_path_len)
+{
+	return 0;
+}
+
 TEST(Master, SendInterimRecord)
 {
 	struct streaminfo a_stream={0};

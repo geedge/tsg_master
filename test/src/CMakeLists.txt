@@ -42,18 +42,19 @@ set(TSG_MASTER_SRC ${PROJECT_SOURCE_DIR}/src/tsg_entry.cpp
 	${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp
 	${PROJECT_SOURCE_DIR}/src/tsg_protocol.cpp
 	${PROJECT_SOURCE_DIR}/src/tsg_proxy.cpp
+	${PROJECT_SOURCE_DIR}/src/mpack.c
 )
 
-add_executable(gtest_master ${TSG_MASTER_SRC} ${PROJECT_SOURCE_DIR}/src/mpack.c gtest_kafka.cpp gtest_common.cpp gtest_master.cpp)
+add_executable(gtest_master ${TSG_MASTER_SRC} gtest_kafka.cpp gtest_common.cpp gtest_master.cpp)
 target_link_libraries(gtest_master gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger MESA_jump_layer MESA_field_stat2 maat4 MESA_htable fieldstat3)
 
 add_executable(gtest_sync_state ${PROJECT_SOURCE_DIR}/src/tsg_sync_state.cpp ${PROJECT_SOURCE_DIR}/src/mpack.c gtest_common.cpp gtest_sync_state.cpp)
 target_link_libraries(gtest_sync_state gtest-static cjson ctemplate-static MESA_handle_logger)
 
-add_executable(gtest_fieldstat3 ${PROJECT_SOURCE_DIR}/src/tsg_statistic.cpp gtest_common.cpp gtest_fieldstat3.cpp)
-target_link_libraries(gtest_fieldstat3 gtest-static ctemplate-static MESA_field_stat2 fieldstat3 MESA_prof_load MESA_handle_logger)
+add_executable(gtest_fieldstat3 ${TSG_MASTER_SRC} gtest_common.cpp gtest_kafka.cpp gtest_fieldstat3.cpp)
+target_link_libraries(gtest_fieldstat3 gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger MESA_jump_layer MESA_field_stat2 maat4 MESA_htable fieldstat3)
 
-add_executable(gtest_proxy ${TSG_MASTER_SRC} ${PROJECT_SOURCE_DIR}/src/mpack.c gtest_common.cpp gtest_proxy.cpp)
+add_executable(gtest_proxy ${TSG_MASTER_SRC} gtest_common.cpp gtest_proxy.cpp)
 target_link_libraries(gtest_proxy gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger MESA_jump_layer MESA_field_stat2 maat4 rdkafka MESA_htable fieldstat3 pcap)
 
 file(COPY ../pcap/ DESTINATION ./pcap/)

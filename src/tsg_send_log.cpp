@@ -688,175 +688,6 @@ static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, st
 	return 1;
 }
 
-static unsigned int get_max_app_id(struct gather_app_result *result)
-{
-	int i=0;
-	unsigned int max_app_id=0; 
-
-	for(i=0; i< result->app_num; i++)
-	{
-		if(max_app_id < result->attributes[i].app_id)
-		{
-			max_app_id=result->attributes[i].app_id;
-		}
-	}
-
-	return max_app_id;
-}
-
-static unsigned int get_lastest_app_id(struct gather_app_result *result)
-{
-	if(result->app_num>0)
-	{
-		return result->attributes[result->app_num-1].app_id;
-	}
-
-	return 0;
-}
-
-/*
-	L7(openvpn), appSketch(psiphon), Thrid(openvpn.ssl.wechat) = openvpn.ssl.psiphon
-	L7(openvpn), appSketch(psiphon), Thrid(openvpn.qq_web.wechat) = openvpn.psiphon
-	L7(openvpn), appSketch(psiphon), Thrid(openvpn.wechat) = openvpn.psiphon
-	L7(openvpn.ssl), appSketch(psiphon), Thrid(openvpn.wechat) = openvpn.ssl.psiphon
-	L7(openvpn.ssl), appSketch(psiphon), Thrid(openvpn) = openvpn.ssl.psiphon
-	L7(openvpn.ssl), appSketch(psiphon), Thrid(openvpn.ssl.wechat) = openvpn.ssl.psiphon
-	L7(null), appSketch(psiphon), Thrid(openvpn.ssl.wechat) = openvpn.ssl.psiphon
-	L7(null), appSketch(psiphon), Thrid(wechat) = psiphon
-	L7(null), appSketch(null), Thrid(openvpn.ssl.wechat) = openvpn.ssl.wechat
-	L7(null), appSketch(null), Thrid(null) = unknown
-*/
-
-static int split_l7_and_app(struct gather_app_result *qm_result, struct gather_app_result *qm_l7_result)
-{
-	int i=0;
-	for(i=qm_result->app_num; i>0; i--)
-	{
-		if(tsg_l7_protocol_id2name(qm_result->attributes[i-1].app_id))
-		{
-			break;
-		}
-	}
-
-	qm_l7_result->app_num=i;
-	qm_l7_result->origin=ORIGIN_QM_ENGINE_L7;
-	memcpy(qm_l7_result->attributes, qm_result->attributes, sizeof(struct app_attributes)*i);
-
-	return 0;
-}
-
-/*
-** Engine1 1.2 Engine2 1   -> 1.2
-** Engine1 1.2 Engine2 1.3 -> 1.2
-** Engine1 1   Engine2 1.2 -> 1.2
-** Engine1 2   Engine2 1.2 -> 1.2
-** Engine1 1   Engine2 2.3 -> 1
-** Engine1 1   Engine2 2   -> 1
-*/
-
-static int copy_app_id(struct app_attributes *result, int result_num, unsigned int *combined_array, int combined_array_num)
-{
-	int i=0;
-	for(i=0; i<result_num && i<combined_array_num; i++)
-	{
-		combined_array[i]=result[i].app_id;
-	}
-
-	return i;
-}
-
-#define	COMBINED_APP_ID_NUM	MAX_APP_ID_NUM*2
-int set_app_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct gather_app_result *result)
-{
-	int offset=0;
-	int combined_num=0;
-	char app_full_path[256]={0};
-	unsigned int combined_array[COMBINED_APP_ID_NUM]={0};
-
-	if(result[ORIGIN_BASIC_PROTOCOL].app_num>0)
-	{
-		combined_num+=copy_app_id(result[ORIGIN_BASIC_PROTOCOL].attributes, result[ORIGIN_BASIC_PROTOCOL].app_num, combined_array, COMBINED_APP_ID_NUM);
-	}
-	else
-	{
-		combined_num+=copy_app_id(result[ORIGIN_QM_ENGINE_L7].attributes, result[ORIGIN_QM_ENGINE_L7].app_num, combined_array, COMBINED_APP_ID_NUM);
-	}
-
-	if(result[ORIGIN_HITED_APP].app_num > 0)
-	{
-		combined_array[combined_num]=get_lastest_app_id(&(result[ORIGIN_HITED_APP]));
-		combined_num+=1;
-	}
-	else if(result[ORIGIN_USER_DEFINE].app_num>0)
-	{
-		if(combined_num<COMBINED_APP_ID_NUM)
-		{
-			combined_array[combined_num]=get_max_app_id(&(result[ORIGIN_USER_DEFINE]));
-			combined_num+=1;
-		}
-	}
-	else if(result[ORIGIN_BUILT_IN].app_num>0)	
-	{
-		combined_num+=copy_app_id(result[ORIGIN_BUILT_IN].attributes, result[ORIGIN_BUILT_IN].app_num, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);	
-	}
-	else if(result[ORIGIN_QM_ENGINE].app_num-result[ORIGIN_QM_ENGINE_L7].app_num > 0)
-	{
-		combined_num+=copy_app_id(  result[ORIGIN_QM_ENGINE].attributes + result[ORIGIN_QM_ENGINE_L7].app_num,
-									result[ORIGIN_QM_ENGINE].app_num - result[ORIGIN_QM_ENGINE_L7].app_num, 
-									combined_array+combined_num,
-									COMBINED_APP_ID_NUM-combined_num
-								);
-	}
-
-	if(combined_num==0)
-	{
-		offset=tsg_get_app_name_by_id(g_tsg_maat_feather, result[ORIGIN_UNKNOWN].attributes[0].app_id, app_full_path, sizeof(app_full_path), 0);
-		if(offset>0)
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_full_path, TLD_TYPE_STRING);
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_full_path, TLD_TYPE_STRING);
-			return 1;
-		}
-		else
-		{
-			MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "APP_FULL_PATH", "app_full_path is null, combined_num=0");
-		}
-
-		return 0;
-	}
-
-	for(int i=0; i<combined_num; i++)
-	{
-		offset+=tsg_get_app_name_by_id(g_tsg_maat_feather, combined_array[i], app_full_path+offset, sizeof(app_full_path)-offset, 0);
-		if(offset>0)
-		{
-			app_full_path[offset++]='.';
-		}
-	}
-
-	if(offset>0)
-	{
-		app_full_path[offset-1]='\0';
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_full_path, TLD_TYPE_STRING);
-
-		char *app_label=rindex(app_full_path, '.');
-		if(app_label!=NULL)
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)(app_label+1), TLD_TYPE_STRING);
-		}
-		else
-		{
-			TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_full_path, TLD_TYPE_STRING);
-		}
-	}
-	else
-	{
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "APP_FULL_PATH", "app_full_path is null, combined_num=%d", combined_num);
-	}
-
-	return 1;
-}
-
 int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(a_stream);
@@ -872,11 +703,21 @@ int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handl
 		return 0;
 	}
 
-	split_l7_and_app(&(gather_result[ORIGIN_QM_ENGINE]), &(gather_result[ORIGIN_QM_ENGINE_L7]));
-
 	set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(gather_result[ORIGIN_USER_DEFINE]));
 
-	set_app_info(_instance, _handle, gather_result);
+	char app_full_path[256]={0};
+	session_application_full_path_update(a_stream, app_full_path, sizeof(app_full_path));
+
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_FULL_PATH].name, (void *)app_full_path, TLD_TYPE_STRING);
+	char *app_label=rindex(app_full_path, '.');
+	if(app_label!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)(app_label+1), TLD_TYPE_STRING);
+	}
+	else
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_LABEL].name, (void *)app_full_path, TLD_TYPE_STRING);
+	}
 	
 	set_app_identify_info(_handle, _instance->id2field[LOG_COMMON_APP_IDENTIFY_INFO].name, gather_result);
 
@@ -1893,7 +1734,6 @@ static int session_record_limit(struct tsg_log_instance_t *_instance, const stru
 int log_common_fields_new(const char *filename, id2field_t *id2field, struct topic_stat **service2topic, int *max_service)
 {
 	int i=0,flag=0;
-	int ret=0,id=0;
 	FILE *fp=NULL;
 	char line[1024]={0};
 	char field_name[64]={0};
@@ -1915,9 +1755,9 @@ int log_common_fields_new(const char *filename, id2field_t *id2field, struct top
 		{
 			continue;
 		}
+		int id=0;
 		memset(type_name, 0, sizeof(type_name));
-		ret=sscanf(line, "%31s %63s %d", type_name, field_name, &id);
-		assert(ret==3);
+		sscanf(line, "%31s %63s %d", type_name, field_name, &id);
 
 		for(i=0; i<TLD_TYPE_MAX; i++)
 		{
@@ -2480,3 +2320,14 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 
 	return 0;
 }
+
+int tsg_unknown_app_id_get(struct tsg_log_instance_t *instance)
+{
+	if(instance!=NULL)
+	{
+		return instance->unknown_app_id;
+	}
+
+	return 0;
+}
+

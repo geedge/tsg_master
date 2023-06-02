@@ -236,7 +236,8 @@ struct tsg_log_instance_t
 	void *logger;
 };
 
+int tsg_unknown_app_id_get(struct tsg_log_instance_t *instance);
+
 char *log_field_id2name(struct tsg_log_instance_t *instance, enum LOG_FIELD_ID id);
 struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_handle_t fs2_handle);
 void tsg_sendlog_destroy(struct tsg_log_instance_t * instance);
-

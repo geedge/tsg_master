@@ -17,7 +17,7 @@ pthread_t g_pid[8];
 
 TEST(FIELDSATA3, InterceptIllegalParameter)
 {
-    struct _traffic_info _info;
+    struct traffic_info _info;
     struct maat_rule p_result;
 
     int ret = tsg_set_intercept_flow(NULL, &_info, 0);
@@ -47,7 +47,7 @@ TEST(FIELDSATA3, PolicyIllegalParameter)
 
 TEST(FIELDSATA3, Intercept)
 {
-    struct _traffic_info _info;
+    struct traffic_info _info;
     struct maat_rule p_result;
 
     _info.con_num = 10;
@@ -97,7 +97,7 @@ void *run_time_funtion(void *arg)
 
     struct maat_rule p_result;
     struct streaminfo a_stream;
-    struct _traffic_info _info;
+    struct traffic_info _info;
 
     while (1)
     {
@@ -155,7 +155,7 @@ TEST(FIELDSATA3, MultiThreading)
 int main(int argc, char *argv[])
 {
     void *logger = MESA_create_runtime_log_handle("log/gtest_fieldstat3.log", RLOG_LV_FATAL);
-    tsg_statistic_init(tsg_gtest_conffile, logger);
+    tsg_metric_init(tsg_gtest_conffile, logger);
     testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();
 //    sleep(30);
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 //        pthread_cancel(g_pid[i]);
 //    }
 
-    tsg_statistic_destroy();
+    tsg_metric_destroy();
 
     return ret;
 }

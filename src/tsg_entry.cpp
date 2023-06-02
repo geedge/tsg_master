@@ -687,6 +687,444 @@ static int srt_process_context_set_l7_protocol(struct session_runtime_process_co
 	return 0;
 }
 
+/*
+	L7(openvpn), appSketch(psiphon), Thrid(openvpn.ssl.wechat) = openvpn.ssl.psiphon
+	L7(openvpn), appSketch(psiphon), Thrid(openvpn.qq_web.wechat) = openvpn.psiphon
+	L7(openvpn), appSketch(psiphon), Thrid(openvpn.wechat) = openvpn.psiphon
+	L7(openvpn.ssl), appSketch(psiphon), Thrid(openvpn.wechat) = openvpn.ssl.psiphon
+	L7(openvpn.ssl), appSketch(psiphon), Thrid(openvpn) = openvpn.ssl.psiphon
+	L7(openvpn.ssl), appSketch(psiphon), Thrid(openvpn.ssl.wechat) = openvpn.ssl.psiphon
+	L7(null), appSketch(psiphon), Thrid(openvpn.ssl.wechat) = openvpn.ssl.psiphon
+	L7(null), appSketch(psiphon), Thrid(wechat) = psiphon
+	L7(null), appSketch(null), Thrid(openvpn.ssl.wechat) = openvpn.ssl.wechat
+	L7(null), appSketch(null), Thrid(null) = unknown
+*/
+
+static int session_qm_result_l7_protocol_split(struct gather_app_result *qm_result, struct gather_app_result *qm_l7_result)
+{
+	int i=0;
+	for(i=qm_result->app_num; i>0; i--)
+	{
+		if(tsg_l7_protocol_id2name(qm_result->attributes[i-1].app_id))
+		{
+			break;
+		}
+	}
+
+	qm_l7_result->app_num=i;
+	qm_l7_result->origin=ORIGIN_QM_ENGINE_L7;
+	memcpy(qm_l7_result->attributes, qm_result->attributes, sizeof(struct app_attributes)*i);
+
+	return 0;
+}
+
+static unsigned int get_max_app_id(struct gather_app_result *result)
+{
+	int i=0;
+	unsigned int max_app_id=0; 
+
+	for(i=0; i< result->app_num; i++)
+	{
+		if(max_app_id < result->attributes[i].app_id)
+		{
+			max_app_id=result->attributes[i].app_id;
+		}
+	}
+
+	return max_app_id;
+}
+
+static unsigned int get_lastest_app_id(struct gather_app_result *result)
+{
+	if(result->app_num>0)
+	{
+		return result->attributes[result->app_num-1].app_id;
+	}
+
+	return 0;
+}
+
+/*
+** Engine1 1.2 Engine2 1   -> 1.2
+** Engine1 1.2 Engine2 1.3 -> 1.2
+** Engine1 1   Engine2 1.2 -> 1.2
+** Engine1 2   Engine2 1.2 -> 1.2
+** Engine1 1   Engine2 2.3 -> 1
+** Engine1 1   Engine2 2   -> 1
+*/
+
+static int copy_app_id(struct app_attributes *result, int result_num, unsigned int *combined_array, int combined_array_num)
+{
+	int i=0;
+	for(i=0; i<result_num && i<combined_array_num; i++)
+	{
+		combined_array[i]=result[i].app_id;
+	}
+
+	return i;
+}
+
+#define	COMBINED_APP_ID_NUM	MAX_APP_ID_NUM*2
+int session_application_full_path_combine(struct gather_app_result *result, char *out_full_path, int out_full_path_len)
+{
+	int offset=0,combined_num=0;
+	unsigned int combined_array[COMBINED_APP_ID_NUM]={0};
+
+	if(result[ORIGIN_BASIC_PROTOCOL].app_num>0)
+	{
+		combined_num+=copy_app_id(result[ORIGIN_BASIC_PROTOCOL].attributes, result[ORIGIN_BASIC_PROTOCOL].app_num, combined_array, COMBINED_APP_ID_NUM);
+	}
+	else
+	{
+		combined_num+=copy_app_id(result[ORIGIN_QM_ENGINE_L7].attributes, result[ORIGIN_QM_ENGINE_L7].app_num, combined_array, COMBINED_APP_ID_NUM);
+	}
+
+	if(result[ORIGIN_HITED_APP].app_num > 0)
+	{
+		combined_array[combined_num]=get_lastest_app_id(&(result[ORIGIN_HITED_APP]));
+		combined_num+=1;
+	}
+	else if(result[ORIGIN_USER_DEFINE].app_num>0)
+	{
+		if(combined_num<COMBINED_APP_ID_NUM)
+		{
+			combined_array[combined_num]=get_max_app_id(&(result[ORIGIN_USER_DEFINE]));
+			combined_num+=1;
+		}
+	}
+	else if(result[ORIGIN_BUILT_IN].app_num>0)	
+	{
+		combined_num+=copy_app_id(result[ORIGIN_BUILT_IN].attributes, result[ORIGIN_BUILT_IN].app_num, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);	
+	}
+	else if(result[ORIGIN_QM_ENGINE].app_num-result[ORIGIN_QM_ENGINE_L7].app_num > 0)
+	{
+		combined_num+=copy_app_id(  result[ORIGIN_QM_ENGINE].attributes + result[ORIGIN_QM_ENGINE_L7].app_num,
+									result[ORIGIN_QM_ENGINE].app_num - result[ORIGIN_QM_ENGINE_L7].app_num, 
+									combined_array+combined_num,
+									COMBINED_APP_ID_NUM-combined_num
+								);
+	}
+
+	if(combined_num==0)
+	{
+		offset=tsg_get_app_name_by_id(g_tsg_maat_feather, result[ORIGIN_UNKNOWN].attributes[0].app_id, out_full_path, out_full_path_len, 0);
+		if(offset>0)
+		{
+			return offset;
+		}
+
+		return 0;
+	}
+
+	for(int i=0; i<combined_num; i++)
+	{
+		offset+=tsg_get_app_name_by_id(g_tsg_maat_feather, combined_array[i], out_full_path+offset, out_full_path_len-offset, 0);
+		if(offset>0)
+		{
+			out_full_path[offset++]='.';
+		}
+	}
+
+	if(offset>0)
+	{
+		out_full_path[offset-1]='\0';
+	}
+
+	return offset;
+}
+
+int session_application_full_path_update(const struct streaminfo *a_stream, char *app_full_path, int app_full_path_len)
+{
+	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(a_stream);
+	if(gather_result!=NULL)
+	{
+		session_qm_result_l7_protocol_split(&(gather_result[ORIGIN_QM_ENGINE]), &(gather_result[ORIGIN_QM_ENGINE_L7]));
+		session_application_full_path_combine(gather_result, app_full_path, app_full_path_len);
+	}
+	else
+	{
+		tsg_get_app_name_by_id(g_tsg_maat_feather, tsg_unknown_app_id_get(g_tsg_log_instance), app_full_path, app_full_path_len, 0);
+	}
+
+	return 1;
+}
+
+static const char *session_addr_type_string_convert(UCHAR addrtype)
+{
+	switch (addrtype)
+	{
+		case ADDR_TYPE_IPV4:
+		case __ADDR_TYPE_IP_PAIR_V4:
+			return ".IPv4";
+		case ADDR_TYPE_IPV6:
+		case __ADDR_TYPE_IP_PAIR_V6:
+			return ".IPv6";
+		case ADDR_TYPE_VLAN:
+			return ".VLAN";
+		case ADDR_TYPE_MAC:
+			return ".ETHERNET";
+		case ADDR_TYPE_ARP:
+			return ".ARP";
+		case ADDR_TYPE_GRE:
+			return ".GRE";
+		case ADDR_TYPE_MPLS:
+			return ".MPLS";
+		case ADDR_TYPE_PPPOE_SES:
+			return ".PPPOE";
+		case ADDR_TYPE_TCP:
+			return ".TCP";
+		case ADDR_TYPE_UDP:
+			return ".UDP";
+		case ADDR_TYPE_L2TP:
+			return ".L2TP";
+		case ADDR_TYPE_PPP:
+			return ".PPP";
+		case ADDR_TYPE_PPTP:
+			return ".PPTP";
+		case ADDR_TYPE_MAC_IN_MAC:
+			return ".MAC_IN_MAC";
+		case ADDR_TYPE_GPRS_TUNNEL:
+			return ".GTP";
+		case ADDR_TYPE_VXLAN:
+			return ".VXLAN";
+		default:
+			return NULL;
+	}
+}
+
+#define MAX_L4_PROTOCOL_STR_LEN 512
+char *session_l4_protocol_label_update(const struct streaminfo *a_stream, char **l4_protocol)
+{
+	if(*l4_protocol!=NULL || a_stream == NULL)
+	{
+		return *l4_protocol;
+	}
+
+	const char *l4_protocol_str = NULL;
+	int combined_l4_protocol_offset=MAX_L4_PROTOCOL_STR_LEN;
+	char combined_l4_protocol_str[MAX_L4_PROTOCOL_STR_LEN]={0};
+	struct streaminfo *cur_stream = (struct streaminfo *)a_stream;
+
+	while (cur_stream != NULL)
+	{
+		switch (cur_stream->type)
+		{
+			case STREAM_TYPE_TCP:
+				if (cur_stream->addr.addrtype == ADDR_TYPE_IPV4)
+				{
+					l4_protocol_str = ".IPv4.TCP";
+				}
+				else if (cur_stream->addr.addrtype == ADDR_TYPE_IPV6)
+				{
+					l4_protocol_str = ".IPv6.TCP";
+				}
+				break;
+			case STREAM_TYPE_UDP:
+				if (cur_stream->addr.addrtype == ADDR_TYPE_IPV4)
+				{
+					l4_protocol_str = ".IPv4.UDP";
+				}
+				else if (cur_stream->addr.addrtype == ADDR_TYPE_IPV6)
+				{
+					l4_protocol_str = ".IPv6.UDP";
+				}
+				break;
+			case STREAM_TYPE_VLAN:
+				l4_protocol_str = ".VLAN"; break;
+			case STREAM_TYPE_PPPOE:
+				l4_protocol_str = ".PPPOE"; break;
+			case STREAM_TYPE_L2TP:
+				l4_protocol_str = ".L2TP"; break;
+			case STREAM_TYPE_OPENVPN:
+				l4_protocol_str = ".OpenVPN"; break;
+			case STREAM_TYPE_PPTP:
+				l4_protocol_str = ".PPTP"; break;
+			case STREAM_TYPE_NON:
+			case STREAM_TYPE_ISAKMP:
+				l4_protocol_str = session_addr_type_string_convert(cur_stream->addr.addrtype);
+				break;
+			// SOCKS4 SOCKS5 HTTP
+			default:
+				continue;
+		}
+
+		int n_l4_protocol_str = strlen(l4_protocol_str);
+		if (n_l4_protocol_str!=0)
+		{
+			if (combined_l4_protocol_offset - n_l4_protocol_str < 0)
+			{
+				break;
+			}
+			memcpy(combined_l4_protocol_str+combined_l4_protocol_offset-n_l4_protocol_str, l4_protocol_str, n_l4_protocol_str);
+			combined_l4_protocol_offset-=n_l4_protocol_str;
+			l4_protocol_str=NULL;
+		}
+
+		cur_stream = cur_stream->pfather;
+	}
+
+	if(combined_l4_protocol_offset>0 && combined_l4_protocol_offset<MAX_L4_PROTOCOL_STR_LEN)
+	{
+		int l4_protocol_len=MAX_L4_PROTOCOL_STR_LEN-combined_l4_protocol_offset-1;
+		*l4_protocol=(char *)malloc(l4_protocol_len+1);
+		memcpy(*l4_protocol, combined_l4_protocol_str+combined_l4_protocol_offset+1, l4_protocol_len); // +1 for del "."
+		(*l4_protocol)[l4_protocol_len]='\0';
+	}
+	
+	return *l4_protocol;
+}
+
+
+int session_calculate_udp_packets_increment(const struct streaminfo *a_stream, struct traffic_packet_info *last_value, struct traffic_packet_info *increment)
+{
+	struct udp_flow_stat *uflow_stat = (struct udp_flow_stat *)project_req_get_struct(a_stream, g_tsg_log_instance->udp_flow_project_id);
+	if (uflow_stat == NULL)
+	{
+		return -1;
+	}
+
+	increment->c2s_pkts = uflow_stat->C2S_pkt - last_value->c2s_pkts;
+	last_value->c2s_pkts = uflow_stat->C2S_pkt;
+
+	increment->s2c_pkts = uflow_stat->S2C_pkt - last_value->s2c_pkts;
+	last_value->s2c_pkts = uflow_stat->S2C_pkt;
+
+	increment->c2s_bytes = uflow_stat->C2S_all_byte_raw - last_value->c2s_bytes;
+	last_value->c2s_bytes = uflow_stat->C2S_all_byte_raw;
+
+	increment->s2c_bytes = uflow_stat->S2C_all_byte_raw - last_value->s2c_bytes;
+	last_value->s2c_bytes = uflow_stat->S2C_all_byte_raw;
+
+	increment->c2s_fragments = uflow_stat->C2S_ip_fragment_pkt - last_value->c2s_fragments;
+	last_value->c2s_fragments = uflow_stat->C2S_ip_fragment_pkt;
+
+	increment->s2c_fragments = uflow_stat->S2C_ip_fragment_pkt - last_value->s2c_fragments;
+	last_value->s2c_fragments = uflow_stat->S2C_ip_fragment_pkt;
+
+	return 0;
+}
+
+int session_calculate_tcp_packets_increment(const struct streaminfo *a_stream, struct traffic_packet_info *last_value, struct traffic_packet_info *increment)
+{
+	struct tcp_flow_stat *tflow_stat = (struct tcp_flow_stat *)project_req_get_struct(a_stream, g_tsg_log_instance->tcp_flow_project_id);
+	if (tflow_stat == NULL)
+	{
+		return -1;
+	}
+
+	increment->c2s_pkts = tflow_stat->C2S_all_pkt - last_value->c2s_pkts;
+	last_value->c2s_pkts = tflow_stat->C2S_all_pkt;
+
+	increment->s2c_pkts = tflow_stat->S2C_all_pkt - last_value->s2c_pkts;
+	last_value->s2c_pkts = tflow_stat->S2C_all_pkt;
+
+	increment->c2s_bytes = tflow_stat->C2S_all_byte_raw - last_value->c2s_bytes;
+	last_value->c2s_bytes = tflow_stat->C2S_all_byte_raw;
+
+	increment->s2c_bytes = tflow_stat->S2C_all_byte_raw - last_value->s2c_bytes;
+	last_value->s2c_bytes = tflow_stat->S2C_all_byte_raw;
+
+	increment->c2s_fragments = tflow_stat->C2S_ip_fragment_pkt - last_value->c2s_fragments;
+	last_value->c2s_fragments = tflow_stat->C2S_ip_fragment_pkt;
+
+	increment->s2c_fragments = tflow_stat->S2C_ip_fragment_pkt - last_value->s2c_fragments;
+	last_value->s2c_fragments = tflow_stat->S2C_ip_fragment_pkt;
+
+	increment->c2s_tcp_lost_bytes = tflow_stat->C2S_seq_gap_loss_cnt - last_value->c2s_tcp_lost_bytes;
+	last_value->c2s_tcp_lost_bytes = tflow_stat->C2S_seq_gap_loss_cnt;
+
+	increment->s2c_tcp_lost_bytes = tflow_stat->S2C_seq_gap_loss_cnt - last_value->s2c_tcp_lost_bytes;
+	last_value->s2c_tcp_lost_bytes = tflow_stat->S2C_seq_gap_loss_cnt;
+
+	increment->c2s_tcp_ooorder_pkts = tflow_stat->C2S_ooorder_pkt - last_value->c2s_tcp_ooorder_pkts;
+	last_value->c2s_tcp_ooorder_pkts = tflow_stat->C2S_ooorder_pkt;
+
+	increment->s2c_tcp_ooorder_pkts = tflow_stat->S2C_ooorder_pkt - last_value->s2c_tcp_ooorder_pkts;
+	last_value->s2c_tcp_ooorder_pkts = tflow_stat->S2C_ooorder_pkt;
+
+	increment->c2s_tcp_retransmitted_pkts = tflow_stat->C2S_retransmission_pkt - last_value->c2s_tcp_retransmitted_pkts;
+	last_value->c2s_tcp_retransmitted_pkts = tflow_stat->C2S_retransmission_pkt;
+
+	increment->s2c_tcp_retransmitted_pkts = tflow_stat->S2C_retransmission_pkt - last_value->s2c_tcp_retransmitted_pkts;
+	last_value->s2c_tcp_retransmitted_pkts = tflow_stat->S2C_retransmission_pkt;
+
+	increment->c2s_tcp_retransmitted_bytes = tflow_stat->C2S_retransmission_byte - last_value->c2s_tcp_retransmitted_bytes;
+	last_value->c2s_tcp_retransmitted_bytes = tflow_stat->C2S_retransmission_byte;
+
+	increment->s2c_tcp_retransmitted_bytes = tflow_stat->S2C_retransmission_byte - last_value->s2c_tcp_retransmitted_bytes;
+	last_value->s2c_tcp_retransmitted_bytes = tflow_stat->S2C_retransmission_byte;
+
+	return 0;
+}
+
+int session_calculate_packets_increment(const struct streaminfo *a_stream, struct traffic_packet_info *last_value, struct traffic_packet_info *increment, int thread_seq)
+{
+	if (a_stream == NULL || last_value == NULL || increment == NULL)
+	{
+		return -1;
+	}
+
+	unsigned long long value = 0;
+	int value_len = sizeof(unsigned long long);
+
+	increment->sessions = 1-last_value->sessions;
+	last_value->sessions = 1;
+
+	value = 0;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_BYTE_RAW, (void *)&value, &value_len);
+	increment->in_bytes = (uint64_t)value - last_value->in_bytes;
+	last_value->in_bytes = (uint64_t)value;
+
+	value = 0;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_PKT, (void *)&value, &value_len);
+	increment->in_pkts = (uint64_t)value - last_value->in_pkts;
+	last_value->in_pkts = (uint64_t)value;
+
+	value = 0;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_BYTE_RAW, (void *)&value, &value_len);
+	increment->out_bytes = (uint64_t)value - last_value->out_bytes;
+	last_value->out_bytes = (uint64_t)value;
+
+	value = 0;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_PKT, (void *)&value, &value_len);
+	increment->out_pkts = (uint64_t)value - last_value->out_pkts;
+	last_value->out_pkts = (uint64_t)value;
+
+	switch (a_stream->type)
+	{
+		case STREAM_TYPE_TCP:
+		session_calculate_tcp_packets_increment(a_stream, last_value, increment);
+		break;
+
+		case STREAM_TYPE_UDP:
+		session_calculate_udp_packets_increment(a_stream, last_value, increment);
+		break;
+
+		default:
+			break;
+	}
+
+	return 0;
+}
+
+int session_application_metrics_update(const struct streaminfo *a_stream, struct session_runtime_action_context *srt_action_context, int thread_seq)
+{
+	if(tsg_get_current_time_ms() - srt_action_context->last_update_metric_time < g_tsg_para.app_metric_update_interval_ms)
+	{
+		return 0;
+	}
+
+	char app_full_path[256]={0};
+	struct traffic_packet_info increment_app_statis = {0};
+	session_application_full_path_update(a_stream, app_full_path, sizeof(app_full_path));
+	char *l4_protocol_string=session_l4_protocol_label_update(a_stream, &srt_action_context->l4_protocol);
+	session_calculate_packets_increment(a_stream, &srt_action_context->last_app_statis, &increment_app_statis, thread_seq);
+	tsg_set_application_metrics(a_stream, l4_protocol_string, app_full_path, &increment_app_statis, thread_seq);
+	srt_action_context->last_update_metric_time = tsg_get_current_time_ms();
+
+	return 1;
+}
+
 static int session_app_gather_results_set_l7_protocol(const struct streaminfo *a_stream, enum TSG_PROTOCOL protocol)
 {
 	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(a_stream);
@@ -1954,13 +2392,18 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 		*pme=dictator_malloc(thread_seq, sizeof(struct udp_session_runtime_context));
 		memset(*pme, 0, sizeof(struct udp_session_runtime_context));
 		udp_srt_context=(struct udp_session_runtime_context *)(*pme);
-		
-		udp_srt_context->srt_action_context=(struct session_runtime_action_context *)dictator_malloc(thread_seq, sizeof(struct session_runtime_action_context));
-		memset(udp_srt_context->srt_action_context, 0, sizeof(struct session_runtime_action_context));
-		session_runtime_action_context_async(a_udp, (void *)(udp_srt_context->srt_action_context));
 
+		udp_srt_context->srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_get(a_udp);
+		if(udp_srt_context->srt_action_context==NULL)
+		{
+			udp_srt_context->srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_new(a_udp);
+		}
+		
+		udp_srt_context->srt_action_context->last_update_metric_time = tsg_get_current_time_ms();
 		udp_srt_context->srt_action_context->direction=get_direction(a_udp);
 	}
+
+	session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
 
 	if(udp_srt_context->srt_action_context->udp_data_dropme==0)
 	{
@@ -1980,6 +2423,7 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 
 	if(state1&APP_STATE_DROPME || state2&APP_STATE_DROPME || a_udp->opstate==OP_STATE_CLOSE)
 	{
+		session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
 		dictator_free(thread_seq, *pme);
 		*pme=NULL;
 
@@ -1991,7 +2435,7 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 
 extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq, const void *a_packet)
 {
-	struct session_runtime_action_context *_context=(struct session_runtime_action_context *)(*pme);
+	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)(*pme);
 
 	int is_ctrl_pkt=session_state_control_packet(a_tcp, a_tcp->ptcpdetail->pdata, a_tcp->ptcpdetail->datalen);
 	if(is_ctrl_pkt==1)
@@ -2005,18 +2449,19 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 		*pme=(void *)session_runtime_action_context_get(a_tcp);
 		if(*pme==NULL)
 		{
-			*pme=(struct session_runtime_action_context *)dictator_malloc(thread_seq, sizeof(struct session_runtime_action_context));
-			memset(*pme, 0, sizeof(struct session_runtime_action_context));	
-			session_runtime_action_context_async(a_tcp, (void *)(*pme));
+			srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_new(a_tcp);
+			*pme=(void *)srt_action_context;
 		}
-
-		_context=(struct session_runtime_action_context *)(*pme);
-		_context->direction=get_direction(a_tcp);
+		
+		srt_action_context->direction=get_direction(a_tcp);
+		srt_action_context->last_update_metric_time = tsg_get_current_time_ms();
 	}
-	
-	if(_context->set_latency_flag==0)
+
+	session_application_metrics_update(a_tcp, srt_action_context, thread_seq);
+
+	if(srt_action_context->set_latency_flag==0)
 	{
-		_context->set_latency_flag=session_tcp_establish_latency_ms_set(a_tcp, thread_seq, a_packet);
+		srt_action_context->set_latency_flag=session_tcp_establish_latency_ms_set(a_tcp, thread_seq, a_packet);
 	}
 
 	if (a_packet != NULL)
@@ -2028,6 +2473,7 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 
 	if(state&APP_STATE_DROPME || a_tcp->pktstate==OP_STATE_CLOSE)
 	{
+		session_application_metrics_update(a_tcp, srt_action_context, thread_seq);
 		session_state_sync_in_opening_and_closing(a_tcp, a_tcp->pktstate);
 	}
 
@@ -2071,6 +2517,8 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_short_def(tsg_conffile, "SYSTEM", "TIMEOUT", (short *)&g_tsg_para.timeout, 300);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_TIME_INTERVAL", &g_tsg_para.scan_time_interval, 120);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "IENTIFY_APP_MAX_PKT_NUM", &g_tsg_para.identify_app_max_pkt_num, 20);
+
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "APP_METRICS_INTERVAL", &g_tsg_para.app_metric_update_interval_ms, 30000);
 	
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "FEATURE_TAMPER", &g_tsg_para.feature_tamper, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SERVICE_CHAINING_SID", &g_tsg_para.service_chaining_sid, 0);
@@ -2126,10 +2574,10 @@ extern "C" int TSG_MASTER_INIT()
 	
 	FS_start(g_tsg_para.fs2_handle);
 
-	ret=tsg_statistic_init(tsg_conffile, g_tsg_para.logger);
+	ret = tsg_metric_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_STATISTIC", "tsg_statistic_init failed ...");
+		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_STATISTIC", "tsg_metric_init failed ...");
 		return -1;
 	}
 

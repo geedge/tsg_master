@@ -7,7 +7,7 @@ struct gtest_ctrl_pkt
 {
 	char buf[1024];
 	int len;
-}ctrl_pkt;
+};
 
 void dictator_free(int thread_seq, void * pbuf)
 {
@@ -40,9 +40,11 @@ int sapp_inject_pkt(struct streaminfo * stream, enum sapp_inject_opt sio, const 
 	return 0;
 }
 
+struct gtest_ctrl_pkt ctrl_pkt;
+
 int sapp_inject_ctrl_pkt(struct streaminfo * stream, enum sapp_inject_opt sio, const void * payload, int payload_len, unsigned char snd_routedir)
 {
-	memset(&ctrl_pkt, 0, 1050);
+	memset(&ctrl_pkt, 0, sizeof(ctrl_pkt));
 	memcpy(ctrl_pkt.buf, payload, payload_len);
 	ctrl_pkt.len = payload_len;
 

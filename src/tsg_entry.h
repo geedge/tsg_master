@@ -117,13 +117,28 @@ enum security_metric_columns
 	COLUMN_MAX
 };
 
-enum TRAFFIC_INFO_IDX
+enum app_metric_columns
 {
-	TRAFFIC_INFO_ALLOW=0,
-	TRAFFIC_INFO_DENY,
-	TRAFFIC_INFO_MONITOR,
-	TRAFFIC_INFO_INTERCEPT,
-	TRAFFIC_INFO_MAX
+	TRAFFIC_APP_SESSIONS = 0,
+	TRAFFIC_APP_IN_BYTES,
+	TRAFFIC_APP_OUT_BYTES,
+	TRAFFIC_APP_IN_PKTS,
+	TRAFFIC_APP_OUT_PKTS,
+	TRAFFIC_APP_C2S_PKTS,
+	TRAFFIC_APP_S2C_PKTS,
+	TRAFFIC_APP_C2S_BYTES,
+	TRAFFIC_APP_S2C_BYTES,
+	TRAFFIC_APP_C2S_FRAGMENTS,
+	TRAFFIC_APP_S2C_FRAGMENTS,
+	TRAFFIC_APP_C2S_LOST_BYTES,
+	TRAFFIC_APP_S2C_LOST_BYTES,
+	TRAFFIC_APP_C2S_ORDER_PKTS,
+	TRAFFIC_APP_S2C_ORDER_PKTS,
+	TRAFFIC_APP_C2S_RETRANSMITTED_PKTS,
+	TRAFFIC_APP_S2C_RETRANSMITTED_PKTS,
+	TRAFFIC_APP_C2S_RETRANSMITTED_BYTES,
+	TRAFFIC_APP_S2C_RETRANSMITTED_BYTES,
+	TRAFFIC_APP_MAX
 };
 
 struct tsg_statistic
@@ -143,10 +158,17 @@ struct tsg_statistic
 	int metric_table_id;
 	unsigned int security_column_ids[COLUMN_MAX];
 	struct fieldstat_dynamic_instance *security_metric_handle;
+
+	int app_metric_cycle;
+	int app_metric_table_id;
+	unsigned int app_column_ids[TRAFFIC_APP_MAX];
+	struct fieldstat_dynamic_instance *app_metric_handle;
 };
 
-int tsg_statistic_init(const char *conffile, void *logger);
-void tsg_statistic_destroy(void);
+int tsg_metric_init(const char *conffile, void *logger);
+void tsg_metric_destroy(void);
 
 int tsg_gtp_signaling_hash_init(const char* conffile, void *logger);
+
+int session_application_full_path_update(const struct streaminfo *a_stream, char *app_full_path, int app_full_path_len);
 

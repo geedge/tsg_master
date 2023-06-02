@@ -6,6 +6,8 @@
 #include "tsg_label.h"
 #include "tsg_rule.h"
 #include "tsg_leaky_bucket.h"
+#include "tsg_send_log_internal.h"
+#include "tsg_statistic.h"
 
 #ifndef	MAX_BRIDGE_NAME_LEN
 #define	MAX_BRIDGE_NAME_LEN	64
@@ -99,9 +101,10 @@ struct session_runtime_action_context
 	char udp_data_dropme;
 	char set_latency_flag;
 	char direction;
-	char padding[5];
+	char padding[1];
 	enum TSG_METHOD_TYPE method_type; 
 	enum TSG_PROTOCOL protocol;
+	char *l4_protocol;
 	union
 	{
 		struct leaky_bucket *bucket;
@@ -110,6 +113,8 @@ struct session_runtime_action_context
 		struct hited_app_para hited_para;
 		void *para;
 	};
+	long long last_update_metric_time;
+	struct traffic_packet_info last_app_statis;
 };
 
 struct udp_session_runtime_context
