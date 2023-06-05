@@ -1893,7 +1893,9 @@ struct maat *init_maat_feather(const char* conffile, char* instance_name, char *
 {
 	int deferred_load=0;
 	char maat_mode[32]={0};
-	int effect_interval=60;
+	int effect_interval_ms=60000;
+	int rule_update_interval_ms=60000;
+	int garbage_collect_ms=30000;
 	char effective_range_filename[1024]={0};
 	char effective_flag[1024]={0};
 	int output_prometheus=0;
@@ -1938,16 +1940,31 @@ struct maat *init_maat_feather(const char* conffile, char* instance_name, char *
 	MESA_load_profile_int_def(conffile, module,"DEFERRED_LOAD", &(deferred_load), 0);
 	MESA_load_profile_string_def(conffile,module,"TABLE_INFO",table_info, sizeof(table_info), "");
 	MESA_load_profile_string_def(conffile,module,"STAT_FILE",maat_stat_file, sizeof(maat_stat_file), "");
-	MESA_load_profile_int_def(conffile, module,"EFFECT_INTERVAL_S", &(effect_interval), 60);
-	effect_interval*=1000;//convert s to ms
+	MESA_load_profile_int_def(conffile, module,"EFFECT_INTERVAL_MS", &(effect_interval_ms), 60000);
+	MESA_load_profile_int_def(conffile, module,"RULE_UPDATE_CHECK_INTERVAL_MS", &(rule_update_interval_ms), 60000);
+	MESA_load_profile_int_def(conffile, module,"GARBAGE_COLLECT_MS", &(garbage_collect_ms), 60000);
 
 	struct maat_options *opts=maat_options_new();
 	size_t thread_max=(size_t)get_thread_count();
 	maat_options_set_logger(opts, log_path, (enum log_level)_log_level);
 	maat_options_set_caller_thread_number(opts, thread_max);
 	maat_options_set_accept_tags(opts, (const char *)effective_flag);
-	maat_options_set_rule_effect_interval_ms(opts, effect_interval);
+	maat_options_set_rule_effect_interval_ms(opts, effect_interval_ms);
 	maat_options_set_instance_name(opts, instance_name);
+	maat_options_set_foreign_cont_dir(opts, "./alerts_files");
+	maat_options_set_stat_file(opts, maat_stat_file);
+	maat_options_set_rule_update_checking_interval_ms(opts, rule_update_interval_ms);
+	maat_options_set_gc_timeout_ms(opts,  garbage_collect_ms);
+
+	if(maat_stat_on==1)
+	{
+		maat_options_set_stat_on(opts);
+	}
+	if(maat_perf_on)
+	{
+		maat_options_set_perf_on(opts);
+	}
+
 	if(deferred_load==1)
 	{
 		maat_options_set_deferred_load_on(opts);
