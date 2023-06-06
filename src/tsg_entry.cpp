@@ -1128,14 +1128,17 @@ int session_application_metrics_update(const struct streaminfo *a_stream, struct
 static int session_app_gather_results_set_l7_protocol(const struct streaminfo *a_stream, enum TSG_PROTOCOL protocol)
 {
 	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(a_stream);
-	if(gather_result!=NULL)
+	if(gather_result==NULL)
+	{
+		gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result)*ORIGIN_MAX);
+		memset(gather_result, 0, sizeof(struct gather_app_result)*ORIGIN_MAX);
+		session_gather_app_results_async(a_stream, (void *)gather_result);
+	}
+
+	if(gather_result[ORIGIN_BASIC_PROTOCOL].app_num>0)
 	{
 		return 0;
 	}
-	
-	gather_result=(struct gather_app_result *)dictator_malloc(a_stream->threadnum, sizeof(struct gather_app_result)*ORIGIN_MAX);
-	memset(gather_result, 0, sizeof(struct gather_app_result)*ORIGIN_MAX);
-	session_gather_app_results_async(a_stream, (void *)gather_result);
 	
 	int app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[protocol].name);
 	if(app_id>0)
@@ -1530,7 +1533,7 @@ struct maat_rule *matched_rules_decision_criteria(struct maat_rule *rules, size_
 	return p_result;
 }
 
-static int session_l7_protocol_identify(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, void *a_packet)
+int session_l7_protocol_identify(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, void *a_packet)
 {
 	int ret=0;
 
@@ -2043,7 +2046,7 @@ int session_flags_identify_result_cb(const struct streaminfo *a_stream, int brid
 	return 0;
 }
 
-static size_t session_pending_state_deal(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, struct maat_rule *results, int n_results, void *a_packet)
+size_t session_pending_state_deal(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, struct maat_rule *results, int n_results, void *a_packet)
 {
 	size_t hit_num=0;
 	int ret=session_l7_protocol_identify(a_stream, srt_process_context, a_packet);

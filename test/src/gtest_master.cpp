@@ -968,6 +968,40 @@ TEST(TSGMaster, ShapingPolicySendLog)
 	EXPECT_EQ(nullptr, hited_shaping);
 }
 
+extern size_t session_pending_state_deal(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, struct maat_rule *results, int n_results, void *a_packet);
+
+TEST(TSGMaster, SessionDealStatePending)
+{
+	struct streaminfo a_stream={0};
+	struct tcpdetail pdetail={0};
+	a_stream.type=STREAM_TYPE_TCP;
+	a_stream.ptcpdetail=&pdetail;
+	
+	struct maat_rule matched_rules[MAX_RESULT_NUM]={0};
+	struct session_runtime_process_context srt_process_context={0};
+
+	gtest_set_ftp_data_flag();
+
+	size_t n_matched_rules=session_pending_state_deal((const struct streaminfo *)&a_stream, &srt_process_context, matched_rules, MAX_RESULT_NUM, NULL);
+	EXPECT_EQ(0, n_matched_rules);
+	EXPECT_EQ(PROTO_FTP, srt_process_context.proto);
+
+	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(&a_stream);
+	EXPECT_NE(nullptr, gather_result);
+	
+	EXPECT_EQ(1, gather_result[ORIGIN_BASIC_PROTOCOL].app_num);
+	EXPECT_EQ(45, gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].app_id);
+	EXPECT_EQ(0, gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].surrogate_id);
+
+	free(gather_result);
+	session_gather_app_results_async(&a_stream, NULL);
+	EXPECT_EQ(nullptr, session_gather_app_results_get(&a_stream));
+
+	gtest_clean_ftp_data_flag();
+	EXPECT_EQ(0, ftp_data_identify(&a_stream));
+
+}
+
 int main(int argc, char *argv[])
 {
 	TSG_MASTER_INIT();

@@ -9,4 +9,8 @@ int TLD_convert_json(struct TLD_handle_t *_handle, char *buff, unsigned int buff
 int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream);
 int set_shaping_rule_ids(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream);
 
+void gtest_set_ftp_data_flag(void);
+void gtest_clean_ftp_data_flag(void);
+extern "C" int ftp_data_identify(struct streaminfo *a_tcp);
+
 

@@ -250,9 +250,20 @@ extern "C" int ftp_control_identify(struct streaminfo *a_tcp)
 	return 0;
 }
 
+int g_gtest_ftp_data_flag=0;
+void gtest_set_ftp_data_flag(void)
+{
+	g_gtest_ftp_data_flag=1;
+}
+
+void gtest_clean_ftp_data_flag(void)
+{
+	g_gtest_ftp_data_flag=0;
+}
+
 extern "C" int ftp_data_identify(struct streaminfo *a_tcp)
 {
-	return 0;
+	return g_gtest_ftp_data_flag;
 }
 
 extern "C" int mail_protocol_identify_by_first_payload(struct streaminfo *a_tcp, char *payload, int payload_len, int thread_seq)
