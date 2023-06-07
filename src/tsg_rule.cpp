@@ -1940,9 +1940,9 @@ struct maat *init_maat_feather(const char* conffile, char* instance_name, char *
 	MESA_load_profile_int_def(conffile, module,"DEFERRED_LOAD", &(deferred_load), 0);
 	MESA_load_profile_string_def(conffile,module,"TABLE_INFO",table_info, sizeof(table_info), "");
 	MESA_load_profile_string_def(conffile,module,"STAT_FILE",maat_stat_file, sizeof(maat_stat_file), "");
-	MESA_load_profile_int_def(conffile, module,"EFFECT_INTERVAL_MS", &(effect_interval_ms), 60000);
-	MESA_load_profile_int_def(conffile, module,"RULE_UPDATE_CHECK_INTERVAL_MS", &(rule_update_interval_ms), 60000);
-	MESA_load_profile_int_def(conffile, module,"GARBAGE_COLLECT_MS", &(garbage_collect_ms), 60000);
+	MESA_load_profile_int_def(conffile, module,"EFFECT_INTERVAL_MS", &(effect_interval_ms), 1000);		//
+	MESA_load_profile_int_def(conffile, module,"RULE_UPDATE_CHECK_INTERVAL_MS", &(rule_update_interval_ms), 1000);	//check redis
+	MESA_load_profile_int_def(conffile, module,"GARBAGE_COLLECT_MS", &(garbage_collect_ms), 60000);	//
 
 	struct maat_options *opts=maat_options_new();
 	size_t thread_max=(size_t)get_thread_count();

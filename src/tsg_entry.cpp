@@ -313,11 +313,11 @@ static char get_direction(const struct streaminfo *a_stream)
 		case	DIR_C2S:
 			if(i_or_e=='E' || i_or_e=='e')
 			{
-				direction='E';
+				direction='E';	 //Internal to External
 			}
 			else
 			{
-				direction='I';
+				direction='I';	 //External to Internal
 			}
 			break;
 		case	DIR_S2C:
@@ -1920,6 +1920,17 @@ unsigned char session_matched_rules_deal(const struct streaminfo *a_stream, stru
 {
 	unsigned char state=APP_STATE_GIVEME;
 
+	struct maat_rule security_rules[MAX_RESULT_NUM]={0};
+	size_t n_security_rules=tsg_select_rules_by_service_id(rules, n_rules, security_rules, MAX_RESULT_NUM, TSG_SERVICE_SECURITY);
+	if(n_security_rules>0)
+	{
+		state=matched_security_rules_deal(a_stream, srt_process_context, security_rules, n_security_rules, a_packet, a_stream->threadnum);
+		if(state&APP_STATE_KILL_OTHER)
+		{
+			return state;
+		}
+	}
+	
 	struct maat_rule s_chaining_rules[MAX_RESULT_NUM]={0};
 	size_t n_s_chaining_rules=tsg_select_rules_by_service_id(rules, n_rules, s_chaining_rules, MAX_RESULT_NUM, TSG_SERVICE_CHAINING);
 	if(n_s_chaining_rules>0)
@@ -1939,13 +1950,6 @@ unsigned char session_matched_rules_deal(const struct streaminfo *a_stream, stru
 	if(n_intercept_rules>0)
 	{
 		matched_intercept_rules_deal(a_stream, intercept_rules, n_intercept_rules, a_stream->threadnum);
-	}
-
-	struct maat_rule security_rules[MAX_RESULT_NUM]={0};
-	size_t n_security_rules=tsg_select_rules_by_service_id(rules, n_rules, security_rules, MAX_RESULT_NUM, TSG_SERVICE_SECURITY);
-	if(n_security_rules>0)
-	{
-		state=matched_security_rules_deal(a_stream, srt_process_context, security_rules, n_security_rules, a_packet, a_stream->threadnum);
 	}
 
 	return state;
