@@ -101,7 +101,7 @@ struct session_runtime_action_context
 	char udp_data_dropme;
 	char set_latency_flag;
 	char direction;
-	char padding[1];
+	char padding[5];
 	enum TSG_METHOD_TYPE method_type; 
 	enum TSG_PROTOCOL protocol;
 	char *l4_protocol;
@@ -183,6 +183,8 @@ int srt_attribute_set_establish_latecy(const struct streaminfo * a_stream);
 int srt_attribute_set_ja3_fingprint(const struct streaminfo *a_stream, const char *ja3_fingerprint);
 int srt_attribute_set_reponse_size(const struct streaminfo *a_stream, int http_action_file_size);
 
+void srt_attribute_free_proxy_tcp_option(const struct streaminfo *a_stream);
+
 //gather app identify result
 int session_gather_app_results_async(const struct streaminfo * a_stream, void * data);
 void *session_gather_app_results_get(const struct streaminfo * a_stream);
@@ -203,4 +205,7 @@ enum TSG_METHOD_TYPE srt_action_context_get_method_type(const struct session_run
 
 
 const struct session_runtime_process_context *session_runtime_process_context_new(const struct streaminfo * a_stream);
+
+void session_runtime_process_context_free(const struct streaminfo *a_stream);
+
 

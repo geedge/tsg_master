@@ -354,14 +354,14 @@ TEST(TSG_Bridge, AppSignatureResultAsync)
 }
 
 extern const struct session_runtime_process_context *session_runtime_process_context_new(const struct streaminfo *a_stream);
-extern void session_runtime_process_context_free(const struct streaminfo *a_stream, int bridge_id, void *data);
+extern void session_runtime_process_context_free_cb(const struct streaminfo *a_stream, int bridge_id, void *data);
 TEST(TSG_Bridge, SessionProcessContextAsync)
 {
 	const struct streaminfo a_stream = {0};
 	const struct session_runtime_process_context *context = session_runtime_process_context_new(&a_stream);
 	EXPECT_EQ(session_runtime_process_context_get(&a_stream), context);
 	EXPECT_EQ(session_runtime_process_context_get(&a_stream), session_runtime_process_context_new(&a_stream));
-	session_runtime_process_context_free(&a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)context);
+	session_runtime_process_context_free_cb(&a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)context);
 	session_runtime_process_context_async(&a_stream, NULL);
 	EXPECT_EQ(nullptr, session_runtime_process_context_get(&a_stream));
 }
@@ -403,7 +403,7 @@ TEST(TSG_Bridge, ProcessAndActionContextAsync)
 	EXPECT_STREQ(process_test->domain, "thisisdomain");
 	EXPECT_STREQ(process_test->http_url, "thisishttp_url");
 	session_runtime_action_context_free(&a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].id, (void *)action_ctx);
-	session_runtime_process_context_free(&a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)process_test);
+	session_runtime_process_context_free_cb(&a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)process_test);
 	session_runtime_action_context_async(&a_stream, NULL);
 	EXPECT_EQ(nullptr, session_runtime_action_context_get(&a_stream));
 	session_runtime_process_context_async(&a_stream, NULL);

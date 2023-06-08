@@ -86,7 +86,7 @@ void session_proxy_log_update_free(const struct streaminfo *a_stream, int bridge
 	return;
 }
 
-void session_runtime_process_context_free(const struct streaminfo *a_stream, int bridge_id, void *data)
+void session_runtime_process_context_free_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
 	struct session_runtime_process_context *srt_process_context=(struct session_runtime_process_context *)data;
 	if(srt_process_context!=NULL)
@@ -261,6 +261,16 @@ const struct session_runtime_attribute *session_runtime_attribute_new(const stru
 const struct session_runtime_attribute *session_runtime_attribute_get(const struct streaminfo *a_stream)
 {
 	return (struct session_runtime_attribute *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_ATTRIBUTE].id);
+}
+
+void srt_attribute_free_proxy_tcp_option(const struct streaminfo *a_stream)
+{
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_get(a_stream);
+	if(srt_attribute!=NULL && srt_attribute->proxy_tcp_attr!=NULL)
+	{
+		dictator_free(a_stream->threadnum, (void *)srt_attribute->proxy_tcp_attr);
+		srt_attribute->proxy_tcp_attr=NULL;
+	}
 }
 
 int srt_attribute_set_establish_latecy(const struct streaminfo *a_stream)
@@ -506,7 +516,7 @@ const struct session_runtime_process_context *session_runtime_process_context_ne
 		int ret=session_async_bridge_set_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_attribute);
 		if(ret<0)
 		{
-			session_runtime_process_context_free(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_attribute);
+			session_runtime_process_context_free_cb(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_attribute);
 			srt_attribute=NULL;
 			return NULL;
 		}
@@ -518,6 +528,16 @@ const struct session_runtime_process_context *session_runtime_process_context_ne
 const struct session_runtime_process_context *session_runtime_process_context_get(const struct streaminfo *a_stream)
 {
 	return (struct session_runtime_process_context *)session_async_bridge_get_data(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id);
+}
+
+void session_runtime_process_context_free(const struct streaminfo *a_stream)
+{
+	const struct session_runtime_process_context *srt_process_context=session_runtime_process_context_get(a_stream);
+	if(srt_process_context!=NULL)
+	{
+		session_runtime_process_context_free_cb(a_stream, g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_process_context);
+		session_runtime_process_context_async(a_stream, NULL);
+	}
 }
 
 enum TSG_PROTOCOL srt_process_context_get_protocol(const struct session_runtime_process_context *srt_process_context)
@@ -1056,7 +1076,7 @@ int tsg_bridge_init(const char *conffile)
 	g_tm_bridge_para[BRIDGE_TYPE_SHAPING_RESULT].free_cb=session_matched_rules_free_by_bridge;
 
 	MESA_load_profile_string_def(conffile, "BRIDGE", "DATA_CONTEXT_BRIDGE_NAME", g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].name, MAX_BRIDGE_NAME_LEN, "TSG_DATA_CONTEXT");
-	g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].free_cb=session_runtime_process_context_free;
+	g_tm_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].free_cb=session_runtime_process_context_free_cb;
 
 	MESA_load_profile_string_def(conffile, "BRIDGE", "ALL_RESULT_BRIDGE_NAME", g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].name, MAX_BRIDGE_NAME_LEN, "TSG_ALL_CONTEXT");
 	g_tm_bridge_para[BRIDGE_TYPE_SESSION_ACTION_CONTEXT].free_cb=session_runtime_action_context_free;

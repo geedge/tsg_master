@@ -1957,7 +1957,7 @@ unsigned char session_matched_rules_deal(const struct streaminfo *a_stream, stru
 
 int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
-	if(data==NULL)
+	if(data==NULL || a_stream->opstate==OP_STATE_CLOSE)
 	{
 		return 0;
 	}
@@ -2024,7 +2024,7 @@ int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge
 
 int session_flags_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
-	if(data==NULL)
+	if(data==NULL || a_stream->opstate==OP_STATE_CLOSE)
 	{
 		return 0;
 	}
@@ -2171,6 +2171,8 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		}
 		state=session_matched_rules_deal(a_stream, srt_process_context, matched_rules, hit_num, a_packet);
 		srt_process_context->deal_pkt_num++;
+
+		srt_attribute_free_proxy_tcp_option(a_stream);
 	}
 	
 	switch(a_stream->opstate)
@@ -2239,6 +2241,11 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 		
 	if((a_stream->opstate==OP_STATE_CLOSE) || (state&APP_STATE_DROPME)==APP_STATE_DROPME)
 	{
+		session_runtime_process_context_free(a_stream);
+
+		maat_state_free(srt_process_context->mid);
+		srt_process_context->mid=NULL;
+
 		*pme=NULL;
 	}
 
