@@ -141,7 +141,6 @@ int srt_attribute_set_ip_location(const struct streaminfo *a_stream, struct maat
 int srt_attribute_set_subscriber_id(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info **client_subscriber_id, struct subscribe_id_info **server_subscriber_id);
 
 int session_runtine_attribute_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info);
-struct umts_user_info *tsg_get_umts_user_info_form_redis(unsigned int teid);
 
 void *matched_rule_cites_http_response_pages(struct maat *feather, long long profile_id);
 void *matched_rule_cites_app_id_dict(struct maat *feather, long long app_id);
@@ -173,4 +172,4 @@ int tsg_scan_intercept_exclusion(const struct streaminfo *a_stream, struct maat 
 struct maat_rule *tsg_select_deny_rule(struct maat_rule *rules, size_t n_rules);
 size_t tsg_select_rules_by_action(struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules, unsigned char action);
 
-struct umts_user_info *tsg_get_umts_user_info_form_redis(struct maat *feather, long long teid);
+struct umts_user_info *tsg_get_umts_user_info_form_redis(struct maat *feather, unsigned int teid);

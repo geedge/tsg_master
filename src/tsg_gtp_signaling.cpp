@@ -150,7 +150,7 @@ static int get_umts_user_info_form_hash(struct umts_user_info **user_info, unsig
 
 static int get_umts_user_info_form_redis(struct umts_user_info **user_info, unsigned int teid, int thread_seq)
 {
-	(*user_info) = tsg_get_umts_user_info_form_redis(g_tsg_maat_feather, (long long)teid);
+	(*user_info) = tsg_get_umts_user_info_form_redis(g_tsg_maat_feather, teid);
 	if((*user_info)!=NULL)
 	{
 		return 1;

@@ -103,7 +103,7 @@ int dns_set_response_question(char *payload, int payload_len, dns_query_question
 	int compress_len=0, used_len=0;
 	u_char compress_name[DNS_MAX_NAME+1];
 
-	/* Ö»´¦ÀíÒ»¸öÇëÇó */
+	/* Ö»ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 	
 	memset(compress_name, 0, sizeof(compress_name));
 	compress_len=compress_domain_record(query_question->qname,strlen((char *)(query_question->qname)), compress_name);
@@ -195,7 +195,7 @@ static int dns_set_answer_records(char *payload, int payload_len, struct dns_ans
 	int used_len=0;
 	if(answer_records->record_val.selected_flag==1)
 	{	
-		struct dns_profile_records *profile_records=(struct dns_profile_records *)matched_rule_cites_dns_profile_record(g_tsg_maat_feather, answer_records->record_val.selected.profile_id);
+		struct dns_profile_records *profile_records=(struct dns_profile_records *)matched_rule_cites_dns_profile_record(g_tsg_maat_feather, (long long)answer_records->record_val.selected.profile_id);
 		if(profile_records==NULL)
 		{
 			return 0;

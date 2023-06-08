@@ -2392,7 +2392,9 @@
             "table_name": "TSG_DYN_SUBSCRIBER_IP",
             "table_content": [
                 "1299\t4\t192.168.56.28\ttest5628\t1",
-                "1300\t4\t192.168.56.27\ttest5627\t1"
+                "1300\t4\t192.168.56.27\ttest5627\t1",
+                "1301\t6\t1030::C9B4:FF12:48AA:1A2B\ttest5630\t1",
+                "1302\t6\t1030::C9B4:FF12:3799:1A2B\ttest5629\t1"
             ]
         },
         {

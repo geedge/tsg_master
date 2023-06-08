@@ -2200,23 +2200,32 @@ int srt_attribute_set_ip_location(const struct streaminfo *a_stream, struct maat
 
 int srt_attribute_set_subscriber_id(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id)
 {
-	char source_ip[MAX_IPV6_ADDR_LEN]={0};
-	char dest_ip[MAX_IPV6_ADDR_LEN]={0};
+	switch(a_stream->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4:
+			if(*dest_subscribe_id==NULL)
+			{
+				*dest_subscribe_id=(struct subscribe_id_info *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SUBSCRIBER_IP2ID].id, (const char *)&a_stream->addr.tuple4_v4->daddr, sizeof(UINT32));
+			}
 
-	int ret=ip_int2string(a_stream, source_ip, MAX_IPV6_ADDR_LEN, dest_ip, MAX_IPV6_ADDR_LEN);
-	if(ret==0)
-	{
-		return 0;
-	}
-	
-	if(strlen(dest_ip)>0 && *dest_subscribe_id==NULL)
-	{
-		*dest_subscribe_id=(struct subscribe_id_info *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SUBSCRIBER_IP2ID].id, dest_ip);
-	}
+			if(*source_subscribe_id==NULL)
+			{
+				*source_subscribe_id=(struct subscribe_id_info *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SUBSCRIBER_IP2ID].id, (const char *)&a_stream->addr.tuple4_v4->saddr, sizeof(UINT32));
+			}
+			break;
+		case	ADDR_TYPE_IPV6:
+			if(*dest_subscribe_id==NULL)
+			{
+				*dest_subscribe_id=(struct subscribe_id_info *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SUBSCRIBER_IP2ID].id, (const char *)a_stream->addr.tuple4_v6->daddr, IPV6_ADDR_LEN);
+			}
 
-	if(strlen(source_ip)>0 && *source_subscribe_id==NULL)
-	{
-		*source_subscribe_id=(struct subscribe_id_info *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SUBSCRIBER_IP2ID].id, source_ip);
+			if(*source_subscribe_id==NULL)
+			{
+				*source_subscribe_id=(struct subscribe_id_info *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SUBSCRIBER_IP2ID].id, (const char *)a_stream->addr.tuple4_v6->saddr, IPV6_ADDR_LEN);
+			}
+			break;
+		default:
+			break;
 	}
 
 	return 0;
@@ -2227,7 +2236,7 @@ size_t matche_rules_convert(struct maat *feather,long long *matched_rules, size_
 	size_t offset=0;
 	for(size_t i=0; i<n_matched_rules && offset<n_results; i++)
 	{
-		struct maat_compile *maat_compile=(struct maat_compile *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&(matched_rules[i]));
+		struct maat_compile *maat_compile=(struct maat_compile *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&(matched_rules[i]), sizeof(long long));
 		if(maat_compile==NULL)
 		{
 			continue;
@@ -2621,7 +2630,7 @@ int tsg_get_vlan_label_id(struct maat *feather, struct single_layer_vlan_addr *v
 	int idx=0;
 	for(int i=0; i<vlan_array_num; i++)
 	{
-		void *label_id=maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_TUNNEL_LABEL].id, (const char *)&(vlan_array[i].VID));
+		void *label_id=maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_TUNNEL_LABEL].id, (const char *)&(vlan_array[i].VID), sizeof(unsigned short));
 		if(label_id==NULL)
 		{
 			continue;
@@ -2948,7 +2957,7 @@ int tsg_get_app_name_by_id(struct maat *feather, int app_id, char *app_name, int
 
 	int offset=0;
 	long long ll_app_id=(long long)app_id;
-	struct app_id_dict *dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&(ll_app_id));
+	struct app_id_dict *dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&(ll_app_id), sizeof(long long));
 	if(dict!=NULL)
 	{
 		if((int)strlen(dict->app_name) > app_name_len)
@@ -2976,7 +2985,7 @@ int tsg_get_app_name_by_id(struct maat *feather, int app_id, char *app_name, int
 
 struct maat_compile *matched_rule_cites_security_compile(struct maat *feather, struct maat_rule *result)
 {
-	return (struct maat_compile *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&(result->rule_id));
+	return (struct maat_compile *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&(result->rule_id), sizeof(long long));
 }
 
 int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, struct maat_rule *rules, size_t n_rules, int thread_seq)
@@ -3005,7 +3014,7 @@ int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, st
 		
 		if(maat_compile->user_region->method_type==TSG_METHOD_TYPE_MIRRORED && maat_compile->user_region->mirror!=NULL && maat_compile->user_region->mirror->enabled==1)
 		{
-			mirror_profile=(struct traffic_mirror_profile *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_PROFILE_MIRROR].id, (const char *)&(maat_compile->user_region->mirror->profile_id));
+			mirror_profile=(struct traffic_mirror_profile *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_PROFILE_MIRROR].id, (const char *)&(maat_compile->user_region->mirror->profile_id), sizeof(int));
 			if(mirror_profile!=NULL)
 			{
 				session_mirror_packets_sync(a_stream, &rules[i], &(mirror_profile->vlan));
@@ -3029,14 +3038,14 @@ int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, st
 	return 1;
 }
 
-struct umts_user_info *tsg_get_umts_user_info_form_redis(struct maat *feather, long long teid)
+struct umts_user_info *tsg_get_umts_user_info_form_redis(struct maat *feather, unsigned int teid)
 {
-	return (struct umts_user_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_GTP_IP2SIGNALING].id, (const char *)&(teid));
+	return (struct umts_user_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_GTP_IP2SIGNALING].id, (const char *)&(teid), sizeof(unsigned int));
 }
 
 void *matched_rule_cites_http_response_pages(struct maat *feather, long long profile_id)
 {
-	return maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id);
+	return maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id, sizeof(long long));
 }
 
 void plugin_ex_data_http_response_pages_free(struct http_response_pages *response_pages)
@@ -3046,7 +3055,7 @@ void plugin_ex_data_http_response_pages_free(struct http_response_pages *respons
 
 void *matched_rule_cites_security_compile(struct maat *feather, long long compile_id)
 {
-	return maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&compile_id);
+	return maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&compile_id, sizeof(long long));
 }
 
 void plugin_ex_data_security_compile_free(struct maat_compile *maat_compile)
@@ -3056,7 +3065,7 @@ void plugin_ex_data_security_compile_free(struct maat_compile *maat_compile)
 
 void *matched_rule_cites_app_id_dict(struct maat *feather, long long app_id)
 {
-	return maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&app_id);
+	return maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&app_id, sizeof(long long));
 }
 
 void plugin_ex_data_app_id_dict_free(struct app_id_dict *dict)
@@ -3066,7 +3075,7 @@ void plugin_ex_data_app_id_dict_free(struct app_id_dict *dict)
 
 void *matched_rule_cites_dns_profile_record(struct maat *feather, long long profile_id)
 {
-	return maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id);
+	return maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id, sizeof(long long));
 }
 
 void plugin_ex_data_dns_profile_record_free(struct dns_profile_records *records)
@@ -3079,7 +3088,7 @@ size_t tsg_matched_rules_select(struct maat *feather, TSG_SERVICE service, long 
 	size_t offset=0;
 	for(size_t i=0; i<n_matched_rules; i++)
 	{
-		struct maat_compile *maat_compile=(struct maat_compile *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&(matched_rules[i]));
+		struct maat_compile *maat_compile=(struct maat_compile *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&(matched_rules[i]), sizeof(long long));
 		if(maat_compile==NULL)
 		{
 			continue;

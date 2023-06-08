@@ -634,7 +634,8 @@
         "valid_column": 4,
         "custom": {
             "key": 1,
-            "key_type": "integer"
+            "key_type": "integer",
+            "key_len": 2
         }
     },
     {
@@ -697,7 +698,8 @@
         "valid_column": 18,
         "custom": {
             "key": 1,
-            "key_type": "integer"
+            "key_type": "integer",
+            "key_len": 8
         }
     },
     {
@@ -721,7 +723,8 @@
         "valid_column": 7,
         "custom": {
             "key": 1,
-            "key_type": "integer"
+            "key_type": "integer",
+            "key_len": 8
         }
     },
     {
@@ -731,7 +734,8 @@
         "valid_column": 7,
         "custom": {
             "key": 2,
-            "key_type": "integer"
+            "key_type": "integer",
+            "key_len": 4
         }
     },
     {
@@ -741,7 +745,8 @@
         "valid_column": 5,
         "custom": {
             "key": 3,
-            "key_type": "pointer"
+            "key_type": "ip_addr",
+            "addr_type": 2
         }
     },
     {
@@ -751,7 +756,8 @@
         "valid_column": 5,
         "custom": {
             "key": 1,
-            "key_type": "integer"
+            "key_type": "integer",
+            "key_len": 8
         }
     },
     {
@@ -762,6 +768,7 @@
         "custom": {
             "key": 1,
             "key_type": "integer",
+            "key_len": 8,
             "foreign": [
                 4
             ]
@@ -774,7 +781,8 @@
         "valid_column": 4,
         "custom": {
             "key": 1,
-            "key_type": "integer"
+            "key_type": "integer",
+            "key_len": 4
         }
     },
     {
@@ -784,7 +792,8 @@
         "valid_column": 3,
         "custom": {
             "key": 1,
-            "key_type": "integer"
+            "key_type": "integer",
+            "key_len": 4
         }
     },
     {

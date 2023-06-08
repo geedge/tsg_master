@@ -48,8 +48,8 @@ TEST(TM, ExDataGTPC)
 		"2\t111052899\t460045157053102\t861440152041083\tcmiott.wkctf.mcto60g.com\t8626070583008402\t1"
 	******************************************************************************************************/
 	
-	long long teid=111039813;
-	struct umts_user_info *user_info=(struct umts_user_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_GTP_IP2SIGNALING].id, (const char *)&teid);
+	int teid=111039813;
+	struct umts_user_info *user_info=(struct umts_user_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_GTP_IP2SIGNALING].id, (const char *)&teid, sizeof(int));
 	EXPECT_NE(nullptr, user_info);
 	EXPECT_STREQ("460045157065560", user_info->imsi);
 	EXPECT_STREQ("861440152009856", user_info->msisdn);
@@ -57,7 +57,7 @@ TEST(TM, ExDataGTPC)
 	EXPECT_STREQ("8626070583075127", user_info->imei);
 
 	teid=111052899;
-	user_info=(struct umts_user_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_GTP_IP2SIGNALING].id, (const char *)&teid);
+	user_info=(struct umts_user_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_GTP_IP2SIGNALING].id, (const char *)&teid, sizeof(int));
 	EXPECT_NE(nullptr, user_info);
 	EXPECT_STREQ("460045157053102", user_info->imsi);
 	EXPECT_STREQ("861440152041083", user_info->msisdn);
@@ -73,8 +73,8 @@ TEST(TM, ExDataAPPIDDictUnknown)
 		"4\tunknown\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\tnull\t1\t3600\t3600\t1800\t1800\t1"
 	**************************************************************************************************************************/
 	long long ll_app_id=4;
-	struct app_id_dict *dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id);
-	dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id);
+	struct app_id_dict *dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id, sizeof(long long));
+	dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id, sizeof(long long));
 	EXPECT_NE(nullptr, dict);
 	EXPECT_EQ(4, dict->app_id);
 	EXPECT_STREQ("unknown", dict->app_name);
@@ -106,7 +106,7 @@ TEST(TM, ExDataAPPIDDictDenyActionDrop)
 		"67\thttp\t0\tnull\tnetworking\tinfrastructure\tnetwork-protocol\t3\tused-by-malware,vulnerability,widely-used\tnull\tnull\t{\"method\":\"drop\",\"after_n_packets\":0,\"send_icmp_unreachable\":1,\"send_tcp_reset\":1}\t0\t60\t120\t30\t30\t1",
 	**************************************************************************************************************************/
 	long long ll_app_id=67;
-	struct app_id_dict *dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id);
+	struct app_id_dict *dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id, sizeof(long long));
 	EXPECT_NE(nullptr, dict);
 	EXPECT_EQ(67, dict->app_id);
 	EXPECT_STREQ("http", dict->app_name);
@@ -144,7 +144,7 @@ TEST(TM, ExDataAPPIDDictDenyActionRatelimit)
 		"68\thttps\t0\tnull\tnetworking\tinfrastructure\tnetwork-protocol\t3\tused-by-malware,vulnerability,widely-used\tnull\tnull\t{\"method\":\"rate_limit\","bps":1000}\t0\t0\t0\t0\t0\t1",
 	**************************************************************************************************************************/
 	long long ll_app_id=68;
-	struct app_id_dict *dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id);
+	struct app_id_dict *dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id, sizeof(long long));
 	EXPECT_NE(nullptr, dict);
 	EXPECT_EQ(68, dict->app_id);
 	EXPECT_STREQ("https", dict->app_name);
@@ -369,7 +369,7 @@ TEST(TM, ExDataTunnelLabel)
 		"15560\t15560\tVLAN_ID\t1",
 		"15561\t15561\tVLAN_ID\t1"
 	**************************************************************************************************************************/
-	void *label_id = maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_TUNNEL_LABEL].id, "VLAN_ID");
+	void *label_id = maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_TUNNEL_LABEL].id, "VLAN_ID", strlen("VLAN_ID"));
 	EXPECT_EQ(0, (long long)label_id);
 }
 
@@ -379,16 +379,32 @@ TEST(TM, ExDataSubscriberID)
 		table name: TSG_DYN_SUBSCRIBER_IP
 		id addr_type ip subscriber_id is_valid
 		"1299\t4\t192.168.56.28\ttest5628\t1",
-		"1300\t4\t192.168.56.28\ttest5627\t1"
+        "1300\t4\t192.168.56.27\ttest5627\t1",
+        "1301\t6\t1030::C9B4:FF12:48AA:1A2B\ttest5630\t1",
+        "1302\t6\t1030::C9B4:FF12:3799:1A2B\ttest5629\t1"
 	**************************************************************************************************************************/
-	struct subscribe_id_info *subscribe_id = (struct subscribe_id_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SUBSCRIBER_IP2ID].id, "192.168.56.28");
-	EXPECT_STREQ("test5628", subscribe_id->subscribe_id);
+	struct streaminfo a_stream = {0};
+	a_stream.addr.addrtype = ADDR_TYPE_IPV4;
+	struct stream_tuple4_v4 tuple4_v4 = {0};
+	a_stream.addr.tuple4_v4 = &tuple4_v4;
+	inet_pton(AF_INET, "192.168.56.28", &tuple4_v4.daddr);
+	inet_pton(AF_INET, "192.168.56.27", &tuple4_v4.saddr);
+	struct subscribe_id_info *dest_subscribe_id = NULL;
+	struct subscribe_id_info *source_subscribe_id = NULL;
+	srt_attribute_set_subscriber_id(&a_stream, g_tsg_maat_feather, &source_subscribe_id, &dest_subscribe_id);
+	EXPECT_STREQ("test5628", dest_subscribe_id->subscribe_id);
+	EXPECT_STREQ("test5627", source_subscribe_id->subscribe_id);
 
-	subscribe_id = (struct subscribe_id_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SUBSCRIBER_IP2ID].id, "192.168.56.27");
-	EXPECT_STREQ("test5627", subscribe_id->subscribe_id);
-
-	subscribe_id = (struct subscribe_id_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SUBSCRIBER_IP2ID].id, "192.168.56.26");
-	EXPECT_EQ(NULL, subscribe_id);
+	a_stream.addr.addrtype = ADDR_TYPE_IPV6;
+	dest_subscribe_id = NULL;
+	source_subscribe_id = NULL;
+	struct stream_tuple4_v6 tuple4_v6 = {0};
+	a_stream.addr.tuple4_v6 = &tuple4_v6;
+	inet_pton(AF_INET6, "1030::C9B4:FF12:48AA:1A2B", &tuple4_v6.daddr);
+	inet_pton(AF_INET6, "1030::C9B4:FF12:3799:1A2B", &tuple4_v6.saddr);
+	srt_attribute_set_subscriber_id(&a_stream, g_tsg_maat_feather, &source_subscribe_id, &dest_subscribe_id);
+	EXPECT_STREQ("test5630", dest_subscribe_id->subscribe_id);
+	EXPECT_STREQ("test5629", source_subscribe_id->subscribe_id);
 }
 
 TEST(TM, ExDataDNSRecordsProfileA)
@@ -401,7 +417,7 @@ TEST(TM, ExDataDNSRecordsProfileA)
 		"7701\tTypeCNAME\tCNAME\t[{\"value\":\"www.facebook.com\",\"priority\":null},{\"value\":\"www.twitter.com\",\"priority\":null}]\t1"
 	**************************************************************************************************************************/
 	long long profile_id = 8119;
-	struct dns_profile_records *profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id);
+	struct dns_profile_records *profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id, sizeof(long long));
 	EXPECT_EQ(8119, profile_records->record_id);
 	EXPECT_EQ(1, profile_records->answer_type);
 	EXPECT_EQ(3, profile_records->record_num);
@@ -422,7 +438,7 @@ TEST(TM, ExDataDNSRecordsProfileA)
 	EXPECT_EQ(inet_addr("3.3.3.3"), profile_records->record_val[2].v4_addr.s_addr);
 
 	profile_id = 8110;
-	profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id);
+	profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id, sizeof(long long));
 	EXPECT_EQ(NULL, profile_records);
 }
 
@@ -437,7 +453,7 @@ TEST(TM, ExDataDNSRecordsProfileAAAA)
 	**************************************************************************************************************************/
 	long long profile_id = 7961;
 	uint8_t u6_addr8[16] = {0};
-	struct dns_profile_records *profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id);
+	struct dns_profile_records *profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id, sizeof(long long));
 	EXPECT_EQ(7961, profile_records->record_id);
 	EXPECT_EQ(28, profile_records->answer_type);
 	EXPECT_EQ(2, profile_records->record_num);
@@ -455,7 +471,7 @@ TEST(TM, ExDataDNSRecordsProfileAAAA)
 	EXPECT_EQ(0, memcmp(u6_addr8, profile_records->record_val[1].v6_addr.__in6_u.__u6_addr8, 16));
 
 	profile_id = 8110;
-	profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id);
+	profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id, sizeof(long long));
 	EXPECT_EQ(NULL, profile_records);
 }
 
@@ -469,7 +485,7 @@ TEST(TM, ExDataDNSRecordsProfileCNAME)
 		"7701\tTypeCNAME\tCNAME\t[{\"value\":\"www.facebook.com\",\"priority\":null},{\"value\":\"www.twitter.com\",\"priority\":null}]\t1"
 	**************************************************************************************************************************/
 	long long profile_id = 7701;
-	struct dns_profile_records *profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id);
+	struct dns_profile_records *profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id, sizeof(long long));
 	EXPECT_EQ(7701, profile_records->record_id);
 	EXPECT_EQ(5, profile_records->answer_type);
 	EXPECT_EQ(2, profile_records->record_num);
@@ -485,7 +501,7 @@ TEST(TM, ExDataDNSRecordsProfileCNAME)
 	EXPECT_STREQ("www.twitter.com", profile_records->record_val[1].cname);
 
 	profile_id = 8110;
-	profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id);
+	profile_records = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id, sizeof(long long));
 	EXPECT_EQ(NULL, profile_records);
 }
 
@@ -498,21 +514,21 @@ TEST(TM, ExDataResponsePagesProfile)
 		"958\ttest-html-2\thtml\tforeign_files/TSG_PROFILE_RESPONSE_PAGES.2\t1"
 	**************************************************************************************************************************/
 	long long profile_id = 957;
-	struct http_response_pages *response_pages = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id);
+	struct http_response_pages *response_pages = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id, sizeof(long long));
 	EXPECT_EQ(957, response_pages->profile_id);
 	EXPECT_EQ(HTTP_RESPONSE_FORMAT_HTML, response_pages->format);
 	EXPECT_EQ(strlen("test1"), response_pages->content_len);
 	EXPECT_STREQ("test1", response_pages->content);
 
 	profile_id = 958;
-	response_pages = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id);
+	response_pages = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id, sizeof(long long));
 	EXPECT_EQ(958, response_pages->profile_id);
 	EXPECT_EQ(HTTP_RESPONSE_FORMAT_HTML, response_pages->format);
 	EXPECT_EQ(strlen("test2"), response_pages->content_len);
 	EXPECT_STREQ("test2", response_pages->content);
 
 	profile_id = 959;
-	response_pages = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id);
+	response_pages = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id, sizeof(long long));
 	EXPECT_EQ(NULL, response_pages);
 }
 
@@ -524,8 +540,8 @@ TEST(TM, ExDataTrafficMirrorProfile)
 		"845\t168.50.28yinyong\t[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34]\t1",
 		"123\ttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest\t[66]\t1"
 	**************************************************************************************************************************/
-	long long profile_id = 845;
-	struct traffic_mirror_profile *mirror_profile = (struct traffic_mirror_profile *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_PROFILE_MIRROR].id, (const char *)&(profile_id));
+	int profile_id = 845;
+	struct traffic_mirror_profile *mirror_profile = (struct traffic_mirror_profile *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_PROFILE_MIRROR].id, (const char *)&(profile_id), sizeof(int));
 	EXPECT_EQ(845, mirror_profile->profile_id);
 	EXPECT_EQ(32, mirror_profile->vlan.num);
 	for (int i = 0; i < 32; i++)
@@ -534,13 +550,13 @@ TEST(TM, ExDataTrafficMirrorProfile)
 	}
 
 	profile_id = 123;
-	mirror_profile = (struct traffic_mirror_profile *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_PROFILE_MIRROR].id, (const char *)&(profile_id));
+	mirror_profile = (struct traffic_mirror_profile *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_PROFILE_MIRROR].id, (const char *)&(profile_id), sizeof(int));
 	EXPECT_EQ(123, mirror_profile->profile_id);
 	EXPECT_EQ(1, mirror_profile->vlan.num);
 	EXPECT_EQ(66, mirror_profile->vlan.id[0]);
 
 	profile_id = 124;
-	mirror_profile = (struct traffic_mirror_profile *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_PROFILE_MIRROR].id, (const char *)&(profile_id));
+	mirror_profile = (struct traffic_mirror_profile *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_PROFILE_MIRROR].id, (const char *)&(profile_id), sizeof(long long));
 	EXPECT_EQ(NULL, mirror_profile);
 }
 
@@ -563,14 +579,14 @@ TEST(TMAPI, GetUmtsUserInfoFromRedis)
 		"2\t111052899\t460045157053102\t861440152041083\tcmiott.wkctf.mcto60g.com\t8626070583008402\t1"
 	******************************************************************************************************/
 
-	long long teid = 111039813;
+	int teid = 111039813;
 	struct umts_user_info *user_info = (struct umts_user_info *)tsg_get_umts_user_info_form_redis(g_tsg_maat_feather, teid);
-	struct umts_user_info *user_info_right = (struct umts_user_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_GTP_IP2SIGNALING].id, (const char *)&teid);
+	struct umts_user_info *user_info_right = (struct umts_user_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_GTP_IP2SIGNALING].id, (const char *)&teid, sizeof(int));
 	EXPECT_EQ(user_info, user_info_right);
 
 	teid = 111052899;
 	user_info = (struct umts_user_info *)tsg_get_umts_user_info_form_redis(g_tsg_maat_feather, teid);
-	user_info_right = (struct umts_user_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_GTP_IP2SIGNALING].id, (const char *)&teid);
+	user_info_right = (struct umts_user_info *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_GTP_IP2SIGNALING].id, (const char *)&teid, sizeof(int));
 	EXPECT_EQ(user_info, user_info_right);
 
 	user_info = NULL;
@@ -585,7 +601,7 @@ TEST(TMAPI, GetAppIdDictUnknown)
 		"4\tunknown\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\tnull\t1\t3600\t3600\t1800\t1800\t1"
 	**************************************************************************************************************************/
 	long long ll_app_id = 4;
-	struct app_id_dict *dict_right = (struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id);
+	struct app_id_dict *dict_right = (struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id, sizeof(long long));
 	struct app_id_dict *dict = (struct app_id_dict *)matched_rule_cites_app_id_dict(g_tsg_maat_feather, ll_app_id);
 	EXPECT_EQ(dict_right, dict);
 
@@ -601,7 +617,7 @@ TEST(TMAPI, GetAppIdDictDenyActionDrop)
 		"67\thttp\t0\tnull\tnetworking\tinfrastructure\tnetwork-protocol\t3\tused-by-malware,vulnerability,widely-used\tnull\tnull\t{\"method\":\"drop\",\"after_n_packets\":0,\"send_icmp_unreachable\":1,\"send_tcp_reset\":1}\t0\t60\t120\t30\t30\t1",
 	**************************************************************************************************************************/
 	long long ll_app_id = 67;
-	struct app_id_dict *dict_right = (struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id);
+	struct app_id_dict *dict_right = (struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id, sizeof(long long));
 	struct app_id_dict *dict = (struct app_id_dict *)matched_rule_cites_app_id_dict(g_tsg_maat_feather, ll_app_id);
 	EXPECT_EQ(dict_right, dict);
 
@@ -617,7 +633,7 @@ TEST(TMAPI, GetAppIdDictDenyActionRatelimit)
 		"68\thttps\t0\tnull\tnetworking\tinfrastructure\tnetwork-protocol\t3\tused-by-malware,vulnerability,widely-used\tnull\tnull\t{\"method\":\"rate_limit\","bps":1000}\t0\t0\t0\t0\t0\t1",
 	**************************************************************************************************************************/
 	long long ll_app_id = 68;
-	struct app_id_dict *dict_right = (struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id);
+	struct app_id_dict *dict_right = (struct app_id_dict *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&ll_app_id, sizeof(long long));
 	struct app_id_dict *dict = (struct app_id_dict *)matched_rule_cites_app_id_dict(g_tsg_maat_feather, ll_app_id);
 	EXPECT_EQ(dict_right, dict);
 
@@ -998,14 +1014,14 @@ TEST(TMAPI, GetDNSProfileRecord)
 	// void *matched_rule_cites_dns_profile_record(struct maat * feather, long long profile_id);
 
 	long long profile_id = 8119;
-	struct dns_profile_records *profile_records_right = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id);
+	struct dns_profile_records *profile_records_right = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id, sizeof(long long));
 	struct dns_profile_records *profile_records = (struct dns_profile_records *)matched_rule_cites_dns_profile_record(g_tsg_maat_feather, profile_id);
 	EXPECT_EQ(profile_records_right, profile_records);
 
 	profile_records = NULL;
 	profile_records_right = NULL;
 	profile_id = 7961;
-	profile_records_right = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id);
+	profile_records_right = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id, sizeof(long long));
 	profile_records = (struct dns_profile_records *)matched_rule_cites_dns_profile_record(g_tsg_maat_feather, profile_id);
 	EXPECT_TRUE(profile_records_right);
 	EXPECT_EQ(profile_records_right, profile_records);
@@ -1013,7 +1029,7 @@ TEST(TMAPI, GetDNSProfileRecord)
 	profile_records = NULL;
 	profile_records_right = NULL;
 	profile_id = 7701;
-	profile_records_right = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id);
+	profile_records_right = (struct dns_profile_records *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (const char *)&profile_id, sizeof(long long));
 	profile_records = (struct dns_profile_records *)matched_rule_cites_dns_profile_record(g_tsg_maat_feather, profile_id);
 	EXPECT_TRUE(profile_records_right);
 	EXPECT_EQ(profile_records_right, profile_records);
@@ -1030,13 +1046,13 @@ TEST(TMAPI, GetHttpResponsePagesProfile)
 
 	// void *matched_rule_cites_http_response_pages(struct maat *feather, long long profile_id)
 	long long profile_id = 957;
-	struct http_response_pages *response_pages_right = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id);
+	struct http_response_pages *response_pages_right = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id, sizeof(long long));
 	struct http_response_pages *response_pages = (struct http_response_pages *)matched_rule_cites_http_response_pages(g_tsg_maat_feather, profile_id);
 	EXPECT_EQ(957, response_pages->profile_id);
 	EXPECT_EQ(response_pages_right, response_pages);
 
 	profile_id = 958;
-	response_pages_right = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id);
+	response_pages_right = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id, sizeof(long long));
 	response_pages = (struct http_response_pages *)matched_rule_cites_http_response_pages(g_tsg_maat_feather, profile_id);
 	EXPECT_EQ(958, response_pages->profile_id);
 	EXPECT_EQ(response_pages_right, response_pages);
