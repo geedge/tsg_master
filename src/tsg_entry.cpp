@@ -1109,7 +1109,8 @@ int session_calculate_packets_increment(const struct streaminfo *a_stream, struc
 
 int session_application_metrics_update(const struct streaminfo *a_stream, struct session_runtime_action_context *srt_action_context, int thread_seq)
 {
-	if(tsg_get_current_time_ms() - srt_action_context->last_update_metric_time < g_tsg_para.app_metric_update_interval_ms)
+	if(tsg_get_current_time_ms() - srt_action_context->last_update_metric_time < g_tsg_para.app_metric_update_interval_ms &&
+		a_stream->opstate!=OP_STATE_CLOSE && a_stream->pktstate!=OP_STATE_CLOSE)
 	{
 		return 0;
 	}

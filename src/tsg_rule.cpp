@@ -1928,7 +1928,7 @@ struct maat *init_maat_feather(const char* conffile, char* instance_name, char *
 		get_data_center(effective_flag, effective_tag_key, g_tsg_maat_rt_para.data_center, sizeof(g_tsg_maat_rt_para.data_center));
 	}
 
-	int _log_level=LOG_LEVEL_FATAL;
+	int _log_level=LOG_LEVEL_INFO;
 	MESA_load_profile_int_def(conffile, module,"LOG_LEVEL", &(_log_level), LOG_LEVEL_FATAL);
 
 	char log_path[128]={0};
