@@ -135,9 +135,14 @@ void session_runtime_action_context_free(const struct streaminfo *a_stream, int 
 			}
 		}
 		
-		if (srt_action_context->l4_protocol != NULL)
+		if(srt_action_context->l4_protocol != NULL)
 		{
 			dictator_free(a_stream->threadnum, srt_action_context->l4_protocol);
+		}
+
+		if(srt_action_context->last_traffic_statis != NULL)
+		{
+			dictator_free(a_stream->threadnum, srt_action_context->last_traffic_statis);
 		}
 		
 		dictator_free(a_stream->threadnum, data);

@@ -114,7 +114,7 @@ struct session_runtime_action_context
 		void *para;
 	};
 	long long last_update_metric_time;
-	struct traffic_packet_info last_app_statis;
+	struct traffic_packet_info *last_traffic_statis;
 };
 
 struct udp_session_runtime_context

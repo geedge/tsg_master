@@ -626,7 +626,6 @@ int app_gather_results_update(struct gather_app_result *gather_result, struct ap
 
 static int l7_protocol_mapper_init(const char *conffile)
 {
-	int ret=0;
 	FILE *fp=NULL;
 	char line[1024]={0};
 	char type_name[32]={0};
@@ -652,7 +651,7 @@ static int l7_protocol_mapper_init(const char *conffile)
 		}
 		
 	    protocol=(struct l7_protocol *)calloc(1, sizeof(struct l7_protocol));
-		ret=sscanf(line, "%31s %31s %d", type_name, protocol->name, &protocol->id);
+		int ret=sscanf(line, "%31s %31s %d", type_name, protocol->name, &protocol->id);
 		assert(ret==3);
 
 	    HASH_ADD(hh1, g_tsg_para.name_by_id, id, sizeof(int), protocol);
@@ -975,131 +974,68 @@ char *session_l4_protocol_label_update(const struct streaminfo *a_stream, char *
 }
 
 
-int session_calculate_udp_packets_increment(const struct streaminfo *a_stream, struct traffic_packet_info *last_value, struct traffic_packet_info *increment)
+int session_udp_current_traffic_statis_update(const struct streaminfo *a_stream, struct traffic_packet_info *current_traffic_statis)
 {
 	struct udp_flow_stat *uflow_stat = (struct udp_flow_stat *)project_req_get_struct(a_stream, g_tsg_log_instance->udp_flow_project_id);
-	if (uflow_stat == NULL)
+	if (uflow_stat!=NULL)
 	{
-		return -1;
+		current_traffic_statis->c2s_pkts=uflow_stat->C2S_pkt;
+		current_traffic_statis->s2c_pkts=uflow_stat->S2C_pkt;
+		current_traffic_statis->c2s_bytes=uflow_stat->C2S_all_byte_raw;
+		current_traffic_statis->s2c_bytes=uflow_stat->S2C_all_byte_raw;
+		current_traffic_statis->c2s_fragments=uflow_stat->C2S_ip_fragment_pkt;
+		current_traffic_statis->s2c_fragments=uflow_stat->S2C_ip_fragment_pkt;
+
+		return 1;
 	}
-
-	increment->c2s_pkts = uflow_stat->C2S_pkt - last_value->c2s_pkts;
-	last_value->c2s_pkts = uflow_stat->C2S_pkt;
-
-	increment->s2c_pkts = uflow_stat->S2C_pkt - last_value->s2c_pkts;
-	last_value->s2c_pkts = uflow_stat->S2C_pkt;
-
-	increment->c2s_bytes = uflow_stat->C2S_all_byte_raw - last_value->c2s_bytes;
-	last_value->c2s_bytes = uflow_stat->C2S_all_byte_raw;
-
-	increment->s2c_bytes = uflow_stat->S2C_all_byte_raw - last_value->s2c_bytes;
-	last_value->s2c_bytes = uflow_stat->S2C_all_byte_raw;
-
-	increment->c2s_fragments = uflow_stat->C2S_ip_fragment_pkt - last_value->c2s_fragments;
-	last_value->c2s_fragments = uflow_stat->C2S_ip_fragment_pkt;
-
-	increment->s2c_fragments = uflow_stat->S2C_ip_fragment_pkt - last_value->s2c_fragments;
-	last_value->s2c_fragments = uflow_stat->S2C_ip_fragment_pkt;
-
+	
 	return 0;
 }
 
-int session_calculate_tcp_packets_increment(const struct streaminfo *a_stream, struct traffic_packet_info *last_value, struct traffic_packet_info *increment)
+int session_tcp_current_traffic_statis_update(const struct streaminfo *a_stream, struct traffic_packet_info *current_traffic_statis)
 {
 	struct tcp_flow_stat *tflow_stat = (struct tcp_flow_stat *)project_req_get_struct(a_stream, g_tsg_log_instance->tcp_flow_project_id);
-	if (tflow_stat == NULL)
+	if(tflow_stat != NULL)
 	{
-		return -1;
+		current_traffic_statis->c2s_pkts = tflow_stat->C2S_all_pkt;
+		current_traffic_statis->s2c_pkts = tflow_stat->S2C_all_pkt;
+		current_traffic_statis->c2s_bytes = tflow_stat->C2S_all_byte_raw;
+		current_traffic_statis->s2c_bytes = tflow_stat->S2C_all_byte_raw;
+		current_traffic_statis->c2s_fragments = tflow_stat->C2S_ip_fragment_pkt;
+		current_traffic_statis->s2c_fragments = tflow_stat->S2C_ip_fragment_pkt;
+		current_traffic_statis->c2s_tcp_lost_bytes = tflow_stat->C2S_seq_gap_loss_cnt;
+		current_traffic_statis->s2c_tcp_lost_bytes = tflow_stat->S2C_seq_gap_loss_cnt;
+		current_traffic_statis->c2s_tcp_ooorder_pkts = tflow_stat->C2S_ooorder_pkt;
+		current_traffic_statis->s2c_tcp_ooorder_pkts = tflow_stat->S2C_ooorder_pkt;
+		current_traffic_statis->c2s_tcp_retransmitted_pkts = tflow_stat->C2S_retransmission_pkt;
+		current_traffic_statis->s2c_tcp_retransmitted_pkts = tflow_stat->S2C_retransmission_pkt;
+		current_traffic_statis->c2s_tcp_retransmitted_bytes = tflow_stat->C2S_retransmission_byte;
+		current_traffic_statis->s2c_tcp_retransmitted_bytes = tflow_stat->S2C_retransmission_byte;
+
+		return 1;
 	}
-
-	increment->c2s_pkts = tflow_stat->C2S_all_pkt - last_value->c2s_pkts;
-	last_value->c2s_pkts = tflow_stat->C2S_all_pkt;
-
-	increment->s2c_pkts = tflow_stat->S2C_all_pkt - last_value->s2c_pkts;
-	last_value->s2c_pkts = tflow_stat->S2C_all_pkt;
-
-	increment->c2s_bytes = tflow_stat->C2S_all_byte_raw - last_value->c2s_bytes;
-	last_value->c2s_bytes = tflow_stat->C2S_all_byte_raw;
-
-	increment->s2c_bytes = tflow_stat->S2C_all_byte_raw - last_value->s2c_bytes;
-	last_value->s2c_bytes = tflow_stat->S2C_all_byte_raw;
-
-	increment->c2s_fragments = tflow_stat->C2S_ip_fragment_pkt - last_value->c2s_fragments;
-	last_value->c2s_fragments = tflow_stat->C2S_ip_fragment_pkt;
-
-	increment->s2c_fragments = tflow_stat->S2C_ip_fragment_pkt - last_value->s2c_fragments;
-	last_value->s2c_fragments = tflow_stat->S2C_ip_fragment_pkt;
-
-	increment->c2s_tcp_lost_bytes = tflow_stat->C2S_seq_gap_loss_cnt - last_value->c2s_tcp_lost_bytes;
-	last_value->c2s_tcp_lost_bytes = tflow_stat->C2S_seq_gap_loss_cnt;
-
-	increment->s2c_tcp_lost_bytes = tflow_stat->S2C_seq_gap_loss_cnt - last_value->s2c_tcp_lost_bytes;
-	last_value->s2c_tcp_lost_bytes = tflow_stat->S2C_seq_gap_loss_cnt;
-
-	increment->c2s_tcp_ooorder_pkts = tflow_stat->C2S_ooorder_pkt - last_value->c2s_tcp_ooorder_pkts;
-	last_value->c2s_tcp_ooorder_pkts = tflow_stat->C2S_ooorder_pkt;
-
-	increment->s2c_tcp_ooorder_pkts = tflow_stat->S2C_ooorder_pkt - last_value->s2c_tcp_ooorder_pkts;
-	last_value->s2c_tcp_ooorder_pkts = tflow_stat->S2C_ooorder_pkt;
-
-	increment->c2s_tcp_retransmitted_pkts = tflow_stat->C2S_retransmission_pkt - last_value->c2s_tcp_retransmitted_pkts;
-	last_value->c2s_tcp_retransmitted_pkts = tflow_stat->C2S_retransmission_pkt;
-
-	increment->s2c_tcp_retransmitted_pkts = tflow_stat->S2C_retransmission_pkt - last_value->s2c_tcp_retransmitted_pkts;
-	last_value->s2c_tcp_retransmitted_pkts = tflow_stat->S2C_retransmission_pkt;
-
-	increment->c2s_tcp_retransmitted_bytes = tflow_stat->C2S_retransmission_byte - last_value->c2s_tcp_retransmitted_bytes;
-	last_value->c2s_tcp_retransmitted_bytes = tflow_stat->C2S_retransmission_byte;
-
-	increment->s2c_tcp_retransmitted_bytes = tflow_stat->S2C_retransmission_byte - last_value->s2c_tcp_retransmitted_bytes;
-	last_value->s2c_tcp_retransmitted_bytes = tflow_stat->S2C_retransmission_byte;
-
+	
 	return 0;
 }
 
-int session_calculate_packets_increment(const struct streaminfo *a_stream, struct traffic_packet_info *last_value, struct traffic_packet_info *increment, int thread_seq)
+int session_current_traffic_statis_update(const struct streaminfo *a_stream, struct traffic_packet_info *current_traffic_statis, int thread_seq)
 {
-	if (a_stream == NULL || last_value == NULL || increment == NULL)
-	{
-		return -1;
-	}
+	int value_len=sizeof(unsigned long long);
 
-	unsigned long long value = 0;
-	int value_len = sizeof(unsigned long long);
-
-	increment->sessions = 1-last_value->sessions;
-	last_value->sessions = 1;
-
-	value = 0;
-	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_BYTE_RAW, (void *)&value, &value_len);
-	increment->in_bytes = (uint64_t)value - last_value->in_bytes;
-	last_value->in_bytes = (uint64_t)value;
-
-	value = 0;
-	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_PKT, (void *)&value, &value_len);
-	increment->in_pkts = (uint64_t)value - last_value->in_pkts;
-	last_value->in_pkts = (uint64_t)value;
-
-	value = 0;
-	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_BYTE_RAW, (void *)&value, &value_len);
-	increment->out_bytes = (uint64_t)value - last_value->out_bytes;
-	last_value->out_bytes = (uint64_t)value;
-
-	value = 0;
-	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_PKT, (void *)&value, &value_len);
-	increment->out_pkts = (uint64_t)value - last_value->out_pkts;
-	last_value->out_pkts = (uint64_t)value;
+	current_traffic_statis->sessions=1;
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_BYTE_RAW, (void *)&(current_traffic_statis->in_bytes), &value_len);
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_PKT, (void *)&(current_traffic_statis->in_pkts), &value_len);
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_BYTE_RAW, (void *)&(current_traffic_statis->out_bytes), &value_len);
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_PKT, (void *)&(current_traffic_statis->out_pkts), &value_len);
 
 	switch (a_stream->type)
 	{
 		case STREAM_TYPE_TCP:
-		session_calculate_tcp_packets_increment(a_stream, last_value, increment);
-		break;
-
+			session_tcp_current_traffic_statis_update(a_stream, current_traffic_statis);
+			break;
 		case STREAM_TYPE_UDP:
-		session_calculate_udp_packets_increment(a_stream, last_value, increment);
-		break;
-
+			session_udp_current_traffic_statis_update(a_stream, current_traffic_statis);
+			break;
 		default:
 			break;
 	}
@@ -1107,20 +1043,71 @@ int session_calculate_packets_increment(const struct streaminfo *a_stream, struc
 	return 0;
 }
 
+int session_increase_traffic_statis_update(struct traffic_packet_info *current, struct traffic_packet_info *last, struct traffic_packet_info *increase)
+{
+	if(last==NULL)
+	{
+		*increase=*current;
+		return 1;
+	}
+	
+	increase->sessions=current->sessions-last->sessions;
+	increase->in_pkts=current->in_pkts-last->in_pkts;
+	increase->out_pkts=current->out_pkts-last->out_pkts;
+	increase->c2s_pkts=current->c2s_pkts-last->c2s_pkts;
+	increase->s2c_pkts=current->s2c_pkts-last->s2c_pkts;
+	increase->c2s_fragments=current->c2s_fragments-last->c2s_fragments;
+	increase->s2c_fragments=current->s2c_fragments-last->s2c_fragments;
+	increase->c2s_tcp_ooorder_pkts=current->c2s_tcp_ooorder_pkts-last->c2s_tcp_ooorder_pkts;
+	increase->s2c_tcp_ooorder_pkts=current->s2c_tcp_ooorder_pkts-last->s2c_tcp_ooorder_pkts;
+	increase->c2s_tcp_retransmitted_pkts=current->c2s_tcp_retransmitted_pkts-last->c2s_tcp_retransmitted_pkts;
+	increase->s2c_tcp_retransmitted_pkts=current->s2c_tcp_retransmitted_pkts-last->s2c_tcp_retransmitted_pkts;
+	increase->in_bytes=current->in_bytes-last->in_bytes;
+	increase->out_bytes=current->out_bytes-last->out_bytes;
+	increase->c2s_bytes=current->c2s_bytes-last->c2s_bytes;
+	increase->s2c_bytes=current->s2c_bytes-last->s2c_bytes;
+	increase->c2s_tcp_lost_bytes=current->c2s_tcp_lost_bytes-last->c2s_tcp_lost_bytes;
+	increase->s2c_tcp_lost_bytes=current->s2c_tcp_lost_bytes-last->s2c_tcp_lost_bytes;
+	increase->c2s_tcp_retransmitted_bytes=current->c2s_tcp_retransmitted_bytes-last->c2s_tcp_retransmitted_bytes;
+	increase->s2c_tcp_retransmitted_bytes=current->s2c_tcp_retransmitted_bytes-last->s2c_tcp_retransmitted_bytes;
+
+	return 1;
+}
+
 int session_application_metrics_update(const struct streaminfo *a_stream, struct session_runtime_action_context *srt_action_context, int thread_seq)
 {
-	if(tsg_get_current_time_ms() - srt_action_context->last_update_metric_time < g_tsg_para.app_metric_update_interval_ms &&
-		a_stream->opstate!=OP_STATE_CLOSE && a_stream->pktstate!=OP_STATE_CLOSE)
+	if((tsg_get_current_time_ms() - srt_action_context->last_update_metric_time < g_tsg_para.app_metric_update_interval_ms)
+		&& a_stream->opstate!=OP_STATE_CLOSE && a_stream->pktstate!=OP_STATE_CLOSE)
 	{
 		return 0;
 	}
 
 	char app_full_path[256]={0};
-	struct traffic_packet_info increment_app_statis = {0};
+	struct traffic_packet_info current_traffic_statis={0},increase_traffic_statis={0};
 	session_application_full_path_update(a_stream, app_full_path, sizeof(app_full_path));
 	char *l4_protocol_string=session_l4_protocol_label_update(a_stream, &srt_action_context->l4_protocol);
-	session_calculate_packets_increment(a_stream, &srt_action_context->last_app_statis, &increment_app_statis, thread_seq);
-	tsg_set_application_metrics(a_stream, l4_protocol_string, app_full_path, &increment_app_statis, thread_seq);
+
+	session_current_traffic_statis_update(a_stream, &current_traffic_statis, thread_seq);
+	session_increase_traffic_statis_update(&current_traffic_statis, srt_action_context->last_traffic_statis, &increase_traffic_statis);
+	tsg_set_application_metrics(a_stream, l4_protocol_string, app_full_path, &increase_traffic_statis, thread_seq);
+
+	if(a_stream->opstate==OP_STATE_CLOSE || a_stream->pktstate==OP_STATE_CLOSE)
+	{
+		if(srt_action_context->last_traffic_statis!=NULL)
+		{
+			dictator_free(thread_seq, (void *)srt_action_context->last_traffic_statis);
+			srt_action_context->last_traffic_statis=NULL;
+		}
+		
+		return 1;
+	}
+
+	if(srt_action_context->last_traffic_statis==NULL)
+	{
+		srt_action_context->last_traffic_statis=(struct traffic_packet_info *)dictator_malloc(thread_seq, sizeof(struct traffic_packet_info));
+	}
+	
+	*(srt_action_context->last_traffic_statis)=current_traffic_statis;
 	srt_action_context->last_update_metric_time = tsg_get_current_time_ms();
 
 	return 1;
