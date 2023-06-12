@@ -1008,7 +1008,6 @@ TEST(TSGMaster, SessionApplicationMetrics)
 
 }
 
-
 int main(int argc, char *argv[])
 {
 	TSG_MASTER_INIT();
