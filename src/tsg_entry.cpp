@@ -1793,6 +1793,7 @@ size_t session_app_gather_results_scan(const struct streaminfo *a_stream, struct
 
 static unsigned char matched_security_rules_deal(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, struct maat_rule *security_rules, size_t n_security_rules, const void *a_packet, int thread_seq)
 {
+	void *user_data=NULL;
 	unsigned char state=APP_STATE_GIVEME;
 	struct maat_rule *p_rule=matched_rules_decision_criteria(security_rules, n_security_rules);
 	if(p_rule->action==TSG_ACTION_SHUNT)
@@ -1807,7 +1808,11 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 		case	TSG_ACTION_DENY:
 			if(srt_process_context->proto==PROTO_DNS)	/* deal action of deny in firewall */
 			{
-				break;
+				user_data=NULL;
+			}
+			else
+			{
+				user_data=(void *)a_packet;
 			}
 			
 			if(is_deny_application(p_rule))
@@ -1818,11 +1823,11 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 				}
 
 				srt_action_context_set_hitted_app_id(a_stream, srt_process_context->hited_para.matched_app_id, a_stream->threadnum);
-				state=tsg_enforing_deny_application(a_stream, p_rule, srt_process_context->proto, srt_process_context->hited_para.matched_app_id, ACTION_RETURN_TYPE_APP, a_packet);
+				state=tsg_enforing_deny_application(a_stream, p_rule, srt_process_context->proto, srt_process_context->hited_para.matched_app_id, ACTION_RETURN_TYPE_APP, user_data);
 			}
 			else
 			{
-				state=tsg_enforing_deny(a_stream, p_rule, srt_process_context->proto, ACTION_RETURN_TYPE_APP, a_packet);
+				state=tsg_enforing_deny(a_stream, p_rule, srt_process_context->proto, ACTION_RETURN_TYPE_APP, user_data);
 			}
 
 			if(is_deny_after_N_packets(p_rule))

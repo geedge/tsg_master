@@ -228,6 +228,11 @@ unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, struct m
 	struct dns_user_region *user_region_record=NULL;
 	struct _dns_info *dns_info=(struct _dns_info *)user_data;
 
+	if(dns_info==NULL)
+	{
+		return STATE_GIVEME;
+	}
+	
 	if(dns_info->hdr_info.qr==1 && g_tsg_para.deploy_mode==DEPLOY_MODE_MIRROR) //mirror
 	{
 		return STATE_GIVEME;
