@@ -172,11 +172,35 @@ void session_segment_id_free(const struct streaminfo *a_stream, int bridge_id, v
 
 void session_gather_app_results_free(const struct streaminfo *a_stream, int bridge_id, void *data)
 {
-	if(data!=NULL)
+	if(data==NULL)
 	{
-		dictator_free(a_stream->threadnum, data);
-		data=NULL;
+		return ;
 	}
+
+	struct gather_app_result *gather_result=(struct gather_app_result *)data;
+	
+	if(gather_result->built_in!=NULL)
+	{
+		dictator_free(a_stream->threadnum, (void *)gather_result->built_in);
+	}
+
+	if(gather_result->l7_protocol!=NULL)
+	{
+		dictator_free(a_stream->threadnum, (void *)gather_result->l7_protocol);
+	}
+
+	if(gather_result->qm_engine!=NULL)
+	{
+		dictator_free(a_stream->threadnum, (void *)gather_result->qm_engine);
+	}
+
+	if(gather_result->user_define!=NULL)
+	{
+		dictator_free(a_stream->threadnum, (void *)gather_result->user_define);
+	}
+		
+	dictator_free(a_stream->threadnum, data);
+	data=NULL;
 }
 
 void session_runtime_attribute_free(const struct streaminfo *a_stream, int bridge_id, void *data)
@@ -640,7 +664,7 @@ int srt_action_context_set_after_n_packet(const struct streaminfo *a_stream, int
 	return 1;
 }
 
-int srt_action_context_set_hitted_app_id(const struct streaminfo *a_stream, int hited_app_id, int thread_seq)
+int srt_action_context_set_hitted_app_id(const struct streaminfo *a_stream, int matched_app_id, int thread_seq)
 {
 	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_new(a_stream);
 	if(srt_action_context==NULL)
@@ -650,7 +674,7 @@ int srt_action_context_set_hitted_app_id(const struct streaminfo *a_stream, int 
 		session_runtime_action_context_async(a_stream, (void *)srt_action_context);
 	}
 			
-	srt_action_context->hited_para.hited_app_id=hited_app_id;
+	srt_action_context->hited_para.matched_app_id=matched_app_id;
 	
 	return 1;
 }

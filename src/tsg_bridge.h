@@ -53,14 +53,25 @@ struct app_attributes
 
 struct gather_app_result
 {
-	int app_num;
-	enum APP_IDENTIFY_ORIGIN origin;
-	struct app_attributes attributes[MAX_APP_ID_NUM];
+	char qm_engine_num;
+	char l7_qm_engine_num;
+	char l7_protocol_num;
+	char user_define_num;
+	char built_in_num;
+	char unknown_flag;
+	char matched_app_flag;
+	char padding;
+	struct app_attributes unknown;
+	struct app_attributes matched_app;
+	struct app_attributes *built_in;
+	struct app_attributes *l7_protocol;
+	struct app_attributes *qm_engine;
+	struct app_attributes *user_define;
 };
 
 struct hited_app_para
 {
-	int hited_app_id;
+	int matched_app_id;
 	int after_n_packets;
 };
 
@@ -74,7 +85,7 @@ struct session_runtime_process_context
 	unsigned char first_origin_pkt;
 	unsigned short timeout;
 	enum TSG_PROTOCOL proto;
-	int hited_app_id;		// only app
+	int matched_app_id;		// only app
 	unsigned int quic_version;
 	unsigned long session_flag;
 	union
@@ -197,7 +208,7 @@ int srt_action_context_set_leaky_bucket(const struct streaminfo * a_stream, stru
 int srt_action_context_set_l7_protocol(const struct streaminfo * a_stream, TSG_PROTOCOL protocol, int thread_seq);
 int srt_action_context_set_rule_method(const struct streaminfo * a_stream, enum TSG_METHOD_TYPE method_type, int thread_seq);
 int srt_action_context_set_after_n_packet(const struct streaminfo * a_stream, int after_n_packets, int thread_seq);
-int srt_action_context_set_hitted_app_id(const struct streaminfo * a_stream, int hited_app_id, int thread_seq);
+int srt_action_context_set_hitted_app_id(const struct streaminfo * a_stream, int matched_app_id, int thread_seq);
 
 const struct session_runtime_action_context *session_runtime_action_context_get(const struct streaminfo *a_stream);
 char srt_action_context_get_direction(const struct session_runtime_action_context *srt_action_context);

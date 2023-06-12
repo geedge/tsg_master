@@ -591,67 +591,69 @@ static int set_packet_bytes(struct tsg_log_instance_t *_instance, struct TLD_han
 	return 1;
 }
 
-static int set_app_identify_info(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result)
-{	
-	int i=0,j=0,ret=0;
-	int add_app_flag=0;
-	char app_name[512]={0};
-	Value array(kArrayType);
-
-	for(i=ORIGIN_USER_DEFINE; i<ORIGIN_MAX; i++)
+int set_app_identify_info_array(Value *array, struct TLD_handle_t *_handle, struct app_attributes *result, char result_num)
+{
+	for(int i=0; i<result_num; i++)
 	{
-		if(result[i].app_num<=0 || i==ORIGIN_QM_ENGINE || i==ORIGIN_QM_ENGINE_L7 || i==ORIGIN_HITED_APP)
+		char app_name[512]={0};
+		Value object(kObjectType);
+		int ret=tsg_get_app_name_by_id(g_tsg_maat_feather, result[i].app_id, app_name, sizeof(app_name), 0);
+		if(ret>0)
 		{
-			continue;
+			add_str_member(_handle, &object, "app_name", app_name);
 		}
-		
-		for(j=0; j<result[i].app_num; j++)
+		else
 		{
-			Value object(kObjectType);
-			ret=tsg_get_app_name_by_id(g_tsg_maat_feather, result[i].attributes[j].app_id, app_name, sizeof(app_name), 0);
-			if(ret>0)
-			{
-				add_str_member(_handle, &object, "app_name", app_name);
-			}
-			else
-			{
-				object.AddMember("app_name", result[i].attributes[j].app_id, _handle->document->GetAllocator());
-			}
-			object.AddMember("packet_sequence",result[i].attributes[j].packet_sequence, _handle->document->GetAllocator());		
-			array.PushBack(object, _handle->document->GetAllocator());
-
-			add_app_flag=1;
+			object.AddMember("app_name", result[i].app_id, _handle->document->GetAllocator());
 		}
+		object.AddMember("packet_sequence",result[i].packet_sequence, _handle->document->GetAllocator());
+		array->PushBack(object, _handle->document->GetAllocator());
 	}
 
-	if(add_app_flag==1)
-	{
-		TLD_append(_handle, field_name, &array, TLD_TYPE_OBJECT);
-	}
-	
-	return 1;
+	return result_num;
 }
 
-static int get_app_id_list(Value *app_id_object, struct TLD_handle_t *_handle, const char *field_name, struct gather_app_result *result)
+static int set_app_identify_info(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result * gather_result)
 {
-	if(result->app_num==0)
+	if(gather_result->user_define_num<=0 && gather_result->built_in_num<=0 && gather_result->unknown_flag==0)
 	{
 		return 0;
 	}
 	
 	Value array(kArrayType);
-	for(int i=0; i<result->app_num; i++)
+	set_app_identify_info_array(&array, _handle, gather_result->user_define, gather_result->user_define_num);
+	set_app_identify_info_array(&array, _handle, gather_result->built_in, gather_result->built_in_num);
+
+	if(gather_result->unknown_flag==1)
+	{
+		set_app_identify_info_array(&array, _handle, &gather_result->unknown, 1);
+	}
+	
+	TLD_append(_handle, field_name, &array, TLD_TYPE_OBJECT);
+	
+	return 1;
+}
+
+static int get_app_id_list(Value *app_id_object, struct TLD_handle_t *_handle, const char *field_name, struct app_attributes *result, char result_num)
+{
+	if(result_num==0)
+	{
+		return 0;
+	}
+	
+	Value array(kArrayType);
+	for(int i=0; i<result_num; i++)
 	{	
 		char app_name[512]={0};
 		Value object(kObjectType);
-		int ret=tsg_get_app_name_by_id(g_tsg_maat_feather, result->attributes[i].app_id, app_name, sizeof(app_name), 1);
+		int ret=tsg_get_app_name_by_id(g_tsg_maat_feather, result[i].app_id, app_name, sizeof(app_name), 1);
 		if(ret>0)
 		{		
 			add_str_member(_handle, &object, "app_name", app_name);
 		}
-		object.AddMember("app_id", result->attributes[i].app_id, _handle->document->GetAllocator());
-		object.AddMember("surrogate_id", result->attributes[i].surrogate_id, _handle->document->GetAllocator());
-		object.AddMember("packet_sequence",result->attributes[i].packet_sequence, _handle->document->GetAllocator());
+		object.AddMember("app_id", result[i].app_id, _handle->document->GetAllocator());
+		object.AddMember("surrogate_id", result[i].surrogate_id, _handle->document->GetAllocator());
+		object.AddMember("packet_sequence",result[i].packet_sequence, _handle->document->GetAllocator());
 		array.PushBack(object, _handle->document->GetAllocator());
 	}
 	add_object_member(_handle, app_id_object, field_name, array);
@@ -660,9 +662,9 @@ static int get_app_id_list(Value *app_id_object, struct TLD_handle_t *_handle, c
 }
 
 
-static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, struct gather_app_result *result)
+static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, struct app_attributes *result, char result_num)
 {
-	if(result==NULL || result->app_num<=0)
+	if(result==NULL || result_num<=0)
 	{
 		return 0;
 	}
@@ -671,10 +673,10 @@ static int set_userdefine_app(struct TLD_handle_t *_handle, char *field_name, st
 	char app_name[256]={0};
 	
 	Value array(kArrayType);
-	for(i=0; i<result->app_num; i++)
+	for(i=0; i<result_num; i++)
 	{
 		memset(app_name, 0, sizeof(app_name));
-		tsg_get_app_name_by_id(g_tsg_maat_feather, result->attributes[i].app_id, app_name, sizeof(app_name), 1);
+		tsg_get_app_name_by_id(g_tsg_maat_feather, result[i].app_id, app_name, sizeof(app_name), 1);
 		if(strnlen(app_name, sizeof(app_name)) > 0)
 		{
 			Value app_name_str;
@@ -703,7 +705,7 @@ int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handl
 		return 0;
 	}
 
-	set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, &(gather_result[ORIGIN_USER_DEFINE]));
+	set_userdefine_app(_handle, _instance->id2field[LOG_COMMON_USERDEFINE_APP].name, gather_result->user_define, gather_result->user_define_num);
 
 	char app_full_path[256]={0};
 	session_application_full_path_update(a_stream, app_full_path, sizeof(app_full_path));
@@ -724,13 +726,22 @@ int set_app_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handl
 	if(_instance->send_app_id)
 	{
 		Value app_id_object(kObjectType);
-		get_app_id_list(&app_id_object, _handle, "LPI_L7", &(gather_result[ORIGIN_BASIC_PROTOCOL]));
-		get_app_id_list(&app_id_object, _handle, "USER_DEFINE", &(gather_result[ORIGIN_USER_DEFINE]));
-		get_app_id_list(&app_id_object, _handle, "BUILT_IN", &(gather_result[ORIGIN_BUILT_IN]));
-		get_app_id_list(&app_id_object, _handle, "HITED_APP", &(gather_result[ORIGIN_HITED_APP]));
-		get_app_id_list(&app_id_object, _handle, "THIRD", &(gather_result[ORIGIN_QM_ENGINE]));
-		get_app_id_list(&app_id_object, _handle, "UNKNOWN", &(gather_result[ORIGIN_UNKNOWN]));
-		get_app_id_list(&app_id_object, _handle, "QM_L7", &(gather_result[ORIGIN_QM_ENGINE_L7]));
+		get_app_id_list(&app_id_object, _handle, "LPI_L7", gather_result->l7_protocol,  gather_result->l7_protocol_num);
+		get_app_id_list(&app_id_object, _handle, "USER_DEFINE", gather_result->user_define,  gather_result->user_define_num);
+		get_app_id_list(&app_id_object, _handle, "BUILT_IN", gather_result->built_in,  gather_result->built_in_num);
+
+		get_app_id_list(&app_id_object, _handle, "QM_L7", gather_result->qm_engine, gather_result->l7_qm_engine_num);
+		get_app_id_list(&app_id_object, _handle, "THIRD", gather_result->qm_engine+gather_result->l7_qm_engine_num,  gather_result->qm_engine_num-gather_result->l7_qm_engine_num);
+			
+		if(gather_result->matched_app_flag==1)
+		{
+			get_app_id_list(&app_id_object, _handle, "HITED_APP", &(gather_result->matched_app), 1);
+		}
+		if(gather_result->unknown_flag==1)
+		{
+			get_app_id_list(&app_id_object, _handle, "UNKNOWN", &(gather_result->unknown), 1);
+		}
+		
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_APP_ID].name, &app_id_object, TLD_TYPE_OBJECT);
 	}
 	

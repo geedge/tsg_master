@@ -414,14 +414,38 @@ extern void session_gather_app_results_free(const struct streaminfo *a_stream, i
 TEST(TSG_Bridge, GatherAppResultAsync)
 {
 	const struct streaminfo a_stream = {0};
-	struct gather_app_result *gather_result = (struct gather_app_result *)dictator_malloc(a_stream.threadnum, sizeof(struct gather_app_result));
-	gather_result->app_num = 1003;
-	session_gather_app_results_async(&a_stream, (void *)gather_result);
-	struct gather_app_result *test = (struct gather_app_result *)session_gather_app_results_get(&a_stream);
-	EXPECT_EQ(test, gather_result);
-	EXPECT_EQ(test->app_num, 1003);
-	session_gather_app_results_free(&a_stream, g_tm_bridge_para[BRIDGE_TYPE_GATHER_APP_RESULT].id, (void *)test);
+	struct gather_app_result *gather_result_in = (struct gather_app_result *)dictator_malloc(a_stream.threadnum, sizeof(struct gather_app_result));
+	memset(gather_result_in, 0, sizeof(struct gather_app_result));
+
+	gather_result_in->unknown_flag = 1;
+	gather_result_in->unknown.app_id=4;
+	gather_result_in->unknown.surrogate_id=0;
+	gather_result_in->unknown.packet_sequence=40;
+	
+	session_gather_app_results_async(&a_stream, (void *)gather_result_in);
+	struct gather_app_result *gather_result_out = (struct gather_app_result *)session_gather_app_results_get(&a_stream);
+	EXPECT_NE(nullptr, gather_result_out);
+	EXPECT_EQ(gather_result_out->unknown_flag, 1);
+	EXPECT_EQ(gather_result_out->unknown.app_id, 4);
+	EXPECT_EQ(gather_result_out->unknown.surrogate_id, 0);
+	EXPECT_EQ(gather_result_out->unknown.packet_sequence, 40);
+	
+	EXPECT_EQ(gather_result_out->matched_app_flag, 0);
+	EXPECT_EQ(gather_result_out->l7_protocol_num, 0);
+	EXPECT_EQ(gather_result_out->l7_qm_engine_num, 0);
+	EXPECT_EQ(gather_result_out->qm_engine_num, 0);
+	EXPECT_EQ(gather_result_out->user_define_num, 0);
+	EXPECT_EQ(gather_result_out->built_in_num, 0);
+	
+	EXPECT_EQ(nullptr, gather_result_out->built_in);
+	EXPECT_EQ(nullptr, gather_result_out->l7_protocol);
+	EXPECT_EQ(nullptr, gather_result_out->qm_engine);
+	EXPECT_EQ(nullptr, gather_result_out->user_define);
+	
+	session_gather_app_results_free(&a_stream, g_tm_bridge_para[BRIDGE_TYPE_GATHER_APP_RESULT].id, (void *)gather_result_out);
 	session_gather_app_results_async(&a_stream, NULL);
+
+	EXPECT_EQ(nullptr, session_gather_app_results_get(&a_stream));
 }
 
 static void tsg_bridge_test_init_attribute(const struct streaminfo *a_stream, struct session_runtime_attribute *attribute)

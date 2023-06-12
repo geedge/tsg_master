@@ -20,31 +20,32 @@ extern void session_segment_id_free(const struct streaminfo * a_stream, int brid
 TEST(TSGMaster, SetAPPIDHttp)
 {
 	const struct streaminfo a_stream={0};
-	struct gather_app_result async_gather_result[ORIGIN_MAX]={0};
-
-	async_gather_result[ORIGIN_BASIC_PROTOCOL].app_num=1;
-	async_gather_result[ORIGIN_BASIC_PROTOCOL].origin=ORIGIN_BASIC_PROTOCOL;
-	async_gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].app_id=67;	//HTTP
+	struct gather_app_result *gather_result_in=(struct gather_app_result *)dictator_malloc(0, sizeof(struct gather_app_result));
+	memset(gather_result_in, 0, sizeof(struct gather_app_result));
 	
-	session_gather_app_results_async(&a_stream, (void *)async_gather_result);
-	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(&a_stream);
-	EXPECT_NE(nullptr, gather_result);
-	EXPECT_EQ(1, gather_result[ORIGIN_BASIC_PROTOCOL].app_num);
-	EXPECT_EQ(67, gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].app_id);
-	EXPECT_EQ(0, gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].packet_sequence);
-	EXPECT_EQ(0, gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].surrogate_id);
-	EXPECT_EQ(ORIGIN_BASIC_PROTOCOL, gather_result[ORIGIN_BASIC_PROTOCOL].origin);
+	gather_result_in->l7_protocol_num=1;
+	gather_result_in->l7_protocol=(struct app_attributes *)dictator_malloc(0, sizeof(struct app_attributes));
+	gather_result_in->l7_protocol[0].app_id=67;	//HTTP
+	gather_result_in->l7_protocol[0].surrogate_id=0;	//HTTP
+	gather_result_in->l7_protocol[0].packet_sequence=1;	//HTTP
+	
+	session_gather_app_results_async(&a_stream, (void *)gather_result_in);
+	struct gather_app_result *gather_result_out=(struct gather_app_result *)session_gather_app_results_get(&a_stream);
+	EXPECT_NE(nullptr, gather_result_out);
+	EXPECT_EQ(1, gather_result_out->l7_protocol_num);
+	EXPECT_EQ(67, gather_result_out->l7_protocol[0].app_id);
+	EXPECT_EQ(0, gather_result_out->l7_protocol[0].surrogate_id);
+	EXPECT_EQ(1, gather_result_out->l7_protocol[0].packet_sequence);
 
 	struct TLD_handle_t *handle=TLD_create(0);
 	set_app_id(g_tsg_log_instance, handle, (struct streaminfo *)&a_stream);
 	char app_ids[256]={0};
 	TLD_convert_json(handle, app_ids, sizeof(app_ids));
-	EXPECT_STREQ("{\"common_app_full_path\":\"http\",\"common_app_label\":\"http\",\"common_app_id\":{\"LPI_L7\":[{\"app_name\":\"http\",\"app_id\":67,\"surrogate_id\":0,\"packet_sequence\":0}]}}", app_ids);
+	EXPECT_STREQ("{\"common_app_full_path\":\"http\",\"common_app_label\":\"http\",\"common_app_id\":{\"LPI_L7\":[{\"app_name\":\"http\",\"app_id\":67,\"surrogate_id\":0,\"packet_sequence\":1}]}}", app_ids);
 
-	
+	dictator_free(0, gather_result_out);
 	session_gather_app_results_async(&a_stream, NULL);
-	gather_result=(struct gather_app_result *)session_gather_app_results_get(&a_stream);
-	EXPECT_EQ(nullptr, gather_result);
+	EXPECT_EQ(nullptr, session_gather_app_results_get(&a_stream));
 }
 
 TEST(TSGMaster, SetAPPIDUnknown)
@@ -989,11 +990,11 @@ TEST(TSGMaster, SessionDealStatePending)
 	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(&a_stream);
 	EXPECT_NE(nullptr, gather_result);
 	
-	EXPECT_EQ(1, gather_result[ORIGIN_BASIC_PROTOCOL].app_num);
-	EXPECT_EQ(45, gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].app_id);
-	EXPECT_EQ(0, gather_result[ORIGIN_BASIC_PROTOCOL].attributes[0].surrogate_id);
+	EXPECT_EQ(1, gather_result->l7_protocol_num);
+	EXPECT_EQ(45,  gather_result->l7_protocol[0].app_id);
+	EXPECT_EQ(0,  gather_result->l7_protocol[0].surrogate_id);
 
-	free(gather_result);
+	dictator_free(0, gather_result);
 	session_gather_app_results_async(&a_stream, NULL);
 	EXPECT_EQ(nullptr, session_gather_app_results_get(&a_stream));
 

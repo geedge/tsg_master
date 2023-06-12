@@ -2231,29 +2231,29 @@ int srt_attribute_set_subscriber_id(const struct streaminfo *a_stream, struct ma
 	return 0;
 }
 
-size_t matche_rules_convert(struct maat *feather,long long *matched_rules, size_t n_matched_rules, struct maat_rule *results, size_t n_results)
+size_t matche_rules_convert(struct maat *feather,long long *rules, size_t n_rules, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
 	size_t offset=0;
-	for(size_t i=0; i<n_matched_rules && offset<n_results; i++)
+	for(size_t i=0; i<n_rules && offset<n_rules; i++)
 	{
-		struct maat_compile *maat_compile=(struct maat_compile *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&(matched_rules[i]), sizeof(long long));
+		struct maat_compile *maat_compile=(struct maat_compile *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&(rules[i]), sizeof(long long));
 		if(maat_compile==NULL)
 		{
 			continue;
 		}
 
-		results[offset++]=maat_compile->rule;
+		matched_rules[offset++]=maat_compile->rule;
 		ex_data_security_compile_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (void **)&(maat_compile), 0, NULL);
 	}
 
 	return offset;
 }
 
-size_t tsg_scan_integer(const struct streaminfo *a_stream, struct maat *feather, long long s_integer, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_integer(const struct streaminfo *a_stream, struct maat *feather, long long s_integer, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	size_t n_matched_rules=0;
-	long long matched_rules[MAX_RESULT_NUM];
-	int is_hited=maat_scan_integer(feather, g_tsg_maat_rt_para.scan_tb[idx].id, s_integer, matched_rules, MAX_RESULT_NUM, &n_matched_rules, s_mid);
+	size_t n_rules=0;
+	long long rules[MAX_RESULT_NUM];
+	int is_hited=maat_scan_integer(feather, g_tsg_maat_rt_para.scan_tb[idx].id, s_integer, rules, MAX_RESULT_NUM, &n_rules, s_mid);
 	if(is_hited==MAAT_SCAN_HIT)
 	{
 		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
@@ -2266,7 +2266,7 @@ size_t tsg_scan_integer(const struct streaminfo *a_stream, struct maat *feather,
 								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
 								s_mid
 							);
-		return matche_rules_convert(feather, matched_rules, n_matched_rules, results, n_results);
+		return matche_rules_convert(feather, rules, n_rules, matched_rules, n_matched_rules);
 	}
 
 	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
@@ -2282,11 +2282,11 @@ size_t tsg_scan_integer(const struct streaminfo *a_stream, struct maat *feather,
 	return 0;
 }
 
-size_t tsg_scan_flags(const struct streaminfo *a_stream, struct maat *feather, unsigned long long flags, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_flags(const struct streaminfo *a_stream, struct maat *feather, unsigned long long flags, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	size_t n_matched_rules=0;
-	long long matched_rules[MAX_RESULT_NUM];
-	int is_hited=maat_scan_flag(feather, g_tsg_maat_rt_para.scan_tb[idx].id, flags, matched_rules, MAX_RESULT_NUM, &n_matched_rules, s_mid);
+	size_t n_rules=0;
+	long long rules[MAX_RESULT_NUM];
+	int is_hited=maat_scan_flag(feather, g_tsg_maat_rt_para.scan_tb[idx].id, flags, rules, MAX_RESULT_NUM, &n_rules, s_mid);
 	if(is_hited==MAAT_SCAN_HIT)
 	{
 		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
@@ -2299,7 +2299,7 @@ size_t tsg_scan_flags(const struct streaminfo *a_stream, struct maat *feather, u
 								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
 								s_mid
 							);
-		return matche_rules_convert(feather, matched_rules, n_matched_rules, results, n_results);
+		return matche_rules_convert(feather, rules, n_rules, matched_rules, n_matched_rules);
 	}
 
 	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
@@ -2315,11 +2315,11 @@ size_t tsg_scan_flags(const struct streaminfo *a_stream, struct maat *feather, u
 	return 0;
 }
 
-size_t tsg_scan_string(const struct streaminfo *a_stream, struct maat *feather, const char *s_data, size_t s_data_len, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_string(const struct streaminfo *a_stream, struct maat *feather, const char *s_data, size_t s_data_len, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	size_t n_matched_rules=0;
-	long long matched_rules[MAX_RESULT_NUM];
-	int is_hited=maat_scan_string(feather, g_tsg_maat_rt_para.scan_tb[idx].id, s_data, s_data_len, matched_rules, MAX_RESULT_NUM, &n_matched_rules, s_mid);
+	size_t n_rules=0;
+	long long rules[MAX_RESULT_NUM];
+	int is_hited=maat_scan_string(feather, g_tsg_maat_rt_para.scan_tb[idx].id, s_data, s_data_len, rules, MAX_RESULT_NUM, &n_rules, s_mid);
 	if(is_hited==MAAT_SCAN_HIT)
 	{
 		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
@@ -2332,7 +2332,7 @@ size_t tsg_scan_string(const struct streaminfo *a_stream, struct maat *feather, 
 								g_tsg_maat_rt_para.scan_tb[idx].name,
 								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
 								s_mid);
-		return matche_rules_convert(feather, matched_rules, n_matched_rules, results, n_results);
+		return matche_rules_convert(feather, rules, n_rules, matched_rules, n_matched_rules);
 	}
 
 	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
@@ -2481,20 +2481,20 @@ size_t tsg_scan_ipv6_address(const struct streaminfo *a_stream, struct maat *fea
 	return 0;
 }
 
-size_t tsg_scan_ip_asn(const struct streaminfo *a_stream, struct maat *feather, struct asn_info *asn, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_result)
+size_t tsg_scan_ip_asn(const struct streaminfo *a_stream, struct maat *feather, struct asn_info *asn, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	if(asn==NULL || asn->asn_id==NULL|| results==NULL || n_result==0)
+	if(asn==NULL || asn->asn_id==NULL|| matched_rules==NULL || n_matched_rules==0)
 	{
 		return 0;
 	}
 
-	return tsg_scan_string(a_stream, feather, asn->asn_id, strlen(asn->asn_id), idx, s_mid, results, n_result);
+	return tsg_scan_string(a_stream, feather, asn->asn_id, strlen(asn->asn_id), idx, s_mid, matched_rules, n_matched_rules);
 }
 
-size_t tsg_scan_ip_location(const struct streaminfo *a_stream, struct maat *feather, struct location_info *location, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_ip_location(const struct streaminfo *a_stream, struct maat *feather, struct location_info *location, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
 	char full_address[1024]={0};
-	if(location==NULL || results==NULL || n_results==0)
+	if(location==NULL || matched_rules==NULL || n_matched_rules==0)
 	{
 		return 0;
 	}
@@ -2514,7 +2514,7 @@ size_t tsg_scan_ip_location(const struct streaminfo *a_stream, struct maat *feat
 		snprintf(full_address, sizeof(full_address), "%s.%s.", location->country_full, location->city_full);
 	}
 
-	return tsg_scan_string(a_stream, feather, full_address, strlen(full_address), idx, s_mid, results, n_results);
+	return tsg_scan_string(a_stream, feather, full_address, strlen(full_address), idx, s_mid, matched_rules, n_matched_rules);
 }
 
 int tsg_scan_intercept_exclusion(const struct streaminfo *a_stream, struct maat *feather, struct maat_rule *p_result, char *domain, int thread_seq)
@@ -2647,62 +2647,62 @@ int tsg_get_vlan_label_id(struct maat *feather, struct single_layer_vlan_addr *v
 	return idx;
 }
 
-size_t tsg_scan_tunnel_id(const struct streaminfo *a_stream, struct maat *feather, struct maat_rule *results, size_t n_results, struct maat_state *s_mid, long long *bool_id_array, size_t n_bool_id_array)
+size_t tsg_scan_tunnel_id(const struct streaminfo *a_stream, struct maat *feather, struct maat_rule *matched_rules, size_t n_matched_rules, struct maat_state *s_mid, long long *bool_id_array, size_t n_bool_id_array)
 {
-	size_t hit_num=0;
+	size_t matched_cnt=0;
 	struct tunnel_catalog *t_catalog[TUNNEL_CATALOG_MAX];
 	int ret=maat_bool_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_TUNNEL_CATALOG].id, (unsigned long long *)bool_id_array, n_bool_id_array, (void**)(&t_catalog), TUNNEL_CATALOG_MAX);
 	for(int i=0; i<ret; i++)
 	{
-		hit_num+=tsg_scan_integer(a_stream, feather, (long long)t_catalog[i]->id, MAAT_SCAN_TUNNEL_ID, s_mid, results+hit_num, n_results-hit_num);
+		matched_cnt+=tsg_scan_integer(a_stream, feather, (long long)t_catalog[i]->id, MAAT_SCAN_TUNNEL_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 		ex_data_tunnel_catalog_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_TUNNEL_CATALOG].id, (void **)&(t_catalog[i]), 0, NULL);
 	}
 
-	return hit_num;
+	return matched_cnt;
 }
 
-size_t tsg_scan_subscribe_id_policy(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info *user_info, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_subscribe_id_policy(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info *user_info, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	if(user_info==NULL || user_info->subscribe_id==NULL || results==NULL || n_results==0)
+	if(user_info==NULL || user_info->subscribe_id==NULL || matched_rules==NULL || n_matched_rules==0)
 	{
 		return 0;
 	}
 
-	return tsg_scan_string(a_stream, feather, user_info->subscribe_id, strlen(user_info->subscribe_id), MAAT_SCAN_SUBSCRIBER_ID, s_mid, results, n_results);
+	return tsg_scan_string(a_stream, feather, user_info->subscribe_id, strlen(user_info->subscribe_id), MAAT_SCAN_SUBSCRIBER_ID, s_mid, matched_rules, n_matched_rules);
 }
 
-size_t tsg_scan_gtp_apn_policy(const struct streaminfo *a_stream, struct maat *feather, char *apn, struct maat_state *s_mid,struct maat_rule *results, size_t n_results)
+size_t tsg_scan_gtp_apn_policy(const struct streaminfo *a_stream, struct maat *feather, char *apn, struct maat_state *s_mid,struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	if(apn==NULL || results==NULL || n_results==0)
-	{
-		return 0;
-	}
-	
-	return tsg_scan_string(a_stream, feather, apn, strlen(apn), MAAT_SCAN_GTP_APN, s_mid, results, n_results);
-}
-
-size_t tsg_scan_gtp_imsi_policy(const struct streaminfo *a_stream, struct maat *feather, char *imsi, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
-{
-	if(imsi==NULL || results==NULL || n_results==0)
+	if(apn==NULL || matched_rules==NULL || n_matched_rules==0)
 	{
 		return 0;
 	}
 	
-	return tsg_scan_string(a_stream, feather, imsi, strlen(imsi), MAAT_SCAN_GTP_IMSI, s_mid, results, n_results);
+	return tsg_scan_string(a_stream, feather, apn, strlen(apn), MAAT_SCAN_GTP_APN, s_mid, matched_rules, n_matched_rules);
 }
 
-size_t tsg_scan_gtp_phone_number_policy(const struct streaminfo *a_stream, struct maat *feather, char *phone_number, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_gtp_imsi_policy(const struct streaminfo *a_stream, struct maat *feather, char *imsi, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	if(phone_number==NULL || results==NULL || n_results==0)
+	if(imsi==NULL || matched_rules==NULL || n_matched_rules==0)
 	{
 		return 0;
 	}
 	
-	return tsg_scan_string(a_stream, feather, phone_number, strlen(phone_number), MAAT_SCAN_GTP_PHONE_NUMBER, s_mid, results, n_results);
+	return tsg_scan_string(a_stream, feather, imsi, strlen(imsi), MAAT_SCAN_GTP_IMSI, s_mid, matched_rules, n_matched_rules);
+}
+
+size_t tsg_scan_gtp_phone_number_policy(const struct streaminfo *a_stream, struct maat *feather, char *phone_number, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
+{
+	if(phone_number==NULL || matched_rules==NULL || n_matched_rules==0)
+	{
+		return 0;
+	}
+	
+	return tsg_scan_string(a_stream, feather, phone_number, strlen(phone_number), MAAT_SCAN_GTP_PHONE_NUMBER, s_mid, matched_rules, n_matched_rules);
 }
 
 //return value: -1: failed, 0: not hit, >0: hit count 
-size_t tsg_scan_shared_policy(const struct streaminfo *a_stream, struct maat *feather, char *domain, int idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_shared_policy(const struct streaminfo *a_stream, struct maat *feather, char *domain, int idx, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
 	if(domain==NULL)
 	{
@@ -2715,12 +2715,12 @@ size_t tsg_scan_shared_policy(const struct streaminfo *a_stream, struct maat *fe
 		return 0;
 	}
 
-	return tsg_scan_string(a_stream, feather, domain, fqdn_len, (enum MAAT_SCAN_TB)idx, s_mid, results, n_results);
+	return tsg_scan_string(a_stream, feather, domain, fqdn_len, (enum MAAT_SCAN_TB)idx, s_mid, matched_rules, n_matched_rules);
 }
 
-size_t tsg_scan_session_flags(const struct streaminfo *a_stream, struct maat *feather, unsigned long flag, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_session_flags(const struct streaminfo *a_stream, struct maat *feather, unsigned long flag, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	return tsg_scan_flags(a_stream, feather, flag, MAAT_SCAN_SESSION_FLAGS, s_mid, results, n_results);
+	return tsg_scan_flags(a_stream, feather, flag, MAAT_SCAN_SESSION_FLAGS, s_mid, matched_rules, n_matched_rules);
 }
 
 struct maat_rule *tsg_select_deny_rule(struct maat_rule *rules, size_t n_rules)
@@ -2773,50 +2773,50 @@ int tsg_get_fqdn_category_ids(struct maat *feather, char *fqdn, unsigned int *ca
 	return 0;
 }
 
-size_t tsg_scan_fqdn_category_id(const struct streaminfo *a_stream, struct maat *feather, unsigned int *category_ids, int n_category_ids, int table_idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_fqdn_category_id(const struct streaminfo *a_stream, struct maat *feather, unsigned int *category_ids, int n_category_ids, int table_idx, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	if(n_results==0 || category_ids==NULL || n_category_ids<=0 || table_idx<0)
+	if(n_matched_rules==0 || category_ids==NULL || n_category_ids<=0 || table_idx<0)
 	{
 		return 0;
 	}
 
-	size_t hit_num=0;
+	size_t matched_cnt=0;
 	
 	for(int i=0; i<n_category_ids; i++)
 	{
-		hit_num+=tsg_scan_integer(a_stream, feather, (long long)category_ids[i], (enum MAAT_SCAN_TB)table_idx, s_mid, results, n_results);
+		matched_cnt+=tsg_scan_integer(a_stream, feather, (long long)category_ids[i], (enum MAAT_SCAN_TB)table_idx, s_mid, matched_rules, n_matched_rules);
 	}
 
-	return hit_num;
+	return matched_cnt;
 }
 
-size_t tsg_scan_app_id_policy(const struct streaminfo *a_stream, struct maat *feather, unsigned int app_id, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_app_id_policy(const struct streaminfo *a_stream, struct maat *feather, unsigned int app_id, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	return tsg_scan_integer(a_stream, feather, (long long)app_id, MAAT_SCAN_APP_ID, s_mid, results, n_results);
+	return tsg_scan_integer(a_stream, feather, (long long)app_id, MAAT_SCAN_APP_ID, s_mid, matched_rules, n_matched_rules);
 }
 
-size_t tsg_scan_app_properties_policy(const struct streaminfo *a_stream, struct maat *feather, char *property, char *district, struct maat_state *s_mid, struct maat_rule *results, int n_results)
+size_t tsg_scan_app_properties_policy(const struct streaminfo *a_stream, struct maat *feather, char *property, char *district, struct maat_state *s_mid, struct maat_rule *matched_rules, int n_matched_rules)
 {
 	if(property==NULL || district==NULL)
 	{
 		return 0;
 	}
 
-	size_t hit_num=0;
+	size_t matched_cnt=0;
 	struct maat_rule property_result[MAX_RESULT_NUM]={0};
 	maat_state_set_scan_district(s_mid,  g_tsg_maat_rt_para.scan_tb[MAAT_SCAN_SELECTOR_PROPERTIES].id, (const char *)district, strlen(district));
 	size_t ret=tsg_scan_string(a_stream, feather, property, strlen(property), MAAT_SCAN_SELECTOR_PROPERTIES, s_mid, property_result, MAX_RESULT_NUM);
 	for(size_t i=0; i<ret; i++)
 	{
-		hit_num+=tsg_scan_integer(a_stream, feather, property_result[i].rule_id, MAAT_SCAN_SELECTOR_ID, s_mid, results+hit_num, n_results-hit_num);
+		matched_cnt+=tsg_scan_integer(a_stream, feather, property_result[i].rule_id, MAAT_SCAN_SELECTOR_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 	}
 
-	return hit_num;
+	return matched_cnt;
 }
 
-size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *feather, enum TSG_PROTOCOL proto, struct maat_state *s_mid, struct maat_rule *results, size_t n_results)
+size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *feather, enum TSG_PROTOCOL proto, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	size_t hit_num=0;
+	size_t matched_cnt=0;
 	unsigned int proto_id=0;
 	struct ipaddr t_addr;
 	struct ipaddr* p_addr=NULL;
@@ -2824,7 +2824,7 @@ size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *fea
 	int bool_id_array_idx=0;
 	long long bool_id_array[TUNNEL_BOOL_ID_MAX]={0};
 
-	if(results==NULL || n_results==0 || a_stream==NULL || feather==NULL)
+	if(matched_rules==NULL || n_matched_rules==0 || a_stream==NULL || feather==NULL)
 	{
 		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, "SCAN_NESTING_ADDR", "result==NULL || result_num<=0 || maat_feather==NULL || a_stream==NULL");
 		return 0;
@@ -2850,8 +2850,8 @@ size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *fea
 				{
 					p_addr=(struct ipaddr *)&cur_stream->addr;
 				}
-				hit_num+=tsg_scan_ipv4_address(cur_stream, feather,p_addr, MAAT_SCAN_SRC_IP_ADDR, s_mid, results+hit_num, n_results-hit_num);
-				hit_num+=tsg_scan_ipv4_address(cur_stream, feather,p_addr, MAAT_SCAN_DST_IP_ADDR, s_mid, results+hit_num, n_results-hit_num);
+				matched_cnt+=tsg_scan_ipv4_address(cur_stream, feather,p_addr, MAAT_SCAN_SRC_IP_ADDR, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+				matched_cnt+=tsg_scan_ipv4_address(cur_stream, feather,p_addr, MAAT_SCAN_DST_IP_ADDR, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 				break;
 			case	ADDR_TYPE_IPV6:
 			case	__ADDR_TYPE_IP_PAIR_V6:
@@ -2866,16 +2866,16 @@ size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *fea
 					p_addr=(struct ipaddr *)&cur_stream->addr;
 				}
 
-				hit_num+=tsg_scan_ipv6_address(cur_stream, feather, p_addr, MAAT_SCAN_SRC_IP_ADDR, s_mid, results+hit_num, n_results-hit_num);
-				hit_num+=tsg_scan_ipv6_address(cur_stream, feather, p_addr, MAAT_SCAN_DST_IP_ADDR, s_mid, results+hit_num, n_results-hit_num);
+				matched_cnt+=tsg_scan_ipv6_address(cur_stream, feather, p_addr, MAAT_SCAN_SRC_IP_ADDR, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+				matched_cnt+=tsg_scan_ipv6_address(cur_stream, feather, p_addr, MAAT_SCAN_DST_IP_ADDR, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 				break;
 			case	ADDR_TYPE_L2TP:
 				proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_L2TP].name);
-				hit_num+=tsg_scan_integer(cur_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, results+hit_num, n_results-hit_num);
+				matched_cnt+=tsg_scan_integer(cur_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 				break;
 			case	ADDR_TYPE_PPTP:
 				proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_PPTP].name);
-				hit_num+=tsg_scan_integer(cur_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, results+hit_num, n_results-hit_num);
+				matched_cnt+=tsg_scan_integer(cur_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 				break;
 			case	ADDR_TYPE_VLAN:
 				bool_id_array_idx+=tsg_get_vlan_label_id(feather, cur_stream->addr.vlan->c2s_addr_array, cur_stream->addr.vlan->c2s_layer_num, bool_id_array+bool_id_array_idx, TUNNEL_BOOL_ID_MAX-bool_id_array_idx);
@@ -2897,55 +2897,55 @@ size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *fea
 		}
 		
 		cur_stream=cur_stream->pfather;
-	}while(cur_stream!=NULL && hit_num<n_results);
+	}while(cur_stream!=NULL && matched_cnt<n_matched_rules);
 
-	if(hit_num<n_results)
+	if(matched_cnt<n_matched_rules)
 	{
-		hit_num+=tsg_scan_tunnel_id(a_stream, feather, results+hit_num, n_results-hit_num, s_mid, bool_id_array, bool_id_array_idx);
+		matched_cnt+=tsg_scan_tunnel_id(a_stream, feather, matched_rules+matched_cnt, n_matched_rules-matched_cnt, s_mid, bool_id_array, bool_id_array_idx);
 	}
 
-	if(hit_num<n_results && proto>PROTO_UNKONWN && proto<PROTO_MAX)
+	if(matched_cnt<n_matched_rules && proto>PROTO_UNKONWN && proto<PROTO_MAX)
 	{
 		proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[proto].name);
-		hit_num+=tsg_scan_integer(a_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, results+hit_num, n_results-hit_num);
+		matched_cnt+=tsg_scan_integer(a_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 		if(proto==PROTO_SMTP || proto==PROTO_IMAP || proto==PROTO_POP3)
 		{
 			proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_MAIL].name);
-			hit_num+=tsg_scan_integer(a_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, results+hit_num, n_results-hit_num);
+			matched_cnt+=tsg_scan_integer(a_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 		}
 	}
 
-	if(hit_num<n_results)
+	if(matched_cnt<n_matched_rules)
 	{
-		hit_num+=tsg_scan_ip_location(a_stream, feather,srt_attribute->client_location, MAAT_SCAN_SRC_LOCATION, s_mid, results+hit_num, n_results-hit_num);
-		hit_num+=tsg_scan_ip_location(a_stream, feather, srt_attribute->server_location, MAAT_SCAN_DST_LOCATION, s_mid, results+hit_num, n_results-hit_num);
+		matched_cnt+=tsg_scan_ip_location(a_stream, feather,srt_attribute->client_location, MAAT_SCAN_SRC_LOCATION, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+		matched_cnt+=tsg_scan_ip_location(a_stream, feather, srt_attribute->server_location, MAAT_SCAN_DST_LOCATION, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 	}
 
-	if(hit_num<n_results)
+	if(matched_cnt<n_matched_rules)
 	{
-		hit_num+=tsg_scan_ip_asn(a_stream, feather, srt_attribute->client_asn, MAAT_SCAN_SRC_ASN, s_mid, results+hit_num, n_results-hit_num);
-		hit_num+=tsg_scan_ip_asn(a_stream, feather, srt_attribute->server_asn, MAAT_SCAN_DST_ASN, s_mid, results+hit_num, n_results-hit_num);
+		matched_cnt+=tsg_scan_ip_asn(a_stream, feather, srt_attribute->client_asn, MAAT_SCAN_SRC_ASN, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+		matched_cnt+=tsg_scan_ip_asn(a_stream, feather, srt_attribute->server_asn, MAAT_SCAN_DST_ASN, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 	}
 
-	if(hit_num<n_results)
+	if(matched_cnt<n_matched_rules)
 	{
 		srt_attribute_set_subscriber_id(a_stream, feather, &srt_attribute->client_subscribe_id, &srt_attribute->server_subscribe_id);
-		hit_num+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->client_subscribe_id, s_mid, results+hit_num, n_results-hit_num);
-		hit_num+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->server_subscribe_id, s_mid, results+hit_num, n_results-hit_num);
+		matched_cnt+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->client_subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+		matched_cnt+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->server_subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 	}
 
-	if(hit_num<n_results)
+	if(matched_cnt<n_matched_rules)
 	{
 		int ret=session_runtine_attribute_get_umts_user_info(a_stream, &(srt_attribute->user_info));
 		if(ret==1 && srt_attribute->user_info!=NULL)
 		{
-			hit_num+=tsg_scan_gtp_apn_policy(a_stream, feather, srt_attribute->user_info->apn, s_mid, results+hit_num, n_results-hit_num);
-			hit_num+=tsg_scan_gtp_imsi_policy(a_stream, feather, srt_attribute->user_info->imsi, s_mid, results+hit_num, n_results-hit_num);
-			hit_num+=tsg_scan_gtp_phone_number_policy(a_stream, feather, srt_attribute->user_info->msisdn, s_mid, results+hit_num, n_results-hit_num);
+			matched_cnt+=tsg_scan_gtp_apn_policy(a_stream, feather, srt_attribute->user_info->apn, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+			matched_cnt+=tsg_scan_gtp_imsi_policy(a_stream, feather, srt_attribute->user_info->imsi, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+			matched_cnt+=tsg_scan_gtp_phone_number_policy(a_stream, feather, srt_attribute->user_info->msisdn, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 		}
 	}
 
-	return hit_num;
+	return matched_cnt;
 }
 
 int tsg_get_app_name_by_id(struct maat *feather, int app_id, char *app_name, int app_name_len, int is_joint_parent)

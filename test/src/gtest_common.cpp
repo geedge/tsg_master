@@ -20,6 +20,11 @@ void *dictator_malloc(int thread_seq,size_t size)
 	return calloc(1, size);
 }
 
+void *dictator_realloc(int thread_seq, void * pbuf, size_t size)
+{
+	return realloc(pbuf, size);
+}
+
 const char *printaddr (const struct layer_addr *paddrinfo, int threadindex)
 {
 	return gtest_addrlist;
