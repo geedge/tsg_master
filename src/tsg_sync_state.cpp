@@ -4,6 +4,7 @@
 #include <MESA/cJSON.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_stat.h"
 #include "tsg_variable.h"
 #include "tsg_sync_state.h"
 #include "tsg_send_log.h"
@@ -43,12 +44,7 @@ static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *wri
 	ret = sapp_inject_ctrl_pkt((struct streaminfo *)a_stream, SIO_DEFAULT, *mpack_data, *mpack_size, a_stream->routedir);
 	if (ret == -1)
 	{
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INJECT_CTRL_FAILED], 0, FS_OP_ADD, 1);
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "MSGPACK_BUFF_SEND", "An error occurred injecting the data! addr: %s", PRINTADDR(a_stream, g_tsg_para.level));
-	}
-	else
-	{
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INJECT_CTRL_SUCCESS], 0, FS_OP_ADD, 1);
 	}
 	
 	free(*mpack_data);
@@ -85,17 +81,28 @@ int tsg_send_session_state(const struct streaminfo *a_stream, unsigned char stat
 
 int tsg_sync_resetall_state(const struct streaminfo *a_stream)
 {
-	if (a_stream == NULL)
+	if(a_stream==NULL)
 	{
+		tsg_stat_sync_ctrl_update(STAT_STATUS_FAIL, CTRL_SYNC_RSTALL, 1);
 		return -1;
 	}
-
+	
 	char *mpack_data = NULL;
 	size_t mpack_size = 0;
 	mpack_writer_t writer;
 	mpack_init_map(a_stream, &writer, "resetall", &mpack_data, &mpack_size);
 
-	return mpack_send_pkt(a_stream, &writer, &mpack_data, &mpack_size);
+	int ret=mpack_send_pkt(a_stream, &writer, &mpack_data, &mpack_size);
+	if(ret==-1)
+	{
+		tsg_stat_sync_ctrl_update(STAT_STATUS_FAIL, CTRL_SYNC_RSTALL, 1);
+	}
+	else
+	{
+		tsg_stat_sync_ctrl_update(STAT_STATUS_SUCCESS, CTRL_SYNC_RSTALL, 1);
+	}
+
+	return 0;
 }
 
 static void mpack_append_string(mpack_writer_t *writer, char *str)
@@ -282,6 +289,7 @@ int tsg_sync_policy_update(const struct streaminfo *a_stream, struct update_poli
 {
 	if (a_stream == NULL || policy_update == NULL || policy_update->type >= POLICY_UPDATE_MAX || n_policy_update == 0)
 	{
+		tsg_stat_sync_ctrl_update(STAT_STATUS_FAIL, CTRL_SYNC_UNKNOWN, 1);
 		return -1;
 	}
 
@@ -301,21 +309,70 @@ int tsg_sync_policy_update(const struct streaminfo *a_stream, struct update_poli
 	{
 		mpack_append_update_policy(&writer, &policy_update[i], policy_update[i].type);
 	}
+	
 	mpack_complete_map(&writer); // params
 
-	return mpack_send_pkt(a_stream, &writer, &mpack_data, &mpack_size);
+	enum STAT_STATUS status;
+	int ret=mpack_send_pkt(a_stream, &writer, &mpack_data, &mpack_size);
+	if(ret==-1)
+	{
+		status=STAT_STATUS_FAIL;
+	}
+	else
+	{
+		status=STAT_STATUS_SUCCESS;
+		
+	}
+
+	tsg_stat_sync_ctrl_update(status, CTRL_SYNC_ACTIVING, 1);
+	
+	switch(policy_update[0].type)
+	{
+		case	POLICY_UPDATE_SHAPING:
+			tsg_stat_ctrl_service_activing_update(status, CTRL_SERVICE_SHAPING, 1);
+			break;
+		case	POLICY_UPDATE_INTERCEPT:
+			tsg_stat_ctrl_service_activing_update(status, CTRL_SERVICE_INTERCEPT, 1);
+			break;
+		case	POLICY_UPDATE_SERVICE_CHAINING:
+			tsg_stat_ctrl_service_activing_update(status, CTRL_SERVICE_CHAINING, 1);
+			break;
+		default:
+			tsg_stat_ctrl_service_activing_update(status, CTRL_SERVICE_UNKNOWN, 1);
+			break;
+	}
+
+	return ret;
 }
 
 int tsg_sync_closing_state(const struct streaminfo *a_stream, unsigned char state)
 {
-	return tsg_send_session_state(a_stream, state);
+	int ret=tsg_send_session_state(a_stream, state);
+	if(ret==-1)
+	{
+		tsg_stat_sync_ctrl_update(STAT_STATUS_FAIL, CTRL_SYNC_CLOSING, 1);
+	}
+	else
+	{
+		tsg_stat_sync_ctrl_update(STAT_STATUS_SUCCESS, CTRL_SYNC_CLOSING, 1);
+	}
+	
+	return ret;
 }
 
 int tsg_sync_opening_state(const struct streaminfo *a_stream, unsigned char state)
 {
-	tsg_send_session_state(a_stream, state);
-
-	return 0;
+	int ret=tsg_send_session_state(a_stream, state);
+	if(ret==-1)
+	{
+		tsg_stat_sync_ctrl_update(STAT_STATUS_FAIL, CTRL_SYNC_OPENING, 1);
+	}
+	else
+	{
+		tsg_stat_sync_ctrl_update(STAT_STATUS_SUCCESS, CTRL_SYNC_OPENING, 1);
+	}
+	
+	return ret;
 }
 
 static char *mpack_parse_get_string(mpack_node_t node, char *p_str, int thread_seq)
@@ -466,8 +523,9 @@ int mpack_parse_proxy_intercept_info(const struct streaminfo *a_stream, mpack_tr
 
 int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *payload, unsigned int payload_len)
 {
-	if (a_stream == NULL || payload == NULL || payload_len == 0)
+	if(a_stream==NULL || payload==NULL || payload_len==0)
 	{
+		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
 	}
 
@@ -480,6 +538,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "mpack_tree_parse error! payload_len = %u", payload_len);
 		mpack_tree_destroy(&tree);
+		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
 	}
 
@@ -488,6 +547,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "method error! mpack_node_type(method) = %d", (int)mpack_node_type(method));
 		mpack_tree_destroy(&tree);
+		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
 	}
 
@@ -496,6 +556,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 		// mpack_node_str(method) is contiguous memory
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "method error! mpack_node_strlen(method) = %lu", mpack_node_strlen(method));
 		mpack_tree_destroy(&tree);
+		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
 	}
 
@@ -505,6 +566,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 		// if session_id = 0, it's could be mpack_node_type(root) = nil
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "session_id error! session_id: %llu, real session_id: %llu", session_id, tsg_get_stream_trace_id(a_stream));
 		mpack_tree_destroy(&tree);
+		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
 	}
 
@@ -513,26 +575,59 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "params_node error!");
 		mpack_tree_destroy(&tree);
+		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
 	}
 
 	mpack_node_t temp_node = mpack_node_map_str_optional(params_node, "sce", 3);
 	if (mpack_node_type(temp_node) != mpack_type_nil && mpack_node_type(temp_node) != mpack_type_missing)
 	{
-		return mpack_parse_sce_profile_ids(a_stream, tree, temp_node);
+		int ret=mpack_parse_sce_profile_ids(a_stream, tree, temp_node);
+		if(ret==-1)
+		{
+			tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_CHAINING, 1);
+		}
+		else
+		{
+			tsg_stat_ctrl_service_updating_update(STAT_STATUS_SUCCESS, CTRL_SERVICE_CHAINING, 1);
+		}
+
+		return ret;
 	}
 
 	temp_node = mpack_node_map_str_optional(params_node, "shaper", 6);
 	if (mpack_node_type(temp_node) != mpack_type_nil && mpack_node_type(temp_node) != mpack_type_missing)
 	{
-		return mpack_parse_shaper_profile_ids(a_stream, tree, temp_node);
+		int ret=mpack_parse_shaper_profile_ids(a_stream, tree, temp_node);
+		if(ret==-1)
+		{
+			tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_SHAPING, 1);
+		}
+		else
+		{
+			tsg_stat_ctrl_service_updating_update(STAT_STATUS_SUCCESS, CTRL_SERVICE_SHAPING, 1);
+		}
+
+		return ret;
 	}
 
 	temp_node = mpack_node_map_str_optional(params_node, "proxy", 5);
 	if (mpack_node_type(temp_node) != mpack_type_nil && mpack_node_type(temp_node) != mpack_type_missing)
 	{
-		return mpack_parse_proxy_intercept_info(a_stream, tree, temp_node);
+		int ret=mpack_parse_proxy_intercept_info(a_stream, tree, temp_node);
+		if(ret==-1)
+		{
+			tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_INTERCEPT, 1);
+		}
+		else
+		{
+			tsg_stat_ctrl_service_updating_update(STAT_STATUS_SUCCESS, CTRL_SERVICE_INTERCEPT, 1);
+		}
+
+		return ret;
 	}
+
+	tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 
 	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PDARSE_LOG_UPDATE", "pkt error! there is no log!");
 	mpack_tree_destroy(&tree);

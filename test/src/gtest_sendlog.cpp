@@ -5,6 +5,7 @@
 #include <MESA/field_stat2.h>
 #include <MESA/stream.h>
 
+#include "tsg_stat.h"
 #include "tsg_rule.h"
 #include "tsg_bridge.h"
 #include "tsg_send_log.h"
@@ -17,7 +18,7 @@
 
 struct maat *g_tsg_maat_feather;
 
-extern struct tsg_log_instance_t *tsg_sendlog_init(const char * conffile, screen_stat_handle_t fs2_handle);
+extern struct tsg_log_instance_t *tsg_sendlog_init(const char * conffile, screen_stat_handle_t fs3_instance);
 
 char *tsg_device_tag_get(void)
 {
@@ -365,21 +366,11 @@ TEST(Master, SendBgpRecord)
 
 int main(int argc, char *argv[])
 {
-	screen_stat_handle_t fs2_handle=FS_create_handle();
+	tsg_stat_create("./tsgconf/main.conf");
+	tsg_stat_init();
 
-	int value=0,cycle=30;
-	value=1;//Rewrite
-	FS_set_para(fs2_handle, PRINT_MODE, &value, sizeof(value));
-	value=1;//Do not create stat thread
-	FS_set_para(fs2_handle, CREATE_THREAD, &value, sizeof(value));
-	FS_set_para(fs2_handle, STAT_CYCLE, &cycle, sizeof(cycle));
-	FS_set_para(fs2_handle, APP_NAME, (char *)"test", strlen((char *)"test")+1);
-
-	value=FS_OUTPUT_INFLUX_LINE;
-	FS_set_para(fs2_handle, STATS_FORMAT, &value, sizeof(value));
-
-	g_tsg_log_instance=tsg_sendlog_init("./tsgconf/main.conf", fs2_handle);
-	FS_start(fs2_handle);
+	g_tsg_log_instance=tsg_sendlog_init("./tsgconf/main.conf");
+	tsg_stat_start();
 	
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();

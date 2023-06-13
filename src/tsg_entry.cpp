@@ -20,6 +20,7 @@
 #include <MESA/MESA_handle_logger.h>
 #include <MESA/MESA_jump_layer.h>
 
+#include "tsg_stat.h"
 #include "app_label.h"
 #include "tsg_rule.h"
 #include "tsg_entry.h"
@@ -58,64 +59,6 @@ static __attribute__((__used__)) const char * GIT_VERSION_UNKNOWN = NULL;
 char TSG_MASTER_VERSION_20200805 = 0;
 const char *tsg_conffile="tsgconf/main.conf";
 
-struct id2field g_tsg_fs2_field[TSG_FS2_MAX]={{0, TSG_FS2_TCP_LINKS, "tcp_links"},
-										 {0, TSG_FS2_UDP_LINKS, "udp_links"}, 
-										 {0, TSG_FS2_BYPASS, "bypass"},
-										 {0, TSG_FS2_HIT_ADDR, "hit_addr"},
-										 {0, TSG_FS2_HIT_SHARE, "hit_share"},
-										 {0, TSG_FS2_INTERCEPT, "intercept"},
-										 {0, TSG_FS2_SHAPING, "shaping"},
-										 {0, TSG_FS2_S_CHAINING, "s_chaining"},
-										 {0, TSG_FS2_CTRL_OPENING, "ctrl_open"},
-										 {0, TSG_FS2_CTRL_CLOSING, "ctrl_close"},
-										 {0, TSG_FS2_CTRL_ACTIVE, "ctrl_active"},
-										 {0, TSG_FS2_CTRL_RESETALL, "ctrl_rstall"},
-										 {0, TSG_FS2_INJECT_CTRL_SUCCESS, "inject_ctrl_succuess"},
-										 {0, TSG_FS2_INJECT_CTRL_FAILED, "inject_ctrl_failed"},
-										 {0, TSG_FS2_EXCLUSION, "exclusion"},
-										 {0, TSG_FS2_APP_DPKT_RESULT, "D_result"},
-										 {0, TSG_FS2_APP_Q_RESULT, "Q_result"},
-										 {0, TSG_FS2_APP_USER_RESULT, "U_result"},
-										 {0, TSG_FS2_APP_BUILT_IN_RESULT, "B_result"},
-										 {0, TSG_FS2_INJECT_PKT_SUCCESS, "inject_succuess"},
-										 {0, TSG_FS2_INJECT_PKT_FAILED, "inject_failed"},
-										 {0, TSG_FS2_MIRRORED_PKT_SUCCESS, "mirror_pkt_suc"},
-										 {0, TSG_FS2_MIRRORED_BYTE_SUCCESS, "mirror_byte_suc"},
-										 {0, TSG_FS2_MIRRORED_PKT_FAILED, "mirror_pkt_fai"},
-										 {0, TSG_FS2_MIRRORED_BYTE_FAILED, "mirror_byte_fai"},
-										 {0, TSG_FS2_SET_TIMOUT_SUCCESS, "set_timeout_suc"},
-										 {0, TSG_FS2_SET_TIMOUT_FAILED, "set_timeout_fai"},
-										 {0, TSG_FS2_SUCESS_TAMPER, "tamper_sucess"},
-										 {0, TSG_FS2_TAMPER_FAILED_PLOAD_LESS_4, "tamper_nopload"},
-										 {0, TSG_FS2_TAMPER_FAILED_NOSWAP, "tamper_noswap"},
-										 {0, TSG_FS2_ASN_ADD, "asn_add"},
-										 {0, TSG_FS2_ASN_DEL, "asn_del"},
-										 {0, TSG_FS2_GTPC_ADD, "gtpc_add"},
-										 {0, TSG_FS2_GTPC_DEL, "gtpc_del"},
-										 {0, TSG_FS2_LOCATION_ADD, "location_add"},
-										 {0, TSG_FS2_LOCATION_DEL, "location_del"},
-										 {0, TSG_FS2_FQDN_ADD, "fqdn_add"},
-										 {0, TSG_FS2_FQDN_DEL, "fqdn_del"},
-										 {0, TSG_FS2_SUBSCRIBER_ADD, "subscriber_add"},
-										 {0, TSG_FS2_SUBSCRIBER_DEL, "subscriber_del"},
-										 {0, TSG_FS2_SECURIRY_ADD, "security_add"},
-										 {0, TSG_FS2_SECURIRY_DEL, "security_del"},
-										 {0, TSG_FS2_MIRRORED_ADD, "mirrored_add"},
-										 {0, TSG_FS2_MIRRORED_DEL, "mirrored_del"},
-										 {0, TSG_FS2_HTTP_RES_ADD, "http_res_add"},
-										 {0, TSG_FS2_HTTP_RES_DEL, "http_res_del"},
-										 {0, TSG_FS2_DNS_RES_ADD, "dns_profile_add"},
-										 {0, TSG_FS2_DNS_RES_DEL, "dns_profile_del"},
-										 {0, TSG_FS2_APP_ID_ADD, "app_id_add"},
-										 {0, TSG_FS2_APP_ID_DEL, "app_id_del"},
-										 {0, TSG_FS2_TUNNEL_CATALOG_ADD, "t_catalog_add"},
-										 {0, TSG_FS2_TUNNEL_CATALOG_DEL, "t_catalog_del"},
-										 {0, TSG_FS2_TUNNEL_ENDPOINT_ADD, "t_endpoint_add"},
-										 {0, TSG_FS2_TUNNEL_ENDPOINT_DEL, "t_endpoint_del"},
-										 {0, TSG_FS2_TUNNEL_LABEL_ADD, "t_label_add"},
-										 {0, TSG_FS2_TUNNEL_LABEL_DEL, "t_label_del"}
-										};
-
 static int init_page_template(const char *conffile)
 {
 	char page_path[256];
@@ -134,53 +77,6 @@ static int init_page_template(const char *conffile)
 	memset(page_path, 0, sizeof(page_path));
 	MESA_load_profile_string_def(conffile, "HTTP_PLUG", "PAGE204", page_path, sizeof(page_path), "./tsgconf/HTTP204.html");
 	g_tsg_para.tpl_204 = ctemplate::Template::GetTemplate(page_path, ctemplate::DO_NOT_STRIP);
-
-	return 0;
-}
-
-static int init_fs2_handle(const char *conffile)
-{
-	int value=0,cycle=0;
-	int output_prometheus=0;
-	unsigned short fs_server_port=0;
-	char app_name[128]={0};
-	char fs_server_ip[MAX_IPV4_LEN]={0};
-	char fs_output_path[128]={0};
-
-	MESA_load_profile_int_def(conffile, "FIELD_STAT", "CYCLE", &cycle, 30);
-	MESA_load_profile_short_nodef(conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));
-	MESA_load_profile_string_nodef(conffile,"FIELD_STAT","TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
-	MESA_load_profile_string_def(conffile,"FIELD_STAT","OUTPUT_PATH",fs_output_path, sizeof(fs_output_path), "tsg_stat.log");
-	MESA_load_profile_string_def(conffile,"FIELD_STAT","APP_NAME", app_name, sizeof(app_name), "tsg_master");
-	MESA_load_profile_int_def(conffile, "FIELD_STAT", "PROMETHEUS", &output_prometheus, 1);
-
-	g_tsg_para.fs2_handle=FS_create_handle();
-
-	value=1;//Rewrite
-	FS_set_para(g_tsg_para.fs2_handle, PRINT_MODE, &value, sizeof(value));
-	value=1;//Do not create stat thread
-	FS_set_para(g_tsg_para.fs2_handle, CREATE_THREAD, &value, sizeof(value));
-	
-    FS_set_para(g_tsg_para.fs2_handle, STAT_CYCLE, &cycle, sizeof(cycle));
-    FS_set_para(g_tsg_para.fs2_handle, APP_NAME, app_name, strlen(app_name)+1);
-	FS_set_para(g_tsg_para.fs2_handle, OUTPUT_DEVICE, fs_output_path, strlen(fs_output_path)+1);
-
-	value=1;
-	FS_set_para(g_tsg_para.fs2_handle, OUTPUT_PROMETHEUS, &output_prometheus, sizeof(output_prometheus));
-
-    if(fs_server_port > 0 && strlen(fs_server_ip) > 0)
-    {
-        FS_set_para(g_tsg_para.fs2_handle, STATS_SERVER_IP,fs_server_ip, strlen(fs_server_ip)+1);
-        FS_set_para(g_tsg_para.fs2_handle, STATS_SERVER_PORT,&(fs_server_port), sizeof(fs_server_port));
-    }
-
-	value=FS_OUTPUT_INFLUX_LINE;
-	FS_set_para(g_tsg_para.fs2_handle, STATS_FORMAT, &value, sizeof(value));
-
-	for(int i=0; i<TSG_FS2_MAX; i++)
-	{
-		g_tsg_para.fs2_field_id[i]=FS_register(g_tsg_para.fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, g_tsg_fs2_field[i].name);
-	}
 
 	return 0;
 }
@@ -249,11 +145,11 @@ static int set_app_timeout(const struct streaminfo *a_stream, struct app_id_dict
 	int ret=MESA_set_stream_opt(a_stream, MSO_TIMEOUT, (void *)timeout, sizeof(unsigned short));
 	if(ret<0)
 	{
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SET_TIMOUT_FAILED], 0, FS_OP_ADD, 1);
+		tsg_stat_flow_update(STAT_STATUS_FAIL, FLOW_STAT_SET_TIMEOUT, 1);
 	}
 	else
 	{
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SET_TIMOUT_SUCCESS], 0, FS_OP_ADD, 1);
+		tsg_stat_flow_update(STAT_STATUS_SUCCESS, FLOW_STAT_SET_TIMEOUT, 1);
 	}
 	
 	return 1;
@@ -1181,7 +1077,6 @@ int session_state_sync_in_opening_and_closing(const struct streaminfo *a_stream,
 		if(atomic_inc(&g_tsg_para.send_resetall)==1)
 		{
 			tsg_sync_resetall_state(a_stream);
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_CTRL_RESETALL], 0, FS_OP_ADD, 1);
 		}
 	}
 
@@ -1189,11 +1084,9 @@ int session_state_sync_in_opening_and_closing(const struct streaminfo *a_stream,
 	{
 		case	OP_STATE_PENDING:
 			tsg_sync_opening_state(a_stream, state);
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_CTRL_OPENING], 0, FS_OP_ADD, 1);
 			break;
 		case	OP_STATE_CLOSE:
 			tsg_sync_closing_state(a_stream, state);
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_CTRL_CLOSING], 0, FS_OP_ADD, 1);
 			break;
 		default:
 			break;
@@ -1405,8 +1298,6 @@ int session_state_sync_in_activing(const struct streaminfo *a_stream, TSG_SERVIC
 	{
 		return 0;
 	}
-
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_CTRL_ACTIVE], 0, FS_OP_ADD, 1);
 
 	memcpy(matched_rules->rules+matched_rules->n_rules, inc_rules, n_inc_results*sizeof(struct maat_rule));
 	matched_rules->n_rules+=n_inc_results;
@@ -1850,7 +1741,6 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 			srt_process_context->is_hitted_allow=1;
 			session_matched_rules_notify(a_stream, TSG_SERVICE_SECURITY, p_rule, 1, a_stream->threadnum);
 
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_BYPASS], 0, FS_OP_ADD, 1);
 			srt_action_context_set_rule_method(a_stream, TSG_METHOD_TYPE_ALLOW, a_stream->threadnum);
 			break;
 		default:
@@ -1871,8 +1761,6 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 int matched_shaping_rules_deal(const struct streaminfo *a_stream, struct maat_rule *shaping_rules, size_t n_shaping_rules, int thread_seq)
 {
 	session_state_sync_in_activing(a_stream, TSG_SERVICE_SHAPING, shaping_rules, n_shaping_rules, thread_seq);
-
-	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SHAPING], 0, FS_OP_ADD, 1);
 	srt_action_context_set_rule_method(a_stream, TSG_METHOD_TYPE_UNKNOWN, thread_seq);
 
 	return 0;
@@ -1883,7 +1771,6 @@ int matched_intercept_rules_deal(const struct streaminfo *a_stream, struct maat_
 	struct maat_rule *p_rule=matched_rules_decision_criteria(intercept_rules, n_intercept_rules);
 	session_state_sync_in_activing(a_stream, TSG_SERVICE_INTERCEPT, p_rule, 1, thread_seq);
 
-	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INTERCEPT], 0, FS_OP_ADD, 1);
 	srt_action_context_set_rule_method(a_stream, TSG_METHOD_TYPE_UNKNOWN, thread_seq);
 
 	return 0;
@@ -1997,7 +1884,7 @@ int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge
 			break;
 		case	ORIGIN_QM_ENGINE:
 			srt_process_context->is_app_link=FLAG_TRUE;
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_Q_RESULT], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_application_update(SYNC_APP_THRID, 1);
 			gather_result->qm_engine_num=session_app_gather_results_update(&(gather_result->qm_engine), gather_result->qm_engine_num, identify_result, get_packet_sequence(a_stream), a_stream->threadnum);
 
 			scan_app=gather_result->qm_engine;
@@ -2005,7 +1892,7 @@ int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge
 			break;
 		case	ORIGIN_USER_DEFINE:
 			srt_process_context->is_app_link=FLAG_TRUE;
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_USER_RESULT], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_application_update(SYNC_APP_USER_DEFINE, 1);
 			gather_result->user_define_num=session_app_gather_results_update(&(gather_result->user_define), gather_result->user_define_num, identify_result, get_packet_sequence(a_stream), a_stream->threadnum);
 
 			scan_app=gather_result->user_define;
@@ -2013,7 +1900,7 @@ int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge
 			break;
 		case	ORIGIN_BUILT_IN:
 			srt_process_context->is_app_link=FLAG_TRUE;
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_BUILT_IN_RESULT], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_application_update(SYNC_APP_BUILT_IN, 1);
 			gather_result->built_in_num=session_app_gather_results_update(&(gather_result->built_in), gather_result->built_in_num, identify_result, get_packet_sequence(a_stream), a_stream->threadnum);
 
 			scan_app=gather_result->built_in;
@@ -2021,6 +1908,7 @@ int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge
 			break;
 		case	ORIGIN_BASIC_PROTOCOL:
 			srt_process_context->is_app_link=FLAG_TRUE;
+			tsg_stat_sync_application_update(SYNC_APP_LPI, 1);
 			if(srt_process_context->proto==PROTO_UNKONWN || srt_process_context->proto==PROTO_APP)
 			{
 				srt_process_context_set_l7_protocol(srt_process_context, identify_result->app_id[identify_result->app_id_num-1]);
@@ -2134,10 +2022,8 @@ size_t session_pending_state_deal(const struct streaminfo *a_stream, struct sess
 	if(ret>0)
 	{
 		matched_cnt+=ret;
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HIT_ADDR], 0, FS_OP_ADD, 1);
 	}
 
-	
 	matched_cnt+=session_app_gather_results_scan(a_stream, matched_rules+matched_cnt, n_matched_rules-matched_cnt, srt_process_context, a_stream->threadnum);
 	matched_cnt+=tsg_scan_session_flags(a_stream, g_tsg_maat_feather, srt_process_context->session_flag, (srt_process_context->mid), matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 	
@@ -2182,15 +2068,6 @@ static unsigned char tsg_master_data_entry(const struct streaminfo *a_stream, vo
 	if(srt_process_context->first_origin_pkt==0)
 	{
 		srt_process_context->first_origin_pkt=1;
-
-		if(a_stream->type==STREAM_TYPE_TCP)
-		{
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TCP_LINKS], 0, FS_OP_ADD, 1);
-		}
-		else
-		{
-			FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_UDP_LINKS], 0, FS_OP_ADD, 1);
-		}
 		
 		matched_cnt+=session_pending_state_deal(a_stream, srt_process_context, matched_rules+matched_cnt, n_matched_rules-matched_cnt, a_packet);
 		if (a_stream->type == STREAM_TYPE_TCP && a_packet != NULL)
@@ -2590,7 +2467,8 @@ extern "C" int TSG_MASTER_INIT()
 	}
 
 	init_page_template(tsg_conffile);
-	init_fs2_handle(tsg_conffile);
+	tsg_stat_create(tsg_conffile);
+	tsg_stat_init();
 
 	ret=tsg_maat_rule_init(tsg_conffile);
 	if(ret<0)
@@ -2599,16 +2477,17 @@ extern "C" int TSG_MASTER_INIT()
 		return -1;
 	}
 	
-	g_tsg_log_instance=tsg_sendlog_init(tsg_conffile, g_tsg_para.fs2_handle);
+	g_tsg_log_instance=tsg_sendlog_init(tsg_conffile);
 	if(g_tsg_log_instance==NULL)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_SENDLOG", "tsg_sendlog_init failed ...");
 		return -1;
 	}
-	
-	FS_start(g_tsg_para.fs2_handle);
 
-	ret = tsg_metric_init(tsg_conffile, g_tsg_para.logger);
+	// wait send log topic statistic
+	tsg_stat_start();
+	
+	ret=tsg_metric_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
 	{
 		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_STATISTIC", "tsg_metric_init failed ...");

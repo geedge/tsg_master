@@ -152,32 +152,6 @@ enum LOG_FIELD_ID
 	LOG_COMMON_MAX
 };
 
-enum LOG_COLUMN_STATUS
-{
-	LOG_COLUMN_STATUS_SUCCESS=0,
-	LOG_COLUMN_STATUS_SUCCESS_S,
-	LOG_COLUMN_STATUS_FAIL,
-	LOG_COLUMN_STATUS_FAIL_S,
-	LOG_COLUMN_STATUS_DROP,
-	LOG_COLUMN_STATUS_DROP_S,
-	LOG_COLUMN_STATUS_MAX
-};
-
-enum LOG_FS2_TYPE{
-	LOG_FS2_ABORT_ALLOW,
-	LOG_FS2_ABORT_DENY,
-	LOG_FS2_ABORT_MONITOR,
-	LOG_FS2_ABORT_INTERCEPT,
-	LOG_FS2_ABORT_UNKNOWN,
-	LOG_FS2_CREATE_LOG_HANDLE,
-	LOG_FS2_DUP_LOG_HANDLE,
-	LOG_FS2_APPEND_LOG_HANDLE,
-	LOG_FS2_FREE_LOG_HANDLE,
-	LOG_FS2_FREE_RAPID_SIZE,
-	LOG_FS2_FREE_RAPID_CAPACITY,	
-	LOG_FS2_TYPE_MAX
-};
-	
 typedef	struct _id2field
 {
 	int type;
@@ -189,9 +163,9 @@ struct topic_stat
 {
 	int status;
 	int type;
-	int fs2_line_id;
+	int row_idx;
 	int *send_log_percent;
-	char name[MAX_STRING_LEN32];	
+	char name[MAX_STRING_LEN32];
 	long long *drop_start;
 	rd_kafka_topic_t *topic_rkt;
 };
@@ -218,9 +192,7 @@ struct tsg_log_instance_t
 	int rapidjson_chunk_capacity;
 	int tcp_flow_project_id;
 	int udp_flow_project_id;
-	int sum_line_id;
-	int fs2_column_id[LOG_COLUMN_STATUS_MAX];
-	int fs2_field_id[LOG_FS2_TYPE_MAX];
+	int sum_stat_row_id;
 	char tcp_label[MAX_STRING_LEN32];
 	char udp_label[MAX_STRING_LEN32];
 	char sasl_username[MAX_STRING_LEN32];
@@ -232,12 +204,11 @@ struct tsg_log_instance_t
 	id2field_t id2field[LOG_COMMON_MAX];
 	rd_kafka_t *kafka_handle;
 	struct topic_stat *service2topic;
-	screen_stat_handle_t fs2_handle;
 	void *logger;
 };
 
 int tsg_unknown_app_id_get(struct tsg_log_instance_t *instance);
 
 char *log_field_id2name(struct tsg_log_instance_t *instance, enum LOG_FIELD_ID id);
-struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_handle_t fs2_handle);
+struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile);
 void tsg_sendlog_destroy(struct tsg_log_instance_t * instance);

@@ -141,6 +141,8 @@ struct sce_log_update
     uint32_t profile_ids[SCE_PROFILE_IDS];
 };
 
+int tsg_init_sync_status(struct fieldstat_instance *fs3_instance);
+
 int tsg_sync_resetall_state(const struct streaminfo *a_stream);
 int tsg_send_session_state(const struct streaminfo *a_stream, unsigned char state);
 int tsg_sync_opening_state(const struct streaminfo *a_stream, unsigned char state);

@@ -5,6 +5,7 @@
 #include <time.h>
 #include <arpa/inet.h>
 
+#include "tsg_stat.h"
 #include "MESA/http.h"
 #include "MESA/cJSON.h"
 #include <MESA/stream.h>
@@ -442,8 +443,8 @@ void ex_data_gtp_c_new(const char *table_name, int table_id, const char* key, co
 	
 	atomic_inc(&user_info->ref_cnt);
 	*ad=(void *)user_info;
-	
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_GTPC_ADD], 0, FS_OP_ADD, 1);
+
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_GTPC, 1);
 	return;
 }
 
@@ -457,12 +458,12 @@ void ex_data_gtp_c_free(int table_id, void **ad, long argl, void* argp)
 			tsg_free_field(user_info->imsi);
 			tsg_free_field(user_info->msisdn);
 			tsg_free_field(user_info->apn);
-			tsg_free_field(user_info->imei);	
+			tsg_free_field(user_info->imei);
 
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 			
-			//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_GTPC_DEL], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_GTPC, 1);
 		}
 	}
 	
@@ -509,7 +510,7 @@ void ex_data_asn_number_new(const char *table_name, int table_id, const char* ke
 	atomic_inc(&asn->ref_cnt);
 	*ad=(void *)asn;
 	
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_ASN_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ASN, 1);
 	return;
 }
 
@@ -525,7 +526,7 @@ void ex_data_asn_number_free(int table_id, void **ad, long argl, void* argp)
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 			
-			//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_ASN_DEL], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ASN, 1);
 		}
 	}
 	
@@ -569,7 +570,7 @@ void ex_data_location_new(const char *table_name, int table_id, const char* key,
 	atomic_inc(&location->ref_cnt);
 	*ad=(void *)location;
 	
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LOCATION_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_LOCATION, 1);
 	return;
 }
 
@@ -588,7 +589,7 @@ void ex_data_location_free(int table_id, void **ad, long argl, void* argp)
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 			
-			//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_LOCATION_DEL], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_LOCATION, 1);
 		}
 	}
 	
@@ -627,7 +628,7 @@ void ex_data_fqdn_category_id_new(const char *table_name, int table_id, const ch
 	atomic_inc(&fqdn_cat->ref_cnt);
 	*ad=(void *)fqdn_cat;
 	
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_FQDN_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_FQDN_CATEGORY, 1);
 	return;
 }
 
@@ -640,7 +641,7 @@ void ex_data_fqdn_category_id_free(int table_id, void **ad, long argl, void* arg
 		{
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
-			//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_FQDN_DEL], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_FQDN_CATEGORY, 1);
 		}
 	}
 	
@@ -676,7 +677,7 @@ void ex_data_subscriber_id_new(const char *table_name, int table_id, const char*
 	atomic_inc(&subscriber->ref_cnt);
 	*ad=(void *)subscriber;
 	
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUBSCRIBER_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_SUBSCRIBER, 1);
 	return;
 }
 
@@ -684,14 +685,14 @@ void ex_data_subscriber_id_free(int table_id, void **ad, long argl, void* argp)
 {
 	if((*ad)!=NULL)
 	{
-		struct subscribe_id_info *subscriber=(struct subscribe_id_info *)(*ad);			
+		struct subscribe_id_info *subscriber=(struct subscribe_id_info *)(*ad);
 		if((__sync_sub_and_fetch(&subscriber->ref_cnt, 1) == 0))	
 		{
 			tsg_free_field(subscriber->subscribe_id);
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 				
-			//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SUBSCRIBER_DEL], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_SUBSCRIBER, 1);
 		}
 	}
 	
@@ -796,7 +797,7 @@ void ex_data_app_id_dict_new(const char *table_name, int table_id, const char* k
 	atomic_inc(&dict->ref_cnt);
 	*ad=(void *)dict;
 	
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_ID_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_APP_ID_DICT, 1);
 	return;
 }
 
@@ -817,7 +818,7 @@ void ex_data_app_id_dict_free(int table_id, void **ad, long argl, void* argp)
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 			
-			//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_APP_ID_DEL], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_APP_ID_DICT, 1);
 		}
 	}
 	return;
@@ -1254,7 +1255,8 @@ void ex_data_security_compile_new(const char *table_name, int table_id, const ch
 	
 	atomic_inc(&compile->ref_cnt);
 	*ad=(void *)compile;
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SECURIRY_ADD], 0, FS_OP_ADD, 1);
+	
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_COMPILE, 1);
 
 	return ;
 }
@@ -1357,9 +1359,8 @@ void ex_data_security_compile_free(int table_id, void **ad, long argl, void *arg
 		tsg_free_field((char *)(*ad));
 		*ad=NULL;
 		
-		//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SECURIRY_DEL], 0, FS_OP_ADD, 1);
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_COMPILE, 1);
 	}
-		
 }
 
 static char *get_http_pages_content(const char *filename, int *filelen)
@@ -1464,7 +1465,7 @@ void ex_data_http_response_pages_new(const char *table_name, int table_id, const
 		res_pages=NULL;
 	}
 
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HTTP_RES_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_HTTP_RESPONSE, 1);
 }
 
 void ex_data_http_response_pages_free(int table_id, void **ad, long argl, void* argp)
@@ -1478,7 +1479,7 @@ void ex_data_http_response_pages_free(int table_id, void **ad, long argl, void* 
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 			
-			//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_HTTP_RES_DEL], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_HTTP_RESPONSE, 1);
 		}
 	}
 }
@@ -1552,7 +1553,7 @@ void ex_data_dns_profile_records_new(const char *table_name, int table_id, const
 		profile_records=NULL;
 	}
 
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DNS_RES_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_DNS_RESPONSE, 1);
 
 	return ;
 }
@@ -1587,7 +1588,7 @@ void ex_data_dns_profile_records_free(int table_id, void **ad, long argl, void *
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 			
-			//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_DNS_RES_DEL], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_DNS_RESPONSE, 1);
 		}
 	}
 }
@@ -1625,7 +1626,7 @@ void ex_data_mirrored_profile_new(const char *table_name, int table_id, const ch
 	tsg_free_field(vlan_ids_str);
 	vlan_ids_str=NULL;
 
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_MIRRORED_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_MIRRORED, 1);
 
 	return ;
 }
@@ -1651,7 +1652,7 @@ void ex_data_mirrored_profile_free(int table_id, void **ad, long argl, void *arg
 		{	
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
-			//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_MIRRORED_DEL], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_MIRRORED, 1);
 		}
 	}
 }
@@ -1681,7 +1682,7 @@ void ex_data_tunnel_catalog_new(const char *table_name, int table_id, const char
 	atomic_inc(&t_catalog->ref_cnt);
 	*ad=(void *)t_catalog;
 	
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_CATALOG_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_TUNNEL_CATALOG, 1);
 	return;
 }
 void ex_data_tunnel_catalog_free(int table_id, void **ad, long argl, void *argp)
@@ -1699,7 +1700,7 @@ void ex_data_tunnel_catalog_free(int table_id, void **ad, long argl, void *argp)
 		tsg_free_field(t_catalog->composition);
 		tsg_free_field((char *)(*ad));
 		*ad=NULL;
-		//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_CATALOG_DEL], 0, FS_OP_ADD, 1);
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_TUNNEL_CATALOG, 1);
 	}
 }
 void ex_data_tunnel_catalog_dup(int table_id,	void **to, void **from, long argl, void *argp)
@@ -1722,7 +1723,7 @@ void ex_data_tunnel_endpoint_new(const char *table_name, int table_id, const cha
 	atomic_inc(&t_endpoint->ref_cnt);
 	*ad=(void *)t_endpoint;
 	
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_ENDPOINT_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_TUNNEL_ENDPOINT, 1);
 
 	return ;
 }
@@ -1749,7 +1750,7 @@ void ex_data_tunnel_endpoint_free(int table_id, void **ad, long argl, void *argp
 			tsg_free_field(t_endpoint->description);
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
-			//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_ENDPOINT_DEL], 0, FS_OP_ADD, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_TUNNEL_ENDPOINT, 1);
 		}
 	}
 }
@@ -1763,7 +1764,7 @@ void ex_data_tunnel_label_new(const char *table_name, int table_id, const char* 
 {	
 	int label_id=column_integer_get_value(table_line, 1);
 	*ad=(void *)(long)label_id;
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_LABEL_ADD], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_TUNNEL_LABEL, 1);
 
 	return ;
 }
@@ -1776,7 +1777,7 @@ void ex_data_tunnel_label_dup(int table_id, void **to, void **from, long argl, v
 
 void ex_data_tunnel_label_free(int table_id, void **ad, long argl, void *argp)
 {
-	//FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_TUNNEL_LABEL_DEL], 0, FS_OP_ADD, 1);
+	tsg_stat_sync_exdata_del_update(SYNC_EXDATA_TUNNEL_LABEL, 1);
 }
 
 int init_scan_table(struct maat *feather, const char *conffile)

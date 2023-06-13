@@ -6,6 +6,7 @@
 #include <MESA/cJSON.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_stat.h"
 #include "tsg_sync_state.h"
 #include "tsg_variable.h"
 #include "mpack.h"
@@ -1464,10 +1465,13 @@ TEST(LOG_UPDATE, ProxyTwice)
 
 int main(int argc, char *argv[])
 {
-    g_tsg_para.logger = MESA_create_runtime_log_handle("log/tsg_sync_state", 10);
-    // tsg_bridge_init("tsgconf/main.conf");
-    testing::InitGoogleTest(&argc, argv);
-    int ret = RUN_ALL_TESTS();
-    MESA_destroy_runtime_log_handle(g_tsg_para.logger);
-    return ret;
+	g_tsg_para.logger = MESA_create_runtime_log_handle("log/tsg_sync_state", 10);
+	tsg_stat_create("./tsgconf/main.conf");
+	tsg_stat_init();
+	tsg_stat_start();
+
+	testing::InitGoogleTest(&argc, argv);
+	int ret = RUN_ALL_TESTS();
+	MESA_destroy_runtime_log_handle(g_tsg_para.logger);
+	return ret;
 }

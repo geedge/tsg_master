@@ -17,6 +17,7 @@
 #include <MESA/stream.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_stat.h"
 #include "tsg_rule.h"
 #include "app_label.h"
 #include "tsg_entry.h"
@@ -79,11 +80,11 @@ static int set_drop_stream(const struct streaminfo *a_stream, enum TSG_PROTOCOL 
 				ret=MESA_set_stream_opt(a_stream, MSO_TIMEOUT, (void *)&g_tsg_para.timeout, sizeof(g_tsg_para.timeout));
 				if(ret<0)
 				{
-					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SET_TIMOUT_FAILED], 0, FS_OP_ADD, 1); 		
+					tsg_stat_flow_update(STAT_STATUS_FAIL, FLOW_STAT_SET_TIMEOUT, 1);
 				}
 				else
 				{
-					FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_SET_TIMOUT_SUCCESS], 0, FS_OP_ADD, 1);
+					tsg_stat_flow_update(STAT_STATUS_SUCCESS, FLOW_STAT_SET_TIMEOUT, 1);
 				}
 			break;
 		default:
@@ -391,17 +392,18 @@ int tsg_send_inject_packet(const struct streaminfo *a_stream, enum sapp_inject_o
 	int ret=0;
 	if(payload==NULL || payload_len<=0)
 	{
+		tsg_stat_flow_update(STAT_STATUS_FAIL, FLOW_STAT_INJECT, 1);
 		return -1;
 	}
 
 	ret=sapp_inject_pkt((struct streaminfo *)a_stream, sio, payload, payload_len, raw_route_dir);
 	if(ret<=0)
 	{
-		FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INJECT_PKT_FAILED], 0, FS_OP_ADD, 1); 
-		return -1;	
+		tsg_stat_flow_update(STAT_STATUS_FAIL, FLOW_STAT_INJECT, 1);
+		return -1;
 	}
 
-	FS_operate(g_tsg_para.fs2_handle, g_tsg_para.fs2_field_id[TSG_FS2_INJECT_PKT_SUCCESS], 0, FS_OP_ADD, 1); 
+	tsg_stat_flow_update(STAT_STATUS_SUCCESS, FLOW_STAT_INJECT, 1);
 	
 	return 0;
 }

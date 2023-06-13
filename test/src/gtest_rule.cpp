@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-
 #include <arpa/inet.h>
+
+#include "tsg_stat.h"
 #include "tsg_rule.h"
 #include "tsg_label.h"
 #include "tsg_entry.h"
@@ -1091,7 +1092,11 @@ TEST(TMAPI, ScanAppPropertiesPolicy)
 
 int main(int argc, char *argv[])
 {
+	tsg_stat_create("./tsgconf/main.conf");
+	tsg_stat_init();
 	tsg_maat_rule_init("tsgconf/main.conf");
+	tsg_stat_start();
+
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
 }

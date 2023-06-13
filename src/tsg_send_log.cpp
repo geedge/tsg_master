@@ -17,6 +17,7 @@
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_stat.h"
 #include "app_label.h"
 #include "tsg_entry.h"
 #include "tsg_bridge.h"
@@ -44,21 +45,6 @@ struct TLD_handle_t
 	MemoryPoolAllocator<> *valueAllocator;
 	Document *document;
 };
-
-id2field_t g_log_fs2_field[LOG_FS2_TYPE_MAX]={
-										 {0, LOG_FS2_ABORT_ALLOW, "abort_allow"},
-										 {0, LOG_FS2_ABORT_DENY, "abort_deny"},
-										 {0, LOG_FS2_ABORT_MONITOR, "abort_monitor"},
-										 {0, LOG_FS2_ABORT_INTERCEPT, "abort_intercept"},
-										 {0, LOG_FS2_ABORT_UNKNOWN, "abort_unknown"},
-										 {0, LOG_FS2_CREATE_LOG_HANDLE, "create_log_cnt"},
-										 {0, LOG_FS2_DUP_LOG_HANDLE, "dup_log_cnt"},
-										 {0, LOG_FS2_APPEND_LOG_HANDLE, "append_log_cnt"},
-										 {0, LOG_FS2_FREE_LOG_HANDLE, "free_log_cnt"},
-										 {0, LOG_FS2_FREE_RAPID_SIZE, "free_rapid_size"},
-										 {0, LOG_FS2_FREE_RAPID_CAPACITY, "free_rapid_capacity"}
-										};
-
 
 const id2field_t tld_type[TLD_TYPE_MAX]={{TLD_TYPE_UNKNOWN,	TLD_TYPE_UNKNOWN, 	"UNKOWN"},
 								 			{TLD_TYPE_LONG, 	TLD_TYPE_LONG,		"LONG"},
@@ -131,51 +117,53 @@ static int register_topic(struct tsg_log_instance_t *instance, struct topic_stat
 		topic->send_log_percent[i]=100;
 		topic->drop_start[i]=tsg_get_current_time_ms();
 	}
-
-	topic->fs2_line_id=FS_register(_instance->fs2_handle, FS_STYLE_LINE, FS_CALC_SPEED, topic->name);
+	
+	topic->row_idx=tsg_stat_sendlog_row_init((const char *)(topic->name));
 
 	return 1;
 }
 
 
-static int update_percent(struct tsg_log_instance_t *_instance, int service_id, enum LOG_COLUMN_STATUS column, int thread_id)
+static int update_percent(struct tsg_log_instance_t *_instance, int service_id, enum LOG_STATUS column, int thread_id)
 {
 	long long current_time_ms=tsg_get_current_time_ms();
 	struct topic_stat *topic=(struct topic_stat *)&(_instance->service2topic[service_id]);
 
 	switch(column)
 	{
-		case	LOG_COLUMN_STATUS_SUCCESS:			
-			FS_operate(_instance->fs2_handle, topic->fs2_line_id, _instance->fs2_column_id[column], FS_OP_ADD, 1);
-			FS_operate(_instance->fs2_handle, topic->fs2_line_id, _instance->fs2_column_id[column+1], FS_OP_ADD, 1);
+		case	LOG_STATUS_SUCCESS:
+			tsg_stat_sendlog_update(topic->row_idx, column, 1);
+			//tsg_stat_sendlog_update(topic->row_idx, column+1, 1);
 
-			FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_column_id[column], FS_OP_ADD, 1);
-			FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_column_id[column+1], FS_OP_ADD, 1);
+			tsg_stat_sendlog_update(_instance->sum_stat_row_id, column, 1);
+			//tsg_stat_sendlog_update(_instance->sum_stat_row_id, column+1, 1);
 			break;
-		case	LOG_COLUMN_STATUS_FAIL:			
-			FS_operate(_instance->fs2_handle, topic->fs2_line_id, _instance->fs2_column_id[column], FS_OP_ADD, 1);
-			FS_operate(_instance->fs2_handle, topic->fs2_line_id, _instance->fs2_column_id[column+1], FS_OP_ADD, 1);			
+		case	LOG_STATUS_FAIL:
+			tsg_stat_sendlog_update(topic->row_idx, column, 1);
+			//tsg_stat_sendlog_update(topic->row_idx, column+1, 1);
 
-			FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_column_id[column], FS_OP_ADD, 1);
-			FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_column_id[column+1], FS_OP_ADD, 1);
+			tsg_stat_sendlog_update(_instance->sum_stat_row_id, column, 1);
+			//tsg_stat_sendlog_update(_instance->sum_stat_row_id, column+1, 1);
+
 			if(current_time_ms - topic->drop_start[thread_id]>=1000)
 			{	
 				topic->send_log_percent[thread_id]/=2;
 				topic->drop_start[thread_id]=current_time_ms;
 			}
 			break;
-		case	LOG_COLUMN_STATUS_DROP:			
+		case	LOG_STATUS_DROP:
 			if((current_time_ms%100) > topic->send_log_percent[thread_id])
-			{				
-				FS_operate(_instance->fs2_handle, topic->fs2_line_id, _instance->fs2_column_id[column], FS_OP_ADD, 1);
-				FS_operate(_instance->fs2_handle, topic->fs2_line_id, _instance->fs2_column_id[column+1], FS_OP_ADD, 1);				
+			{
+				tsg_stat_sendlog_update(topic->row_idx, column, 1);
+				//tsg_stat_sendlog_update(topic->row_idx, column+1, 1);
 
-				FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_column_id[column], FS_OP_ADD, 1);
-				FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_column_id[column+1], FS_OP_ADD, 1);
+				tsg_stat_sendlog_update(_instance->sum_stat_row_id, column, 1);
+				//tsg_stat_sendlog_update(_instance->sum_stat_row_id, column+1, 1);
+
 				return 1;
 			}
 			break;
-		case	LOG_COLUMN_STATUS_MAX:
+		case	LOG_STATUS_MAX:
 			if(topic->send_log_percent[thread_id]>=100)
 			{
 				break;
@@ -184,7 +172,7 @@ static int update_percent(struct tsg_log_instance_t *_instance, int service_id, 
 			if((current_time_ms - topic->drop_start[thread_id]) >= _instance->recovery_interval*1000)
 			{
 				topic->send_log_percent[thread_id]++;
-				topic->drop_start[thread_id]=current_time_ms;						
+				topic->drop_start[thread_id]=current_time_ms;
 			}
 			break;
 		default:
@@ -192,16 +180,6 @@ static int update_percent(struct tsg_log_instance_t *_instance, int service_id, 
 	}
 
 	return 0;
-}
-
-static struct tsg_log_instance_t *get_log_instance(void)
-{
-	if(g_tsg_log_instance!=NULL)
-	{
-		return g_tsg_log_instance;
-	}
-
-	return NULL;
 }
 
 static int is_tunnels(const struct streaminfo *a_stream)
@@ -876,28 +854,49 @@ static int set_link_mac(struct tsg_log_instance_t *_instance, struct TLD_handle_
 	return 1;
 }
 
-static int action2fs_id(int action)
+enum RULE_STAT
 {
+	RULE_STAT_ABORT=0,
+	RULE_STAT_SEND
+};
+
+static void fs3_rule_stat_update(enum RULE_STAT stat_type, int action, long long increase)
+{
+	enum RULE_TYPE rule_type=RULE_TYPE_UNKNOW;
+	
 	switch(action)
 	{
 		case	TSG_ACTION_DENY:
-			return LOG_FS2_ABORT_DENY; 
-			break;
+			rule_type=RULE_TYPE_DENY; break;
 		case	TSG_ACTION_BYPASS:
-			return LOG_FS2_ABORT_ALLOW;
-			break;
+			rule_type=RULE_TYPE_ALLOW; break;
 		case	TSG_ACTION_MONITOR:
-			return LOG_FS2_ABORT_MONITOR;
-			break;
+			rule_type=RULE_TYPE_MONITOR; break;
 		case	TSG_ACTION_INTERCEPT:
-			return LOG_FS2_ABORT_INTERCEPT;
-			break;
+			rule_type=RULE_TYPE_INTERCEPT; break;
+		case	TSG_ACTION_NO_INTERCEPT:
+			rule_type=RULE_TYPE_NO_INTERCEPT; break;
+		case	TSG_ACTION_S_CHAINING:
+			rule_type=RULE_TYPE_SERVICE_CHAINING; break;
+		case	TSG_ACTION_SHAPING:
+			rule_type=RULE_TYPE_SHAPING; break;
+		case	TSG_ACTION_SHUNT:
+			rule_type=RULE_TYPE_SHUNT; break;
 		default:
-			return LOG_FS2_ABORT_UNKNOWN;
-			break;
+			rule_type=RULE_TYPE_UNKNOW; break;
 	}
 
-	return LOG_FS2_ABORT_UNKNOWN;
+	switch(stat_type)
+	{
+		case	RULE_STAT_ABORT:
+			tsg_stat_abort_rule_update(rule_type, increase);
+			break;
+		case	RULE_STAT_SEND:
+			tsg_stat_send_rule_update(rule_type, increase);
+			break;
+		default:
+			break;
+	}
 }
 
 int TLD_cancel(struct TLD_handle_t *handle)
@@ -907,25 +906,24 @@ int TLD_cancel(struct TLD_handle_t *handle)
 		if (handle->document != NULL)
 		{		
 			long long length=0;
-			struct tsg_log_instance_t *_instance=get_log_instance();
 			
-			length=handle->document->GetAllocator().Size();			
-			FS_operate(_instance->fs2_handle, _instance->fs2_field_id[LOG_FS2_FREE_RAPID_SIZE], 0, FS_OP_ADD, length);
+			length=handle->document->GetAllocator().Size();
+			tsg_stat_log_handle_update(LOG_HANDLE_FREE_SIZE, length);
 
 			length=handle->document->GetAllocator().Capacity();
-			FS_operate(_instance->fs2_handle, _instance->fs2_field_id[LOG_FS2_FREE_RAPID_CAPACITY], 0, FS_OP_ADD, length);
+			tsg_stat_log_handle_update(LOG_HANDLE_FREE_CAPACITY, length);
 			
 			delete handle->document;
 			handle->document = NULL;
 
 			delete handle->valueAllocator;
 			handle->valueAllocator=NULL;
-			
-			FS_operate(_instance->fs2_handle, _instance->fs2_field_id[LOG_FS2_FREE_LOG_HANDLE], 0, FS_OP_ADD, 1);
+
+			tsg_stat_log_handle_update(LOG_HANDLE_FREE_CNT, 1);
 		}
 		
 		free(handle);
-		handle = NULL;		
+		handle = NULL;
 	}
 	
 	return 0;
@@ -987,11 +985,9 @@ int TLD_append(struct TLD_handle_t *handle, char *key, void *value, TLD_TYPE typ
 			break;
 	}
 
-	struct tsg_log_instance_t *_instance=get_log_instance();
+	tsg_stat_log_handle_update(LOG_HANDLE_APPEND_CNT, 1);
 
-	FS_operate(_instance->fs2_handle, _instance->fs2_field_id[LOG_FS2_APPEND_LOG_HANDLE], 0, FS_OP_ADD, 1);
-	
-	return 0;	
+	return 0;
 }
 
 int TLD_array_append(struct TLD_handle_t *handle, char *key, void **array, int array_num, TLD_TYPE type)
@@ -1041,16 +1037,14 @@ struct TLD_handle_t *TLD_duplicate(struct TLD_handle_t *handle)
 
 	_handle->document->CopyFrom(*handle->document, _handle->document->GetAllocator());
 
-	struct tsg_log_instance_t *_instance=get_log_instance();
-	FS_operate(_instance->fs2_handle, _instance->fs2_field_id[LOG_FS2_DUP_LOG_HANDLE], 0, FS_OP_ADD, 1);
+	tsg_stat_log_handle_update(LOG_HANDLE_DUP_CNT, 1);
 
 	return _handle;
 }
 
 struct TLD_handle_t *TLD_create(int thread_id)
 {
-	struct tsg_log_instance_t *_instance=get_log_instance();
-	if(_instance->mode==CLOSE)
+	if(g_tsg_log_instance->mode==CLOSE)
 	{
 		return NULL;
 	}
@@ -1058,11 +1052,11 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	struct TLD_handle_t *_handle=(struct TLD_handle_t *)calloc(1, sizeof(struct TLD_handle_t));
 	_handle->thread_id = thread_id;
 	
-    _handle->valueAllocator =new MemoryPoolAllocator<>(g_tsg_log_instance->rapidjson_chunk_capacity);
+	_handle->valueAllocator =new MemoryPoolAllocator<>(g_tsg_log_instance->rapidjson_chunk_capacity);
 	_handle->document = new Document(_handle->valueAllocator);
 	_handle->document->SetObject();
+
 	
-	FS_operate(_instance->fs2_handle, _instance->fs2_field_id[LOG_FS2_CREATE_LOG_HANDLE], 0, FS_OP_ADD, 1);
 
 	return _handle;
 }
@@ -1246,6 +1240,8 @@ int set_sce_profile_ids(struct tsg_log_instance_t *_instance, struct TLD_handle_
 
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SCE_PROFILE_IDS].name, (void *) &sce_profile_ids_array, TLD_TYPE_OBJECT);
 
+	fs3_rule_stat_update(RULE_STAT_SEND, TSG_ACTION_S_CHAINING, sce->n_profile_ids);
+
 	return 0;
 }
 
@@ -1277,7 +1273,7 @@ int set_shaping_profile_ids(struct tsg_log_instance_t *_instance, struct TLD_han
 
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SHAPING_PROFILE_IDS].name, &shaping_array, TLD_TYPE_OBJECT);
 
-	//add_object_member(_handle, &shaping_object, _instance->id2field[LOG_COMMON_SHAPING_PROFILE_IDS].name, shaping_array);
+	fs3_rule_stat_update(RULE_STAT_SEND, TSG_ACTION_SHAPING, shaping->n_shaper_rule);
 
 	return 0;
 }
@@ -1844,7 +1840,7 @@ int log_common_fields_new(const char *filename, id2field_t *id2field, struct top
 	return 0;
 }
 
-struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_handle_t fs2_handle)
+struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 {
 	char override_sled_ip[32]={0};
 	char kafka_errstr[1024]={0};
@@ -1852,25 +1848,10 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	rd_kafka_conf_t *rdkafka_conf = NULL;
 	char broker_list[1024]={0};
 	struct tsg_log_instance_t *_instance=NULL;
-	char common_field_file[128]={0};	
+	char common_field_file[128]={0};
 	char log_path[128]={0};
-	_instance=(struct tsg_log_instance_t *)calloc(1, sizeof(struct tsg_log_instance_t));	
-	_instance->fs2_handle=fs2_handle;
 
-	for(int i=0; i<LOG_FS2_TYPE_MAX; i++)
-	{
-		_instance->fs2_field_id[i]=FS_register(_instance->fs2_handle, FS_STYLE_FIELD, FS_CALC_SPEED, g_log_fs2_field[i].name);
-	}
-	
-	_instance->fs2_column_id[LOG_COLUMN_STATUS_SUCCESS]=FS_register(_instance->fs2_handle, FS_STYLE_COLUMN, FS_CALC_CURRENT, "T_success_log");
-	_instance->fs2_column_id[LOG_COLUMN_STATUS_FAIL]=FS_register(_instance->fs2_handle, FS_STYLE_COLUMN, FS_CALC_CURRENT, "T_fail_log");	
-	_instance->fs2_column_id[LOG_COLUMN_STATUS_DROP]=FS_register(_instance->fs2_handle, FS_STYLE_COLUMN, FS_CALC_CURRENT, "T_drop_log");
-
-	_instance->fs2_column_id[LOG_COLUMN_STATUS_SUCCESS_S]=FS_register(_instance->fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, "success_log/s");
-	_instance->fs2_column_id[LOG_COLUMN_STATUS_FAIL_S]=FS_register(_instance->fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, "fail_log/s");	
-	_instance->fs2_column_id[LOG_COLUMN_STATUS_DROP_S]=FS_register(_instance->fs2_handle, FS_STYLE_COLUMN, FS_CALC_SPEED, "drop_log/s");
-	
-	_instance->sum_line_id=FS_register(_instance->fs2_handle, FS_STYLE_LINE, FS_CALC_SPEED, "SUM");
+	_instance=(struct tsg_log_instance_t *)calloc(1, sizeof(struct tsg_log_instance_t));
 
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "LOG_LEVEL",&(_instance->level), 30);
 	MESA_load_profile_string_def(conffile, "TSG_LOG", "LOG_PATH", log_path, sizeof(log_path), "./log/tsglog");
@@ -1890,11 +1871,13 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 	MESA_load_profile_int_def(conffile, "TSG_LOG","TCP_MIN_BYTES", &_instance->tcp_min_log_bytes, 5);
 	MESA_load_profile_int_def(conffile, "TSG_LOG","UDP_MIN_PKTS", &_instance->udp_min_log_pkts, 3);
 	MESA_load_profile_int_def(conffile, "TSG_LOG","UDP_MIN_BYTES", &_instance->udp_min_log_bytes, 5);
-
+	
 	_instance->logger=MESA_create_runtime_log_handle(log_path, _instance->level);
 	if(_instance->logger==NULL)
 	{
 		printf("MESA_create_runtime_log_handle failed ..., path: %s level: %d", log_path, _instance->level);
+		free(_instance);
+		_instance=NULL;
 		return NULL;
 	}
 	
@@ -1981,6 +1964,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile, screen_stat_ha
 
 	if(_instance->service2topic!=NULL)
 	{
+		_instance->sum_stat_row_id=tsg_stat_sendlog_row_init("sum");
 		for(int i=0; i<_instance->max_service; i++)
 		{
 			if(_instance->service2topic[i].type==TLD_TYPE_MAX && strlen(_instance->service2topic[i].name)>0)
@@ -2048,7 +2032,7 @@ void tsg_sendlog_destroy(struct tsg_log_instance_t * instance)
 
 int send_log_by_type(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, LOG_TYPE log_type, int thread_id)
 {
-	int ret=update_percent(_instance, log_type, LOG_COLUMN_STATUS_DROP, thread_id);
+	int ret=update_percent(_instance, log_type, LOG_STATUS_DROP, thread_id);
 	if(ret==1)
 	{
 		MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
@@ -2071,7 +2055,7 @@ int send_log_by_type(struct tsg_log_instance_t *_instance, struct TLD_handle_t *
 
 int send_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, LOG_TYPE log_type, struct maat_rule *rules, size_t n_rules, int thread_id)
 {
-	int fs_id=0,repeat_cnt=0;
+	int repeat_cnt=0;
 	int policy_id[MAX_RESULT_NUM]={0};
 
 	for(size_t i=0;i<n_rules; i++)
@@ -2104,8 +2088,7 @@ int send_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_h
 											(a_stream==NULL ? "" : PRINTADDR(a_stream,_instance->level))
 										);
 
-				fs_id=action2fs_id((int)rules[i].action);
-				FS_operate(_instance->fs2_handle, _instance->fs2_field_id[fs_id], 0, FS_OP_ADD, 1);
+				fs3_rule_stat_update(RULE_STAT_ABORT, (int)rules[i].action, 1);
 				continue;
 				break;
 			case	LOG_ALL:
@@ -2143,6 +2126,8 @@ int send_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_h
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_ACTION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name);
 		TLD_delete(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name);
+
+		fs3_rule_stat_update(RULE_STAT_SEND, (int)rules[i].action, 1);
 	}
 
 	return 0;
@@ -2186,7 +2171,8 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	if(_instance->mode==CLOSE)
 	{
 		TLD_cancel(handle);
-		FS_operate(_instance->fs2_handle, _instance->sum_line_id, _instance->fs2_field_id[LOG_COLUMN_STATUS_DROP], FS_OP_ADD, 1);
+		tsg_stat_sendlog_update(_instance->sum_stat_row_id, LOG_STATUS_DROP, 1);
+		tsg_stat_sendlog_update(_instance->sum_stat_row_id, LOG_STATUS_DROP_S, 1);
 		MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO, "tsg_send_log", "Disable tsg_send_log.");
 		return 0;
 	}
@@ -2194,6 +2180,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 	if(is_hitted_shunt(a_stream))
 	{
 		TLD_cancel(handle);
+		fs3_rule_stat_update(RULE_STAT_ABORT, TSG_ACTION_SHUNT, 1);
 		return 0;
 	}
 
@@ -2300,7 +2287,7 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 	status=rd_kafka_produce(_instance->service2topic[topic_id].topic_rkt, RD_KAFKA_PARTITION_UA, RD_KAFKA_MSG_F_COPY, payload, payload_len, NULL, 0, NULL);
 	if(status<0)
 	{
-		update_percent(_instance, topic_id, LOG_COLUMN_STATUS_FAIL, thread_id);
+		update_percent(_instance, topic_id, LOG_STATUS_FAIL, thread_id);
 		
 		MESA_handle_runtime_log(_instance->logger, 
 									RLOG_LV_INFO, 
@@ -2317,7 +2304,7 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 	}
 	else
 	{
-		update_percent(_instance, topic_id, LOG_COLUMN_STATUS_SUCCESS, thread_id);
+		update_percent(_instance, topic_id, LOG_STATUS_SUCCESS, thread_id);
 		MESA_handle_runtime_log(_instance->logger,
 								RLOG_LV_DEBUG,
 								"tsg_send_log", 
@@ -2327,7 +2314,7 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 							);
 	}
 
-	update_percent(_instance, topic_id, LOG_COLUMN_STATUS_MAX, thread_id); 
+	update_percent(_instance, topic_id, LOG_STATUS_MAX, thread_id); 
 
 	return 0;
 }
