@@ -1008,6 +1008,102 @@ TEST(TSGMaster, SessionApplicationMetrics)
 
 }
 
+extern int session_application_full_path_combine(struct gather_app_result * gather_result, char * out_full_path, int out_full_path_len);
+
+TEST(TSGMaster, SessionApplicationFullPath)
+{
+	char out_full_path[256]={0};
+	int out_full_path_len=sizeof(out_full_path);
+	struct gather_app_result gather_result={0};
+
+	gather_result.l7_protocol_num=1;
+	struct app_attributes l7_protocol={68, 0, 4};
+	gather_result.l7_protocol=&l7_protocol;
+
+	gather_result.qm_engine_num=3;
+	gather_result.l7_qm_engine_num=2;
+	struct app_attributes qm_engine[3]={{199, 0, 6}, {68, 0, 4}, {240, 0, 6}};
+	gather_result.qm_engine=qm_engine;
+
+	int offset=session_application_full_path_combine(&gather_result, out_full_path, out_full_path_len);
+	EXPECT_NE(0, offset);
+	EXPECT_STREQ("ssl.https.youtube", out_full_path);
+
+	// l7 protocol is empty
+	gather_result.l7_protocol_num=0;
+	gather_result.l7_protocol=NULL;
+
+	gather_result.qm_engine_num=3;
+	gather_result.l7_qm_engine_num=0;
+	struct app_attributes qm_engine2[3]={{199, 0, 6}, {68, 0, 4}, {240, 0, 6}};
+	gather_result.qm_engine=qm_engine2;
+
+	offset=session_application_full_path_combine(&gather_result, out_full_path, out_full_path_len);
+	EXPECT_NE(0, offset);
+	EXPECT_STREQ("ssl.https.youtube", out_full_path);
+
+	// matched application
+	gather_result.l7_protocol_num=1;
+	struct app_attributes l7_protocol_3={68, 0, 4};
+	gather_result.l7_protocol=&l7_protocol_3;
+
+	gather_result.qm_engine_num=3;
+	gather_result.l7_qm_engine_num=2;
+	struct app_attributes qm_engine3[3]={{199, 0, 6}, {68, 0, 4}, {240, 0, 6}};
+	gather_result.qm_engine=qm_engine3;
+
+	gather_result.matched_app_flag=1;
+	gather_result.matched_app={240, 0, 6};
+
+	struct app_attributes user_define_3={15009, 0, 4};
+	gather_result.user_define_num=1;
+	gather_result.user_define=&user_define_3;
+	
+	offset=session_application_full_path_combine(&gather_result, out_full_path, out_full_path_len);
+	EXPECT_NE(0, offset);
+	EXPECT_STREQ("ssl.https.youtube", out_full_path);
+
+	//userdefine application
+	gather_result.l7_protocol_num=1;
+	struct app_attributes l7_protocol_4={68, 0, 4};
+	gather_result.l7_protocol=&l7_protocol_4;
+
+	gather_result.qm_engine_num=3;
+	gather_result.l7_qm_engine_num=2;
+	struct app_attributes qm_engine4[3]={{199, 0, 6}, {68, 0, 4}, {240, 0, 6}};
+	gather_result.qm_engine=qm_engine4;
+
+	gather_result.matched_app_flag=0;
+
+	struct app_attributes user_define_4={15009, 0, 4};
+	gather_result.user_define_num=1;
+	gather_result.user_define=&user_define_4;
+	
+	offset=session_application_full_path_combine(&gather_result, out_full_path, out_full_path_len);
+	EXPECT_NE(0, offset);
+	EXPECT_STREQ("ssl.https.user_define_youtube", out_full_path);
+
+	// built in application
+	gather_result.l7_protocol_num=1;
+	struct app_attributes l7_protocol_5={68, 0, 4};
+	gather_result.l7_protocol=&l7_protocol_5;
+
+	gather_result.qm_engine_num=3;
+	gather_result.l7_qm_engine_num=2;
+	struct app_attributes qm_engine5[3]={{199, 0, 6}, {68, 0, 4}, {240, 0, 6}};
+	gather_result.qm_engine=qm_engine5;
+
+	gather_result.matched_app_flag=0;
+
+	struct app_attributes user_define_5={1500, 0, 4};
+	gather_result.user_define_num=1;
+	gather_result.user_define=&user_define_5;
+	
+	offset=session_application_full_path_combine(&gather_result, out_full_path, out_full_path_len);
+	EXPECT_NE(0, offset);
+	EXPECT_STREQ("ssl.https.built_in_youtube", out_full_path);
+}
+
 int main(int argc, char *argv[])
 {
 	TSG_MASTER_INIT();

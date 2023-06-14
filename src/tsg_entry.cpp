@@ -740,13 +740,13 @@ int session_application_full_path_combine(struct gather_app_result *gather_resul
 	int offset=0,combined_num=0;
 	unsigned int combined_array[COMBINED_APP_ID_NUM]={0};
 
-	if(gather_result->l7_protocol_num>0)
+	if(gather_result->l7_protocol_num>=gather_result->l7_qm_engine_num)
 	{
 		combined_num+=copy_app_id(gather_result->l7_protocol, gather_result->l7_protocol_num, combined_array, COMBINED_APP_ID_NUM);
 	}
 	else
 	{
-		combined_num+=copy_app_id(gather_result->qm_engine, gather_result->l7_protocol_num, combined_array, COMBINED_APP_ID_NUM);
+		combined_num+=copy_app_id(gather_result->qm_engine, gather_result->l7_qm_engine_num, combined_array, COMBINED_APP_ID_NUM);
 	}
 
 	if(gather_result->matched_app_flag > 0)
@@ -765,10 +765,10 @@ int session_application_full_path_combine(struct gather_app_result *gather_resul
 	{
 		combined_num+=copy_app_id(gather_result->built_in, gather_result->built_in_num, combined_array+combined_num, COMBINED_APP_ID_NUM-combined_num);
 	}
-	else if(gather_result->qm_engine_num-gather_result->l7_protocol_num > 0)
+	else if(gather_result->qm_engine_num-gather_result->l7_qm_engine_num > 0)
 	{
-		combined_num+=copy_app_id(  gather_result->qm_engine + gather_result->l7_protocol_num,
-									gather_result->qm_engine_num - gather_result->l7_protocol_num, 
+		combined_num+=copy_app_id(  gather_result->qm_engine + gather_result->l7_qm_engine_num,
+									gather_result->qm_engine_num - gather_result->l7_qm_engine_num, 
 									combined_array+combined_num,
 									COMBINED_APP_ID_NUM-combined_num
 								);
