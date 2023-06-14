@@ -334,26 +334,16 @@ static int set_location(struct TLD_handle_t *_handle,  const struct streaminfo *
 			len+=string_cat(buff+len, buff_len-len, location_info->province_full);
 			buff[len++]=',';
 			string_cat(buff+len, buff_len-len, location_info->country_full);
+
+			TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
 			break;
 		case	19:
-			len+=string_cat(buff+len, buff_len-len, location_info->country_full);
-			buff[len++]='.';
-			len+=string_cat(buff+len, buff_len-len, location_info->province_full);
-			buff[len++]='.';
-			len+=string_cat(buff+len, buff_len-len, location_info->city_full);
-			
-			if(location_info->subdivision_addr!=NULL)
-			{
-				buff[len++]='.';
-				string_cat(buff+len, buff_len-len, location_info->subdivision_addr);
-			}
+			TLD_append(_handle, field_name, (void *)location_info->full_location, TLD_TYPE_STRING);
 			break;
 		default:
 			return 0;
 	}
 	
-	TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
-
 	return 1;
 }
 

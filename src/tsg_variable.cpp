@@ -7,31 +7,31 @@
 
 struct tsg_rt_para g_tsg_para;
 
-struct id2field g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, "unknown"}, 
-										 {PROTO_IPv4, 	0,	"IPV4"},
-										 {PROTO_IPv6, 	0,	"IPV6"},
-										 {PROTO_TCP, 	0, 	"TCP"},
-										 {PROTO_UDP, 	0, 	"UDP"},
-										 {PROTO_HTTP, 	0, 	"HTTP"},
-										 {PROTO_MAIL, 	0, 	"MAIL"},
-										 {PROTO_DNS, 	0, 	"DNS"},
-										 {PROTO_FTP, 	0, 	"FTP"},
-										 {PROTO_SSL, 	0, 	"SSL"},
-										 {PROTO_SIP, 	0, 	"SIP"},
-										 {PROTO_BGP, 	0, 	"BGP"},
-										 {PROTO_STREAMING_MEDIA, 0, "STREAMING_MEDIA"},
-										 {PROTO_QUIC, 	0,	 "QUIC"},
-										 {PROTO_SSH, 	0, 	"SSH"},
-										 {PROTO_SMTP, 	0, 	"SMTP"},
-										 {PROTO_IMAP, 	0, 	"IMAP"},
-										 {PROTO_POP3, 	0, 	"POP3"},
-										 {PROTO_RTP, 	0, 	"RTP"},
-										 {PROTO_APP, 	0,	"BASE"},
-										 {PROTO_L2TP, 	0,	"L2TP"},
-										 {PROTO_PPTP, 	0,	"PPTP"},
-										 {PROTO_STRATUM, 	0,	"Stratum"},
-										 {PROTO_RDP, 	0,	"RDP"},
-										 {PROTO_DTLS, 	0,	"DTLS"}
+struct id2field_tlv g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, 7, "unknown"}, 
+										 {PROTO_IPv4, 	0,	4, "IPV4"},
+										 {PROTO_IPv6, 	0,	4, "IPV6"},
+										 {PROTO_TCP, 	0, 	3, "TCP"},
+										 {PROTO_UDP, 	0, 	3, "UDP"},
+										 {PROTO_HTTP, 	0, 	4, "HTTP"},
+										 {PROTO_MAIL, 	0, 	4, "MAIL"},
+										 {PROTO_DNS, 	0, 	3, "DNS"},
+										 {PROTO_FTP, 	0, 	3, "FTP"},
+										 {PROTO_SSL, 	0, 	3, "SSL"},
+										 {PROTO_SIP, 	0, 	3, "SIP"},
+										 {PROTO_BGP, 	0, 	3, "BGP"},
+										 {PROTO_STREAMING_MEDIA, 0, 15, "STREAMING_MEDIA"},
+										 {PROTO_QUIC, 	0,	4, "QUIC"},
+										 {PROTO_SSH, 	0, 	3, "SSH"},
+										 {PROTO_SMTP, 	0, 	4, "SMTP"},
+										 {PROTO_IMAP, 	0, 	4, "IMAP"},
+										 {PROTO_POP3, 	0, 	3, "POP3"},
+										 {PROTO_RTP, 	0, 	3, "RTP"},
+										 {PROTO_APP, 	0,	4, "BASE"},
+										 {PROTO_L2TP, 	0,	4, "L2TP"},
+										 {PROTO_PPTP, 	0,	4, "PPTP"},
+										 {PROTO_STRATUM, 0,	7, "Stratum"},
+										 {PROTO_RDP, 	0,	3, "RDP"},
+										 {PROTO_DTLS, 	0,	4, "DTLS"}
 										};
 
 const char *tsg_l7_protocol_id2name(unsigned int l7_protocol_id)
@@ -46,11 +46,11 @@ const char *tsg_l7_protocol_id2name(unsigned int l7_protocol_id)
 	return NULL;
 }
 
-unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name)
+unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name, unsigned int l7_protocol_name_len)
 {
 	struct l7_protocol *l7_proto=NULL;
 
-	HASH_FIND(hh2, g_tsg_para.id_by_name, l7_protocol_name, strlen(l7_protocol_name), l7_proto);
+	HASH_FIND(hh2, g_tsg_para.id_by_name, l7_protocol_name, l7_protocol_name_len, l7_proto);
 	if(l7_proto!=NULL)
 	{
 		return l7_proto->id;

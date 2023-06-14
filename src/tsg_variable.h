@@ -18,8 +18,8 @@ enum DEPLOY_MODE
 #define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
 #endif
 
-#ifndef	MAX_TSG_ALL_RESULT_NUM
-#define	MAX_TSG_ALL_RESULT_NUM	MAX_RESULT_NUM*3
+#ifndef	MAX_MATCHED_RULES_NUM
+#define	MAX_MATCHED_RULES_NUM	MAX_RESULT_NUM*4
 #endif
 
 #ifndef	MAX_STRING_LEN32
@@ -44,6 +44,14 @@ struct id2field
 {
 	int type;
 	int id;
+	char name[MAX_STRING_LEN32];
+};
+
+struct id2field_tlv
+{
+	int type;
+	int id;
+	int len;
 	char name[MAX_STRING_LEN32];
 };
 
@@ -84,7 +92,7 @@ struct tsg_rt_para
 };
 
 extern struct tsg_rt_para g_tsg_para;;
-extern struct id2field g_tsg_proto_name2id[PROTO_MAX];
+extern struct id2field_tlv g_tsg_proto_name2id[PROTO_MAX];
 
 struct l7_protocol 
 {

@@ -163,9 +163,9 @@ int tsg_get_app_name_by_id(struct maat *feather, int app_id, char *app_name, int
 size_t tsg_scan_session_flags(const struct streaminfo *a_stream, struct maat *feather, unsigned long flag, struct maat_state *s_mid, struct maat_rule *results, size_t n_results);
 size_t tsg_scan_app_id_policy(const struct streaminfo *a_stream, struct maat *feather, unsigned int app_id, struct maat_state *s_mid, struct maat_rule *results, size_t n_results);
 size_t tsg_scan_shared_policy(const struct streaminfo *a_stream, struct maat *feather, char *domain, int idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_results);
-size_t tsg_scan_app_properties_policy(const struct streaminfo *a_stream, struct maat *feather, char *property, char *district, struct maat_state *s_mid, struct maat_rule *results, int n_results);
 size_t tsg_scan_tunnel_id(const struct streaminfo *a_stream, struct maat *feather, struct maat_rule *results, size_t n_results, struct maat_state *s_mid, long long *bool_id_array, size_t n_bool_id_array);
 size_t tsg_scan_fqdn_category_id(const struct streaminfo * a_stream, struct maat *feather, unsigned int *category_id, int category_id_num, int table_idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_results);
+size_t tsg_scan_app_properties_policy(const struct streaminfo *a_stream, struct maat *feather, char *property, int property_len, char *district, int district_len, struct maat_state *s_mid, struct maat_rule *matched_rules, int n_matched_rules);
 
 int tsg_scan_intercept_exclusion(const struct streaminfo *a_stream, struct maat *feather, struct maat_rule *p_result, char *domain, int thread_seq);
 

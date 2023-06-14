@@ -53,5 +53,5 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 
 unsigned long long tsg_get_stream_trace_id(const struct streaminfo *a_stream);
 const char *tsg_l7_protocol_id2name(unsigned int l7_protocol_id);
-unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name);
+unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name, unsigned int l7_protocol_name_len);
 

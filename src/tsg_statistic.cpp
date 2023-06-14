@@ -66,12 +66,23 @@ int tsg_set_intercept_flow(struct maat_rule *p_result, struct traffic_info *traf
 	security_tags[SECURITY_TAG_ACTION].value_int = p_result->action;
 	security_tags[SECURITY_TAG_VSYS_ID].value_int = p_result->vsys_id;
 
+	long long column[COLUMN_MAX];
+	size_t n_column_num=COLUMN_MAX;
+	column[COLUMN_HIT_COUNT]=traffic_info->con_num;
+	column[COLUMN_IN_BYTES]=traffic_info->in_bytes;
+	column[COLUMN_OUT_BYTES]=traffic_info->out_bytes;
+	column[COLUMN_IN_PKTS]=traffic_info->in_packets;
+	column[COLUMN_OUT_PKTS]=traffic_info->out_packets;
+
+	fieldstat_dynamic_table_row_metric_values_incrby(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_table_id, "security_rule_hits", column, n_column_num, security_tags, SECURITY_TAG_MAX, thread_seq);
+
+#if 0
 	fieldstat_dynamic_table_metric_value_incrby(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_table_id, g_tsg_statis_para.security_column_ids[COLUMN_HIT_COUNT], "security_rule_hits", traffic_info->con_num, security_tags, (size_t)SECURITY_TAG_MAX, thread_seq);
 	fieldstat_dynamic_table_metric_value_incrby(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_table_id, g_tsg_statis_para.security_column_ids[COLUMN_IN_BYTES], "security_rule_hits", traffic_info->in_bytes, security_tags, (size_t)SECURITY_TAG_MAX, thread_seq);
 	fieldstat_dynamic_table_metric_value_incrby(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_table_id, g_tsg_statis_para.security_column_ids[COLUMN_OUT_BYTES], "security_rule_hits", traffic_info->out_bytes, security_tags, (size_t)SECURITY_TAG_MAX, thread_seq);
 	fieldstat_dynamic_table_metric_value_incrby(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_table_id, g_tsg_statis_para.security_column_ids[COLUMN_IN_PKTS], "security_rule_hits", traffic_info->in_packets, security_tags, (size_t)SECURITY_TAG_MAX, thread_seq);
 	fieldstat_dynamic_table_metric_value_incrby(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_table_id, g_tsg_statis_para.security_column_ids[COLUMN_OUT_PKTS], "security_rule_hits", traffic_info->out_packets, security_tags, (size_t)SECURITY_TAG_MAX, thread_seq);
-
+#endif
 	return 0;
 }
 
@@ -81,17 +92,29 @@ int tsg_set_policy_flow(const struct streaminfo *a_stream, struct maat_rule *p_r
 	{
 		return -1;
 	}
-
-	unsigned long long value = 0;
-	int value_len = sizeof(unsigned long long);
-
+	
 	struct fieldstat_tag security_tags[SECURITY_TAG_MAX] = {{"rule_id", 0, -1}, {"action", 0, -1}, {"vsys_id", 0, -1}};
 	security_tags[SECURITY_TAG_RULE_ID].value_int = p_result->rule_id;
 	security_tags[SECURITY_TAG_ACTION].value_int = p_result->action;
 	security_tags[SECURITY_TAG_VSYS_ID].value_int = p_result->vsys_id;
 
+	long long column[COLUMN_MAX];
+	size_t n_column_num=COLUMN_MAX;
+	
+	column[COLUMN_HIT_COUNT]=1;
+	
+	int value_len = sizeof(unsigned long long);
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_BYTE_RAW, (void *)&(column[COLUMN_IN_BYTES]), &value_len);
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_PKT, (void *)&(column[COLUMN_IN_PKTS]), &value_len);
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_BYTE_RAW, (void *)&(column[COLUMN_OUT_BYTES]), &value_len);
+	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_PKT, (void *)&(column[COLUMN_OUT_PKTS]), &value_len);
+
+	fieldstat_dynamic_table_row_metric_values_incrby(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_table_id, "security_rule_hits", column, n_column_num, security_tags, SECURITY_TAG_MAX, thread_seq);
+
+#if 0
 	fieldstat_dynamic_table_metric_value_incrby(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_table_id, g_tsg_statis_para.security_column_ids[COLUMN_HIT_COUNT], "security_rule_hits", 1, security_tags, (size_t)SECURITY_TAG_MAX, thread_seq);
 
+	unsigned long long value = 0;
 	value=0;
 	MESA_get_stream_opt(a_stream, MSO_TOTAL_INBOUND_BYTE_RAW, (void *)&value, &value_len);
 	fieldstat_dynamic_table_metric_value_incrby(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_table_id, g_tsg_statis_para.security_column_ids[COLUMN_IN_BYTES], "security_rule_hits", value, security_tags, (size_t)SECURITY_TAG_MAX, thread_seq);
@@ -107,7 +130,7 @@ int tsg_set_policy_flow(const struct streaminfo *a_stream, struct maat_rule *p_r
 	value=0;
 	MESA_get_stream_opt(a_stream, MSO_TOTAL_OUTBOUND_PKT, (void *)&value, &value_len);
 	fieldstat_dynamic_table_metric_value_incrby(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_table_id, g_tsg_statis_para.security_column_ids[COLUMN_OUT_PKTS], "security_rule_hits", value, security_tags, (size_t)SECURITY_TAG_MAX, thread_seq);
-
+#endif
 	return 0;
 }
 
@@ -202,6 +225,32 @@ int tsg_set_application_metrics(const struct streaminfo *a_stream, const char *l
 	app_tags[APP_TAG_PROTOCOL_LABEL].value_str = l4_protocol;
 	app_tags[APP_TAG_APP_FULL_PATH].value_str = app_full_path;
 
+	long long column[TRAFFIC_APP_MAX];
+	size_t n_column_num=TRAFFIC_APP_MAX;
+
+	column[TRAFFIC_APP_SESSIONS]=app_statis->sessions;
+	column[TRAFFIC_APP_IN_BYTES]=app_statis->in_bytes;
+	column[TRAFFIC_APP_OUT_BYTES]=app_statis->out_bytes;
+	column[TRAFFIC_APP_IN_PKTS]=app_statis->in_pkts;
+	column[TRAFFIC_APP_OUT_PKTS]=app_statis->out_pkts;
+	column[TRAFFIC_APP_C2S_PKTS]=app_statis->c2s_pkts;
+	column[TRAFFIC_APP_S2C_PKTS]=app_statis->s2c_pkts;
+	column[TRAFFIC_APP_C2S_BYTES]=app_statis->c2s_bytes;
+	column[TRAFFIC_APP_S2C_BYTES]=app_statis->s2c_bytes;
+	column[TRAFFIC_APP_C2S_FRAGMENTS]=app_statis->c2s_fragments;
+	column[TRAFFIC_APP_S2C_FRAGMENTS]=app_statis->s2c_fragments;
+	column[TRAFFIC_APP_C2S_LOST_BYTES]=app_statis->c2s_tcp_lost_bytes;
+	column[TRAFFIC_APP_S2C_LOST_BYTES]=app_statis->s2c_tcp_lost_bytes;
+	column[TRAFFIC_APP_C2S_ORDER_PKTS]=app_statis->c2s_tcp_ooorder_pkts;
+	column[TRAFFIC_APP_S2C_ORDER_PKTS]=app_statis->s2c_tcp_ooorder_pkts;
+	column[TRAFFIC_APP_C2S_RETRANSMITTED_PKTS]=app_statis->c2s_tcp_retransmitted_pkts;
+	column[TRAFFIC_APP_S2C_RETRANSMITTED_PKTS]=app_statis->s2c_tcp_retransmitted_pkts;
+	column[TRAFFIC_APP_C2S_RETRANSMITTED_BYTES]=app_statis->c2s_tcp_retransmitted_bytes;
+	column[TRAFFIC_APP_S2C_RETRANSMITTED_BYTES]=app_statis->s2c_tcp_retransmitted_bytes;
+
+	fieldstat_dynamic_table_row_metric_values_incrby(g_tsg_statis_para.app_metric_handle, g_tsg_statis_para.app_metric_table_id, "traffic_application_protocol_stat", column, n_column_num, app_tags, APP_TAG_MAX, thread_seq);
+
+#if 0
 	fieldstat_dynamic_table_metric_value_incrby(g_tsg_statis_para.app_metric_handle, g_tsg_statis_para.app_metric_table_id, g_tsg_statis_para.app_column_ids[TRAFFIC_APP_SESSIONS], "traffic_application_protocol_stat",
 												app_statis->sessions, app_tags, (size_t)APP_TAG_MAX, thread_seq);
 
@@ -258,7 +307,7 @@ int tsg_set_application_metrics(const struct streaminfo *a_stream, const char *l
 
 	fieldstat_dynamic_table_metric_value_incrby(g_tsg_statis_para.app_metric_handle, g_tsg_statis_para.app_metric_table_id, g_tsg_statis_para.app_column_ids[TRAFFIC_APP_S2C_RETRANSMITTED_BYTES], "traffic_application_protocol_stat",
 												app_statis->s2c_tcp_retransmitted_bytes, app_tags, (size_t)APP_TAG_MAX, thread_seq);
-
+#endif
 	return 0;
 }
 

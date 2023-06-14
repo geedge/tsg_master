@@ -49,10 +49,12 @@ struct asn_info
 struct location_info
 {
 	int ref_cnt;
+	int full_location_len;
 	char *country_full;
 	char *province_full;
 	char *city_full;
 	char *subdivision_addr;
+	char *full_location;
 };
 
 struct subscribe_id_info

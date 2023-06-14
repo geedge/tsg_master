@@ -1015,11 +1015,11 @@ unsigned char tsg_enforing_deny(const struct streaminfo *a_stream, struct maat_r
 		
 		if(protocol==PROTO_MAIL)
 		{
-			app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_SMTP].name);
+			app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_SMTP].name, g_tsg_proto_name2id[PROTO_SMTP].len);
 		}
 		else
 		{
-			app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[protocol].name);
+			app_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[protocol].name, g_tsg_proto_name2id[protocol].len);
 		}
 		state=tsg_enforing_deny_application(a_stream, p_result, protocol, app_id, ACTION_RETURN_TYPE_APP, user_data);
 	}

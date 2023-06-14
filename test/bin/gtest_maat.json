@@ -1153,7 +1153,7 @@
                             "table_content": {
                                 "format": "uncase plain",
                                 "match_method": "complete",
-                                "keywords": "country_full_test.city_full_test.",
+                                "keywords": "country_full_test..city_full_test.",
                                 "expr_type": "none"
                             }
                         }
@@ -1184,7 +1184,7 @@
                             "table_content": {
                                 "format": "uncase plain",
                                 "match_method": "complete",
-                                "keywords": "country_full_test.city_full_test.",
+                                "keywords": "country_full_test..city_full_test.",
                                 "expr_type": "none"
                             }
                         }

@@ -47,7 +47,7 @@ const struct str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNKN
 												};
 
 extern const char *tsg_l7_protocol_id2name(unsigned int l7_protocol_id);
-extern unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name);
+extern unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name, unsigned int l7_protocol_name_len);
 
 static char* tm_strdup(const char* s)
 {
@@ -553,6 +553,7 @@ void ex_data_location_dup(int table_id, void **to, void **from, long argl, void*
 
 void ex_data_location_new(const char *table_name, int table_id, const char* key, const char* table_line, void **ad, long argl, void* argp)
 {
+	char full_address[1024]={0};
 	struct location_info *location=(struct location_info *)calloc(1, sizeof(struct location_info));
 
 	location->country_full=column_string_get_value(table_line, 13);	// country_full
@@ -566,6 +567,25 @@ void ex_data_location_new(const char *table_name, int table_id, const char* key,
 	{
 		location->subdivision_addr=column_string_get_value(table_line, 17);	// subdivision_addr
 		tsg_str_unescape(location->subdivision_addr);
+
+		location->full_location_len=snprintf(full_address, 
+												sizeof(full_address),
+												"%s.%s.%s.%s.", 
+												location->country_full,
+												location->province_full,
+												location->city_full,
+												location->subdivision_addr==NULL ? "" : location->subdivision_addr);
+	}
+	else
+	{
+		location->full_location_len=snprintf(full_address, sizeof(full_address), "%s.%s.", location->country_full, location->city_full);
+	}
+
+	if(location->full_location_len>0)
+	{
+		location->full_location=(char *)malloc(location->full_location_len+1);
+		memcpy(location->full_location, full_address, location->full_location_len);
+		location->full_location[location->full_location_len]='\0';
 	}
 	
 	atomic_inc(&location->ref_cnt);
@@ -586,6 +606,7 @@ void ex_data_location_free(int table_id, void **ad, long argl, void* argp)
 			tsg_free_field(location->province_full);
 			tsg_free_field(location->city_full);
 			tsg_free_field(location->subdivision_addr);
+			tsg_free_field(location->full_location);
 
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
@@ -786,14 +807,41 @@ void ex_data_app_id_dict_new(const char *table_name, int table_id, const char* k
 	parse_security_deny_action(deny_action_str, &(dict->deny_app_para));
 	tsg_free_field(deny_action_str);
 	deny_action_str=NULL;
+
+	if(tsg_str_unescape(dict->app_name))
+	{
+		dict->app_name_len=(unsigned short)strlen(dict->app_name);
+	}
+
+	if(tsg_str_unescape(dict->parent_app_name))
+	{
+		dict->parent_app_name_len=(unsigned short)strlen(dict->parent_app_name);
+	}
+
+	if(tsg_str_unescape(dict->risk))
+	{
+		dict->risk_len=(char)strlen(dict->risk);
+	}
 	
-	tsg_str_unescape(dict->risk);
-	tsg_str_unescape(dict->app_name);
-	tsg_str_unescape(dict->parent_app_name);
-	tsg_str_unescape(dict->category);
-	tsg_str_unescape(dict->subcategory);
-	tsg_str_unescape(dict->technology);
-	tsg_str_unescape(dict->characteristics);
+	if(tsg_str_unescape(dict->category))
+	{
+		dict->category_len=(char)strlen(dict->category);
+	}
+
+	if(tsg_str_unescape(dict->subcategory))
+	{
+		dict->subcategory_len=(char)strlen(dict->subcategory);
+	}
+
+	if(tsg_str_unescape(dict->technology))
+	{
+		dict->technology_len=(char)strlen(dict->technology);
+	}
+
+	if(tsg_str_unescape(dict->characteristics))
+	{
+		dict->characteristics_len=(char)strlen(dict->characteristics);
+	}
 
 	atomic_inc(&dict->ref_cnt);
 	*ad=(void *)dict;
@@ -2475,28 +2523,12 @@ size_t tsg_scan_ip_asn(const struct streaminfo *a_stream, struct maat *feather, 
 
 size_t tsg_scan_ip_location(const struct streaminfo *a_stream, struct maat *feather, struct location_info *location, enum MAAT_SCAN_TB idx, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	char full_address[1024]={0};
 	if(location==NULL || matched_rules==NULL || n_matched_rules==0)
 	{
 		return 0;
 	}
 
-	if(g_tsg_maat_rt_para.location_field_num==19)
-	{
-		snprintf(full_address, 
-					sizeof(full_address),
-					"%s.%s.%s.%s.", 
-					location->country_full,
-					location->province_full,
-					location->city_full,
-					location->subdivision_addr==NULL ? "" : location->subdivision_addr);
-	}
-	else
-	{
-		snprintf(full_address, sizeof(full_address), "%s.%s.", location->country_full, location->city_full);
-	}
-
-	return tsg_scan_string(a_stream, feather, full_address, strlen(full_address), idx, s_mid, matched_rules, n_matched_rules);
+	return tsg_scan_string(a_stream, feather, location->full_location, location->full_location_len, idx, s_mid, matched_rules, n_matched_rules);
 }
 
 int tsg_scan_intercept_exclusion(const struct streaminfo *a_stream, struct maat *feather, struct maat_rule *p_result, char *domain, int thread_seq)
@@ -2774,7 +2806,7 @@ size_t tsg_scan_app_id_policy(const struct streaminfo *a_stream, struct maat *fe
 	return tsg_scan_integer(a_stream, feather, (long long)app_id, MAAT_SCAN_APP_ID, s_mid, matched_rules, n_matched_rules);
 }
 
-size_t tsg_scan_app_properties_policy(const struct streaminfo *a_stream, struct maat *feather, char *property, char *district, struct maat_state *s_mid, struct maat_rule *matched_rules, int n_matched_rules)
+size_t tsg_scan_app_properties_policy(const struct streaminfo *a_stream, struct maat *feather, char *property, int property_len, char *district, int district_len, struct maat_state *s_mid, struct maat_rule *matched_rules, int n_matched_rules)
 {
 	if(property==NULL || district==NULL)
 	{
@@ -2783,8 +2815,8 @@ size_t tsg_scan_app_properties_policy(const struct streaminfo *a_stream, struct 
 
 	size_t matched_cnt=0;
 	struct maat_rule property_result[MAX_RESULT_NUM]={0};
-	maat_state_set_scan_district(s_mid,  g_tsg_maat_rt_para.scan_tb[MAAT_SCAN_SELECTOR_PROPERTIES].id, (const char *)district, strlen(district));
-	size_t ret=tsg_scan_string(a_stream, feather, property, strlen(property), MAAT_SCAN_SELECTOR_PROPERTIES, s_mid, property_result, MAX_RESULT_NUM);
+	maat_state_set_scan_district(s_mid,  g_tsg_maat_rt_para.scan_tb[MAAT_SCAN_SELECTOR_PROPERTIES].id, (const char *)district, district_len);
+	size_t ret=tsg_scan_string(a_stream, feather, property, property_len, MAAT_SCAN_SELECTOR_PROPERTIES, s_mid, property_result, MAX_RESULT_NUM);
 	for(size_t i=0; i<ret; i++)
 	{
 		matched_cnt+=tsg_scan_integer(a_stream, feather, property_result[i].rule_id, MAAT_SCAN_SELECTOR_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
@@ -2849,11 +2881,11 @@ size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *fea
 				matched_cnt+=tsg_scan_ipv6_address(cur_stream, feather, p_addr, MAAT_SCAN_DST_IP_ADDR, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 				break;
 			case	ADDR_TYPE_L2TP:
-				proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_L2TP].name);
+				proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_L2TP].name, g_tsg_proto_name2id[PROTO_L2TP].len);
 				matched_cnt+=tsg_scan_integer(cur_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 				break;
 			case	ADDR_TYPE_PPTP:
-				proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_PPTP].name);
+				proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_PPTP].name, g_tsg_proto_name2id[PROTO_PPTP].len);
 				matched_cnt+=tsg_scan_integer(cur_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 				break;
 			case	ADDR_TYPE_VLAN:
@@ -2885,11 +2917,11 @@ size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *fea
 
 	if(matched_cnt<n_matched_rules && proto>PROTO_UNKONWN && proto<PROTO_MAX)
 	{
-		proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[proto].name);
+		proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[proto].name, g_tsg_proto_name2id[proto].len);
 		matched_cnt+=tsg_scan_integer(a_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 		if(proto==PROTO_SMTP || proto==PROTO_IMAP || proto==PROTO_POP3)
 		{
-			proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_MAIL].name);
+			proto_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_MAIL].name, g_tsg_proto_name2id[proto].len);
 			matched_cnt+=tsg_scan_integer(a_stream, feather, (long long)proto_id, MAAT_SCAN_APP_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 		}
 	}
@@ -2939,19 +2971,27 @@ int tsg_get_app_name_by_id(struct maat *feather, int app_id, char *app_name, int
 	struct app_id_dict *dict=(struct app_id_dict *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (const char *)&(ll_app_id), sizeof(long long));
 	if(dict!=NULL)
 	{
-		if((int)strlen(dict->app_name) > app_name_len)
+		if((int)(dict->app_name_len) > app_name_len)
 		{
 			ex_data_app_id_dict_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (void **)&dict, 0, NULL);
 			return offset;
 		}
 		
 		if(dict->parent_app_id!=0 && is_joint_parent==1)
-		{		
-			offset=snprintf(app_name, app_name_len, "%s.%s", dict->parent_app_name, dict->app_name);
+		{
+			offset=(int)dict->parent_app_name_len;
+			memcpy(app_name, dict->parent_app_name, offset);
+			app_name[offset++]='.';
+
+			memcpy(app_name+offset, dict->app_name, dict->app_name_len);
+			offset+=dict->app_name_len;
+			app_name[offset]='\0';
 		}
 		else
 		{
-			offset=snprintf(app_name, app_name_len, "%s", dict->app_name);
+			offset=(int)dict->app_name_len;
+			memcpy(app_name, dict->app_name, offset);
+			app_name[offset]='\0';
 		}
 		
 		ex_data_app_id_dict_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (void **)&dict, 0, NULL);
