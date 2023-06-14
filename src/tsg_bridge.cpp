@@ -468,7 +468,7 @@ const char *srt_attribute_get_client_subscriber_id(const struct session_runtime_
 }
 const char *srt_attribute_get_server_subscriber_id(const struct session_runtime_attribute *srt_attribute)
 {
-	if(srt_attribute!=NULL && srt_attribute->client_subscribe_id!=NULL)
+	if(srt_attribute!=NULL && srt_attribute->server_subscribe_id!=NULL)
 	{
 		return (const char *)(srt_attribute->server_subscribe_id->subscribe_id);
 	}

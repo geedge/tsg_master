@@ -846,6 +846,27 @@ TEST(TSGBridge, SessionSessionRuntimeAttributeTSG15457)
 	EXPECT_EQ(nullptr, session_runtime_attribute_get(&a_stream));
 }
 
+TEST(TSGBridge, SessionSessionRuntimeAttributeSubscriberIDTSG15568)
+{
+	const struct streaminfo a_stream = {0};
+	struct session_runtime_attribute *srt_attribute = (struct session_runtime_attribute *)session_runtime_attribute_new(&a_stream);
+
+	srt_attribute->client_subscribe_id=(struct subscribe_id_info *)dictator_malloc(0, sizeof(struct subscribe_id_info));
+	srt_attribute->client_subscribe_id->ref_cnt=1;
+	srt_attribute->client_subscribe_id->subscribe_id=(char *)"zhansan";
+
+	struct session_runtime_attribute *srt_attribute_out=(struct session_runtime_attribute *)session_runtime_attribute_get(&a_stream);
+	EXPECT_NE(nullptr, srt_attribute_out);
+
+	EXPECT_NE(nullptr, srt_attribute_out->client_subscribe_id);
+	EXPECT_EQ(1, srt_attribute_out->client_subscribe_id->ref_cnt);
+	EXPECT_STREQ("zhansan", srt_attribute_out->client_subscribe_id->subscribe_id);
+	EXPECT_STREQ("zhansan", srt_attribute_get_client_subscriber_id((const struct session_runtime_attribute *)srt_attribute_out));
+
+	EXPECT_EQ(nullptr, srt_attribute_out->server_subscribe_id);
+	EXPECT_EQ(nullptr, srt_attribute_get_server_subscriber_id((const struct session_runtime_attribute *)srt_attribute_out));
+}
+
 int main(int argc, char *argv[])
 {
 	int ret=tsg_bridge_init("tsgconf/main.conf");
