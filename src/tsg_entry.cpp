@@ -1613,7 +1613,7 @@ size_t session_app_id_and_properties_scan(const struct streaminfo *a_stream, str
 			
 			set_app_timeout(a_stream, dict, &(srt_process_context->timeout));
 
-			plugin_ex_data_app_id_dict_free(dict);
+			//plugin_ex_data_app_id_dict_free(dict);
 		}
 		else
 		{

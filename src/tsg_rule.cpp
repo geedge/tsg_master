@@ -773,8 +773,8 @@ void ex_data_app_id_dict_dup(int table_id, void **to, void **from, long argl, vo
 {
 	if((*from)!=NULL)
 	{
-		struct app_id_dict *dict=(struct app_id_dict *)(*from);
-		atomic_inc(&dict->ref_cnt);
+		//struct app_id_dict *dict=(struct app_id_dict *)(*from);
+		//atomic_inc(&dict->ref_cnt);
 		*to=*from;
 	}
 	
@@ -843,7 +843,7 @@ void ex_data_app_id_dict_new(const char *table_name, int table_id, const char* k
 		dict->characteristics_len=(char)strlen(dict->characteristics);
 	}
 
-	atomic_inc(&dict->ref_cnt);
+	//atomic_inc(&dict->ref_cnt);
 	*ad=(void *)dict;
 	
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_APP_ID_DICT, 1);
@@ -855,7 +855,7 @@ void ex_data_app_id_dict_free(int table_id, void **ad, long argl, void* argp)
 	if((*ad)!=NULL)
 	{
 		struct app_id_dict *dict=(struct app_id_dict *)(*ad);
-		if((__sync_sub_and_fetch(&dict->ref_cnt, 1) == 0))
+		//if((__sync_sub_and_fetch(&dict->ref_cnt, 1) == 0))
 		{
 			tsg_free_field(dict->app_name);
 			tsg_free_field(dict->parent_app_name);
@@ -1312,9 +1312,9 @@ void ex_data_security_compile_new(const char *table_name, int table_id, const ch
 
 void ex_data_security_compile_dup(int table_id, void **to, void **from, long argl, void *argp)
 {
-	struct maat_compile *compile=(struct maat_compile *)(*from);
-	if(compile!=NULL)
+	if(*from!=NULL)
 	{
+		struct maat_compile *compile=(struct maat_compile *)(*from);
 		atomic_inc(&compile->ref_cnt);
 		*to=*from;
 	}
@@ -2973,7 +2973,7 @@ int tsg_get_app_name_by_id(struct maat *feather, int app_id, char *app_name, int
 	{
 		if((int)(dict->app_name_len) > app_name_len)
 		{
-			ex_data_app_id_dict_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (void **)&dict, 0, NULL);
+			//ex_data_app_id_dict_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (void **)&dict, 0, NULL);
 			return offset;
 		}
 		
@@ -2994,7 +2994,7 @@ int tsg_get_app_name_by_id(struct maat *feather, int app_id, char *app_name, int
 			app_name[offset]='\0';
 		}
 		
-		ex_data_app_id_dict_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (void **)&dict, 0, NULL);
+		//ex_data_app_id_dict_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_APP_ID_DICT].id, (void **)&dict, 0, NULL);
 
 		return offset;
 	}

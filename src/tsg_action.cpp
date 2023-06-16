@@ -988,7 +988,7 @@ unsigned char tsg_enforing_deny_application(const struct streaminfo *a_stream, s
 	}
 	
 	state=tsg_do_deny_action(a_stream, &app_user_region, p_result, protocol, type, user_data);
-	plugin_ex_data_app_id_dict_free(dict);
+	//plugin_ex_data_app_id_dict_free(dict);
 	
 	return state;
 }
