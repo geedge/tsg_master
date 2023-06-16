@@ -2341,7 +2341,7 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 
 	if(state1&APP_STATE_DROPME || state2&APP_STATE_DROPME || a_udp->opstate==OP_STATE_CLOSE)
 	{
-		//session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
+		session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
 		dictator_free(thread_seq, *pme);
 		*pme=NULL;
 

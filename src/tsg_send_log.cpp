@@ -1729,6 +1729,24 @@ static int session_record_limit(struct tsg_log_instance_t *_instance, const stru
 	return 0;
 }
 
+int append_common_field(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
+{
+	TLD_append_streaminfo(_instance, _handle, a_stream);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
+	if(strlen(g_tsg_para.device_sn)>0)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
+	}
+
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_DATA_CENTER].name, (void *)tsg_data_center_get(), TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_TAG].name, (void *)tsg_device_tag_get(), TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_TRAFFIC_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
+
+	set_application_behavior(_instance, _handle, a_stream);
+
+	return 1;
+}
+
 int log_common_fields_new(const char *filename, id2field_t *id2field, struct topic_stat **service2topic, int *max_service)
 {
 	int i=0,flag=0;
@@ -2117,7 +2135,7 @@ int send_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_h
 	return 0;
 }
 
-int deal_event_rules(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, LOG_TYPE log_type, TSG_SERVICE service, int thread_id)
+int deal_event_rules(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream, LOG_TYPE log_type, TSG_SERVICE service, int *is_append_common_field, int thread_id)
 {
 	struct matched_policy_rules *matched_rules=(struct matched_policy_rules *)session_matched_rules_get(a_stream, service);
 	if(matched_rules==NULL || matched_rules->n_rules==0)
@@ -2125,6 +2143,12 @@ int deal_event_rules(struct tsg_log_instance_t *_instance, struct TLD_handle_t *
 		return 0;
 	}
 
+	if((*is_append_common_field)==0)
+	{
+		(*is_append_common_field)=1;
+		append_common_field(_instance, _handle, a_stream);
+	}
+	
 	if(service==TSG_SERVICE_INTERCEPT)
 	{
 		set_intercept_info(_instance, _handle, a_stream);
@@ -2168,40 +2192,36 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		return 0;
 	}
 
-	TLD_append_streaminfo(_instance, _handle, a_stream);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
-	if(strlen(g_tsg_para.device_sn)>0)
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_ID].name, (void *)(g_tsg_para.device_sn), TLD_TYPE_STRING);
-	}
-
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_DATA_CENTER].name, (void *)tsg_data_center_get(), TLD_TYPE_STRING);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_DEVICE_TAG].name, (void *)tsg_device_tag_get(), TLD_TYPE_STRING);
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_TRAFFIC_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
-
-	set_application_behavior(_instance, _handle, a_stream);
+	int is_append_common_field=0;
 
 	switch(log_type)
 	{
 		case	LOG_TYPE_SECURITY_EVENT:
+			append_common_field(instance, handle, a_stream);
 			send_event_log(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, rules, n_rules, thread_id);
 			break;
 		case	LOG_TYPE_INTERCEPT_EVENT:
+			append_common_field(instance, handle, a_stream);
 			send_event_log(_instance, _handle, a_stream, LOG_TYPE_INTERCEPT_EVENT, rules, n_rules, thread_id);
 			break;
 		case	LOG_TYPE_SESSION_RECORD:
 		case	LOG_TYPE_TRANSACTION_RECORD:
-			deal_event_rules(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, TSG_SERVICE_SECURITY, thread_id);
+			deal_event_rules(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, TSG_SERVICE_SECURITY, &is_append_common_field, thread_id);
 
 			if(_instance->send_intercept_log==1)
 			{
-				deal_event_rules(_instance, _handle, a_stream, LOG_TYPE_INTERCEPT_EVENT, TSG_SERVICE_INTERCEPT, thread_id);
+				deal_event_rules(_instance, _handle, a_stream, LOG_TYPE_INTERCEPT_EVENT, TSG_SERVICE_INTERCEPT, &is_append_common_field, thread_id);
 			}
 			// no break;
 		case	LOG_TYPE_INTERIM_SESSION_RECORD:
 			if(session_record_limit(_instance, a_stream, log_type))
 			{
 				break;
+			}
+
+			if(is_append_common_field==0)
+			{
+				append_common_field(_instance, _handle, a_stream);
 			}
 
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
@@ -2216,6 +2236,7 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 		case	LOG_TYPE_VOIP_RECORD:
 		case	LOG_TYPE_GTPC_RECORD:
 		case	LOG_TYPE_INTERNAL_RTP_RECORD:
+			append_common_field(_instance, _handle, a_stream);
 			TLD_append(_handle, _instance->id2field[LOG_COMMON_VSYSTEM_ID].name, (void *)(long)_instance->vsystem_id, TLD_TYPE_LONG);
 			send_log_by_type(_instance, _handle, a_stream, log_type, thread_id);
 			break;
