@@ -17,6 +17,7 @@
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_log.h"
 #include "tsg_stat.h"
 #include "app_label.h"
 #include "tsg_entry.h"
@@ -1643,17 +1644,17 @@ int set_intercept_info(struct tsg_log_instance_t *_instance, struct TLD_handle_t
 
 int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, const struct streaminfo *a_stream)
 {
-	if(instance==NULL || handle==NULL || a_stream==NULL)
+	struct TLD_handle_t *_handle=handle;
+	struct tsg_log_instance_t *_instance=instance;
+
+	if(_instance==NULL || _handle==NULL || a_stream==NULL)
 	{
-		if(instance)
+		if(_instance)
 		{
-			MESA_handle_runtime_log(instance->logger, RLOG_LV_DEBUG, "TLD_APPEND_STREAM", "TLD_handle==NULL || addr==NULL");
+			MASTER_LOG(_instance->logger, RLOG_LV_DEBUG, LOG_MODULE_SENDLOG, "TLD_APPEND_STREAM TLD_handle==NULL || addr==NULL");
 		}
 		return -1;
 	}
-	
-	struct TLD_handle_t *_handle=handle;
-	struct tsg_log_instance_t *_instance=instance;
 
 	int ret=set_linkinfo(_instance, _handle, a_stream);
 	if(ret==0)
@@ -1884,7 +1885,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "MODE",&(_instance->mode), 0);
 	if(_instance->mode==CLOSE)
 	{
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "TSG_LOG", "Disable tsg_send_log");
+		MASTER_LOG(_instance->logger, RLOG_LV_FATAL, LOG_MODULE_SENDLOG, "Disable tsg_send_log");
 		return _instance;
 	}
 	
@@ -1906,9 +1907,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	_instance->udp_flow_project_id=project_customer_register(_instance->udp_label, "struct");
 	if(_instance->tcp_flow_project_id<0 || _instance->udp_flow_project_id<0)
 	{
-		MESA_handle_runtime_log(_instance->logger,
-									RLOG_LV_FATAL,
-									"TCP_OR_UDP_LABEL",
+		MASTER_LOG(_instance->logger, RLOG_LV_FATAL, LOG_MODULE_SENDLOG, 
 									"project_customer_register is error, tcp_label: %s udp_label: %s, please check etc/project.conf",
 									_instance->tcp_label,
 									_instance->udp_label
@@ -1924,10 +1923,8 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 		int ret=MESA_get_dev_ipv4(nic_name, (int *)&local_ip_nr);
 		if(ret<0)
 		{
-			MESA_handle_runtime_log(_instance->logger,
-										RLOG_LV_FATAL,
-										"GET_LOCAL_IP",
-										"MESA_get_dev_ipv4 is error, nic_name: %s, please check tsgconf/main.conf",
+			MASTER_LOG(_instance->logger, RLOG_LV_FATAL, LOG_MODULE_SENDLOG, 
+										"GET_LOCAL_IP MESA_get_dev_ipv4 is error, nic_name: %s, please check tsgconf/main.conf",
 										nic_name
 									);
 			return NULL;
@@ -1956,7 +1953,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	
 	if(!(_instance->kafka_handle=rd_kafka_new(RD_KAFKA_PRODUCER, rdkafka_conf, kafka_errstr, sizeof(kafka_errstr))))
 	{
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "KAFKA_INIT", "rd_kafka_new is error");
+		MASTER_LOG(_instance->logger, RLOG_LV_FATAL, LOG_MODULE_SENDLOG, "KAFKA_INIT rd_kafka_new is error");
 		return NULL;
 	}
 
@@ -1975,7 +1972,7 @@ struct tsg_log_instance_t *tsg_sendlog_init(const char *conffile)
 	}
 	else
 	{
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_FATAL, "KAFKA_INIT", "log_common_fields_new is error, please check %s", common_field_file);
+		MASTER_LOG(_instance->logger, RLOG_LV_FATAL, LOG_MODULE_SENDLOG, "KAFKA_INIT log_common_fields_new is error, please check %s", common_field_file);
 	}
 	
 	return _instance;
@@ -2035,12 +2032,11 @@ int send_log_by_type(struct tsg_log_instance_t *_instance, struct TLD_handle_t *
 	int ret=update_percent(_instance, log_type, LOG_STATUS_DROP, thread_id);
 	if(ret==1)
 	{
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
-									"record_log",
+		MASTER_LOG(_instance->logger, RLOG_LV_DEBUG, LOG_MODULE_SENDLOG, 
 									"drop log: log_type=%d send_log_percent: %d addr=%s",
 									log_type,
 									_instance->service2topic[log_type].send_log_percent[thread_id],
-									(a_stream==NULL ? "" : PRINTADDR(a_stream,_instance->level))
+									(a_stream==NULL ? "" : printaddr(&(a_stream->addr), thread_id))
 								);
 	}
 		
@@ -2062,12 +2058,11 @@ int send_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_h
 	{
 		if(is_multi_hit_same_policy(&(rules[i]), policy_id, &repeat_cnt))
 		{
-			MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
-										"tsg_send_log",
+			MASTER_LOG(_instance->logger, RLOG_LV_DEBUG, LOG_MODULE_SENDLOG, 
 										"tsg same log:cfg_id=%d service=%d addr=%s",
 										rules[i].rule_id,
 										rules[i].service_id,
-										(a_stream==NULL ? "" : PRINTADDR(a_stream,_instance->level))
+										(a_stream==NULL ? "" : printaddr(&(a_stream->addr), thread_id))
 									);
 			continue;
 		}
@@ -2080,12 +2075,11 @@ int send_event_log(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_h
 		switch(rules[i].do_log)
 		{
 			case	LOG_ABORT:
-				MESA_handle_runtime_log(_instance->logger, RLOG_LV_DEBUG,
-											"tsg_send_log",
+				MASTER_LOG(_instance->logger, RLOG_LV_DEBUG, LOG_MODULE_SENDLOG, 
 											"tsg abort log:cfg_id=%d service=%d addr=%s",
 											rules[i].rule_id,
 											rules[i].service_id,
-											(a_stream==NULL ? "" : PRINTADDR(a_stream,_instance->level))
+											(a_stream==NULL ? "" : printaddr(&(a_stream->addr), thread_id))
 										);
 
 				fs3_rule_stat_update(RULE_STAT_ABORT, (int)rules[i].action, 1);
@@ -2155,36 +2149,36 @@ int deal_event_rules(struct tsg_log_instance_t *_instance, struct TLD_handle_t *
 
 int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, const struct streaminfo *a_stream, enum LOG_TYPE log_type, struct maat_rule *rules, size_t n_rules, int thread_id)
 {	
-	if(instance==NULL || handle==NULL || rules==NULL || n_rules==0)
+	struct TLD_handle_t *_handle=handle;
+	struct tsg_log_instance_t *_instance=instance;
+
+	if(_instance==NULL || _handle==NULL || rules==NULL || n_rules==0)
 	{
-		TLD_cancel(handle);
-		if(instance!=NULL)
+		TLD_cancel(_handle);
+		if(_instance!=NULL)
 		{
-			MESA_handle_runtime_log(instance->logger, RLOG_LV_DEBUG, "tsg_send_log", " instance==NULL || TLD_handle==NULL || log_msg==NULL ");
+			MASTER_LOG(_instance->logger, RLOG_LV_DEBUG, LOG_MODULE_SENDLOG, " instance==NULL || TLD_handle==NULL || log_msg==NULL ");
 		}
 		return -1;
 	}
 
-	struct TLD_handle_t *_handle=handle;
-	struct tsg_log_instance_t *_instance=instance;
-
 	if(_instance->mode==CLOSE)
 	{
-		TLD_cancel(handle);
+		TLD_cancel(_handle);
 		tsg_stat_sendlog_update(_instance->sum_stat_row_id, LOG_STATUS_DROP, 1);
 		tsg_stat_sendlog_update(_instance->sum_stat_row_id, LOG_STATUS_DROP_S, 1);
-		MESA_handle_runtime_log(_instance->logger, RLOG_LV_INFO, "tsg_send_log", "Disable tsg_send_log.");
+		MASTER_LOG(_instance->logger, RLOG_LV_INFO, LOG_MODULE_SENDLOG, "Disable tsg_send_log.");
 		return 0;
 	}
 
 	if(is_hitted_shunt(a_stream))
 	{
-		TLD_cancel(handle);
+		TLD_cancel(_handle);
 		fs3_rule_stat_update(RULE_STAT_ABORT, TSG_ACTION_SHUNT, 1);
 		return 0;
 	}
 
-	TLD_append_streaminfo(instance, handle, a_stream);
+	TLD_append_streaminfo(_instance, _handle, a_stream);
 	TLD_append(_handle, _instance->id2field[LOG_COMMON_SLED_IP].name, (void *)(_instance->local_ip_str), TLD_TYPE_STRING);
 	if(strlen(g_tsg_para.device_sn)>0)
 	{
@@ -2275,9 +2269,7 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 
 	if(payload==NULL || payload_len<=0 || topic_id<0 || _instance->service2topic[topic_id].topic_rkt==NULL)
 	{
-		MESA_handle_runtime_log(_instance->logger,
-									RLOG_LV_INFO,
-									"tsg_send_log",
+		MASTER_LOG(_instance->logger, RLOG_LV_INFO, LOG_MODULE_SENDLOG,
 									"tsg_send_log to kafka is error (payload==NULL || payload_len<=0 || topic_id<0 || _instance->service2topic[topic_id].topic_rkt==NULL), topic: %s",
 									_instance->service2topic[topic_id].name
 								);
@@ -2289,9 +2281,7 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 	{
 		update_percent(_instance, topic_id, LOG_STATUS_FAIL, thread_id);
 		
-		MESA_handle_runtime_log(_instance->logger, 
-									RLOG_LV_INFO, 
-									"tsg_send_log",
+		MASTER_LOG(_instance->logger, RLOG_LV_INFO, LOG_MODULE_SENDLOG,
 									"tsg_send_log to kafka is error of code: %d %s(%s), status: %d, topic: %s %s",
 									rd_kafka_last_error(),
 									rd_kafka_err2name(rd_kafka_last_error()),
@@ -2305,13 +2295,7 @@ int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *pa
 	else
 	{
 		update_percent(_instance, topic_id, LOG_STATUS_SUCCESS, thread_id);
-		MESA_handle_runtime_log(_instance->logger,
-								RLOG_LV_DEBUG,
-								"tsg_send_log", 
-								"log send successfully %s: %s",
-								_instance->service2topic[topic_id].name,
-								payload
-							);
+		MASTER_LOG(_instance->logger, RLOG_LV_INFO, LOG_MODULE_SENDLOG, "log send successfully %s: %s", _instance->service2topic[topic_id].name, payload);
 	}
 
 	update_percent(_instance, topic_id, LOG_STATUS_MAX, thread_id); 

@@ -5,6 +5,7 @@
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_log.h"
 #include "tsg_rule_internal.h"
 #include "tsg_gtp_signaling.h"
 
@@ -241,7 +242,7 @@ int tsg_gtp_signaling_hash_init(const char* conffile, void *logger)
 	g_gtp_signaling_hash_handle=MESA_htable_create(&args, sizeof(MESA_htable_create_args_t));
 	if(g_gtp_signaling_hash_handle==NULL)
 	{
-		MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "GTP_SIGNALING", "MESA_htable_create failed");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_INIT, "GTP_SIGNALING MESA_htable_create failed");
 		return -1;
 	}
 

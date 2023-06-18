@@ -5,6 +5,7 @@
 #include <time.h>
 #include <arpa/inet.h>
 
+#include "tsg_log.h"
 #include "tsg_stat.h"
 #include "MESA/http.h"
 #include "MESA/cJSON.h"
@@ -1815,7 +1816,7 @@ int init_scan_table(struct maat *feather, const char *conffile)
 		g_tsg_maat_rt_para.scan_tb[i].id=maat_get_table_id(feather, g_tsg_maat_rt_para.scan_tb[i].name);
 		if(g_tsg_maat_rt_para.scan_tb[i].id<0)
 		{
-			MESA_handle_runtime_log(g_tsg_maat_rt_para.logger, RLOG_LV_FATAL, "maat_table_get_id failed, table_name: %s", g_tsg_maat_rt_para.scan_tb[i].name); 
+			MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_FATAL, LOG_MODULE_MAAT, "maat_table_get_id failed, table_name: %s", g_tsg_maat_rt_para.scan_tb[i].name); 
 			return -1;
 		}
 	}
@@ -2257,27 +2258,23 @@ size_t tsg_scan_integer(const struct streaminfo *a_stream, struct maat *feather,
 	int is_hited=maat_scan_integer(feather, g_tsg_maat_rt_para.scan_tb[idx].id, s_integer, rules, MAX_RESULT_NUM, &n_rules, s_mid);
 	if(is_hited==MAAT_SCAN_HIT)
 	{
-		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_INTEGER",
-								"Hit: %lld: scan ret: %d table_name: %s addr: %s, mid: %p",
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT, 
+								"SCAN_INTEGER Hit: %lld: scan ret: %d table_name: %s addr: %s, mid: %p",
 								s_integer,
 								is_hited,
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								s_mid
 							);
 		return matche_rules_convert(feather, rules, n_rules, matched_rules, n_matched_rules);
 	}
 
-	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_INTEGER",
-								"No hit: %lld: scan ret: %d table_name: %s addr: %s, mid: %p",
+	MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+								"SCAN_INTEGER No hit: %lld: scan ret: %d table_name: %s addr: %s, mid: %p",
 								s_integer,
 								is_hited,
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								s_mid
 							);
 	return 0;
@@ -2290,27 +2287,23 @@ size_t tsg_scan_flags(const struct streaminfo *a_stream, struct maat *feather, u
 	int is_hited=maat_scan_flag(feather, g_tsg_maat_rt_para.scan_tb[idx].id, flags, rules, MAX_RESULT_NUM, &n_rules, s_mid);
 	if(is_hited==MAAT_SCAN_HIT)
 	{
-		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_FLAGS",
-								"Hit: %llu scan ret: %d table_name: %s addr: %s, mid: %p",
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+								"SCAN_FLAGS Hit: %llu scan ret: %d table_name: %s addr: %s, mid: %p",
 								flags,
 								is_hited,
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								s_mid
 							);
 		return matche_rules_convert(feather, rules, n_rules, matched_rules, n_matched_rules);
 	}
 
-	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_FLAGS",
-								"No hit: %llu scan ret: %d table_name: %s addr: %s, mid: %p",
+	MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+								"SCAN_FLAGS No hit: %llu scan ret: %d table_name: %s addr: %s, mid: %p",
 								flags,
 								is_hited,
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								s_mid
 							);
 	return 0;
@@ -2323,28 +2316,24 @@ size_t tsg_scan_string(const struct streaminfo *a_stream, struct maat *feather, 
 	int is_hited=maat_scan_string(feather, g_tsg_maat_rt_para.scan_tb[idx].id, s_data, s_data_len, rules, MAX_RESULT_NUM, &n_rules, s_mid);
 	if(is_hited==MAAT_SCAN_HIT)
 	{
-		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_STRING",
-								"Hit: %s len: %lu scan ret: %d table_name: %s addr: %s, mid: %p",
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+								"SCAN_STRING Hit: %s len: %lu scan ret: %d table_name: %s addr: %s, mid: %p",
 								s_data,
 								s_data_len,
 								is_hited,
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								s_mid);
 		return matche_rules_convert(feather, rules, n_rules, matched_rules, n_matched_rules);
 	}
 
-	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_STRING",
-								"No hit: %s len: %lu scan ret: %d table_name: %s addr: %s, mid: %p",
+	MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+								"SCAN_STRING No hit: %s len: %lu scan ret: %d table_name: %s addr: %s, mid: %p",
 								s_data,
 								s_data_len,
 								is_hited,
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								s_mid
 							);
 	return 0;
@@ -2391,24 +2380,20 @@ size_t tsg_scan_ipv4_address(const struct streaminfo *a_stream, struct maat *fea
 	
 	if(n_matched_rules>0)
 	{
-		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_IPV4",
-								"Hit %s addr: %s return n_rules: %llu, mid: %p",
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+								"SCAN_IPV4 Hit %s addr: %s return n_rules: %llu, mid: %p",
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								n_matched_rules,
 								s_mid
 							);
 		return matche_rules_convert(feather, matched_rules, n_matched_rules, rules, n_rules);
 	}
 
-	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_IPV4",
-								"Not hit %s addr: %s Scan return: %d, mid: %p",
+	MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+								"SCAN_IPV4 Not hit %s addr: %s Scan return: %d, mid: %p",
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								is_hited,
 								s_mid
 							);
@@ -2457,24 +2442,20 @@ size_t tsg_scan_ipv6_address(const struct streaminfo *a_stream, struct maat *fea
 	
 	if(n_matched_rules>0)
 	{
-		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_IPV6",
-								"Hit %s addr: %s return n_rules: %llu, mid: %p",
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+								"SCAN_IPV6 Hit %s addr: %s return n_rules: %llu, mid: %p",
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								n_matched_rules,
 								s_mid
 							);
 		return matche_rules_convert(feather, matched_rules, n_matched_rules, rules, n_rules);
 	}
 
-	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"SCAN_IPV6",
-								"Not hit %s addr: %s Scan return: %d, mid: %p",
+	MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+								"SCAN_IPV6 Not hit %s addr: %s Scan return: %d, mid: %p",
 								g_tsg_maat_rt_para.scan_tb[idx].name,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								is_hited,
 								s_mid
 							);
@@ -2533,10 +2514,8 @@ int tsg_scan_intercept_exclusion(const struct streaminfo *a_stream, struct maat 
 
 	if(ret>0)
 	{	
-		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-									RLOG_LV_DEBUG,
-									"EXCLUSION_SSL_SNI",
-									"Hit %s policy_id: %d service: %d action: %d Decryption Exclusion: [ policy_id: %d service: %d action: %d ] addr: %s",
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+									"EXCLUSION_SSL_SNI Hit %s policy_id: %d service: %d action: %d Decryption Exclusion: [ policy_id: %d service: %d action: %d ] addr: %s",
 									domain,
 									tmp_result.rule_id,
 									tmp_result.service_id,
@@ -2544,19 +2523,17 @@ int tsg_scan_intercept_exclusion(const struct streaminfo *a_stream, struct maat 
 									p_result->rule_id,
 									p_result->service_id,
 									(unsigned char)p_result->action,
-									PRINTADDR(a_stream, g_tsg_maat_rt_para.level)
+									printaddr(&(a_stream->addr), a_stream->threadnum)
 								);
 					
 		return 1;
 	}
 
-	MESA_handle_runtime_log(g_tsg_maat_rt_para.logger,
-								RLOG_LV_DEBUG,
-								"EXCLUSION_SSL_SNI",
-								"Not hit %s stream_dir: %d addr: %s  scan ret: %d",
+	MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT,
+								"EXCLUSION_SSL_SNI Not hit %s stream_dir: %d addr: %s  scan ret: %d",
 								domain,
 								a_stream->dir,
-								PRINTADDR(a_stream, g_tsg_maat_rt_para.level),
+								printaddr(&(a_stream->addr), a_stream->threadnum),
 								ret
 							);
 	
@@ -2598,7 +2575,8 @@ static int get_one_endpoint_ids(const struct streaminfo *a_stream, struct maat *
 		}
 		
 		id_array[offset++]=all_endpoint[i]->id;
-		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, "endpoint", "addr: %s Get endpoint id: %d", PRINTADDR(a_stream, g_tsg_maat_rt_para.level), all_endpoint[i]->id);
+		
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT, "addr: %s Get endpoint id: %d", printaddr(&(a_stream->addr), a_stream->threadnum), all_endpoint[i]->id);
 
 		if(free_flag==1)
 		{
@@ -2827,7 +2805,7 @@ size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *fea
 
 	if(matched_rules==NULL || n_matched_rules==0 || a_stream==NULL || feather==NULL)
 	{
-		MESA_handle_runtime_log(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, "SCAN_NESTING_ADDR", "result==NULL || result_num<=0 || maat_feather==NULL || a_stream==NULL");
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MAAT, "SCAN_NESTING_ADDR result==NULL || result_num<=0 || maat_feather==NULL || a_stream==NULL");
 		return 0;
 	}
 

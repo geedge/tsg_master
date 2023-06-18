@@ -20,6 +20,7 @@
 #include <MESA/MESA_handle_logger.h>
 #include <MESA/MESA_jump_layer.h>
 
+#include "tsg_log.h"
 #include "tsg_stat.h"
 #include "app_label.h"
 #include "tsg_rule.h"
@@ -1247,7 +1248,7 @@ int session_set_segment_id_in_activing(const struct streaminfo *a_stream, TSG_SE
 		return 0;
 	}
 
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "set_segment_id", "set in active status , service:%d, sid:%u,session addr:%s", service, segment_id, PRINTADDR(a_stream, g_tsg_para.level));
+	MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_SID, "set in active status , service:%d, sid:%u,session addr:%s", service, segment_id, printaddr(&(a_stream->addr), a_stream->threadnum));
 
 	struct segment_id_list sid_list;
 	sid_list.sz_sidlist=1;
@@ -1930,7 +1931,7 @@ int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge
 			scan_app_num=1;
 			break;
 		default:
-			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "APP_BRIDGE_CB", "Unknown type: %d addr: %s", identify_result->origin, PRINTADDR(a_stream, g_tsg_para.level));
+			MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_SYNC_APP, "Unknown type: %d addr: %s", identify_result->origin, printaddr(&(a_stream->addr), a_stream->threadnum));
 			return 0;
 	}
 
@@ -2029,7 +2030,7 @@ size_t session_pending_state_deal(const struct streaminfo *a_stream, struct sess
 	
 	if((is_only_monitor(matched_rules, matched_cnt)) && srt_process_context->proto==PROTO_DNS)	// business deal action of monitor 
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "pending_state_deal", "is_only_monitor, clean hit_num to 0, :%s", PRINTADDR(a_stream, g_tsg_para.level));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_PENDING, "is_only_monitor, clean hit_num to 0, :%s", printaddr(&(a_stream->addr), a_stream->threadnum));
 		matched_cnt=0;
 	}
 
@@ -2451,13 +2452,13 @@ extern "C" int TSG_MASTER_INIT()
 	ret=tsg_get_sn(device_sn_filename, g_tsg_para.device_sn, sizeof(g_tsg_para.device_sn));
 	if(ret==0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "GET_DEVICE_SN", "Get device SN failed; please check :%s", device_sn_filename);
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_INIT, "Get device SN failed; please check :%s", device_sn_filename);
 	}
 
 	ret=device_id_set_telegraf(g_tsg_para.device_sn);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "SET_DEVICE_SN_TO_TELEGRAF", "Set device SN(%s) failed; please check :%s", g_tsg_para.device_sn, "/etc/default/telegraf");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_INIT, "Set device SN(%s) failed; please check :%s", g_tsg_para.device_sn, "/etc/default/telegraf");
 	}
 
 	ret=tsg_bridge_init(tsg_conffile);
@@ -2473,14 +2474,14 @@ extern "C" int TSG_MASTER_INIT()
 	ret=tsg_maat_rule_init(tsg_conffile);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_MAAT", "tsg_maat_rule_init failed ...");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_INIT, "tsg_maat_rule_init failed ...");
 		return -1;
 	}
 	
 	g_tsg_log_instance=tsg_sendlog_init(tsg_conffile);
 	if(g_tsg_log_instance==NULL)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_SENDLOG", "tsg_sendlog_init failed ...");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_INIT, "tsg_sendlog_init failed ...");
 		return -1;
 	}
 
@@ -2489,8 +2490,7 @@ extern "C" int TSG_MASTER_INIT()
 	
 	ret=tsg_metric_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
-	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_STATISTIC", "tsg_metric_init failed ...");
+	{MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_INIT, "tsg_metric_init failed ...");
 		return -1;
 	}
 
@@ -2499,7 +2499,7 @@ extern "C" int TSG_MASTER_INIT()
 	ret=tsg_gtp_signaling_hash_init(tsg_conffile, g_tsg_para.logger);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_GTP_HASH", "tsg_gtp_signaling_hash_init failed ...");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_INIT, "tsg_gtp_signaling_hash_init failed ...");
 		return -1;
 	}
 

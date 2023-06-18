@@ -17,6 +17,7 @@
 #include <MESA/stream.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_log.h"
 #include "tsg_stat.h"
 #include "tsg_rule.h"
 #include "app_label.h"
@@ -546,14 +547,12 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, struct m
 		int ret=MESA_rst_tcp((struct streaminfo *)a_stream, &rst_paras, sizeof(rst_paras));
 		if(ret<0)
 		{
-			MESA_handle_runtime_log(g_tsg_para.logger,
-											RLOG_LV_FATAL,
-											"RST_TCP",
+			MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_ACTION, 
 											"Send RST failed policy_id: %d service: %d action: %d addr: %s",
 											p_result->rule_id,
 											p_result->service_id,
 											(unsigned char)p_result->action,
-											PRINTADDR(a_stream, g_tsg_para.level)
+											printaddr(&(a_stream->addr), a_stream->threadnum)
 										);
 		}
 

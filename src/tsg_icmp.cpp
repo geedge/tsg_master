@@ -314,13 +314,12 @@ unsigned char send_icmp_unreachable(const struct streaminfo *a_stream)
 
 	if(a_stream==NULL)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, __FUNCTION__, "a_stream is NULL");
 		MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
 		return STATE_GIVEME;
 	}
 
 	get_rawpkt_ret = get_rawpkt_opt_from_streaminfo(a_stream, RAW_PKT_GET_DATA, &raw_pkt);
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, __FUNCTION__, "get_raw_opt_from_streaminfo()  get_rawpkt_ret = %d", get_rawpkt_ret);
+
 	if(0==get_rawpkt_ret && NULL!=raw_pkt)
 	{
 		format_icmp((char *)raw_pkt+ETHERNET_BYTE_LEN, icmp_buf, &icmp_len, a_stream->addr.addrtype);

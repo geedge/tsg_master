@@ -4,6 +4,7 @@
 #include <MESA/cJSON.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_log.h"
 #include "tsg_stat.h"
 #include "tsg_variable.h"
 #include "tsg_sync_state.h"
@@ -36,15 +37,15 @@ static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *wri
 	mpack_complete_map(writer); // mpack_init_map
 	if (mpack_writer_destroy(writer) != mpack_ok)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "MPACK_WRITER", "An error occurred encoding the data!");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_MPACK, "MPACK_WRITER An error occurred encoding the data!");
 		return -1;
 	}
 
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "MSGPACK_BUFF", "send buff_len = %lu, state: %u", *mpack_size, (uint8_t)a_stream->opstate);
-	ret = sapp_inject_ctrl_pkt((struct streaminfo *)a_stream, SIO_DEFAULT, *mpack_data, *mpack_size, a_stream->routedir);
-	if (ret == -1)
+	MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MPACK, "MSGPACK_BUFF send buff_len = %lu, state: %u", *mpack_size, (uint8_t)a_stream->opstate);
+	ret=sapp_inject_ctrl_pkt((struct streaminfo *)a_stream, SIO_DEFAULT, *mpack_data, *mpack_size, a_stream->routedir);
+	if (ret==-1)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "MSGPACK_BUFF_SEND", "An error occurred injecting the data! addr: %s", PRINTADDR(a_stream, g_tsg_para.level));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MPACK, "MSGPACK_BUFF_SEND An error occurred injecting the data! addr: %s", printaddr(&(a_stream->addr), a_stream->threadnum));
 	}
 	
 	free(*mpack_data);
@@ -166,7 +167,7 @@ static void mpack_append_cmsg_value(mpack_writer_t *writer, struct proxy_cmsg *c
 	if (cmsg == NULL)
 	{
 		mpack_write_nil(writer);
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "MSGPACK_PROXY", "No cmsg!");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MPACK, "MSGPACK_PROXY no cmsg!");
 	}
 	else
 	{
@@ -433,7 +434,7 @@ int mpack_parse_sce_profile_ids(const struct streaminfo *a_stream, mpack_tree_t 
 	mpack_node_t sf_profile_ids = mpack_node_map_cstr(sce_node, "sf_profile_ids");
 	if (mpack_node_type(sf_profile_ids) != mpack_type_array || mpack_node_array_length(sf_profile_ids) == 0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_SCE", "sf_profile_ids error! mpack_node_type(sf_profile_ids): %d, n_sf_profile_ids = 0", (int)mpack_node_type(sf_profile_ids));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_MPACK, "PARSE_SCE sf_profile_ids error! mpack_node_type(sf_profile_ids): %d, n_sf_profile_ids = 0", (int)mpack_node_type(sf_profile_ids));
 		mpack_tree_destroy(&tree);
 		return -1;
 	}
@@ -447,7 +448,7 @@ int mpack_parse_sce_profile_ids(const struct streaminfo *a_stream, mpack_tree_t 
 	}
 	mpack_parse_append_profile_id(sf_profile_ids, sce_handle->profile_ids, &sce_handle->n_profile_ids, SCE_PROFILE_IDS);
 
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PARSE_SCE", "n_profile_ids: %lu", sce_handle->n_profile_ids);
+	MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MPACK, "PARSE_SCE n_profile_ids: %lu", sce_handle->n_profile_ids);
 	mpack_tree_destroy(&tree);
 	return 0;
 }
@@ -457,7 +458,7 @@ int mpack_parse_shaper_profile_ids(const struct streaminfo *a_stream, mpack_tree
 	size_t n_shaper_rule = mpack_node_array_length(shaper_node);
 	if (n_shaper_rule == 0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_SHAPER", "n_sh_profile_ids: 0");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_MPACK, "PARSE_SHAPER n_sh_profile_ids: 0");
 		mpack_tree_destroy(&tree);
 		return -1;
 	}
@@ -480,7 +481,7 @@ int mpack_parse_shaper_profile_ids(const struct streaminfo *a_stream, mpack_tree
 		mpack_parse_append_profile_id(mpack_node_map_cstr(sh_ids_node, "profile_ids"), shaper_handle->shaper_rules[i].profile_ids, &shaper_handle->shaper_rules[i].n_profile_ids, SHAPR_PROFILE_IDS);
 	}
 
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PARSE_SHAPER", "n_sh_profile_ids: %lu;", shaper_handle->n_shaper_rule);
+	MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MPACK, "PARSE_SHAPER n_sh_profile_ids: %lu;", shaper_handle->n_shaper_rule);
 	mpack_tree_destroy(&tree);
 	return 0;
 }
@@ -490,7 +491,7 @@ int mpack_parse_proxy_intercept_info(const struct streaminfo *a_stream, mpack_tr
 	mpack_node_t ssl_intercept_info = mpack_node_map_str_optional(proxy_node, "ssl_intercept_info", 18);
 	if (mpack_node_type(ssl_intercept_info) != mpack_type_array)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_PROXY", "ssl_intercept_info error! mpack_node_type(ssl_intercept_info): %d", (int)mpack_node_type(ssl_intercept_info));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_MPACK, "PARSE_PROXY ssl_intercept_info error! mpack_node_type(ssl_intercept_info): %d", (int)mpack_node_type(ssl_intercept_info));
 		mpack_tree_destroy(&tree);
 		return -1;
 	}
@@ -504,9 +505,8 @@ int mpack_parse_proxy_intercept_info(const struct streaminfo *a_stream, mpack_tr
 	}
 	mpack_parse_intercept_info(ssl_intercept_info, proxy_handle, a_stream->threadnum);
 
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG,
-							"PARSE_PROXY",
-							"ssl_intercept_state: %u; ssl_upstream_latency: %llu; ssl_downstream_latency: %llu; ssl_upstream_version: %s; ssl_downstream_version: %s; ssl_pinning_state: %u; ssl_cert_verify: %u; ssl_error: %s; ssl_passthrough_reason: %s;",
+	MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MPACK, 
+							"PARSE_PROXY ssl_intercept_state: %u; ssl_upstream_latency: %llu; ssl_downstream_latency: %llu; ssl_upstream_version: %s; ssl_downstream_version: %s; ssl_pinning_state: %u; ssl_cert_verify: %u; ssl_error: %s; ssl_passthrough_reason: %s;",
 							proxy_handle->ssl_intercept_state,
 							proxy_handle->ssl_upstream_latency,
 							proxy_handle->ssl_downstream_latency,
@@ -536,7 +536,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 
 	if (mpack_node_type(root) == mpack_type_nil)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "mpack_tree_parse error! payload_len = %u", payload_len);
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_MPACK, "PARSE_LOG_UPDATE mpack_tree_parse error! payload_len = %u", payload_len);
 		mpack_tree_destroy(&tree);
 		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
@@ -545,7 +545,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 	mpack_node_t method = mpack_node_map_cstr(root, "method");
 	if (mpack_node_type(method) != mpack_type_str)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "method error! mpack_node_type(method) = %d", (int)mpack_node_type(method));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_MPACK, "PARSE_LOG_UPDATE method error! mpack_node_type(method) = %d", (int)mpack_node_type(method));
 		mpack_tree_destroy(&tree);
 		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
@@ -554,7 +554,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 	if (mpack_node_strlen(method) != strlen("log_update") || memcmp("log_update", mpack_node_str(method), strlen("log_update")) != 0)
 	{
 		// mpack_node_str(method) is contiguous memory
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "method error! mpack_node_strlen(method) = %lu", mpack_node_strlen(method));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_MPACK, "PARSE_LOG_UPDATE method error! mpack_node_strlen(method) = %lu", mpack_node_strlen(method));
 		mpack_tree_destroy(&tree);
 		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
@@ -564,7 +564,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 	if (session_id != tsg_get_stream_trace_id(a_stream))
 	{
 		// if session_id = 0, it's could be mpack_node_type(root) = nil
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "session_id error! session_id: %llu, real session_id: %llu", session_id, tsg_get_stream_trace_id(a_stream));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_MPACK, "PARSE_LOG_UPDATE session_id error! session_id: %llu, real session_id: %llu", session_id, tsg_get_stream_trace_id(a_stream));
 		mpack_tree_destroy(&tree);
 		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
@@ -573,7 +573,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 	mpack_node_t params_node = mpack_node_map_cstr(root, "params");
 	if (mpack_node_type(params_node) == mpack_type_nil)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PARSE_LOG_UPDATE", "params_node error!");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_MPACK, "PARSE_LOG_UPDATE params_node error!");
 		mpack_tree_destroy(&tree);
 		tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 		return -1;
@@ -629,7 +629,7 @@ int tsg_parse_log_update_payload(const struct streaminfo *a_stream, const void *
 
 	tsg_stat_ctrl_service_updating_update(STAT_STATUS_FAIL, CTRL_SERVICE_UNKNOWN, 1);
 
-	MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PDARSE_LOG_UPDATE", "pkt error! there is no log!");
+	MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MPACK, "PDARSE_LOG_UPDATE pkt error! there is no log!");
 	mpack_tree_destroy(&tree);
 	return -1;
 }

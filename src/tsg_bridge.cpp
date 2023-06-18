@@ -5,6 +5,7 @@
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_log.h"
 #include "tsg_bridge.h"
 #include "tsg_variable.h"
 #include "tsg_sync_state.h"
@@ -250,7 +251,7 @@ int session_async_bridge_set_data(const struct streaminfo *a_stream, int bridge_
 	int ret=stream_bridge_async_data_put(a_stream, bridge_id, data);
 	if(ret<0)
 	{
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "BRIDGE", "Add project failed, bridge_id: %d addr: %s", bridge_id, PRINTADDR(a_stream, g_tsg_para.level));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_BRIDGE, "Add project failed, bridge_id: %d addr: %s", bridge_id, printaddr(&(a_stream->addr), a_stream->threadnum));
 		return 0;
 	}
 
@@ -1153,7 +1154,7 @@ int tsg_bridge_init(const char *conffile)
 		g_tsg_bridge_para[i].id=stream_bridge_build(g_tsg_bridge_para[i].name, "w");
 		if(g_tsg_bridge_para[i].id<0)
 		{
-			MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "INIT_BRIDGE", "stream_bridge_build is error, bridge_name: %s", g_tsg_bridge_para[i].name);
+			MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_BRIDGE, "stream_bridge_build is error, bridge_name: %s", g_tsg_bridge_para[i].name);
 			return -1;
 		}
 
@@ -1161,8 +1162,8 @@ int tsg_bridge_init(const char *conffile)
 		{	
 			int ret=stream_bridge_register_data_sync_cb(g_tsg_bridge_para[i].id, g_tsg_bridge_para[i].sync_cb);
 			if(ret<0)
-			{		
-				MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "BRIDGE_SYNC_CB", "Register callback failed, bridge_name: %d",g_tsg_bridge_para[i].name);
+			{
+				MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_BRIDGE, "Register callback failed, bridge_name: %d",g_tsg_bridge_para[i].name);
 				return -1;
 			}
 		}
@@ -1171,8 +1172,8 @@ int tsg_bridge_init(const char *conffile)
 		{
 			int ret=stream_bridge_register_data_free_cb(g_tsg_bridge_para[i].id, g_tsg_bridge_para[i].free_cb);
 			if(ret<0)
-			{		
-				MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "BRIDGE_FREE_CB", "Register async free callback failed, bridge_name: %d", g_tsg_bridge_para[i].name);
+			{
+				MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_BRIDGE, "Register async free callback failed, bridge_name: %d", g_tsg_bridge_para[i].name);
 				return -1;
 			}
 		}

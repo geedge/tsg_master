@@ -1,6 +1,7 @@
 #include <MESA/stream.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_log.h"
 #include "tsg_rule.h"
 #include "tsg_variable.h"
 #include "tsg_send_log.h"
@@ -119,18 +120,21 @@ static char* tsg_proxy_ipv6_errmsg_get(enum tsg_proxy_ipv6hdr_parse_error _errno
 static void tsg_proxy_ip_header_parse(const void *a_packet, enum addr_type_t addr_type, const struct streaminfo *stream, struct pkt_info *pktinfo){
 	if(addr_type == ADDR_TYPE_IPV6){
 		int ret = tsg_proxy_ipv6_header_parse(a_packet, pktinfo);
-		if(ret < 0){
+		if(ret < 0)
+		{
+			pktinfo->parse_failed=1;
 			char *errmsg = tsg_proxy_ipv6_errmsg_get((enum tsg_proxy_ipv6hdr_parse_error)ret);
-            MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROXY", "Failed at parse ipv6 header, errmsg = %s, stream treaceid = %llu", errmsg, tsg_get_stream_trace_id(stream));
-			pktinfo->parse_failed = 1;
+			MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_PROXY, "Failed at parse ipv6 header, errmsg = %s, stream treaceid = %llu", errmsg, tsg_get_stream_trace_id(stream));
 		}
 	}
-	else{
+	else
+	{
 		int ret = tsg_proxy_ipv4_header_parse(a_packet, pktinfo);
-		if(ret < 0){
+		if(ret < 0)
+		{
+			pktinfo->parse_failed=1;
 			char *errmsg = tsg_proxy_ipv4_errmsg_get((enum tsg_proxy_ipv4hdr_parse_error)ret);
-            MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROXY", "Failed at parse ipv4 header, errmsg = %s, stream treaceid = %llu", errmsg, tsg_get_stream_trace_id(stream));
-			pktinfo->parse_failed = 1;
+			MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_PROXY, "Failed at parse ipv4 header, errmsg = %s, stream treaceid = %llu", errmsg, tsg_get_stream_trace_id(stream));
 		}
 	}
 	return;
@@ -206,105 +210,119 @@ static void tsg_proxy_tcpopt_get(struct tsg_proxy_tcp_option *tcp_opt, struct tc
 
 static int tsg_proxy_rawpkt_info_get(const void *raw_pkt, struct tsg_proxy_tcp_option *tcp_opt, const struct streaminfo *stream)
 {
-    int ret;
-    struct segment_id_list *sids = NULL;
+	int ret;
+	struct segment_id_list *sids = NULL;
 
-    ret = get_rawpkt_opt_from_streaminfo(stream, RAW_PKT_GET_SID_LIST, &sids);
-    if (ret != sizeof(struct segment_id_list)) {
-        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PROXY", "Failed to get sid list, stream treaceid = %llu, %s", tsg_get_stream_trace_id(stream), PRINTADDR(stream, g_tsg_para.level));
-        return -1;
-    }
-    memcpy(&tcp_opt->sid_list, sids, sizeof(struct segment_id_list));
+	ret = get_rawpkt_opt_from_streaminfo(stream, RAW_PKT_GET_SID_LIST, &sids);
+	if (ret != sizeof(struct segment_id_list))
+	{
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_PROXY, "Failed to get sid list, stream treaceid = %llu, %s", tsg_get_stream_trace_id(stream), printaddr(&(stream->addr), stream->threadnum));
+		return -1;
+	}
+	
+	memcpy(&tcp_opt->sid_list, sids, sizeof(struct segment_id_list));
 
-    void *route_ctx = NULL;
-    ret = get_rawpkt_opt_from_streaminfo(stream, RAW_PKT_GET_ROUTE_CTX, &route_ctx);
-    if (ret < 0) {
-        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_INFO, "PROXY", "Failed to get route ctx, stream treaceid = %llu, %s", tsg_get_stream_trace_id(stream), PRINTADDR(stream, g_tsg_para.level));
-        return -1;
-    }
-    tcp_opt->route_ctx_len = ret;
-    memcpy(tcp_opt->route_ctx, route_ctx, ret);
+	void *route_ctx = NULL;
+	ret = get_rawpkt_opt_from_streaminfo(stream, RAW_PKT_GET_ROUTE_CTX, &route_ctx);
+	if (ret < 0)
+	{
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_PROXY, "Failed to get route ctx, stream treaceid = %llu, %s", tsg_get_stream_trace_id(stream), printaddr(&(stream->addr), stream->threadnum));
+		return -1;
+	}
+	tcp_opt->route_ctx_len = ret;
+	memcpy(tcp_opt->route_ctx, route_ctx, ret);
 
-    return 0;
+	return 0;
 }
 
 void tsg_proxy_tcp_parse(struct tsg_proxy_tcp_attribute *tcp_attr, struct pkt_info *pktinfo, const struct streaminfo *stream)
 {
-    const void *raw_pkt = get_rawpkt_from_streaminfo(stream);
+	const void *raw_pkt = get_rawpkt_from_streaminfo(stream);
 
-    if (!raw_pkt) {
-        return;
-    }
+	if (!raw_pkt)
+	{
+		return;
+	}
 
-    if (pktinfo->tcphdr->syn && !pktinfo->tcphdr->ack) {
-        tsg_proxy_rawpkt_info_get(raw_pkt, &tcp_attr->tcp_opt_client, stream);
-        tsg_proxy_tcpopt_get(&tcp_attr->tcp_opt_client, pktinfo->tcphdr, pktinfo->tcphdr_len);
-    }
+	if (pktinfo->tcphdr->syn && !pktinfo->tcphdr->ack)
+	{
+		tsg_proxy_rawpkt_info_get(raw_pkt, &tcp_attr->tcp_opt_client, stream);
+		tsg_proxy_tcpopt_get(&tcp_attr->tcp_opt_client, pktinfo->tcphdr, pktinfo->tcphdr_len);
+	}
 
-    if (pktinfo->tcphdr->syn && pktinfo->tcphdr->ack) {
-        tsg_proxy_rawpkt_info_get(raw_pkt, &tcp_attr->tcp_opt_server, stream);
-        tsg_proxy_tcpopt_get(&tcp_attr->tcp_opt_server, pktinfo->tcphdr, pktinfo->tcphdr_len);
-    }
+	if (pktinfo->tcphdr->syn && pktinfo->tcphdr->ack)
+	{
+		tsg_proxy_rawpkt_info_get(raw_pkt, &tcp_attr->tcp_opt_server, stream);
+		tsg_proxy_tcpopt_get(&tcp_attr->tcp_opt_server, pktinfo->tcphdr, pktinfo->tcphdr_len);
+	}
 }
 
 static struct tsg_proxy_tcp_attribute *tsg_proxy_tcp_attribute_get(const struct streaminfo *stream)
 {
-    struct session_runtime_attribute *srt_attribute = (struct session_runtime_attribute *)session_runtime_attribute_new(stream);
-    if (srt_attribute == NULL) {
-        MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROXY", "Failed to get session runtime attribute, stream treaceid = %llu", tsg_get_stream_trace_id(stream));
-        return NULL;
-    }
+	struct session_runtime_attribute *srt_attribute = (struct session_runtime_attribute *)session_runtime_attribute_new(stream);
+	if (srt_attribute == NULL)
+	{
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_PROXY, "Failed to get session runtime attribute, stream treaceid = %llu", tsg_get_stream_trace_id(stream));
+		return NULL;
+	}
 
-    if (srt_attribute->proxy_tcp_attr == NULL) {
-        srt_attribute->proxy_tcp_attr = (struct tsg_proxy_tcp_attribute *)dictator_malloc(stream->threadnum, sizeof(struct tsg_proxy_tcp_attribute));
-        memset(srt_attribute->proxy_tcp_attr, 0, sizeof(struct tsg_proxy_tcp_attribute));
-    }
+	if (srt_attribute->proxy_tcp_attr == NULL)
+	{
+		srt_attribute->proxy_tcp_attr = (struct tsg_proxy_tcp_attribute *)dictator_malloc(stream->threadnum, sizeof(struct tsg_proxy_tcp_attribute));
+		memset(srt_attribute->proxy_tcp_attr, 0, sizeof(struct tsg_proxy_tcp_attribute));
+	}
 
-    return srt_attribute->proxy_tcp_attr;
+	return srt_attribute->proxy_tcp_attr;
 }
 
 void tsg_proxy_first_data_process(const struct streaminfo *stream, struct tsg_proxy_tcp_attribute *tcp_attr, struct pkt_info *pktinfo)
 {
-    struct tsg_proxy_tcp_option tcp_opt;
-    enum TSG_PROTOCOL tcp_protocol;
-    const struct session_runtime_process_context *session_context = session_runtime_process_context_get(stream);
+	struct tsg_proxy_tcp_option tcp_opt;
+	enum TSG_PROTOCOL tcp_protocol;
+	const struct session_runtime_process_context *session_context = session_runtime_process_context_get(stream);
 
-    memset(&tcp_opt, 0, sizeof(struct tsg_proxy_tcp_option));
+	memset(&tcp_opt, 0, sizeof(struct tsg_proxy_tcp_option));
 	tcp_protocol = srt_process_context_get_protocol(session_context);
-    switch(tcp_protocol)
+	switch(tcp_protocol)
 	{
 		case PROTO_SSL:
-		     tcp_attr->tcp_protocol = 0x1;
-		     break;
-		
+			tcp_attr->tcp_protocol = 0x1;
+			break;
 		case PROTO_SSH:
-		     tcp_attr->tcp_protocol = 0x2;
-		     break;
-		
+			tcp_attr->tcp_protocol = 0x2;
+			break;
 		default:
-		     tcp_attr->tcp_protocol = 0x0;
-
+			tcp_attr->tcp_protocol = 0x0;
+			break;
 	}
 
-    if(tcp_attr->tcp_opt_client.ts_set && tcp_attr->tcp_opt_server.ts_set) {
-        tsg_proxy_tcpopt_get(&tcp_opt, pktinfo->tcphdr, pktinfo->tcphdr_len);
-        if(stream->curdir == DIR_C2S){
-            tcp_attr->tcp_opt_client.ts_val = tcp_opt.ts_val;
-            tcp_attr->tcp_opt_server.ts_val = tcp_opt.ts_ecr;
-        } else {
-            tcp_attr->tcp_opt_client.ts_val = tcp_opt.ts_ecr;
-            tcp_attr->tcp_opt_server.ts_val = tcp_opt.ts_val;
-        }
-    }
+	if(tcp_attr->tcp_opt_client.ts_set && tcp_attr->tcp_opt_server.ts_set)
+	{
+		tsg_proxy_tcpopt_get(&tcp_opt, pktinfo->tcphdr, pktinfo->tcphdr_len);
+		if(stream->curdir == DIR_C2S)
+		{
+			tcp_attr->tcp_opt_client.ts_val = tcp_opt.ts_val;
+			tcp_attr->tcp_opt_server.ts_val = tcp_opt.ts_ecr;
+		}
+		else
+		{
+			tcp_attr->tcp_opt_client.ts_val = tcp_opt.ts_ecr;
+			tcp_attr->tcp_opt_server.ts_val = tcp_opt.ts_val;
+		}
+	}
 
-    tcp_attr->tcp_info_packet_cur_dir = stream->curdir;
-    if (stream->curdir == DIR_C2S) {
-        tcp_attr->tcp_seq = pktinfo->tcphdr->seq;
-        tcp_attr->tcp_ack = pktinfo->tcphdr->ack_seq;
-    } else {
-        tcp_attr->tcp_seq = pktinfo->tcphdr->ack_seq;
-        tcp_attr->tcp_ack = pktinfo->tcphdr->seq;
-    }
+	tcp_attr->tcp_info_packet_cur_dir = stream->curdir;
+	if (stream->curdir == DIR_C2S)
+	{
+		tcp_attr->tcp_seq = pktinfo->tcphdr->seq;
+		tcp_attr->tcp_ack = pktinfo->tcphdr->ack_seq;
+	}
+	else
+	{
+		tcp_attr->tcp_seq = pktinfo->tcphdr->ack_seq;
+		tcp_attr->tcp_ack = pktinfo->tcphdr->seq;
+	}
+	
 	return;
 }
 
@@ -319,28 +337,32 @@ void tsg_proxy_tcp_options_parse(const struct streaminfo *stream, const void *a_
 	struct tsg_proxy_tcp_attribute *tcp_attr = tsg_proxy_tcp_attribute_get(stream);
 
 
-	if (tcp_attr == NULL) {
+	if(tcp_attr == NULL)
+	{
 		return;
 	}
 
-    if (tcp_attr->first_data_pkt_processed) {
-        return;
-    }
+	if(tcp_attr->first_data_pkt_processed)
+	{
+		return;
+	}
 
 	memset(&pktinfo, 0, sizeof(struct pkt_info));
 	tsg_proxy_ip_header_parse(a_packet, (enum addr_type_t)stream->addr.addrtype, stream, &pktinfo);
-	if (pktinfo.parse_failed) {
-		MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_FATAL, "PROXY", "invalid ip header, bypass pkt");
+	if (pktinfo.parse_failed)
+	{
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_PROXY, "invalid ip header, bypass pkt");
 		return;
 	}
 
-    if(stream->ptcpdetail->datalen > 0) {
-        tsg_proxy_first_data_process(stream, tcp_attr, &pktinfo);
-        tcp_attr->first_data_pkt_processed = 1;
-        return;
-    }
+	if(stream->ptcpdetail->datalen > 0)
+	{
+		tsg_proxy_first_data_process(stream, tcp_attr, &pktinfo);
+		tcp_attr->first_data_pkt_processed = 1;
+		return;
+	}
 
-    tsg_proxy_tcp_parse(tcp_attr, &pktinfo, stream);
+	tsg_proxy_tcp_parse(tcp_attr, &pktinfo, stream);
 
 	return;
 }
@@ -485,22 +507,22 @@ static void tsg_proxy_cmsg_s2c_rpkt_header(const struct streaminfo *stream, stru
 
 static void tsg_proxy_tcp_attribute_dump(tsg_proxy_tcp_attribute *tcp_attr, struct proxy_cmsg *cmsg, const struct streaminfo *stream)
 {
-    struct tsg_proxy_tcp_option *client = &tcp_attr->tcp_opt_client;
-    struct tsg_proxy_tcp_option *server = &tcp_attr->tcp_opt_server;
-    char client_sids_str[128] = {0};
-    char server_sids_str[128] = {0};
-    char temp[10] = {0};
+	struct tsg_proxy_tcp_option *client = &tcp_attr->tcp_opt_client;
+	struct tsg_proxy_tcp_option *server = &tcp_attr->tcp_opt_server;
+	char client_sids_str[128] = {0};
+	char server_sids_str[128] = {0};
+	char temp[10] = {0};
 
-    MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PROXY", "dump tcp attribute for stream %s, session_id %llu", 
-                            printaddr(&stream->addr, stream->threadnum), tsg_get_stream_trace_id(stream));
+	MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_PROXY, "dump tcp attribute for stream %s, session_id %llu", printaddr(&(stream->addr), stream->threadnum), tsg_get_stream_trace_id(stream));
 
-    MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PROXY", "tcp_seq %u, tcp_ack %u, tcp_protocol %u, tcp_info_packet_cur_dir %u\n"\
-                            "client mss %u, client wscale_set %u, client wscale %u, client sack %u, client ts_set %u, client ts_val %u, client window %u"\
-                             "server mss %u, server wscale_set %u, server wscale %u, server sack %u, server ts_set %u, server ts_val %u, server window %u",
-                             tcp_attr->tcp_seq, tcp_attr->tcp_ack, tcp_attr->tcp_protocol, tcp_attr->tcp_info_packet_cur_dir,
-                             client->mss, client->wscale_set, client->wscale, client->sack, client->ts_set, client->ts_val, client->window,
-                             server->mss, server->wscale_set, server->wscale, server->sack, server->ts_set, server->ts_val, server->window);
-    MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PROXY", "tcp_seq_route_ctx len %u, tcp_ack_route_ctx len %u\n", client->route_ctx_len, server->route_ctx_len);
+	MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_PROXY, "tcp_seq %u, tcp_ack %u, tcp_protocol %u, tcp_info_packet_cur_dir %u\n"\
+							"client mss %u, client wscale_set %u, client wscale %u, client sack %u, client ts_set %u, client ts_val %u, client window %u"\
+							"server mss %u, server wscale_set %u, server wscale %u, server sack %u, server ts_set %u, server ts_val %u, server window %u",
+							tcp_attr->tcp_seq, tcp_attr->tcp_ack, tcp_attr->tcp_protocol, tcp_attr->tcp_info_packet_cur_dir,
+							client->mss, client->wscale_set, client->wscale, client->sack, client->ts_set, client->ts_val, client->window,
+							server->mss, server->wscale_set, server->wscale, server->sack, server->ts_set, server->ts_val, server->window);
+	
+    MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_PROXY, "tcp_seq_route_ctx len %u, tcp_ack_route_ctx len %u\n", client->route_ctx_len, server->route_ctx_len);
 
     for (unsigned int i = 0; i < client->sid_list.sz_sidlist; i++) {
         snprintf(temp, sizeof(temp), "%u", client->sid_list.sid_list[i]);
@@ -512,10 +534,10 @@ static void tsg_proxy_tcp_attribute_dump(tsg_proxy_tcp_attribute *tcp_attr, stru
         strcat(server_sids_str, temp);
         strcat(server_sids_str, ",");
     }
-    MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "PROXY", "tcp_seq_sids num %u, tcp_seq_sids value: %s,  tcp_ack_sids num %u, tcp_seq_sids value: %s",
+    MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_PROXY, "tcp_seq_sids num %u, tcp_seq_sids value: %s,  tcp_ack_sids num %u, tcp_seq_sids value: %s",
                                                                         client->sid_list.sz_sidlist, client_sids_str, server->sid_list.sz_sidlist, server_sids_str);
                             
-    MESA_handle_runtime_log(g_tsg_para.logger, RLOG_LV_DEBUG, "proxy", "client subscribe id: %s\n"\
+    MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_PROXY, "client subscribe id: %s\n"\
                                                                        "server subscribe id: %s\n"\
                                                                        "client asn: %s\n"\
                                                                        "server asn: %s\n"\

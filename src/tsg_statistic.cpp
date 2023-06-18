@@ -6,6 +6,7 @@
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_log.h"
 #include "tsg_entry.h"
 #include "tsg_send_log.h"
 #include "tsg_statistic.h"
@@ -279,21 +280,21 @@ int tsg_security_metric_init(const char *conffile, void *logger)
 	MESA_load_profile_int_def(conffile, "SECURITY_HITS", "CYCLE", &g_tsg_statis_para.metric_cycle, 1000);
 	if(g_tsg_statis_para.metric_cycle<=0)
 	{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "SECURITY_HITS", "g_tsg_statis_para.metric_cycle error");
-			return -1;
+		MASTER_LOG(logger, RLOG_LV_FATAL, LOG_MODULE_METRICS, "SECURITY_HITS g_tsg_statis_para.metric_cycle error");
+		return -1;
 	}
 
 	g_tsg_statis_para.security_metric_handle = fieldstat_dynamic_instance_new(app_name, thread_num);
 	if (g_tsg_statis_para.security_metric_handle == NULL)
 	{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "SECURITY_HITS", "g_tsg_statis_para.security_metric_handle error");
-			return -1;
+		MASTER_LOG(logger, RLOG_LV_FATAL, LOG_MODULE_METRICS, "SECURITY_HITS g_tsg_statis_para.security_metric_handle error");
+		return -1;
 	}
 
 	fieldstat_dynamic_set_output_interval(g_tsg_statis_para.security_metric_handle, g_tsg_statis_para.metric_cycle);
 	if (fs_server_port > 0 && strlen(fs_server_ip) > 0)
 	{
-			fieldstat_dynamic_set_line_protocol_server(g_tsg_statis_para.security_metric_handle, fs_server_ip, fs_server_port);
+		fieldstat_dynamic_set_line_protocol_server(g_tsg_statis_para.security_metric_handle, fs_server_ip, fs_server_port);
 	}
 
 	enum field_type security_metric_type[COLUMN_MAX] = {FIELD_TYPE_COUNTER};
@@ -301,8 +302,8 @@ int tsg_security_metric_init(const char *conffile, void *logger)
 	g_tsg_statis_para.metric_table_id = fieldstat_register_dynamic_table(g_tsg_statis_para.security_metric_handle, "security_rule_hits", security_metric_field, security_metric_type, (size_t)COLUMN_MAX, g_tsg_statis_para.security_column_ids);
 	if(g_tsg_statis_para.metric_table_id<0)
 	{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "SECURITY_HITS", "g_tsg_statis_para.metric_table_id error");
-			return -1;
+		MASTER_LOG(logger, RLOG_LV_FATAL, LOG_MODULE_METRICS, "SECURITY_HITS g_tsg_statis_para.metric_table_id error");
+		return -1;
 	}
 
 	fieldstat_dynamic_instance_start(g_tsg_statis_para.security_metric_handle);
@@ -329,21 +330,21 @@ int tsg_traffic_metric_init(const char *conffile, void *logger)
 
 	if (g_tsg_statis_para.app_metric_cycle <= 0)
 	{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "APP_METRIC", "g_tsg_statis_para.app_metric_cycle error");
+			MASTER_LOG(logger, RLOG_LV_FATAL, LOG_MODULE_METRICS, "APP_METRIC g_tsg_statis_para.app_metric_cycle error");
 			return -1;
 	}
 
 	g_tsg_statis_para.app_metric_handle = fieldstat_dynamic_instance_new(app_name, thread_num);
-	if (g_tsg_statis_para.app_metric_handle == NULL)
+	if(g_tsg_statis_para.app_metric_handle == NULL)
 	{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "APP_METRIC", "g_tsg_statis_para.app_metric_handle error");
-			return -1;
+		MASTER_LOG(logger, RLOG_LV_FATAL, LOG_MODULE_METRICS, "APP_METRIC g_tsg_statis_para.app_metric_handle error");
+		return -1;
 	}
 
 	fieldstat_dynamic_set_output_interval(g_tsg_statis_para.app_metric_handle, g_tsg_statis_para.app_metric_cycle);
 	if (fs_server_port > 0 && strlen(fs_server_ip) > 0)
 	{
-			fieldstat_dynamic_set_line_protocol_server(g_tsg_statis_para.app_metric_handle, fs_server_ip, fs_server_port);
+		fieldstat_dynamic_set_line_protocol_server(g_tsg_statis_para.app_metric_handle, fs_server_ip, fs_server_port);
 	}
 
 	enum field_type app_metric_type[TRAFFIC_APP_MAX] = {FIELD_TYPE_COUNTER};
@@ -353,8 +354,8 @@ int tsg_traffic_metric_init(const char *conffile, void *logger)
 	g_tsg_statis_para.app_metric_table_id = fieldstat_register_dynamic_table(g_tsg_statis_para.app_metric_handle, "traffic_application_protocol_stat", app_metric_field, app_metric_type, (size_t)TRAFFIC_APP_MAX, g_tsg_statis_para.app_column_ids);
 	if (g_tsg_statis_para.app_metric_table_id < 0)
 	{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "APP_METRIC", "g_tsg_statis_para.app_metric_table_id error");
-			return -1;
+		MASTER_LOG(logger, RLOG_LV_FATAL, LOG_MODULE_METRICS, "APP_METRIC g_tsg_statis_para.app_metric_table_id error");
+		return -1;
 	}
 
 	fieldstat_dynamic_instance_start(g_tsg_statis_para.app_metric_handle);
@@ -373,8 +374,8 @@ int tsg_metric_init(const char *conffile, void *logger)
 	MESA_load_profile_int_def(conffile, "STATISTIC", "CYCLE", &g_tsg_statis_para.cycle, 1);
 	if(g_tsg_statis_para.cycle<=0)
 	{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "STATISTIC", "Disabale traffic statistic");
-			return 0;
+		MASTER_LOG(logger, RLOG_LV_FATAL, LOG_MODULE_METRICS, "Disabale traffic statistic");
+		return 0;
 	}
 
 	MESA_load_profile_short_nodef(conffile, "STATISTIC", "TELEGRAF_PORT", (short *)&(fs_server_port));
@@ -393,7 +394,7 @@ int tsg_metric_init(const char *conffile, void *logger)
 
 	if (fs_server_port > 0 && strlen(fs_server_ip) > 0)
 	{
-			fieldstat_set_line_protocol_server(g_tsg_statis_para.statistic_handle, fs_server_ip, fs_server_port);
+		fieldstat_set_line_protocol_server(g_tsg_statis_para.statistic_handle, fs_server_ip, fs_server_port);
 	}
 
 	const char *static_column_name[STATIS_MAX] = {"sessions", "active_sessions", "closed_sessions", "in_bytes", "out_bytes", "in_pkts", "out_pkts", "asymmetric_c2s_flows", "asymmetric_s2c_flows"};
@@ -409,15 +410,15 @@ int tsg_metric_init(const char *conffile, void *logger)
 	int ret = tsg_security_metric_init(conffile, logger);
 	if(ret<0)
 	{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "INIT_METRIC", "tsg_security_metric_init failed ...");
-			return -1;
+		MASTER_LOG(logger, RLOG_LV_FATAL, LOG_MODULE_METRICS, "tsg_security_metric_init failed ...");
+		return -1;
 	}
 
 	ret = tsg_traffic_metric_init(conffile, logger);
 	if (ret < 0)
 	{
-			MESA_handle_runtime_log(logger, RLOG_LV_FATAL, "INIT_METRIC", "tsg_traffic_metric_init failed ...");
-			return -1;
+		MASTER_LOG(logger, RLOG_LV_FATAL, LOG_MODULE_METRICS, "tsg_traffic_metric_init failed ...");
+		return -1;
 	}
 
 	pthread_create(&g_tsg_statis_para.stat_thread_id, NULL, tsg_statistic_thread, NULL);

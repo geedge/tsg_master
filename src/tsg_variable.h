@@ -18,10 +18,6 @@ enum DEPLOY_MODE
 #define MIN(a, b)  	(((a) < (b)) ? (a) : (b))
 #endif
 
-#ifndef	PRINTADDR
-#define	PRINTADDR(a, b)	((b)<RLOG_LV_FATAL ? printaddr(&(a->addr), a->threadnum) : "")
-#endif
-
 #ifndef	MAX_TSG_ALL_RESULT_NUM
 #define	MAX_TSG_ALL_RESULT_NUM	MAX_RESULT_NUM*3
 #endif
