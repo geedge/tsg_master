@@ -317,33 +317,16 @@ static int set_asn(struct TLD_handle_t *_handle, const struct streaminfo *a_stre
 
 static int set_location(struct TLD_handle_t *_handle,  const struct streaminfo *a_stream, char *field_name, struct location_info *location_info)
 {
-	if(location_info==NULL)
+	if(location_info==NULL || location_info->full_location==NULL || location_info->full_location_len<=0)
 	{
 		return 0;
 	}
 	
-	int len=0;
-	char buff[1024]={0};
-	int buff_len=sizeof(buff);
-	int location_type=tsg_location_type_get();
-	switch(location_type)
-	{
-		case	18:
-			len+=string_cat(buff+len, buff_len-len, location_info->city_full);
-			buff[len++]=',';
-			len+=string_cat(buff+len, buff_len-len, location_info->province_full);
-			buff[len++]=',';
-			string_cat(buff+len, buff_len-len, location_info->country_full);
+	char location[1024]={0};
 
-			TLD_append(_handle, field_name, (void *)buff, TLD_TYPE_STRING);
-			break;
-		case	19:
-			TLD_append(_handle, field_name, (void *)location_info->full_location, TLD_TYPE_STRING);
-			break;
-		default:
-			return 0;
-	}
-	
+	memcpy(location, location_info->full_location, MIN((int)sizeof(location), location_info->full_location_len-1));
+	TLD_append(_handle, field_name, (void *)location, TLD_TYPE_STRING);
+
 	return 1;
 }
 

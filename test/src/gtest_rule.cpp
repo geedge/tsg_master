@@ -206,7 +206,8 @@ TEST(TM, ExDataLocationBuiltIn)
 	EXPECT_STREQ("Other", location->city_full);
 	EXPECT_STREQ("Hong Kong", location->country_full);
 	EXPECT_STREQ("Other", location->province_full);
-	EXPECT_STREQ(NULL, location->subdivision_addr);
+	EXPECT_STREQ("Road1", location->subdivision_addr);
+	EXPECT_STREQ("Hong Kong.Other.Other.Road1.", location->full_location);
 	EXPECT_EQ(2, location->ref_cnt);
 
 	temp_addr.ipv4 = inet_addr("192.168.50.2");
@@ -215,7 +216,8 @@ TEST(TM, ExDataLocationBuiltIn)
 	EXPECT_STREQ("Xin Xi Gang", location->city_full);
 	EXPECT_STREQ("China", location->country_full);
 	EXPECT_STREQ("Beijing", location->province_full);
-	EXPECT_STREQ(NULL, location->subdivision_addr); // location_field_num == 18; not 19
+	EXPECT_STREQ("Road1", location->subdivision_addr); 
+	EXPECT_STREQ("China.Beijing.Xin Xi Gang.Road1.", location->full_location);
 	EXPECT_EQ(2, location->ref_cnt);
 
 	location = NULL;
@@ -240,7 +242,8 @@ TEST(TM, ExDataLocationUserDefine)
 	EXPECT_STREQ("Hua Yan Bei Li", location->city_full);
 	EXPECT_STREQ("China", location->country_full);
 	EXPECT_STREQ("Beijing", location->province_full);
-	EXPECT_STREQ(NULL, location->subdivision_addr); // location_field_num == 18; not 19
+	EXPECT_STREQ("Road1", location->subdivision_addr); 
+	EXPECT_STREQ("China.Beijing.Hua Yan Bei Li.Road1.", location->full_location);
 	EXPECT_EQ(2, location->ref_cnt);
 
 	location = NULL;

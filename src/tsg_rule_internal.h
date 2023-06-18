@@ -105,7 +105,6 @@ struct maat_runtime_para
 {
 	int level;
 	int default_compile_id;
-	int location_field_num;
 	int session_record_switch;
 	char data_center[MAX_STRING_LEN128];
 	char device_tag[MAX_STRING_LEN128];
@@ -149,7 +148,6 @@ void *matched_rule_cites_dns_profile_record(struct maat *feather, long long prof
 
 char *tsg_data_center_get(void);
 char *tsg_device_tag_get(void);
-int tsg_location_type_get(void);
 int tsg_session_record_switch_get(void);
 int tsg_domain_table_idx_get(enum TSG_PROTOCOL proto);
 int tsg_fqdn_category_table_idx_get(enum TSG_PROTOCOL proto);
