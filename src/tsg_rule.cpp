@@ -562,24 +562,18 @@ void ex_data_location_new(const char *table_name, int table_id, const char* key,
 	tsg_str_unescape(location->country_full);
 	tsg_str_unescape(location->province_full);
 	tsg_str_unescape(location->city_full);
-			
-	if(g_tsg_maat_rt_para.location_field_num==19)
-	{
-		location->subdivision_addr=column_string_get_value(table_line, 17);	// subdivision_addr
-		tsg_str_unescape(location->subdivision_addr);
 
-		location->full_location_len=snprintf(full_address, 
+	location->subdivision_addr=column_string_get_value(table_line, 17);	// subdivision_addr
+	tsg_str_unescape(location->subdivision_addr);
+
+	location->full_location_len=snprintf(full_address, 
 												sizeof(full_address),
 												"%s.%s.%s.%s.", 
 												location->country_full,
 												location->province_full,
 												location->city_full,
 												location->subdivision_addr==NULL ? "" : location->subdivision_addr);
-	}
-	else
-	{
-		location->full_location_len=snprintf(full_address, sizeof(full_address), "%s.%s.", location->country_full, location->city_full);
-	}
+	
 
 	if(location->full_location_len>0)
 	{
@@ -2078,7 +2072,6 @@ int tsg_maat_rule_init(const char* conffile)
 
 	MESA_load_profile_int_def(conffile, "MAAT","SESSION_RECORD_SWITCH", &g_tsg_maat_rt_para.session_record_switch, 0);
 	
-	MESA_load_profile_int_def(conffile, "MAAT","LOCATION_TABLE_TYPE", &g_tsg_maat_rt_para.location_field_num, 18);
 	MESA_load_profile_string_def(conffile, "MAAT", "PROFILE", maat_conffile, sizeof(maat_conffile), "./tsgconf/maat.conf");
 	g_tsg_maat_feather=init_maat_feather(maat_conffile, (char *)"STATIC", (char *)"STATIC");
 	if(g_tsg_maat_feather==NULL)
@@ -3099,7 +3092,7 @@ void *matched_rule_cites_dns_profile_record(struct maat *feather, long long prof
 
 void plugin_ex_data_dns_profile_record_free(struct dns_profile_records *records)
 {
-	ex_data_app_id_dict_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (void **)&records, 0, NULL);
+	ex_data_dns_profile_records_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_DNS_PROFILE_RECORD].id, (void **)&records, 0, NULL);
 }
 
 size_t tsg_matched_rules_select(struct maat *feather, TSG_SERVICE service, long long *matched_rules, size_t n_matched_rules, struct maat_rule *rules, size_t n_rules)
@@ -3205,11 +3198,6 @@ int tsg_http_url_table_idx_get(void)
 int tsg_session_record_switch_get(void)
 {
 	return g_tsg_maat_rt_para.session_record_switch;
-}
-
-int tsg_location_type_get(void)
-{
-	return g_tsg_maat_rt_para.location_field_num;
 }
 
 long long tsg_default_compile_id_get(void)
