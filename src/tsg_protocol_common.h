@@ -55,7 +55,6 @@ struct dns_answer_records
 
 struct dns_profile_records
 {
-	int ref_cnt;
 	int record_id;
 	int record_num;
 	int answer_type;
@@ -106,7 +105,6 @@ struct deny_user_region
 struct traffic_mirror_profile
 {
 	int profile_id;
-	int ref_cnt;
 	struct mirrored_vlan vlan;
 };
 

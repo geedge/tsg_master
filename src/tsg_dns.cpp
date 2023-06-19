@@ -206,7 +206,6 @@ static int dns_set_answer_records(char *payload, int payload_len, struct dns_ans
 		used_len+=dns_set_response_records(payload+used_len, payload_len-used_len, profile_records->record_val+idx, record_num, answer_records->max_ttl, answer_records->min_ttl);
 
 		(*answer_record_num)+=record_num;
-		plugin_ex_data_dns_profile_record_free(profile_records);
 	}
 	else
 	{		

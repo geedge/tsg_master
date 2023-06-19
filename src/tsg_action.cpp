@@ -258,8 +258,6 @@ static int get_response_pages(const struct streaminfo *a_stream, struct maat_rul
 			default:
 				break;
 		}
-
-		plugin_ex_data_http_response_pages_free(response_pages);
 	}
 
 	return payload_len;
@@ -970,7 +968,6 @@ unsigned char tsg_enforing_deny_application(const struct streaminfo *a_stream, s
 	if(maat_compile!=NULL && maat_compile->user_region!=NULL)
 	{
 		app_user_region.capture=maat_compile->user_region->capture;
-		plugin_ex_data_security_compile_free(maat_compile);
 	}
 
 	switch(dict->deny_app_para.type)
@@ -1028,8 +1025,6 @@ unsigned char tsg_enforing_deny(const struct streaminfo *a_stream, struct maat_r
 		state=tsg_do_deny_action(a_stream, maat_compile->user_region, p_result, protocol, type, user_data);
 	}
 	
-	plugin_ex_data_security_compile_free(maat_compile);
-
 	return state;
 }
 

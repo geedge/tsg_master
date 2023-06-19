@@ -75,7 +75,6 @@ struct umts_user_info
 struct tunnel_catalog
 {
 	int id;
-	int ref_cnt;
 	char *name;
 	char *type;
 	char *composition;

@@ -60,7 +60,6 @@ enum HTTP_RESPONSE_FORMAT
 
 struct fqdn_category
 {
-	int ref_cnt;
 	unsigned int category_id;
 };
 
@@ -68,14 +67,12 @@ struct http_response_pages
 {
 	int profile_id;
 	int content_len;
-	int ref_cnt;	
 	enum HTTP_RESPONSE_FORMAT format;
 	char *content;
 };
 
 struct app_id_dict
 {
-	int ref_cnt;
 	int app_id;
 	int parent_app_id;
 	int continue_scanning;

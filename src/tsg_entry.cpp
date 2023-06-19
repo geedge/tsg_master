@@ -300,7 +300,6 @@ static int is_deny_application(struct maat_rule *p_result)
 
 	if(maat_compile->user_region->method_type==TSG_METHOD_TYPE_APP_DROP)
 	{
-		plugin_ex_data_security_compile_free(maat_compile);
 		return 1;
 	}
 	
@@ -322,7 +321,6 @@ static int is_deny_after_N_packets(struct maat_rule *p_result)
 
 	if(maat_compile->user_region->deny!=NULL && maat_compile->user_region->deny->after_n_packets>0)
 	{
-		plugin_ex_data_security_compile_free(maat_compile);
 		return 1;
 	}
 
@@ -371,8 +369,6 @@ static int get_default_para(const struct streaminfo *a_stream)
 					break;
 			}
 		}
-		
-		plugin_ex_data_security_compile_free(maat_compile);
 	}
 
 	return after_n_packets;
@@ -390,12 +386,9 @@ static int get_default_policy(struct maat_rule *result)
 			{
 				memcpy(result, &(maat_compile->user_region->session_para->result), sizeof(struct maat_rule));
 			}
-			
-			plugin_ex_data_security_compile_free(maat_compile);
+
 			return 1;
 		}
-		
-		plugin_ex_data_security_compile_free(maat_compile);
 	}
 
 	return 0;

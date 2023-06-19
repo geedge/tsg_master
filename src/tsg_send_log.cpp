@@ -1436,8 +1436,6 @@ static int set_xxxx_from_user_region(struct TLD_handle_t *_handle, struct tsg_lo
 			{
 				TLD_append(_handle, _instance->id2field[LOG_COMMON_USER_REGION].name, (void *)(compile->p_user_region), TLD_TYPE_STRING);
 			}
-
-			plugin_ex_data_security_compile_free(compile);
 		}
 	}
 

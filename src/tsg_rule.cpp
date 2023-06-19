@@ -619,13 +619,7 @@ void plugin_ex_data_location_free(struct location_info *location)
 
 void ex_data_fqdn_category_id_dup(int table_id, void **to, void **from, long argl, void* argp)
 {
-	if((*from)!=NULL)
-	{
-		struct fqdn_category *fqdn_cat=(struct fqdn_category *)(*from);
-		atomic_inc(&fqdn_cat->ref_cnt);
-		*to=*from;
-	}
-	return;
+	*to=*from;
 }
 
 void ex_data_fqdn_category_id_new(const char *table_name, int table_id, const char* key, const char* table_line, void **ad, long argl, void* argp)
@@ -641,7 +635,6 @@ void ex_data_fqdn_category_id_new(const char *table_name, int table_id, const ch
 		return ;
 	}
 	
-	atomic_inc(&fqdn_cat->ref_cnt);
 	*ad=(void *)fqdn_cat;
 	
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_FQDN_CATEGORY, 1);
@@ -652,16 +645,10 @@ void ex_data_fqdn_category_id_free(int table_id, void **ad, long argl, void* arg
 {
 	if((*ad)!=NULL)
 	{
-		struct fqdn_category *fqdn_cat=(struct fqdn_category *)(*ad);
-		if((__sync_sub_and_fetch(&fqdn_cat->ref_cnt, 1) == 0))	
-		{
-			tsg_free_field((char *)(*ad));
-			*ad=NULL;
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_FQDN_CATEGORY, 1);
-		}
+		tsg_free_field((char *)(*ad));
+		*ad=NULL;
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_FQDN_CATEGORY, 1);
 	}
-	
-	return;
 }
 
 void ex_data_subscriber_id_dup(int table_id, void **to, void **from, long argl, void* argp)
@@ -765,14 +752,7 @@ static int parse_security_deny_action(char *deny_action_str, struct deny_user_re
 
 void ex_data_app_id_dict_dup(int table_id, void **to, void **from, long argl, void* argp)
 {
-	if((*from)!=NULL)
-	{
-		//struct app_id_dict *dict=(struct app_id_dict *)(*from);
-		//atomic_inc(&dict->ref_cnt);
-		*to=*from;
-	}
-	
-	return;
+	*to=*from;
 }
 
 void ex_data_app_id_dict_new(const char *table_name, int table_id, const char* key, const char* table_line, void **ad, long argl, void* argp)
@@ -837,11 +817,9 @@ void ex_data_app_id_dict_new(const char *table_name, int table_id, const char* k
 		dict->characteristics_len=(char)strlen(dict->characteristics);
 	}
 
-	//atomic_inc(&dict->ref_cnt);
 	*ad=(void *)dict;
 	
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_APP_ID_DICT, 1);
-	return;
 }
 
 void ex_data_app_id_dict_free(int table_id, void **ad, long argl, void* argp)
@@ -849,22 +827,18 @@ void ex_data_app_id_dict_free(int table_id, void **ad, long argl, void* argp)
 	if((*ad)!=NULL)
 	{
 		struct app_id_dict *dict=(struct app_id_dict *)(*ad);
-		//if((__sync_sub_and_fetch(&dict->ref_cnt, 1) == 0))
-		{
-			tsg_free_field(dict->app_name);
-			tsg_free_field(dict->parent_app_name);
-			tsg_free_field(dict->category);
-			tsg_free_field(dict->subcategory);
-			tsg_free_field(dict->technology);
-			tsg_free_field(dict->risk);
-			tsg_free_field(dict->characteristics);
-			tsg_free_field((char *)(*ad));
-			*ad=NULL;
-			
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_APP_ID_DICT, 1);
-		}
+		tsg_free_field(dict->app_name);
+		tsg_free_field(dict->parent_app_name);
+		tsg_free_field(dict->category);
+		tsg_free_field(dict->subcategory);
+		tsg_free_field(dict->technology);
+		tsg_free_field(dict->risk);
+		tsg_free_field(dict->characteristics);
+		tsg_free_field((char *)(*ad));
+		*ad=NULL;
+		
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_APP_ID_DICT, 1);
 	}
-	return;
 }
 
 static int parse_dns_answer_ttl(struct dns_user_region *user_region_records, cJSON *one_record, int answer_type)
@@ -1243,7 +1217,6 @@ void ex_data_security_compile_new(const char *table_name, int table_id, const ch
 {	
 	cJSON *user_region_object=NULL;	
 	cJSON *packet_capture_object=NULL;
-	//struct compile_user_region *user_region=NULL;
 
 	struct maat_compile *compile=(struct maat_compile *)calloc(1, sizeof(struct maat_compile));
 	
@@ -1296,7 +1269,6 @@ void ex_data_security_compile_new(const char *table_name, int table_id, const ch
 		}
 	}
 	
-	atomic_inc(&compile->ref_cnt);
 	*ad=(void *)compile;
 	
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_COMPILE, 1);
@@ -1306,12 +1278,7 @@ void ex_data_security_compile_new(const char *table_name, int table_id, const ch
 
 void ex_data_security_compile_dup(int table_id, void **to, void **from, long argl, void *argp)
 {
-	if(*from!=NULL)
-	{
-		struct maat_compile *compile=(struct maat_compile *)(*from);
-		atomic_inc(&compile->ref_cnt);
-		*to=*from;
-	}
+	*to=*from;
 }
 
 static void free_dns_records_val(struct dns_record_val *record_val, int record_val_num)
@@ -1373,37 +1340,35 @@ void ex_data_security_compile_free(int table_id, void **ad, long argl, void *arg
 	{
 		return ;
 	}
-	
-	if((__sync_sub_and_fetch(&compile->ref_cnt, 1) == 0))
-	{
-		if (compile->user_region != NULL) 
-		{
-			switch(compile->user_region->method_type)
-			{
-				case	TSG_METHOD_TYPE_ALERT:
-				case	TSG_METHOD_TYPE_BLOCK:
-				case	TSG_METHOD_TYPE_RATE_LIMIT:
-				case	TSG_METHOD_TYPE_REDIRECTION:
-					free_deny_user_region(compile->user_region->deny);
-					break;
-				default:
-					break;
-			}
-			
-			if(compile->user_region->user_region_para!=NULL)
-			{
-				tsg_free_field((char *)(compile->user_region->user_region_para));
-				compile->user_region->user_region_para=NULL;
-			}
-		}
 
-		tsg_free_field(compile->p_user_region);
+	if (compile->user_region != NULL) 
+	{
+		switch(compile->user_region->method_type)
+		{
+			case	TSG_METHOD_TYPE_ALERT:
+			case	TSG_METHOD_TYPE_BLOCK:
+			case	TSG_METHOD_TYPE_RATE_LIMIT:
+			case	TSG_METHOD_TYPE_REDIRECTION:
+				free_deny_user_region(compile->user_region->deny);
+				break;
+			default:
+				break;
+		}
 		
-		tsg_free_field((char *)(*ad));
-		*ad=NULL;
-		
-		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_COMPILE, 1);
+		if(compile->user_region->user_region_para!=NULL)
+		{
+			tsg_free_field((char *)(compile->user_region->user_region_para));
+			compile->user_region->user_region_para=NULL;
+		}
 	}
+
+	tsg_free_field(compile->p_user_region);
+	
+	tsg_free_field((char *)(*ad));
+	*ad=NULL;
+	
+	tsg_stat_sync_exdata_del_update(SYNC_EXDATA_COMPILE, 1);
+
 }
 
 static char *get_http_pages_content(const char *filename, int *filelen)
@@ -1456,12 +1421,7 @@ cleanup:
 
 void ex_data_http_response_pages_dup(int table_id, void **to, void **from, long argl, void* argp)
 {
-	if((*from)!=NULL)
-	{
-		struct http_response_pages *res_pages=(struct http_response_pages *)(*from);
-		*to=*from;
-		atomic_inc(&res_pages->ref_cnt);
-	}
+	*to=*from;
 }
 
 void ex_data_http_response_pages_new(const char *table_name, int table_id, const char* key, const char* table_line, void **ad, long argl, void* argp)
@@ -1497,8 +1457,7 @@ void ex_data_http_response_pages_new(const char *table_name, int table_id, const
 	path=NULL;
 	
 	if(res_pages->content!=NULL && res_pages->content_len>0)
-	{		
-		atomic_inc(&res_pages->ref_cnt);
+	{
 		*ad=(void *)res_pages;
 	}
 	else
@@ -1516,14 +1475,12 @@ void ex_data_http_response_pages_free(int table_id, void **ad, long argl, void* 
 	if((*ad)!=NULL)
 	{
 		struct http_response_pages *res_pages=(struct http_response_pages *)(*ad);
-		if((__sync_sub_and_fetch(&res_pages->ref_cnt, 1) == 0))
-		{
-			tsg_free_field(res_pages->content);
-			tsg_free_field((char *)(*ad));
-			*ad=NULL;
-			
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_HTTP_RESPONSE, 1);
-		}
+		tsg_free_field(res_pages->content);
+		tsg_free_field((char *)(*ad));
+		*ad=NULL;
+		
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_HTTP_RESPONSE, 1);
+	
 	}
 }
 
@@ -1578,7 +1535,6 @@ void ex_data_dns_profile_records_new(const char *table_name, int table_id, const
 			}
 		}
 
-		atomic_inc(&profile_records->ref_cnt);
 		(*ad)=(void *)profile_records;
 
 		cJSON_Delete(records_array);
@@ -1603,14 +1559,7 @@ void ex_data_dns_profile_records_new(const char *table_name, int table_id, const
 
 void ex_data_dns_profile_records_dup(int table_id, void **to, void **from, long argl, void *argp)
 {
-	if((*from)!=NULL)
-	{
-		struct dns_profile_records *profile_records=(struct dns_profile_records *)(*from);
-		atomic_inc(&profile_records->ref_cnt);
-		(*to)=(*from);
-	}
-
-	return ;
+	(*to)=(*from);
 }
 
 void ex_data_dns_profile_records_free(int table_id, void **ad, long argl, void *argp)
@@ -1618,21 +1567,18 @@ void ex_data_dns_profile_records_free(int table_id, void **ad, long argl, void *
 	if((*ad)!=NULL)
 	{
 		struct dns_profile_records *profile_records=(struct dns_profile_records *)*ad;
-		if((__sync_sub_and_fetch(&profile_records->ref_cnt, 1) == 0))
+		if(profile_records->answer_type==DNS_TYPE_CNAME)
 		{
-			if(profile_records->answer_type==DNS_TYPE_CNAME)
-			{
-				free_dns_records_val(profile_records->record_val, profile_records->record_num);
-			}
-			
-			tsg_free_field((char *)(profile_records->record_val));
-			profile_records->record_val=NULL;
-			
-			tsg_free_field((char *)(*ad));
-			*ad=NULL;
-			
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_DNS_RESPONSE, 1);
+			free_dns_records_val(profile_records->record_val, profile_records->record_num);
 		}
+		
+		tsg_free_field((char *)(profile_records->record_val));
+		profile_records->record_val=NULL;
+		
+		tsg_free_field((char *)(*ad));
+		*ad=NULL;
+		
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_DNS_RESPONSE, 1);
 	}
 }
 
@@ -1659,8 +1605,6 @@ void ex_data_mirrored_profile_new(const char *table_name, int table_id, const ch
 		}
 	}
 
-	atomic_inc(&mirror_profile->ref_cnt);
-
 	*ad=(void *)mirror_profile;
 	
 	cJSON_Delete(vlan_ids_object);
@@ -1676,27 +1620,16 @@ void ex_data_mirrored_profile_new(const char *table_name, int table_id, const ch
 
 void ex_data_mirrored_profile_dup(int table_id, void **to, void **from, long argl, void *argp)
 {
-	if((*from)!=NULL)
-	{
-		struct traffic_mirror_profile *mirror_profile=(struct traffic_mirror_profile *)(*from);
-		atomic_inc(&mirror_profile->ref_cnt);
-		(*to)=(*from);
-	}
-
-	return ;
+	(*to)=(*from);
 }
 
 void ex_data_mirrored_profile_free(int table_id, void **ad, long argl, void *argp)
 {
 	if((*ad)!=NULL)
 	{
-		struct traffic_mirror_profile *mirror_profile=(struct traffic_mirror_profile *)*ad;
-		if((__sync_sub_and_fetch(&mirror_profile->ref_cnt, 1) == 0))
-		{	
-			tsg_free_field((char *)(*ad));
-			*ad=NULL;
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_MIRRORED, 1);
-		}
+		tsg_free_field((char *)(*ad));
+		*ad=NULL;
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_MIRRORED, 1);
 	}
 }
 
@@ -1722,12 +1655,10 @@ void ex_data_tunnel_catalog_new(const char *table_name, int table_id, const char
 	t_catalog->type=column_string_get_value(table_line, 3);
 	t_catalog->composition=column_string_get_value(table_line, 4);
 
-	atomic_inc(&t_catalog->ref_cnt);
 	*ad=(void *)t_catalog;
-	
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_TUNNEL_CATALOG, 1);
-	return;
 }
+
 void ex_data_tunnel_catalog_free(int table_id, void **ad, long argl, void *argp)
 {
 	if(*ad==NULL)
@@ -1736,24 +1667,17 @@ void ex_data_tunnel_catalog_free(int table_id, void **ad, long argl, void *argp)
 	}
 	
 	struct tunnel_catalog *t_catalog=(struct tunnel_catalog *)(*ad);
-	if ((__sync_sub_and_fetch(&t_catalog->ref_cnt, 1) == 0))
-	{
-		tsg_free_field(t_catalog->name);
-		tsg_free_field(t_catalog->type);		
-		tsg_free_field(t_catalog->composition);
-		tsg_free_field((char *)(*ad));
-		*ad=NULL;
-		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_TUNNEL_CATALOG, 1);
-	}
+	tsg_free_field(t_catalog->name);
+	tsg_free_field(t_catalog->type);		
+	tsg_free_field(t_catalog->composition);
+	tsg_free_field((char *)(*ad));
+	*ad=NULL;
+	tsg_stat_sync_exdata_del_update(SYNC_EXDATA_TUNNEL_CATALOG, 1);
 }
+
 void ex_data_tunnel_catalog_dup(int table_id,	void **to, void **from, long argl, void *argp)
 {
-	if((*from)!=NULL)
-	{
-		struct tunnel_catalog *t_catalog=(struct tunnel_catalog *)(*from);
-		__sync_add_and_fetch(&(t_catalog->ref_cnt), 1);
-		*to=*from;
-	}
+	(*to)=(*from);
 }
 
 void ex_data_tunnel_endpoint_new(const char *table_name, int table_id, const char* key, const char* table_line, void **ad, long argl, void *argp)
@@ -1815,7 +1739,6 @@ void ex_data_tunnel_label_new(const char *table_name, int table_id, const char* 
 void ex_data_tunnel_label_dup(int table_id, void **to, void **from, long argl, void *argp)
 {
 	(*to)=(*from);
-	return ;
 }
 
 void ex_data_tunnel_label_free(int table_id, void **ad, long argl, void *argp)
@@ -2124,8 +2047,6 @@ static int get_fqdn_category_id(struct maat *feather, int table_id, char *fqdn, 
 					category_id[cnt++]=ex_data_array[i]->category_id;
 				}
 			}
-			
-			ex_data_fqdn_category_id_free(table_id, (void **)&(ex_data_array[i]), 0, NULL);
 		}
 
 		return cnt;
@@ -2286,7 +2207,6 @@ size_t matche_rules_convert(struct maat *feather,long long *rules, size_t n_rule
 		}
 
 		matched_rules[offset++]=maat_compile->rule;
-		ex_data_security_compile_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (void **)&(maat_compile), 0, NULL);
 	}
 
 	return offset;
@@ -2659,7 +2579,6 @@ size_t tsg_scan_tunnel_id(const struct streaminfo *a_stream, struct maat *feathe
 	for(int i=0; i<ret; i++)
 	{
 		matched_cnt+=tsg_scan_integer(a_stream, feather, (long long)t_catalog[i]->id, MAAT_SCAN_TUNNEL_ID, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
-		ex_data_tunnel_catalog_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_TUNNEL_CATALOG].id, (void **)&(t_catalog[i]), 0, NULL);
 	}
 
 	return matched_cnt;
@@ -3020,7 +2939,6 @@ int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, st
 
 		if(maat_compile->user_region==NULL)
 		{
-			plugin_ex_data_security_compile_free(maat_compile);
 			continue;
 		}
 		
@@ -3030,7 +2948,6 @@ int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, st
 			if(mirror_profile!=NULL)
 			{
 				session_mirror_packets_sync(a_stream, &rules[i], &(mirror_profile->vlan));
-				ex_data_mirrored_profile_free(0, (void **)&mirror_profile, 0, NULL);
 			}
 			else
 			{
@@ -3043,7 +2960,6 @@ int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, st
 			session_capture_packets_sync(a_stream, &rules[i], maat_compile->user_region->capture.depth);
 		}
 		
-		plugin_ex_data_security_compile_free(maat_compile);
 		maat_compile=NULL;
 	}
 	
@@ -3110,8 +3026,6 @@ size_t tsg_matched_rules_select(struct maat *feather, TSG_SERVICE service, long 
 		{
 			rules[offset++]=maat_compile->rule;
 		}
-		
-		ex_data_security_compile_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (void **)&(maat_compile), 0, NULL);
 	}
 
 	return offset;

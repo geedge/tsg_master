@@ -15,7 +15,8 @@
             "tags": 6,
             "user_region": 7,
             "clause_num": 9,
-	        "evaluation_order":10
+	        "evaluation_order":10,
+            "gc_timeout_s":10
         }
     },
     {
@@ -491,7 +492,8 @@
             "item_id": 1,
             "key_type": "pointer",
             "suffix_match_method": 4,
-            "fqdn": 3
+            "fqdn": 3,
+            "gc_timeout_s":10
         }
     },
     {
@@ -503,7 +505,8 @@
             "item_id": 1,
             "key_type": "pointer",
             "suffix_match_method": 4,
-            "fqdn": 3
+            "fqdn": 3,
+            "gc_timeout_s":10
         }
     },
     {
@@ -610,7 +613,8 @@
         "custom": {
             "item_id": 1,
             "key_type": "integer",
-            "bool_expr": 4
+            "bool_expr": 4,
+            "gc_timeout_s":10
         }
     },
     {
@@ -758,7 +762,8 @@
         "custom": {
             "key": 1,
             "key_type": "integer",
-            "key_len": 8
+            "key_len": 8,
+            "gc_timeout_s":10
         }
     },
     {
@@ -772,7 +777,8 @@
             "key_len": 8,
             "foreign": [
                 4
-            ]
+            ],
+            "gc_timeout_s":10
         }
     },
     {
@@ -783,7 +789,8 @@
         "custom": {
             "key": 1,
             "key_type": "integer",
-            "key_len": 4
+            "key_len": 4,
+            "gc_timeout_s":10
         }
     },
     {
