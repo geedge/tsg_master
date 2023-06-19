@@ -68,7 +68,7 @@ struct proxy_cmsg
     uint32_t tcp_ts_client_val;
     uint32_t tcp_ts_server_val;
     uint32_t tcp_seq;
-    uint32_t tcp_ack;    
+    uint32_t tcp_ack;
 
     char *src_sub_id;
     char *dst_sub_id;
@@ -76,14 +76,8 @@ struct proxy_cmsg
     char *dst_asn;
     char *src_organization;
     char *dst_organization;
-    char *src_ip_location_country;
-    char *dst_ip_location_country;
-    char *src_ip_location_provine;
-    char *dst_ip_location_provine;
-    char *src_ip_location_city;
-    char *dst_ip_location_city;
-    char *src_ip_location_subdivision;
-    char *dst_ip_location_subdivision;
+    char *src_ip_full_location;
+    char *dst_ip_full_location;
     char *ssl_client_ja3_fingerprint;
     struct fqdn_cat_id_val fqdn_cat_ids;
     struct tcp_sids tcp_seq_sids;

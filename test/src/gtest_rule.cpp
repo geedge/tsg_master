@@ -203,20 +203,12 @@ TEST(TM, ExDataLocationBuiltIn)
 	struct location_info *location = NULL;
 	maat_ip_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_LOCATION_BUILT_IN].id, &temp_addr, (void **)&location, 1);
 
-	EXPECT_STREQ("Other", location->city_full);
-	EXPECT_STREQ("Hong Kong", location->country_full);
-	EXPECT_STREQ("Other", location->province_full);
-	EXPECT_STREQ("Road1", location->subdivision_addr);
 	EXPECT_STREQ("Hong Kong.Other.Other.Road1.", location->full_location);
 	EXPECT_EQ(2, location->ref_cnt);
 
 	temp_addr.ipv4 = inet_addr("192.168.50.2");
 	maat_ip_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_LOCATION_BUILT_IN].id, &temp_addr, (void **)&location, 1);
 
-	EXPECT_STREQ("Xin Xi Gang", location->city_full);
-	EXPECT_STREQ("China", location->country_full);
-	EXPECT_STREQ("Beijing", location->province_full);
-	EXPECT_STREQ("Road1", location->subdivision_addr); 
 	EXPECT_STREQ("China.Beijing.Xin Xi Gang.Road1.", location->full_location);
 	EXPECT_EQ(2, location->ref_cnt);
 
@@ -239,10 +231,6 @@ TEST(TM, ExDataLocationUserDefine)
 	struct location_info *location = NULL;
 	maat_ip_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_LOCATION_USER_DEFINED].id, &temp_addr, (void **)&location, 1);
 
-	EXPECT_STREQ("Hua Yan Bei Li", location->city_full);
-	EXPECT_STREQ("China", location->country_full);
-	EXPECT_STREQ("Beijing", location->province_full);
-	EXPECT_STREQ("Road1", location->subdivision_addr); 
 	EXPECT_STREQ("China.Beijing.Hua Yan Bei Li.Road1.", location->full_location);
 	EXPECT_EQ(2, location->ref_cnt);
 

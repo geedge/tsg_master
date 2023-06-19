@@ -204,14 +204,8 @@ static void mpack_append_cmsg_value(mpack_writer_t *writer, struct proxy_cmsg *c
 		mpack_append_string(writer, cmsg->dst_asn);
 		mpack_append_string(writer, cmsg->src_organization);
 		mpack_append_string(writer, cmsg->dst_organization);
-		mpack_append_string(writer, cmsg->src_ip_location_country);
-		mpack_append_string(writer, cmsg->dst_ip_location_country);
-		mpack_append_string(writer, cmsg->src_ip_location_provine);
-		mpack_append_string(writer, cmsg->dst_ip_location_provine);
-		mpack_append_string(writer, cmsg->src_ip_location_city);
-		mpack_append_string(writer, cmsg->dst_ip_location_city);
-		mpack_append_string(writer, cmsg->src_ip_location_subdivision);
-		mpack_append_string(writer, cmsg->dst_ip_location_subdivision);
+		mpack_append_string(writer, cmsg->src_ip_full_location);
+		mpack_append_string(writer, cmsg->dst_ip_full_location);
 		mpack_append_string(writer, cmsg->ssl_client_ja3_fingerprint);
 
         // fqdn_cat_id_val

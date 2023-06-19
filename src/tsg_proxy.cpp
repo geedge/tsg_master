@@ -410,31 +410,13 @@ static void tsg_proxy_cmsg_ip_location_fill(struct session_runtime_attribute *se
     const struct location_info *client_location = srt_attribute_get_client_ip_location(session_attr);
 	const struct location_info *server_location = srt_attribute_get_server_ip_location(session_attr);
     if (client_location) {
-        if (client_location->country_full) {
-            cmsg->src_ip_location_country = client_location->country_full;
-        }
-        if (client_location->province_full) {
-            cmsg->src_ip_location_provine = client_location->province_full;
-        }
-        if (client_location->city_full) {
-            cmsg->src_ip_location_city = client_location->city_full;
-        }
-        if (client_location->subdivision_addr) {
-            cmsg->src_ip_location_subdivision = client_location->subdivision_addr;
+        if (client_location->full_location && client_location->full_location_len) {
+            cmsg->src_ip_full_location = client_location->full_location;
         }
     }
     if (server_location) {
-        if (server_location->country_full) {
-            cmsg->dst_ip_location_country = server_location->country_full;
-        }
-        if (server_location->province_full) {
-            cmsg->dst_ip_location_provine = server_location->province_full;
-        }
-        if (server_location->city_full) {
-            cmsg->dst_ip_location_city = server_location->city_full;
-        }
-        if (server_location->subdivision_addr) {
-            cmsg->dst_ip_location_subdivision = server_location->subdivision_addr;
+        if (server_location->full_location && server_location->full_location_len) {
+            cmsg->dst_ip_full_location = server_location->full_location;
         }
     }
     return;
@@ -543,14 +525,8 @@ static void tsg_proxy_tcp_attribute_dump(tsg_proxy_tcp_attribute *tcp_attr, stru
                                                                        "server asn: %s\n"\
                                                                        "client orgnization: %s\n"\
                                                                        "server orgnization: %s\n"\
-                                                                       "client ip country: %s\n"\
-                                                                       "server ip country: %s\n"\
-                                                                       "client ip province: %s\n"\
-                                                                       "server ip province: %s\n"\
-                                                                       "client ip city: %s\n"\
-                                                                       "server ip city: %s\n"\
-                                                                       "client ip subdevision: %s\n"\
-                                                                       "server ip subdevision: %s\n"\
+                                                                       "client ip full_location: %s\n"\
+                                                                       "server ip full_location: %s\n"\
                                                                        "ssl ja3 fingerprint:%s\n"\
                                                                        "tcp_seq_route_ctx len: %d\n"\
                                                                        "tcp_ack_route_ctx len: %d\n"\
@@ -562,14 +538,8 @@ static void tsg_proxy_tcp_attribute_dump(tsg_proxy_tcp_attribute *tcp_attr, stru
                                                                        cmsg->dst_asn,
                                                                        cmsg->src_organization,
                                                                        cmsg->dst_organization,
-                                                                       cmsg->src_ip_location_country,
-                                                                       cmsg->dst_ip_location_country,
-                                                                       cmsg->src_ip_location_provine,
-                                                                       cmsg->dst_ip_location_provine,
-                                                                       cmsg->src_ip_location_city,
-                                                                       cmsg->dst_ip_location_city,
-                                                                       cmsg->src_ip_location_subdivision,
-                                                                       cmsg->dst_ip_location_subdivision,
+                                                                       cmsg->src_ip_full_location,
+                                                                       cmsg->dst_ip_full_location,
                                                                        cmsg->ssl_client_ja3_fingerprint,
                                                                        cmsg->tcp_seq_route_ctx.len,
                                                                        cmsg->tcp_ack_route_ctx.len,

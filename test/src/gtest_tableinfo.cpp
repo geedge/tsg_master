@@ -755,8 +755,6 @@ TEST(TSG_Table, TSG_SECURITY_SOURCE_LOCATION)
 {
     struct streaminfo a_stream = {0};
     struct location_info location = {0};
-    location.country_full = (char *)"country_full_test";
-    location.city_full = (char *)"city_full_test";
 	location.full_location=(char *)"country_full_test..city_full_test..";
 	location.full_location_len=strlen(location.full_location);
     struct maat_state *mid = maat_state_new(g_tsg_maat_feather, a_stream.threadnum);
@@ -772,8 +770,6 @@ TEST(TSG_Table, TSG_SECURITY_DESTINATION_LOCATION)
 {
     struct streaminfo a_stream = {0};
     struct location_info location = {0};
-    location.country_full = (char *)"country_full_test";
-    location.city_full = (char *)"city_full_test";
 	location.full_location=(char *)"country_full_test..city_full_test..";
 	location.full_location_len=strlen(location.full_location);
     struct maat_state *mid = maat_state_new(g_tsg_maat_feather, a_stream.threadnum);

@@ -556,23 +556,22 @@ void ex_data_location_new(const char *table_name, int table_id, const char* key,
 	char full_address[1024]={0};
 	struct location_info *location=(struct location_info *)calloc(1, sizeof(struct location_info));
 
-	location->country_full=column_string_get_value(table_line, 13);	// country_full
-	location->province_full=column_string_get_value(table_line, 15);	// province_full
-	location->city_full=column_string_get_value(table_line, 16);	// city_full
-	tsg_str_unescape(location->country_full);
-	tsg_str_unescape(location->province_full);
-	tsg_str_unescape(location->city_full);
-
-	location->subdivision_addr=column_string_get_value(table_line, 17);	// subdivision_addr
-	tsg_str_unescape(location->subdivision_addr);
+	char *country_full=column_string_get_value(table_line, 13);	// country_full
+	char *province_full=column_string_get_value(table_line, 15);	// province_full
+	char *city_full=column_string_get_value(table_line, 16);	// city_full
+	char *subdivision_addr=column_string_get_value(table_line, 17);	// subdivision_addr
+	tsg_str_unescape(country_full);
+	tsg_str_unescape(province_full);
+	tsg_str_unescape(city_full);
+	tsg_str_unescape(subdivision_addr);
 
 	location->full_location_len=snprintf(full_address, 
 												sizeof(full_address),
 												"%s.%s.%s.%s.", 
-												location->country_full,
-												location->province_full,
-												location->city_full,
-												location->subdivision_addr==NULL ? "" : location->subdivision_addr);
+												country_full,
+												province_full,
+												city_full,
+												subdivision_addr==NULL ? "" : subdivision_addr);
 	
 
 	if(location->full_location_len>0)
@@ -586,6 +585,11 @@ void ex_data_location_new(const char *table_name, int table_id, const char* key,
 	*ad=(void *)location;
 	
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_LOCATION, 1);
+	tsg_free_field(country_full);
+	tsg_free_field(province_full);
+	tsg_free_field(city_full);
+	tsg_free_field(subdivision_addr);
+
 	return;
 }
 
@@ -596,10 +600,6 @@ void ex_data_location_free(int table_id, void **ad, long argl, void* argp)
 		struct location_info *location=(struct location_info *)(*ad);
 		if((__sync_sub_and_fetch(&location->ref_cnt, 1) == 0))	
 		{
-			tsg_free_field(location->country_full);
-			tsg_free_field(location->province_full);
-			tsg_free_field(location->city_full);
-			tsg_free_field(location->subdivision_addr);
 			tsg_free_field(location->full_location);
 
 			tsg_free_field((char *)(*ad));

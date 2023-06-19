@@ -703,18 +703,10 @@ TEST(TSGBridge, SessionSessionRuntimeAttributeTSG15457)
 
 	srt_attribute->client_location=(struct location_info *)dictator_malloc(0, sizeof(struct location_info));
 	srt_attribute->client_location->ref_cnt=1;
-	srt_attribute->client_location->country_full=(char *)"china";
-	srt_attribute->client_location->province_full=(char *)"beijing";
-	srt_attribute->client_location->city_full=(char *)"west";
-	srt_attribute->client_location->subdivision_addr=(char *)"yuming road";
 	srt_attribute->client_location->full_location=(char *)"china.beijing.west.yuming road.";
 	
 	srt_attribute->server_location=(struct location_info *)dictator_malloc(0, sizeof(struct location_info));
 	srt_attribute->server_location->ref_cnt=1;
-	srt_attribute->server_location->country_full=(char *)"china";
-	srt_attribute->server_location->province_full=(char *)"shanghai";
-	srt_attribute->server_location->city_full=(char *)"east";
-	srt_attribute->server_location->subdivision_addr=(char *)"zhongshan road";
 	srt_attribute->server_location->full_location=(char *)"china.shanghai.east.zhongshan road.";
 
 	srt_attribute->client_subscribe_id=(struct subscribe_id_info *)dictator_malloc(0, sizeof(struct subscribe_id_info));
@@ -805,36 +797,20 @@ TEST(TSGBridge, SessionSessionRuntimeAttributeTSG15457)
 
 	EXPECT_NE(nullptr, srt_attribute_out->client_location);
 	EXPECT_EQ(1, srt_attribute_out->client_location->ref_cnt);
-	EXPECT_STREQ("china", srt_attribute_out->client_location->country_full);
-	EXPECT_STREQ("beijing", srt_attribute_out->client_location->province_full);
-	EXPECT_STREQ("west", srt_attribute_out->client_location->city_full);
-	EXPECT_STREQ("yuming road", srt_attribute_out->client_location->subdivision_addr);
 	EXPECT_STREQ("china.beijing.west.yuming road.", srt_attribute_out->client_location->full_location);
 
 	const struct location_info *c_location=srt_attribute_get_client_ip_location((const struct session_runtime_attribute *)srt_attribute_out);
 	EXPECT_NE(nullptr, c_location);
 	EXPECT_EQ(1, c_location->ref_cnt);
-	EXPECT_STREQ("china", c_location->country_full);
-	EXPECT_STREQ("beijing", c_location->province_full);
-	EXPECT_STREQ("west", c_location->city_full);
-	EXPECT_STREQ("yuming road", c_location->subdivision_addr);
 	EXPECT_STREQ("china.beijing.west.yuming road.", c_location->full_location);
 
 	EXPECT_NE(nullptr, srt_attribute_out->server_location);
 	EXPECT_EQ(1, srt_attribute_out->server_location->ref_cnt);
-	EXPECT_STREQ("china", srt_attribute_out->server_location->country_full);
-	EXPECT_STREQ("shanghai", srt_attribute_out->server_location->province_full);
-	EXPECT_STREQ("east", srt_attribute_out->server_location->city_full);
-	EXPECT_STREQ("zhongshan road", srt_attribute_out->server_location->subdivision_addr);
 	EXPECT_STREQ("china.shanghai.east.zhongshan road.", srt_attribute_out->server_location->full_location);
 
 	const struct location_info *s_location=srt_attribute_get_server_ip_location((const struct session_runtime_attribute *)srt_attribute_out);
 	EXPECT_NE(nullptr, s_location);
 	EXPECT_EQ(1, s_location->ref_cnt);
-	EXPECT_STREQ("china", s_location->country_full);
-	EXPECT_STREQ("shanghai", s_location->province_full);
-	EXPECT_STREQ("east", s_location->city_full);
-	EXPECT_STREQ("zhongshan road", s_location->subdivision_addr);
 	EXPECT_STREQ("china.shanghai.east.zhongshan road.", s_location->full_location);
 
 	EXPECT_NE(nullptr, srt_attribute_out->client_subscribe_id);
