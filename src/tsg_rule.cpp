@@ -3434,6 +3434,17 @@ int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_co
 	return 1;
 }
 
+char tsg_get_link_direction_from_tcpall(const struct streaminfo *a_stream)
+{
+	struct tcpall_context *_context=(struct tcpall_context *)get_struct_project(a_stream, g_tsg_para.tcpall_project_id);
+	if(_context==NULL)
+	{
+		return 0;
+	}
+	
+	return _context->link_direction;
+}
+
 char *tsg_get_column_string_value(const char* line, int column_seq)
 {
 	int ret=0;

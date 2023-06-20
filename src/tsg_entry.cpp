@@ -400,6 +400,40 @@ long long get_current_time_ms(void)
 	return current_time_ms;
 }
 
+static char get_direction(const struct streaminfo *a_stream)
+{
+	int direction=0,i_or_e=0;
+
+	i_or_e=MESA_dir_link_to_human(a_stream->routedir);
+	switch(a_stream->curdir)
+	{
+		case	DIR_C2S:
+			if(i_or_e=='E' || i_or_e=='e')
+			{
+				direction='E';
+			}
+			else
+			{
+				direction='I';
+			}
+			break;
+		case	DIR_S2C:
+			if(i_or_e=='E' || i_or_e=='e')
+			{
+				direction='I';
+			}
+			else
+			{
+				direction='E';
+			}
+			break;
+		default:
+			break;
+	}
+
+	return direction;
+}
+
 int set_struct_project(const struct streaminfo *a_stream, int project_id, void *data)
 {
 	if(a_stream==NULL || project_id<0)
@@ -2234,6 +2268,7 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 		context->all_entry=(struct tcpall_context *)dictator_malloc(thread_seq, sizeof(struct tcpall_context));
 		memset(context->all_entry, 0, sizeof(struct tcpall_context));
 		set_struct_project(a_udp, g_tsg_para.tcpall_project_id, (void *)(context->all_entry));
+		context->all_entry->link_direction=get_direction(a_udp);
 	}
 	
 	state2=tsg_master_data_entry(a_udp, (void **)&(context->data_entry), thread_seq, a_packet);	
@@ -2253,6 +2288,8 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 
 extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq, const void *a_packet)
 {
+	struct tcpall_context *_context=(struct tcpall_context *)(*pme);
+
 	if(*pme==NULL)
 	{		
 		*pme=(void *)get_struct_project(a_tcp, g_tsg_para.tcpall_project_id);
@@ -2262,9 +2299,10 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 			memset(*pme, 0, sizeof(struct tcpall_context));	
 			set_struct_project(a_tcp, g_tsg_para.tcpall_project_id, (void *)(*pme));
 		}
+
+		_context=(struct tcpall_context *)(*pme);
+		_context->link_direction=get_direction(a_tcp);
 	}
-	
-	struct tcpall_context *_context=(struct tcpall_context *)(*pme);
 
 	if(_context->set_latency_flag==0)
 	{

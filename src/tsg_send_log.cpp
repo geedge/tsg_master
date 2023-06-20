@@ -382,38 +382,12 @@ static int set_location(struct TLD_handle_t *_handle, struct streaminfo *a_strea
 
 static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
 {
-	int direction=0,i_or_e=0;
-
-	i_or_e=MESA_dir_link_to_human(a_stream->routedir);
-	switch(a_stream->curdir)
+	char direction=tsg_get_link_direction_from_tcpall(a_stream);
+	if(direction>0)
 	{
-		case	DIR_C2S:
-			if(i_or_e=='E' || i_or_e=='e')
-			{
-				direction='E';
-			}
-			else
-			{
-				direction='I';
-			}
-			break;
-		case	DIR_S2C:
-			if(i_or_e=='E' || i_or_e=='e')
-			{
-				direction='I';
-			}
-			else
-			{
-				direction='E';
-			}
-			break;
-		default:
-			break;
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);
 	}
-
 	
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_DIRECTION].name, (void *)(long)direction, TLD_TYPE_LONG);
-
 	return 1;
 }
 
@@ -960,18 +934,156 @@ static int set_l2tp(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_
 	return 1;
 }
 
-static int mac_to_string(unsigned char *mac, char *buff)
+static int mac_to_string(unsigned char *mac, char *mac_string)
 {
 	int i=0,len=0;
 	
 	for(i=0; i<6; i++)
 	{
-		len+=sprintf(buff+len, "%02x:", mac[i]);
+		len+=sprintf(mac_string+len, "%02x:", mac[i]);
 	}
 
-	buff[len-1]='\0';
+	mac_string[len-1]='\0';
 
 	return 0;
+}
+
+//I2E: outcoming
+int direction_I2E(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct layer_addr *mac_addr, unsigned char dir)
+{
+	if(mac_addr==NULL)
+	{
+		return 0;
+	}
+
+	char src_mac_string[32]={0};
+	char dst_mac_string[32]={0};
+	char default_mac[6]={0,0,0,0,0,0};
+
+	switch(dir)
+	{
+		case	DIR_C2S:  // C2S and I2E = outcoming
+			mac_to_string(mac_addr->mac->src_addr.h_source, src_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_SRC_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+			mac_to_string(mac_addr->mac->src_addr.h_dest, dst_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_DST_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+			break;
+		case	DIR_S2C:  // S2C and I2E = incoming
+			mac_to_string(mac_addr->mac->src_addr.h_source, src_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_SRC_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+			mac_to_string(mac_addr->mac->src_addr.h_dest, dst_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_DST_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+			break;
+		case	DIR_DOUBLE:  // first pkt 
+			mac_to_string(mac_addr->mac->src_addr.h_source, src_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_SRC_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+			mac_to_string(mac_addr->mac->src_addr.h_dest, dst_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_DST_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+
+			if((memcmp(mac_addr->mac->dst_addr.h_source, default_mac, 6))==0)
+			{
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_SRC_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_DST_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+			}
+			else
+			{
+				mac_to_string(mac_addr->mac->dst_addr.h_source, src_mac_string);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_SRC_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+				mac_to_string(mac_addr->mac->dst_addr.h_dest, dst_mac_string);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_DST_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+			}
+			break;
+		default:
+			break;
+	}
+	
+	return 0;
+}
+
+//E2I: outcoming
+int direction_E2I(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct layer_addr *mac_addr, unsigned char dir)
+{
+	if(mac_addr==NULL)
+	{
+		return 0;
+	}
+
+	char src_mac_string[32]={0};
+	char dst_mac_string[32]={0};
+	char default_mac[6]={0,0,0,0,0,0};
+	switch(dir)
+	{
+		case	DIR_C2S:  // C2S and E2I = incoming
+			mac_to_string(mac_addr->mac->src_addr.h_source, src_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_SRC_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+			mac_to_string(mac_addr->mac->src_addr.h_dest, dst_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_DST_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+			break;
+		case	DIR_S2C:  // S2C and E2I = outcoming
+			mac_to_string(mac_addr->mac->src_addr.h_source, src_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_SRC_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+			mac_to_string(mac_addr->mac->src_addr.h_dest, dst_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_DST_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+			break;
+		case	DIR_DOUBLE:  // first pkt 
+			mac_to_string(mac_addr->mac->src_addr.h_source, src_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_SRC_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+			mac_to_string(mac_addr->mac->src_addr.h_dest, dst_mac_string);
+			TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_DST_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+
+			if((memcmp(mac_addr->mac->dst_addr.h_source, default_mac, 6))==0)
+			{
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_SRC_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_DST_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+			}
+			else
+			{
+				mac_to_string(mac_addr->mac->dst_addr.h_source, src_mac_string);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_SRC_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+				mac_to_string(mac_addr->mac->dst_addr.h_dest, dst_mac_string);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_DST_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+			}
+			break;
+		default:
+			break;
+	}
+
+	return 0;
+}
+
+static int set_mac(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct streaminfo *a_stream)
+{
+	struct layer_addr *mac_addr=NULL;
+	struct streaminfo *ptmp = a_stream;
+
+	while(ptmp)
+	{
+		switch(ptmp->addr.addrtype)
+		{
+			case	ADDR_TYPE_MAC:
+				mac_addr=&(ptmp->addr);
+				break;
+			default:
+				break;
+		}
+		
+		ptmp=ptmp->pfather;
+	}
+
+	char direction=tsg_get_link_direction_from_tcpall(a_stream);
+	switch(direction)
+	{
+		case	'E':
+			direction_I2E(_instance, _handle, mac_addr, a_stream->dir);
+			break;
+		case	'I':
+			direction_E2I(_instance, _handle, mac_addr, a_stream->dir);
+			break;
+		default:
+			break;
+	}
+
+	return 1;
 }
 
 static int set_link_mac(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct layer_addr_mac *mac, Value *tunnel_object)
@@ -1716,6 +1828,8 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	{
 		set_common_tunnels(_instance, _handle, a_stream);
 	}
+
+	set_mac(_instance, _handle, a_stream);
 	
 	stream_id=tsg_get_stream_id(a_stream);
 	snprintf(stream_id_buff, sizeof(stream_id_buff), "%llu", stream_id);

@@ -283,7 +283,9 @@ struct master_context
 
 struct tcpall_context
 {
-	int set_latency_flag;
+	char link_direction;
+	char set_latency_flag;
+	char padding[2];
 	enum TSG_METHOD_TYPE method_type; 
 	union
 	{
@@ -477,6 +479,7 @@ void set_session_attribute_label(const struct streaminfo *a_stream, enum TSG_ATT
 int tsg_set_method_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, enum TSG_METHOD_TYPE method_type, int thread_seq);
 int tsg_set_bucket_to_tcpall(const struct streaminfo *a_stream, struct tcpall_context **context, struct leaky_bucket *bucket, int thread_seq);
 void security_compile_free(int idx, const struct Maat_rule_t* rule, const char* srv_def_large, MAAT_RULE_EX_DATA* ad, long argl, void *argp);
+char tsg_get_link_direction_from_tcpall(const struct streaminfo *a_stream);
 
 struct Maat_rule_t *tsg_policy_decision_criteria(struct streaminfo *a_stream, Maat_rule_t *result, int result_num, int thread_seq);
 int tsg_scan_addr(Maat_feather_t maat_feather, const struct streaminfo *a_stream, tsg_protocol_t proto, scan_status_t *mid, Maat_rule_t*result, int result_num);
