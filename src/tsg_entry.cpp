@@ -956,6 +956,7 @@ int session_application_metrics_update(const struct streaminfo *a_stream, struct
 	session_increase_traffic_statis_update(&current_traffic_statis, srt_action_context->last_traffic_statis, &increase_traffic_statis);
 	tsg_set_application_metrics(a_stream, srt_action_context->l4_protocol, app_full_path, &increase_traffic_statis, thread_seq);
 
+#if 0
 	if(a_stream->opstate==OP_STATE_CLOSE || a_stream->pktstate==OP_STATE_CLOSE)
 	{
 		if(srt_action_context->last_traffic_statis!=NULL)
@@ -966,7 +967,7 @@ int session_application_metrics_update(const struct streaminfo *a_stream, struct
 		
 		return 1;
 	}
-
+#endif
 	if(srt_action_context->last_traffic_statis==NULL)
 	{
 		srt_action_context->last_traffic_statis=(struct traffic_packet_info *)dictator_malloc(thread_seq, sizeof(struct traffic_packet_info));
@@ -2323,7 +2324,7 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 	}
 
 	session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
-
+	
 	if(udp_srt_context->srt_action_context->udp_data_dropme==0)
 	{
 		state2=tsg_master_data_entry(a_udp, (void **)&(udp_srt_context->srt_process_context), thread_seq, a_packet);
@@ -2342,13 +2343,13 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 
 	if(state1&APP_STATE_DROPME || state2&APP_STATE_DROPME || a_udp->opstate==OP_STATE_CLOSE)
 	{
-		session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
+		//session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
 		dictator_free(thread_seq, *pme);
 		*pme=NULL;
 
 		session_state_sync_in_opening_and_closing(a_udp, a_udp->opstate);
 	}
-
+	
 	return (state1|state2);
 }
 
@@ -2392,7 +2393,7 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 
 	if(state&APP_STATE_DROPME || a_tcp->pktstate==OP_STATE_CLOSE)
 	{
-		session_application_metrics_update(a_tcp, srt_action_context, thread_seq);
+		//session_application_metrics_update(a_tcp, srt_action_context, thread_seq);
 		session_state_sync_in_opening_and_closing(a_tcp, a_tcp->pktstate);
 	}
 
