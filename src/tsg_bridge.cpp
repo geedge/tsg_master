@@ -769,6 +769,16 @@ char srt_action_context_get_direction(const struct session_runtime_action_contex
 	return -1;
 }
 
+char *srt_action_context_get_l4_protocol(const struct session_runtime_action_context *srt_action_context)
+{
+	if(srt_action_context!=NULL)
+	{
+		return srt_action_context->l4_protocol;
+	}
+
+	return NULL;
+}
+
 enum TSG_METHOD_TYPE srt_action_context_get_method_type(const struct session_runtime_action_context *srt_action_context)
 {
 	if(srt_action_context!=NULL)

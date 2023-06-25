@@ -1030,8 +1030,6 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	_handle->document = new Document(_handle->valueAllocator);
 	_handle->document->SetObject();
 
-	
-
 	return _handle;
 }
 
@@ -1180,22 +1178,34 @@ struct session_marker_notify_ctx
 int set_session_flags(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	struct session_marker_notify_ctx *sm_notify=(struct session_marker_notify_ctx *)session_session_flags_get(a_stream);
-	if(sm_notify==NULL)
+	if(sm_notify!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_FLAGS].name, (void *)(long)(sm_notify->flags), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_FLAGS_IDENTIFY_INFO].name, (void *)(long)(sm_notify->identify_str), TLD_TYPE_STRING);
+
+		return 1;
+	}
+
+	return 0;
+}
+
+int set_l4_protocol(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
+{
+	const struct session_runtime_action_context *srt_action_context=session_runtime_action_context_get(a_stream);
+	if(srt_action_context==NULL)
 	{
 		return 0;
 	}
 
-	if(!TLD_search(_handle, _instance->id2field[LOG_COMMON_FLAGS].name))
+	char *l4_protocol=srt_action_context_get_l4_protocol(srt_action_context);
+	if(l4_protocol==NULL)
 	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_FLAGS].name, (void *)(long)(sm_notify->flags), TLD_TYPE_LONG);
+		l4_protocol=session_l4_protocol_label_update(a_stream);
 	}
+	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_L4_PROTOCOL_LABEL].name, (void *) l4_protocol, TLD_TYPE_STRING);
 
-	if(!TLD_search(_handle, _instance->id2field[LOG_COMMON_FLAGS_IDENTIFY_INFO].name))
-	{
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_FLAGS_IDENTIFY_INFO].name, (void *)(long)(sm_notify->identify_str), TLD_TYPE_STRING);
-	}
-
-	return 0;
+	return 1;
 }
 
 int set_sce_profile_ids(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
@@ -1643,6 +1653,7 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 	set_lua_scripts_result(_instance, _handle, a_stream);
 	
 	set_session_flags(_instance, _handle, a_stream);
+	set_l4_protocol(_instance, _handle, a_stream);
 	
 	if(is_tunnels(a_stream))
 	{

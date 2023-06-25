@@ -130,6 +130,11 @@ int tsg_get_app_name_by_id(struct maat *feahter, int app_id, char * app_name, in
 	return 0;
 }
 
+char *srt_action_context_get_l4_protocol(const struct session_runtime_action_context * srt_action_context)
+{
+	return NULL;
+}
+
 const struct session_runtime_attribute *session_runtime_attribute_get(const struct streaminfo * a_stream)
 {
 	return NULL;
@@ -152,6 +157,11 @@ int tsg_set_policy_flow(const struct streaminfo * a_stream, struct maat_rule * p
 int session_application_full_path_update(const struct streaminfo * a_stream, char * app_full_path, int app_full_path_len)
 {
 	return 0;
+}
+
+char *session_l4_protocol_label_update(const struct streaminfo * a_stream)
+{
+	return NULL;
 }
 
 TEST(Master, SendInterimRecord)

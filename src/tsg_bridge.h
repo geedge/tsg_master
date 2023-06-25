@@ -213,6 +213,7 @@ int srt_action_context_set_hitted_app_id(const struct streaminfo * a_stream, int
 const struct session_runtime_action_context *session_runtime_action_context_get(const struct streaminfo *a_stream);
 char srt_action_context_get_direction(const struct session_runtime_action_context *srt_action_context);
 enum TSG_METHOD_TYPE srt_action_context_get_method_type(const struct session_runtime_action_context *srt_action_context);
+char *srt_action_context_get_l4_protocol(const struct session_runtime_action_context *srt_action_context);
 
 
 const struct session_runtime_process_context *session_runtime_process_context_new(const struct streaminfo * a_stream);

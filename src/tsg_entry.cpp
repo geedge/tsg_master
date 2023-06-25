@@ -749,11 +749,11 @@ static const char *session_addr_type_string_convert(UCHAR addrtype)
 }
 
 #define MAX_L4_PROTOCOL_STR_LEN 512
-char *session_l4_protocol_label_update(const struct streaminfo *a_stream, char **l4_protocol)
+char *session_l4_protocol_label_update(const struct streaminfo *a_stream)
 {
-	if(*l4_protocol!=NULL || a_stream == NULL)
+	if(a_stream==NULL)
 	{
-		return *l4_protocol;
+		return NULL;
 	}
 
 	const char *l4_protocol_str = NULL;
@@ -804,13 +804,15 @@ char *session_l4_protocol_label_update(const struct streaminfo *a_stream, char *
 				continue;
 		}
 
-		int n_l4_protocol_str = strlen(l4_protocol_str);
-		if (n_l4_protocol_str!=0)
+		if(l4_protocol_str!=NULL)
 		{
+			int n_l4_protocol_str = strlen(l4_protocol_str);
+
 			if (combined_l4_protocol_offset - n_l4_protocol_str < 0)
 			{
 				break;
 			}
+			
 			memcpy(combined_l4_protocol_str+combined_l4_protocol_offset-n_l4_protocol_str, l4_protocol_str, n_l4_protocol_str);
 			combined_l4_protocol_offset-=n_l4_protocol_str;
 			l4_protocol_str=NULL;
@@ -822,12 +824,14 @@ char *session_l4_protocol_label_update(const struct streaminfo *a_stream, char *
 	if(combined_l4_protocol_offset>0 && combined_l4_protocol_offset<MAX_L4_PROTOCOL_STR_LEN)
 	{
 		int l4_protocol_len=MAX_L4_PROTOCOL_STR_LEN-combined_l4_protocol_offset-1;
-		*l4_protocol=(char *)malloc(l4_protocol_len+1);
-		memcpy(*l4_protocol, combined_l4_protocol_str+combined_l4_protocol_offset+1, l4_protocol_len); // +1 for del "."
-		(*l4_protocol)[l4_protocol_len]='\0';
+		char *l4_protocol=(char *)dictator_malloc(a_stream->threadnum, l4_protocol_len+1);
+		memcpy(l4_protocol, combined_l4_protocol_str+combined_l4_protocol_offset+1, l4_protocol_len); // +1 for del "."
+		l4_protocol[l4_protocol_len]='\0';
+
+		return l4_protocol;
 	}
 	
-	return *l4_protocol;
+	return NULL;
 }
 
 
@@ -942,11 +946,15 @@ int session_application_metrics_update(const struct streaminfo *a_stream, struct
 	char app_full_path[256]={0};
 	struct traffic_packet_info current_traffic_statis={0},increase_traffic_statis={0};
 	session_application_full_path_update(a_stream, app_full_path, sizeof(app_full_path));
-	char *l4_protocol_string=session_l4_protocol_label_update(a_stream, &srt_action_context->l4_protocol);
 
+	if(srt_action_context->l4_protocol==NULL)
+	{
+		srt_action_context->l4_protocol=session_l4_protocol_label_update(a_stream);
+	}
+	
 	session_current_traffic_statis_update(a_stream, &current_traffic_statis, thread_seq);
 	session_increase_traffic_statis_update(&current_traffic_statis, srt_action_context->last_traffic_statis, &increase_traffic_statis);
-	tsg_set_application_metrics(a_stream, l4_protocol_string, app_full_path, &increase_traffic_statis, thread_seq);
+	tsg_set_application_metrics(a_stream, srt_action_context->l4_protocol, app_full_path, &increase_traffic_statis, thread_seq);
 
 	if(a_stream->opstate==OP_STATE_CLOSE || a_stream->pktstate==OP_STATE_CLOSE)
 	{
