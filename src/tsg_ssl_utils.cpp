@@ -241,6 +241,10 @@ static enum chello_parse_result parse_extensions(const unsigned char* buff, size
         {
             chello->is_encrypt_sni = 1;
         }
+		if (buff[pos] == 0xfe && buff[pos + 1] == 0x0d)//identify encrypt chello
+        {
+            chello->is_encrypt_chello = 1;
+        }		
         pos += (4 + len);
     }
     /* Check we ended where we expected to */
