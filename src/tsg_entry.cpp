@@ -1420,7 +1420,16 @@ int session_l7_protocol_identify(const struct streaminfo *a_stream, struct sessi
 						srt_process_context->ssl_sni=malloc_copy_string(chello->sni, strlen(chello->sni), a_stream->threadnum);
 					}
 
-					srt_process_context->is_esni=(int)chello->is_encrypt_sni;
+					if(chello->is_encrypt_sni==1)
+					{
+						srt_process_context->is_esni=1;
+					}
+					
+
+					if(chello->is_encrypt_chello==1)
+					{
+						srt_process_context->is_ech=1;
+					}
 					
 					ssl_chello_free(chello);
 					return 1;
@@ -2023,6 +2032,12 @@ size_t session_pending_state_deal(const struct streaminfo *a_stream, struct sess
 		if(srt_process_context->is_esni)
 		{
 			unsigned int protocol_id=tsg_l7_protocol_name2id("ESNI", 4);
+			matched_cnt+=tsg_scan_app_id_policy(a_stream, g_tsg_maat_feather, protocol_id, (srt_process_context->mid), matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+		}
+		
+		if(srt_process_context->is_ech)
+		{
+			unsigned int protocol_id=tsg_l7_protocol_name2id("ECH", 3);
 			matched_cnt+=tsg_scan_app_id_policy(a_stream, g_tsg_maat_feather, protocol_id, (srt_process_context->mid), matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 		}
 

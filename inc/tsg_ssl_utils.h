@@ -29,7 +29,7 @@ struct ssl_chello
 	char* alpn;
 	char* cipher_suites;
 	char* cipher_suites_tls13;
-    int is_encrypt_sni;
+	int is_encrypt_sni;
 	int is_encrypt_chello;
 };
 struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, enum chello_parse_result* result);

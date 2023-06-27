@@ -77,12 +77,16 @@ struct hited_app_para
 
 struct session_runtime_process_context
 {
-	unsigned char is_esni;
-	unsigned char is_hitted_allow;
+	unsigned char is_esni:1;
+
+	unsigned char is_ech:1;
+	unsigned char is_hitted_allow:1;
+	unsigned char is_app_link:1;
+	unsigned char first_origin_pkt:1;
+	unsigned char padding_bit:3;
 	unsigned char deal_pkt_num;
-	unsigned char is_app_link;
 	unsigned char sync_cb_state;
-	unsigned char first_origin_pkt;
+	unsigned char padding[3];
 	unsigned short timeout;
 	enum TSG_PROTOCOL proto;
 	int matched_app_id;		// only app
@@ -220,5 +224,3 @@ char *srt_action_context_get_l4_protocol(const struct session_runtime_action_con
 const struct session_runtime_process_context *session_runtime_process_context_new(const struct streaminfo * a_stream);
 
 void session_runtime_process_context_free(const struct streaminfo *a_stream);
-
-
