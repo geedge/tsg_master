@@ -2,6 +2,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <MESA/quic.h>
+
 #include "gtest_common.h"
 #include "tsg_entry.h"
 #include "tsg_sync_state.h"
@@ -1102,6 +1104,63 @@ TEST(TSGMaster, SessionApplicationFullPath)
 	offset=session_application_full_path_combine(&gather_result, out_full_path, out_full_path_len);
 	EXPECT_NE(0, offset);
 	EXPECT_STREQ("ssl.https.built_in_youtube", out_full_path);
+}
+
+extern struct quic_info *g_test_quic_info;
+extern int session_l7_protocol_identify(const struct streaminfo * a_stream, struct session_runtime_process_context * srt_process_context, void * a_packet);
+
+TEST(TSGMaster, SessionQuicIdentify)
+{
+	struct streaminfo a_stream={0};
+	struct tcpdetail pdetail={0};
+	a_stream.type=STREAM_TYPE_UDP;
+	a_stream.ptcpdetail=&pdetail;
+	struct session_runtime_process_context srt_process_context={0};
+
+	int ret=session_l7_protocol_identify((const struct streaminfo *)&a_stream, &srt_process_context, NULL);
+	EXPECT_EQ(0, ret);
+	
+	struct quic_info quic_info_1;
+	quic_info_1.client_hello=NULL;
+	quic_info_1.quic_version=0x00000001;
+	g_test_quic_info=&quic_info_1;
+	ret=session_l7_protocol_identify((const struct streaminfo *)&a_stream, &srt_process_context, NULL);
+	EXPECT_EQ(1, ret);
+	EXPECT_EQ(0x00000001, srt_process_context.quic_version);
+	g_test_quic_info=NULL;
+	
+	struct quic_info quic_info_2;
+	struct quic_client_hello chello_2={(char *)"google.com", NULL};
+	quic_info_2.client_hello=&chello_2;
+	quic_info_2.quic_version=0x00000001;
+	g_test_quic_info=&quic_info_2;
+	ret=session_l7_protocol_identify((const struct streaminfo *)&a_stream, &srt_process_context, NULL);
+	EXPECT_EQ(1, ret);
+	EXPECT_EQ(0x00000001, srt_process_context.quic_version);
+	EXPECT_STREQ("google.com", srt_process_context.quic_sni);
+	dictator_free(0, (void *)srt_process_context.quic_sni);
+	srt_process_context.quic_sni=NULL;
+	EXPECT_EQ(nullptr, srt_process_context.quic_ua);
+	g_test_quic_info=NULL;
+
+	
+	struct quic_info quic_info_3;
+	struct quic_client_hello chello_3={(char *)"google.com", (char *)"Android"};
+	quic_info_3.client_hello=&chello_3;
+	quic_info_3.quic_version=0x00000001;
+	g_test_quic_info=&quic_info_3;
+	ret=session_l7_protocol_identify((const struct streaminfo *)&a_stream, &srt_process_context, NULL);
+	EXPECT_EQ(1, ret);
+	EXPECT_EQ(0x00000001, srt_process_context.quic_version);
+	EXPECT_STREQ("google.com", srt_process_context.quic_sni);
+	dictator_free(0, (void *)srt_process_context.quic_sni);
+	srt_process_context.quic_sni=NULL;
+	
+	EXPECT_STREQ("Android", srt_process_context.quic_ua);
+	dictator_free(0, (void *)srt_process_context.quic_ua);
+	srt_process_context.quic_ua=NULL;
+
+	g_test_quic_info=NULL;
 }
 
 int main(int argc, char *argv[])

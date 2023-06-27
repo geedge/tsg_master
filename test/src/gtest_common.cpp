@@ -296,9 +296,11 @@ int quic_version_int2string(unsigned int version, char *buff, int buff_len)
 	return 0;
 }
 
-unsigned int quic_protocol_identify(struct streaminfo *a_stream, void *a_packet, char *out_sni, int *out_sni_len, char *out_ua, int *out_ua_len)
+struct quic_info *g_test_quic_info;
+
+struct quic_info *quic_protocol_identify(const struct streaminfo *a_stream)
 {
-	return 0;
+	return g_test_quic_info;
 }
 
 extern "C" unsigned char sip_identify_from_to(char* buff,UINT32 buflen,char** from,UINT32* from_len,char** to,UINT32* to_len)

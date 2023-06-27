@@ -1514,15 +1514,27 @@ int session_l7_protocol_identify(const struct streaminfo *a_stream, struct sessi
 			
 			if(g_tsg_para.proto_flag&(1<<PROTO_QUIC))  //quic
 			{
-				char ua_buff[512]={0};
-				char sni_buff[512]={0};
-				int sni_len=sizeof(sni_buff),ua_len=sizeof(ua_buff);
-				srt_process_context->quic_version=quic_protocol_identify((struct streaminfo *)a_stream, a_packet, sni_buff, &sni_len, ua_buff, &ua_len);
-				if(srt_process_context->quic_version > 0)
+				struct quic_info *q_info=quic_protocol_identify(a_stream);
+				if(q_info!=NULL)
 				{
 					srt_process_context->proto=PROTO_QUIC;
-					srt_process_context->quic_sni=malloc_copy_string(sni_buff, sni_len, a_stream->threadnum);
-					srt_process_context->quic_ua=malloc_copy_string(ua_buff, ua_len, a_stream->threadnum);
+					srt_process_context->quic_version=q_info->quic_version;
+					
+					if(q_info->client_hello==NULL)
+					{
+						return 1;
+					}
+					
+					if(q_info->client_hello->sni!=NULL)
+					{
+						srt_process_context->quic_sni=malloc_copy_string(q_info->client_hello->sni, strlen(q_info->client_hello->sni), a_stream->threadnum);
+					}
+
+					if(q_info->client_hello->user_agent!=NULL)
+					{
+						srt_process_context->quic_ua=malloc_copy_string(q_info->client_hello->user_agent, strlen(q_info->client_hello->user_agent), a_stream->threadnum);
+					}
+					
 					return 1;
 				}
 			}
@@ -1537,7 +1549,7 @@ int session_l7_protocol_identify(const struct streaminfo *a_stream, struct sessi
 				{
 					srt_process_context->proto=PROTO_SIP;
 					return 1;
-				}				
+				}
 			}
 
 			if(g_tsg_para.proto_flag&(1<<PROTO_RDP))  //RDP
