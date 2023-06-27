@@ -445,7 +445,7 @@ void ex_data_gtp_c_new(const char *table_name, int table_id, const char* key, co
 	atomic_inc(&user_info->ref_cnt);
 	*ad=(void *)user_info;
 
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_GTPC, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_GTPC, 1);
 	return;
 }
 
@@ -464,7 +464,7 @@ void ex_data_gtp_c_free(int table_id, void **ad, long argl, void* argp)
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 			
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_GTPC, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_GTPC, 1);
 		}
 	}
 	
@@ -511,7 +511,7 @@ void ex_data_asn_number_new(const char *table_name, int table_id, const char* ke
 	atomic_inc(&asn->ref_cnt);
 	*ad=(void *)asn;
 	
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ASN, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_ASN, 1);
 	return;
 }
 
@@ -527,7 +527,7 @@ void ex_data_asn_number_free(int table_id, void **ad, long argl, void* argp)
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 			
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ASN, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_ASN, 1);
 		}
 	}
 	
@@ -584,7 +584,7 @@ void ex_data_location_new(const char *table_name, int table_id, const char* key,
 	atomic_inc(&location->ref_cnt);
 	*ad=(void *)location;
 	
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_LOCATION, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_LOCATION, 1);
 	tsg_free_field(country_full);
 	tsg_free_field(province_full);
 	tsg_free_field(city_full);
@@ -605,7 +605,7 @@ void ex_data_location_free(int table_id, void **ad, long argl, void* argp)
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 			
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_LOCATION, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_LOCATION, 1);
 		}
 	}
 	
@@ -637,7 +637,7 @@ void ex_data_fqdn_category_id_new(const char *table_name, int table_id, const ch
 	
 	*ad=(void *)fqdn_cat;
 	
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_FQDN_CATEGORY, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_FQDN_CATEGORY, 1);
 	return;
 }
 
@@ -647,7 +647,7 @@ void ex_data_fqdn_category_id_free(int table_id, void **ad, long argl, void* arg
 	{
 		tsg_free_field((char *)(*ad));
 		*ad=NULL;
-		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_FQDN_CATEGORY, 1);
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_FQDN_CATEGORY, 1);
 	}
 }
 
@@ -680,7 +680,7 @@ void ex_data_subscriber_id_new(const char *table_name, int table_id, const char*
 	atomic_inc(&subscriber->ref_cnt);
 	*ad=(void *)subscriber;
 	
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_SUBSCRIBER, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_SUBSCRIBER, 1);
 	return;
 }
 
@@ -695,7 +695,7 @@ void ex_data_subscriber_id_free(int table_id, void **ad, long argl, void* argp)
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
 				
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_SUBSCRIBER, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_SUBSCRIBER, 1);
 		}
 	}
 	
@@ -819,7 +819,7 @@ void ex_data_app_id_dict_new(const char *table_name, int table_id, const char* k
 
 	*ad=(void *)dict;
 	
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_APP_ID_DICT, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_APP_ID_DICT, 1);
 }
 
 void ex_data_app_id_dict_free(int table_id, void **ad, long argl, void* argp)
@@ -837,7 +837,7 @@ void ex_data_app_id_dict_free(int table_id, void **ad, long argl, void* argp)
 		tsg_free_field((char *)(*ad));
 		*ad=NULL;
 		
-		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_APP_ID_DICT, 1);
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_APP_ID_DICT, 1);
 	}
 }
 
@@ -1271,7 +1271,7 @@ void ex_data_security_compile_new(const char *table_name, int table_id, const ch
 	
 	*ad=(void *)compile;
 	
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_COMPILE, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_COMPILE, 1);
 
 	return ;
 }
@@ -1367,7 +1367,7 @@ void ex_data_security_compile_free(int table_id, void **ad, long argl, void *arg
 	tsg_free_field((char *)(*ad));
 	*ad=NULL;
 	
-	tsg_stat_sync_exdata_del_update(SYNC_EXDATA_COMPILE, 1);
+	tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_COMPILE, 1);
 
 }
 
@@ -1467,7 +1467,7 @@ void ex_data_http_response_pages_new(const char *table_name, int table_id, const
 		res_pages=NULL;
 	}
 
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_HTTP_RESPONSE, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_HTTP_RESPONSE, 1);
 }
 
 void ex_data_http_response_pages_free(int table_id, void **ad, long argl, void* argp)
@@ -1479,7 +1479,7 @@ void ex_data_http_response_pages_free(int table_id, void **ad, long argl, void* 
 		tsg_free_field((char *)(*ad));
 		*ad=NULL;
 		
-		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_HTTP_RESPONSE, 1);
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_HTTP_RESPONSE, 1);
 	
 	}
 }
@@ -1552,7 +1552,7 @@ void ex_data_dns_profile_records_new(const char *table_name, int table_id, const
 		profile_records=NULL;
 	}
 
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_DNS_RESPONSE, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_DNS_RESPONSE, 1);
 
 	return ;
 }
@@ -1578,7 +1578,7 @@ void ex_data_dns_profile_records_free(int table_id, void **ad, long argl, void *
 		tsg_free_field((char *)(*ad));
 		*ad=NULL;
 		
-		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_DNS_RESPONSE, 1);
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_DNS_RESPONSE, 1);
 	}
 }
 
@@ -1613,7 +1613,7 @@ void ex_data_mirrored_profile_new(const char *table_name, int table_id, const ch
 	tsg_free_field(vlan_ids_str);
 	vlan_ids_str=NULL;
 
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_MIRRORED, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_MIRRORED, 1);
 
 	return ;
 }
@@ -1629,7 +1629,7 @@ void ex_data_mirrored_profile_free(int table_id, void **ad, long argl, void *arg
 	{
 		tsg_free_field((char *)(*ad));
 		*ad=NULL;
-		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_MIRRORED, 1);
+		tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_MIRRORED, 1);
 	}
 }
 
@@ -1656,7 +1656,7 @@ void ex_data_tunnel_catalog_new(const char *table_name, int table_id, const char
 	t_catalog->composition=column_string_get_value(table_line, 4);
 
 	*ad=(void *)t_catalog;
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_TUNNEL_CATALOG, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_TUNNEL_CATALOG, 1);
 }
 
 void ex_data_tunnel_catalog_free(int table_id, void **ad, long argl, void *argp)
@@ -1672,7 +1672,7 @@ void ex_data_tunnel_catalog_free(int table_id, void **ad, long argl, void *argp)
 	tsg_free_field(t_catalog->composition);
 	tsg_free_field((char *)(*ad));
 	*ad=NULL;
-	tsg_stat_sync_exdata_del_update(SYNC_EXDATA_TUNNEL_CATALOG, 1);
+	tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_TUNNEL_CATALOG, 1);
 }
 
 void ex_data_tunnel_catalog_dup(int table_id,	void **to, void **from, long argl, void *argp)
@@ -1690,7 +1690,7 @@ void ex_data_tunnel_endpoint_new(const char *table_name, int table_id, const cha
 	atomic_inc(&t_endpoint->ref_cnt);
 	*ad=(void *)t_endpoint;
 	
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_TUNNEL_ENDPOINT, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_TUNNEL_ENDPOINT, 1);
 
 	return ;
 }
@@ -1717,7 +1717,7 @@ void ex_data_tunnel_endpoint_free(int table_id, void **ad, long argl, void *argp
 			tsg_free_field(t_endpoint->description);
 			tsg_free_field((char *)(*ad));
 			*ad=NULL;
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_TUNNEL_ENDPOINT, 1);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_TUNNEL_ENDPOINT, 1);
 		}
 	}
 }
@@ -1731,7 +1731,7 @@ void ex_data_tunnel_label_new(const char *table_name, int table_id, const char* 
 {	
 	int label_id=column_integer_get_value(table_line, 1);
 	*ad=(void *)(long)label_id;
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_TUNNEL_LABEL, 1);
+	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_TUNNEL_LABEL, 1);
 
 	return ;
 }
@@ -1743,7 +1743,7 @@ void ex_data_tunnel_label_dup(int table_id, void **to, void **from, long argl, v
 
 void ex_data_tunnel_label_free(int table_id, void **ad, long argl, void *argp)
 {
-	tsg_stat_sync_exdata_del_update(SYNC_EXDATA_TUNNEL_LABEL, 1);
+	tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_TUNNEL_LABEL, 1);
 }
 
 int init_scan_table(struct maat *feather, const char *conffile)

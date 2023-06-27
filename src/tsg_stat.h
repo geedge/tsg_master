@@ -28,23 +28,24 @@ enum SYNC_APP
 	SYNC_APP_MAX
 };
 
-//table: asn, gtpc, location, fqdn_category, subscriber, compile, mirror, http_response, dns_response, app_id_dict, tunnel_catalog, tunnel_endpoint, tunnel_label
-enum SYNC_EXDATA
+//table: add del
+//asn, gtpc, location, fqdn_category, subscriber, compile, mirror, http_response, dns_response, app_id_dict, tunnel_catalog, tunnel_endpoint, tunnel_label
+enum SYNC_EXDATA_ROW
 {
-	SYNC_EXDATA_ASN=0,
-	SYNC_EXDATA_GTPC,
-	SYNC_EXDATA_LOCATION,
-	SYNC_EXDATA_FQDN_CATEGORY,
-	SYNC_EXDATA_SUBSCRIBER,
-	SYNC_EXDATA_COMPILE,
-	SYNC_EXDATA_MIRRORED,
-	SYNC_EXDATA_HTTP_RESPONSE,
-	SYNC_EXDATA_DNS_RESPONSE,
-	SYNC_EXDATA_APP_ID_DICT,
-	SYNC_EXDATA_TUNNEL_CATALOG,
-	SYNC_EXDATA_TUNNEL_ENDPOINT,
-	SYNC_EXDATA_TUNNEL_LABEL,
-	SYNC_EXDATA_MAX
+	SYNC_EXDATA_ROW_ASN=0,
+	SYNC_EXDATA_ROW_GTPC,
+	SYNC_EXDATA_ROW_LOCATION,
+	SYNC_EXDATA_ROW_FQDN_CATEGORY,
+	SYNC_EXDATA_ROW_SUBSCRIBER,
+	SYNC_EXDATA_ROW_COMPILE,
+	SYNC_EXDATA_ROW_MIRRORED,
+	SYNC_EXDATA_ROW_HTTP_RESPONSE,
+	SYNC_EXDATA_ROW_DNS_RESPONSE,
+	SYNC_EXDATA_ROW_APP_ID_DICT,
+	SYNC_EXDATA_ROW_TUNNEL_CATALOG,
+	SYNC_EXDATA_ROW_TUNNEL_ENDPOINT,
+	SYNC_EXDATA_ROW_TUNNEL_LABEL,
+	SYNC_EXDATA_ROW_MAX
 };
 
 //table: success, success/s, fail, fail/s, drop, drop/s
@@ -119,8 +120,8 @@ void tsg_stat_start(void);
 void tsg_stat_abort_rule_update(enum RULE_TYPE column_idx, long long increase);
 void tsg_stat_send_rule_update(enum RULE_TYPE column_idx, long long increase);
 void tsg_stat_log_handle_update(enum LOG_HANDLE column_idx, long long increase);
-void tsg_stat_sync_exdata_add_update(enum SYNC_EXDATA column_idx, long long increase);
-void tsg_stat_sync_exdata_del_update(enum SYNC_EXDATA column_idx, long long increase);
+void tsg_stat_sync_exdata_add_update(enum SYNC_EXDATA_ROW row_idx, long long increase);
+void tsg_stat_sync_exdata_del_update(enum SYNC_EXDATA_ROW row_idx, long long increase);
 void tsg_stat_sync_application_update(enum SYNC_APP column_idx, long long increase);
 void tsg_stat_sendlog_update(int row_idx, enum LOG_STATUS column_idx, long long increase);
 void tsg_stat_flow_update(enum STAT_STATUS status, enum FLOW_STAT column_idx, long long increase);
