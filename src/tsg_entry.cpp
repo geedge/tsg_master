@@ -938,7 +938,7 @@ int session_increase_traffic_statis_update(struct traffic_packet_info *current, 
 int session_application_metrics_update(const struct streaminfo *a_stream, struct session_runtime_action_context *srt_action_context, int thread_seq)
 {
 	if((tsg_get_current_time_ms() - srt_action_context->last_update_metric_time < g_tsg_para.app_metric_update_interval_ms)
-		&& a_stream->opstate!=OP_STATE_CLOSE && a_stream->pktstate!=OP_STATE_CLOSE)
+		&& a_stream->opstate!=OP_STATE_CLOSE && a_stream->pktstate!=OP_STATE_CLOSE && !(srt_action_context->state&APP_STATE_DROPME))
 	{
 		return 0;
 	}
@@ -2335,8 +2335,6 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 		udp_srt_context->srt_action_context->direction=get_direction(a_udp);
 	}
 
-	session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
-	
 	if(udp_srt_context->srt_action_context->udp_data_dropme==0)
 	{
 		state2=tsg_master_data_entry(a_udp, (void **)&(udp_srt_context->srt_process_context), thread_seq, a_packet);
@@ -2355,11 +2353,16 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 
 	if(state1&APP_STATE_DROPME || state2&APP_STATE_DROPME || a_udp->opstate==OP_STATE_CLOSE)
 	{
-		//session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
+		udp_srt_context->srt_action_context->state=(state1|state2);
+		session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
 		dictator_free(thread_seq, *pme);
 		*pme=NULL;
 
 		session_state_sync_in_opening_and_closing(a_udp, a_udp->opstate);
+	}
+	else
+	{
+		session_application_metrics_update(a_udp, udp_srt_context->srt_action_context, thread_seq);
 	}
 	
 	return (state1|state2);
@@ -2389,8 +2392,6 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 		srt_action_context->last_update_metric_time = tsg_get_current_time_ms();
 	}
 
-	session_application_metrics_update(a_tcp, srt_action_context, thread_seq);
-
 	if(srt_action_context->set_latency_flag==0)
 	{
 		srt_action_context->set_latency_flag=session_tcp_establish_latency_ms_set(a_tcp, thread_seq, a_packet);
@@ -2405,8 +2406,13 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 
 	if(state&APP_STATE_DROPME || a_tcp->pktstate==OP_STATE_CLOSE)
 	{
-		//session_application_metrics_update(a_tcp, srt_action_context, thread_seq);
+		srt_action_context->state=state;
+		session_application_metrics_update(a_tcp, srt_action_context, thread_seq);
 		session_state_sync_in_opening_and_closing(a_tcp, a_tcp->pktstate);
+	}
+	else
+	{
+		session_application_metrics_update(a_tcp, srt_action_context, thread_seq);
 	}
 
 	return state;

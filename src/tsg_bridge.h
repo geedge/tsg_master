@@ -112,7 +112,8 @@ struct session_runtime_action_context
 	char udp_data_dropme;
 	char set_latency_flag;
 	char direction;
-	char padding[5];
+	char state;
+	char padding[4];
 	enum TSG_METHOD_TYPE method_type; 
 	enum TSG_PROTOCOL protocol;
 	char *l4_protocol;

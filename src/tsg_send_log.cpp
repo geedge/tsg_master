@@ -1179,6 +1179,7 @@ struct TLD_handle_t *TLD_create(int thread_id)
 	_handle->valueAllocator =new MemoryPoolAllocator<>(g_tsg_log_instance->rapidjson_chunk_capacity);
 	_handle->document = new Document(_handle->valueAllocator);
 	_handle->document->SetObject();
+	tsg_stat_log_handle_update(LOG_HANDLE_CREATE_CNT, 1);
 
 	return _handle;
 }
@@ -1341,19 +1342,18 @@ int set_session_flags(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 
 int set_l4_protocol(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	const struct session_runtime_action_context *srt_action_context=session_runtime_action_context_get(a_stream);
+	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_get(a_stream);
 	if(srt_action_context==NULL)
 	{
 		return 0;
 	}
-
-	char *l4_protocol=srt_action_context_get_l4_protocol(srt_action_context);
-	if(l4_protocol==NULL)
+	
+	if(srt_action_context->l4_protocol==NULL)
 	{
-		l4_protocol=session_l4_protocol_label_update(a_stream);
+		srt_action_context->l4_protocol=session_l4_protocol_label_update(a_stream);
 	}
 	
-	TLD_append(_handle, _instance->id2field[LOG_COMMON_L4_PROTOCOL_LABEL].name, (void *) l4_protocol, TLD_TYPE_STRING);
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_L4_PROTOCOL_LABEL].name, (void *)srt_action_context->l4_protocol, TLD_TYPE_STRING);
 
 	return 1;
 }
