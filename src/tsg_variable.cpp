@@ -61,11 +61,7 @@ unsigned int tsg_l7_protocol_name2id(const char *l7_protocol_name, unsigned int 
 
 long long tsg_get_current_time_ms(void)
 {
-	int size=sizeof(long long); 	
-	long long current_time_ms=0;		
-	sapp_get_platform_opt(SPO_CURTIME_TIMET_MS, &current_time_ms, &size);
-
-	return current_time_ms;
+	return get_timestamp_ms();
 }
 
 unsigned long long tsg_get_stream_trace_id(const struct streaminfo * a_stream)

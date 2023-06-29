@@ -2011,7 +2011,7 @@ size_t session_pending_state_deal(const struct streaminfo *a_stream, struct sess
 
 		if(srt_process_context->proto==PROTO_SSL)
 		{
-			struct _ssl_ja3_info_t *ja3_info=ssl_get_ja3_fingerprint((struct streaminfo *)a_stream, (unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->threadnum);
+			struct ssl_ja3_info *ja3_info=ssl_get_ja3_fingerprint((struct streaminfo *)a_stream, (unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->threadnum);
 			if(ja3_info!=NULL)
 			{
 				if(ja3_info->fp!=NULL && ja3_info->fp_len>0)

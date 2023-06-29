@@ -16,7 +16,7 @@ target_link_libraries(gtest_rule gtest-static ctemplate-static cjson MESA_prof_l
 add_executable(gtest_tableinfo ${PROJECT_SOURCE_DIR}/src/tsg_rule.cpp ${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp ${PROJECT_SOURCE_DIR}/src/tsg_stat.cpp gtest_common.cpp gtest_tableinfo.cpp)
 target_link_libraries(gtest_tableinfo gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger maat4 fieldstat3)
 
-add_executable(gtest_bridge ${PROJECT_SOURCE_DIR}/src/tsg_bridge.cpp ${PROJECT_SOURCE_DIR}/src/tsg_protocol.cpp ${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp ${PROJECT_SOURCE_DIR}/src/tsg_stat.cpp gtest_common.cpp gtest_bridge.cpp)
+add_executable(gtest_bridge ${PROJECT_SOURCE_DIR}/src/tsg_bridge.cpp ${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp ${PROJECT_SOURCE_DIR}/src/tsg_stat.cpp gtest_common.cpp gtest_bridge.cpp)
 target_link_libraries(gtest_bridge gtest-static ctemplate-static cjson MESA_prof_load MESA_handle_logger maat4 fieldstat3)
 
 add_executable(gtest_action ${PROJECT_SOURCE_DIR}/src/tsg_action.cpp ${PROJECT_SOURCE_DIR}/src/tsg_leaky_bucket.cpp ${PROJECT_SOURCE_DIR}/src/tsg_dns.cpp ${PROJECT_SOURCE_DIR}/src/tsg_icmp.cpp ${PROJECT_SOURCE_DIR}/src/tsg_tamper.cpp ${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp ${PROJECT_SOURCE_DIR}/src/tsg_stat.cpp gtest_common.cpp gtest_action.cpp)
@@ -40,7 +40,6 @@ set(TSG_MASTER_SRC ${PROJECT_SOURCE_DIR}/src/tsg_entry.cpp
 	${PROJECT_SOURCE_DIR}/src/tsg_bridge.cpp
 	${PROJECT_SOURCE_DIR}/src/tsg_sync_state.cpp
 	${PROJECT_SOURCE_DIR}/src/tsg_variable.cpp
-	${PROJECT_SOURCE_DIR}/src/tsg_protocol.cpp
 	${PROJECT_SOURCE_DIR}/src/tsg_proxy.cpp
 	${PROJECT_SOURCE_DIR}/src/mpack.c
 	${PROJECT_SOURCE_DIR}/src/tsg_stat.cpp

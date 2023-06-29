@@ -13,7 +13,6 @@
 
 extern int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data);
 extern int session_flags_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data);
-extern int tm_get_ssl_ja3_fingerprint(const struct streaminfo *a_stream, char **ja3_fingerprint);
 extern int matched_service_chaining_rules_deal(const struct streaminfo *a_stream, struct maat_rule *s_chaining_rules, size_t n_s_chaining_rules, int thread_seq);
 extern int matched_shaping_rules_deal(const struct streaminfo * a_stream, struct maat_rule * shaping_results, size_t n_shaping_results, int thread_seq);
 
