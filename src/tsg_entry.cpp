@@ -1967,7 +1967,7 @@ int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge
 	srt_process_context->last_scan_time=tsg_get_current_time_ms();
 	size_t matched_cnt=session_app_id_and_properties_scan((struct streaminfo *)a_stream, rules, MAX_MATCHED_RULES_NUM, srt_process_context, scan_app, scan_app_num, identify_result->origin, (int)a_stream->threadnum);
 
-	srt_process_context->sync_cb_state=session_matched_rules_deal(a_stream, srt_process_context, rules, matched_cnt, NULL);
+	srt_process_context->sync_cb_state=session_matched_rules_deal(a_stream, srt_process_context, rules, matched_cnt, get_this_layer_header(a_stream));
 	return 0;
 }
 
@@ -1994,7 +1994,7 @@ int session_flags_identify_result_cb(const struct streaminfo *a_stream, int brid
 	
 	struct maat_rule rules[MAX_MATCHED_RULES_NUM]={0};
 	size_t matched_cnt=tsg_scan_session_flags(a_stream, g_tsg_maat_feather, srt_process_context->session_flag, (srt_process_context->mid), rules, MAX_MATCHED_RULES_NUM);
-	srt_process_context->sync_cb_state=session_matched_rules_deal(a_stream, srt_process_context, rules, matched_cnt, NULL);
+	srt_process_context->sync_cb_state=session_matched_rules_deal(a_stream, srt_process_context, rules, matched_cnt, get_this_layer_header(a_stream));
 
 	return 0;
 }
