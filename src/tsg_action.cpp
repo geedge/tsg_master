@@ -954,6 +954,11 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 
 unsigned char tsg_enforing_deny_application(const struct streaminfo *a_stream, struct maat_rule *p_result, enum TSG_PROTOCOL protocol, int app_id, enum ACTION_RETURN_TYPE type, const void *user_data)
 {
+	if(protocol==PROTO_DNS && type==ACTION_RETURN_TYPE_APP && user_data==NULL)
+	{
+		return APP_STATE_GIVEME;
+	}
+
 	struct app_id_dict *dict=(struct app_id_dict *)matched_rule_cites_app_id_dict(g_tsg_maat_feather, (long long)app_id);
 	if(dict==NULL || user_data==NULL)
 	{
@@ -995,6 +1000,11 @@ unsigned char tsg_enforing_deny(const struct streaminfo *a_stream, struct maat_r
 	if(p_result->action==TSG_ACTION_BYPASS)
 	{
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPME : APP_STATE_GIVEME);
+	}
+
+	if(protocol==PROTO_DNS && type==ACTION_RETURN_TYPE_APP && user_data==NULL)
+	{
+		return APP_STATE_GIVEME;
 	}
 
 	struct maat_compile *maat_compile=(struct maat_compile *)matched_rule_cites_security_compile(g_tsg_maat_feather, p_result->rule_id);
