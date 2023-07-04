@@ -35,6 +35,11 @@ int get_thread_count(void)
 	return 8;
 }
 
+long long get_timestamp_ms()
+{
+	return 0;
+}
+
 int MESA_rst_tcp(struct streaminfo * stream, struct rst_tcp_para * paras, int para_len)
 {
 	return 0;
@@ -323,7 +328,7 @@ extern "C" bool dtls_identifyStream(struct streaminfo *a_udp)
 	return 0;
 }
 
-extern "C" struct _ssl_ja3_info_t *ssl_get_ja3_fingerprint(struct streaminfo *stream, unsigned char *payload, int payload_len, int thread_seq)
+struct ssl_ja3_info *ssl_get_ja3_fingerprint(struct streaminfo *stream, unsigned char *payload, int payload_len, int thread_seq)
 {
 	return NULL;
 }
