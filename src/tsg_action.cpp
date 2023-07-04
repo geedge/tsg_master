@@ -912,7 +912,7 @@ static unsigned char tsg_do_deny_action(const struct streaminfo *a_stream, struc
 					srt_action_context_set_after_n_packet(a_stream, user_region->deny->after_n_packets, a_stream->threadnum);
 				}
 				
-				local_state=((type==ACTION_RETURN_TYPE_PROT) ? (STATE_DROPME) : (STATE_DROPME|STATE_KILL_OTHER));
+				local_state=STATE_GIVEME;
 				break;
 			}
 			
