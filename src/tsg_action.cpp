@@ -468,11 +468,14 @@ static int http_build_response_packet(const struct streaminfo *a_stream, struct 
 	
 	get_tcp_mss_option(a_stream, TCP_OPT_MSS, (void *)&max_segment_size);
 	
-	for(i=0; i<payload_len; i+=one_payload_len)
+	for(i=0; i<=payload_len && http_hdr_len>0 ; i+=one_payload_len)
 	{
-		one_payload_len=MIN(payload_len-i, max_segment_size-http_hdr_len);
-		memcpy((char *)message+ip_tcp_hdr_len+http_hdr_len, payload+i, one_payload_len);
-		
+		if(payload_len>0)
+		{
+			one_payload_len=MIN(payload_len-i, max_segment_size-http_hdr_len);
+			memcpy((char *)message+ip_tcp_hdr_len+http_hdr_len, payload+i, one_payload_len);
+		}
+
 		send_pkt_len+=http_send_reponse_packet(a_stream, message, one_payload_len, v4_or_v6, ip_tcp_hdr_len, http_hdr_len);
 		http_hdr_len=0;
 	}
