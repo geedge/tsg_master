@@ -849,6 +849,42 @@ TEST(TSGBridge, SessionSessionRuntimeAttributeSubscriberIDTSG15568)
 	EXPECT_EQ(nullptr, srt_attribute_get_server_subscriber_id((const struct session_runtime_attribute *)srt_attribute_out));
 }
 
+TEST(TSGBridge, SessionMatchedRuleNotifyTSG15514)
+{
+	const struct streaminfo a_stream = {0};
+	struct maat_rule matched_rules_1={15514, TSG_ACTION_BYPASS, TSG_SERVICE_SECURITY, 1, 0, 1};
+
+	session_matched_rules_notify(&a_stream, TSG_SERVICE_SECURITY, &matched_rules_1, 1, 0);
+
+	struct matched_policy_rules *matched_rules_out=(struct matched_policy_rules *)session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
+	EXPECT_NE(nullptr, matched_rules_out);
+	EXPECT_EQ(1, matched_rules_out->n_rules);
+	EXPECT_EQ(15514, matched_rules_out->rules[0].rule_id);
+	EXPECT_EQ(TSG_ACTION_BYPASS, matched_rules_out->rules[0].action);
+	EXPECT_EQ(TSG_SERVICE_SECURITY, matched_rules_out->rules[0].service_id);
+	EXPECT_EQ(1, matched_rules_out->rules[0].vsys_id);
+
+	struct maat_rule matched_rules_2={15514, TSG_ACTION_BYPASS, TSG_SERVICE_SECURITY, 1, 0, 1};
+	session_matched_rules_notify(&a_stream, TSG_SERVICE_SECURITY, &matched_rules_2, 1, 0);
+	matched_rules_out=(struct matched_policy_rules *)session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
+	EXPECT_NE(nullptr, matched_rules_out);
+	EXPECT_EQ(1, matched_rules_out->n_rules);
+	EXPECT_EQ(15514, matched_rules_out->rules[0].rule_id);
+	EXPECT_EQ(TSG_ACTION_BYPASS, matched_rules_out->rules[0].action);
+	EXPECT_EQ(TSG_SERVICE_SECURITY, matched_rules_out->rules[0].service_id);
+	EXPECT_EQ(1, matched_rules_out->rules[0].vsys_id);
+
+	struct maat_rule matched_rules_3={155145, TSG_ACTION_BYPASS, TSG_SERVICE_SECURITY, 1, 0, 1};
+	session_matched_rules_notify(&a_stream, TSG_SERVICE_SECURITY, &matched_rules_3, 1, 0);
+	matched_rules_out=(struct matched_policy_rules *)session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
+	EXPECT_NE(nullptr, matched_rules_out);
+	EXPECT_EQ(1, matched_rules_out->n_rules);
+	EXPECT_EQ(15514, matched_rules_out->rules[0].rule_id);
+	EXPECT_EQ(TSG_ACTION_BYPASS, matched_rules_out->rules[0].action);
+	EXPECT_EQ(TSG_SERVICE_SECURITY, matched_rules_out->rules[0].service_id);
+	EXPECT_EQ(1, matched_rules_out->rules[0].vsys_id);
+}
+
 int main(int argc, char *argv[])
 {
 	int ret=tsg_bridge_init("tsgconf/main.conf");

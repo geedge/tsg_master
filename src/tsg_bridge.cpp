@@ -974,6 +974,7 @@ void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE
 		if(ret<0)
 		{
 			session_matched_rules_free_by_bridge(a_stream, g_tsg_bridge_para[bridge_idx].id, (void *)matched_policy);
+			return ;
 		}
 	}
 	
@@ -983,7 +984,7 @@ void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE
 		int repeat_result=0;
 		for(size_t j=0; j<matched_policy->n_rules; j++)
 		{
-			if(rules[i].rule_id==matched_policy->rules[j].rule_id)
+			if((rules[i].rule_id==matched_policy->rules[j].rule_id) || (rules[i].action==TSG_ACTION_BYPASS && matched_policy->rules[j].action==TSG_ACTION_BYPASS))
 			{
 				repeat_result=1;
 				break;
