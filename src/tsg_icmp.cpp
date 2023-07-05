@@ -171,7 +171,7 @@ static void format_icmpv4(const char *raw_pkt, char *ret_icmpv4, int *ret_len){
 }
 
 /*
- *  icmpv6数据包组�? *  [ICMPV6] = [ipv6_headr]+[icmp]
+ *  icmpv6数据包组�? *  [ICMPV6] = [ipv6_headr]+[icmp]
  *
  *  icmpv6的最大MTU应是ipv6的最小MTU(1280)
  *  <本端内容来自RFC443>
@@ -182,8 +182,8 @@ static void format_icmpv4(const char *raw_pkt, char *ret_icmpv4, int *ret_len){
  *
  *  [ICMPV6] = [ipv6_headr]+[icmp]
  *
- *  计算ICMPV6的校验和�?(ICMP + 伪首�? 作为计算数据部分
- *  注意�?ICMPV6数据要补充成四字节对�? *  ipv6伪首部数�? 长度
+ *  计算ICMPV6的校验和�?(ICMP + 伪首�? 作为计算数据部分
+ *  注意�?ICMPV6数据要补充成四字节对�? *  ipv6伪首部数�? 长度
  *  {
  *      Soucre Address :            16
  *      Destination Address:        16
@@ -265,7 +265,7 @@ static void format_icmpv6(const char *raw_pkt, char *ret_icmpv6, int *ret_len){
     memcpy(icmp.origin_data, raw_pkt, icmp_original_data_len);
 
     upper_layer_packet_len = htonl((int)icmp_len);
-    four_byte_alignment(&icmp_len, &icmp_checksum_len); //icmp_len和icmp_checksum_len 补充�?字节对齐
+    four_byte_alignment(&icmp_len, &icmp_checksum_len); //icmp_len和icmp_checksum_len 补充�?字节对齐
 
     //calc icmp checksum
     memcpy(icmp_checksum_buf, &icmp, icmp_len);
@@ -291,55 +291,26 @@ static void format_icmp(const char *raw_pkt, char *icmp_buf, int *icmp_len, int 
     return;
 }
 
-/*   get option from raw packet.
- *   example:
- *   void *raw_pkt_data;
- *   ret = get_opt_from_rawpkt(voidpkt, RAW_PKT_GET_DATA, &raw_pkt_data);
- *   if(0 == ret){
- *           (struct mesa_ethernet_hdr *)raw_pkt_data;
- *   }else if(1 == ret){
- *           (raw_ipfrag_list_t *)raw_pkt_data;
- *   }else{
- *           error!
- *   }
- */
-
 unsigned char send_icmp_unreachable(const struct streaminfo *a_stream)
 {
-	char icmp_buf[ICMP_MAX_LEN] = {0}; 
-	int  icmp_len = 0;
-	int  get_rawpkt_ret = 0;
-	void *raw_pkt = NULL;
-	int opt_value=1;
+    int opt_value=1;
+	void *raw_pkt=NULL;
 
-	if(a_stream==NULL)
+	int ret=get_rawpkt_opt_from_streaminfo(a_stream, RAW_PKT_GET_DATA, &raw_pkt);
+	if(ret<0 || (1==ret && NULL!=raw_pkt))
 	{
 		MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
 		return STATE_GIVEME;
 	}
 
-	get_rawpkt_ret = get_rawpkt_opt_from_streaminfo(a_stream, RAW_PKT_GET_DATA, &raw_pkt);
-
-	if(0==get_rawpkt_ret && NULL!=raw_pkt)
+	if(NULL!=raw_pkt)
 	{
+        int  icmp_len=0;
+        char icmp_buf[ICMP_MAX_LEN]={0};
 		format_icmp((char *)raw_pkt+ETHERNET_BYTE_LEN, icmp_buf, &icmp_len, a_stream->addr.addrtype);
-	}
-	else if(1==get_rawpkt_ret && NULL!=raw_pkt)
-	{
-		MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
-		return STATE_GIVEME;
-	}
-	else
-	{
-		//error
-		MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
-		return STATE_GIVEME;
+    	tsg_send_inject_packet(a_stream, SIO_EXCLUDE_THIS_LAYER_HDR, icmp_buf, icmp_len, MESA_dir_reverse(a_stream->routedir));
+	    MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
 	}
 
-	tsg_send_inject_packet(a_stream, SIO_EXCLUDE_THIS_LAYER_HDR, icmp_buf, icmp_len, MESA_dir_reverse(a_stream->routedir));
-
-	MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
-
-	return STATE_DROPME;
+	return STATE_GIVEME;
 }
-

@@ -1754,7 +1754,7 @@ static unsigned char matched_security_rules_deal(const struct streaminfo *a_stre
 				}
 			}
 
-			if(srt_process_context->proto==PROTO_HTTP || srt_process_context->proto==PROTO_SSL)
+			if((srt_process_context->proto==PROTO_HTTP || srt_process_context->proto==PROTO_SSL) && state&APP_STATE_DROPME)
 			{
 				state|=APP_STATE_KILL_OTHER;
 			}
