@@ -982,8 +982,8 @@ int direction_I2E(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_ha
 
 			if((memcmp(mac_addr->mac->dst_addr.h_source, default_mac, 6))==0)
 			{
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_SRC_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_OUTCOMING_DST_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_SRC_MAC].name, (void *)dst_mac_string, TLD_TYPE_STRING);
+				TLD_append(_handle, _instance->id2field[LOG_COMMON_INCOMING_DST_MAC].name, (void *)src_mac_string, TLD_TYPE_STRING);
 			}
 			else
 			{
