@@ -192,7 +192,8 @@ static void template_generate(const struct streaminfo *a_stream, int status_code
 			dict.SetValue("msg", tmp_buff);
 
 			dictator_free(thread_seq, tmp_buff);
-			tmp_buff=NULL;
+			tmp_buff=NULL;
+
 		}
 		else
 		{
@@ -632,13 +633,13 @@ static unsigned char do_action_tamper(const struct streaminfo *a_stream, Maat_ru
         _context->tamper_count = 0;
     }
 
-    //当前为tsg_master_plug暂时不处理在tsg_master_all_entry处理,防止命中发两�?
+    //当前为tsg_master_plug暂时不处理在tsg_master_all_entry处理,防止命中发两�?
     if(ACTION_RETURN_TYPE_APP == type)
     {
         return STATE_GIVEME|STATE_DROPPKT|STATE_KILL_OTHER;
     }
 
-    //TCP这里发送的话，tsg_master_all_entry仍会处理发�?UDP没有这个情况,所以加该判�?
+    //TCP这里发送的话，tsg_master_all_entry仍会处理发�?UDP没有这个情况,所以加该判�?
     if(a_stream->type == STREAM_TYPE_UDP) 
     {
         send_tamper_xxx(a_stream, &_context->tamper_count, user_data);
@@ -928,9 +929,14 @@ unsigned char tsg_deny_application(const struct streaminfo *a_stream, Maat_rule_
 	struct app_id_dict *dict=NULL;	
 	struct compile_user_region app_user_region={0}, *user_region=NULL;
 	
+	if(protocol==PROTO_DNS && type==ACTION_RETURN_TYPE_APP && user_data==NULL)
+	{
+		return APP_STATE_GIVEME;
+	}
+
 	snprintf(app_id_buff, sizeof(app_id_buff), "%d", app_id);
 	dict=(struct app_id_dict *)Maat_plugin_get_EX_data(g_tsg_maat_feather, g_tsg_para.table_id[TABLE_APP_ID_DICT], (const char *)app_id_buff);
-	if(dict==NULL)
+	if(dict==NULL || user_data==NULL)
 	{
 		set_drop_stream(a_stream, protocol);
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPPKT|PROT_STATE_DROPME: APP_STATE_DROPME|APP_STATE_DROPPKT);
@@ -973,8 +979,13 @@ unsigned char tsg_deal_deny_action(const struct streaminfo *a_stream, Maat_rule_
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPME : APP_STATE_GIVEME);
 	}
 
+	if(protocol==PROTO_DNS && type==ACTION_RETURN_TYPE_APP && user_data==NULL)
+	{
+		return APP_STATE_GIVEME;
+	}
+
 	user_region=(struct compile_user_region *)Maat_rule_get_ex_data(g_tsg_maat_feather, p_result, g_tsg_para.table_id[TABLE_SECURITY_COMPILE]);
-	if(user_region==NULL)
+	if(user_region==NULL || user_data==NULL)
 	{
 		set_drop_stream(a_stream, protocol);
 		return ((type==ACTION_RETURN_TYPE_PROT) ? PROT_STATE_DROPPKT|PROT_STATE_DROPME: APP_STATE_DROPME|APP_STATE_DROPPKT);

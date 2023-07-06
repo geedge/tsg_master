@@ -4,7 +4,7 @@ variables:
   BUILD_IMAGE_CENTOS8: "git.mesalab.cn:7443/mesa_platform/build-env:rockylinux"
   BUILD_PADDING_PREFIX: /tmp/padding_for_CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX_PREFIX_PREFIX_PREFIX_PREFIX_PREFIX/
   INSTALL_PREFIX: "/home/mesasoft/sapp_run/"
-  INSTALL_DEPENDENCY_LIBRARY: libMESA_handle_logger-devel  libcjson-devel libMESA_field_stat2-devel sapp  sapp-devel framework_env  libMESA_prof_load-devel http-devel dns-devel ftp-devel mail-devel ssl-devel  librdkafka-devel libmaatframe-devel quic-devel  mesa_sip-devel gtp-devel libMESA_htable-devel libasan mrzcpd rapidjson-devel libMESA_jump_layer-devel stratum-devel rdp-devel dtls-devel-1.0.10.ab7166e
+  INSTALL_DEPENDENCY_LIBRARY: libMESA_handle_logger-devel  libcjson-devel libMESA_field_stat2-devel sapp  sapp-devel framework_env  libMESA_prof_load-devel http-devel dns-devel ftp-devel mail-devel ssl-devel-2.0.13.fda2e4a librdkafka-devel libmaatframe-devel quic-devel  mesa_sip-devel gtp-devel libMESA_htable-devel libasan mrzcpd rapidjson-devel libMESA_jump_layer-devel stratum-devel rdp-devel dtls-devel-1.0.10.ab7166e
 
 stages:
 - build

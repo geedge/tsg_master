@@ -1918,7 +1918,7 @@ static int app_identify_result_cb(const struct streaminfo *a_stream, int bridge_
 		return 0;
 	}
 
-	master_deal_scan_result(a_stream, context, scan_result, hit_num, NULL);
+	master_deal_scan_result(a_stream, context, scan_result, hit_num, get_this_layer_header(a_stream));
 	
 	return 0;
 }
