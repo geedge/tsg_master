@@ -1010,6 +1010,41 @@ TEST(TSGMaster, SessionApplicationMetrics)
 
 }
 
+extern int session_application_full_path_update(const struct streaminfo *a_stream, char *app_full_path, int app_full_path_len);
+
+TEST(TSGMaster, SessionApplicationFullPathTSG15999)
+{
+	const struct streaminfo a_stream={0};
+	char out_full_path[256]={0};
+	int out_full_path_len=sizeof(out_full_path);
+	struct gather_app_result *gather_result=(struct gather_app_result *)calloc(1, sizeof(struct gather_app_result));
+
+	gather_result->l7_protocol_num=1;
+	gather_result->l7_protocol=(struct app_attributes *)calloc(1, sizeof(struct app_attributes));
+	gather_result->l7_protocol->app_id=68;
+	gather_result->l7_protocol->surrogate_id=0;
+	gather_result->l7_protocol->packet_sequence=4;
+
+	gather_result->qm_engine_num=2;
+	gather_result->qm_engine=(struct app_attributes *)calloc(1, sizeof(struct app_attributes)*2);
+	gather_result->qm_engine[0].app_id=199;
+	gather_result->qm_engine[0].surrogate_id=0;
+	gather_result->qm_engine[0].packet_sequence=6;
+	gather_result->qm_engine[1].app_id=68;
+	gather_result->qm_engine[1].surrogate_id=0;
+	gather_result->qm_engine[1].packet_sequence=4;
+
+	session_gather_app_results_async(&a_stream, (void *)gather_result);
+	
+	session_application_full_path_update(&a_stream, out_full_path, out_full_path_len);
+	EXPECT_STREQ("ssl.https", out_full_path);
+
+	free(gather_result->l7_protocol);
+	free(gather_result->qm_engine);
+	free(gather_result);
+	session_gather_app_results_async(&a_stream, NULL);
+}
+
 extern int session_application_full_path_combine(struct gather_app_result * gather_result, char * out_full_path, int out_full_path_len);
 
 TEST(TSGMaster, SessionApplicationFullPath)
