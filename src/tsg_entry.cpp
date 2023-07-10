@@ -956,18 +956,6 @@ int session_application_metrics_update(const struct streaminfo *a_stream, struct
 	session_increase_traffic_statis_update(&current_traffic_statis, srt_action_context->last_traffic_statis, &increase_traffic_statis);
 	tsg_set_application_metrics(a_stream, srt_action_context->l4_protocol, app_full_path, &increase_traffic_statis, thread_seq);
 
-#if 0
-	if(a_stream->opstate==OP_STATE_CLOSE || a_stream->pktstate==OP_STATE_CLOSE)
-	{
-		if(srt_action_context->last_traffic_statis!=NULL)
-		{
-			dictator_free(thread_seq, (void *)srt_action_context->last_traffic_statis);
-			srt_action_context->last_traffic_statis=NULL;
-		}
-		
-		return 1;
-	}
-#endif
 	if(srt_action_context->last_traffic_statis==NULL)
 	{
 		srt_action_context->last_traffic_statis=(struct traffic_packet_info *)dictator_malloc(thread_seq, sizeof(struct traffic_packet_info));

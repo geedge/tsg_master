@@ -1198,10 +1198,42 @@ TEST(TSGMaster, SessionQuicIdentify)
 	g_test_quic_info=NULL;
 }
 
+TEST(TSGMaster, SessionApplicationFullPathTSG13811)
+{
+	char out_full_path[256]={0};
+	int out_full_path_len=sizeof(out_full_path);
+	struct gather_app_result gather_result={0};
+
+	gather_result.l7_protocol_num=1;
+	struct app_attributes l7_protocol={68, 0, 4};
+	gather_result.l7_protocol=&l7_protocol;
+
+	gather_result.qm_engine_num=3;
+	gather_result.l7_qm_engine_num=2;
+	struct app_attributes qm_engine[3]={{199, 0, 6}, {68, 0, 4}, {240, 0, 6}};
+	gather_result.qm_engine=qm_engine;
+
+	int offset=session_application_full_path_combine(&gather_result, out_full_path, out_full_path_len);
+	EXPECT_NE(0, offset);
+	EXPECT_STREQ("ssl.https.youtube", out_full_path);
+
+	// l7 protocol is empty
+	gather_result.l7_protocol_num=0;
+	gather_result.l7_protocol=NULL;
+
+	gather_result.qm_engine_num=3;
+	gather_result.l7_qm_engine_num=0;
+	struct app_attributes qm_engine2[3]={{199, 0, 6}, {68, 0, 4}, {240, 0, 6}};
+	gather_result.qm_engine=qm_engine2;
+
+	offset=session_application_full_path_combine(&gather_result, out_full_path, out_full_path_len);
+	EXPECT_NE(0, offset);
+	EXPECT_STREQ("ssl.https.youtube", out_full_path);
+}
+
 int main(int argc, char *argv[])
 {
 	TSG_MASTER_INIT();
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
 }
-
