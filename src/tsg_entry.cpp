@@ -1854,17 +1854,28 @@ int session_app_gather_results_update(struct app_attributes **update_result, cha
 		}
 	}
 
-	int i;
-	
-	for(i=0; i<identify_result->app_id_num; i++)
-	{		
-		(*update_result)[i].app_id=identify_result->origin;
-		(*update_result)[i].app_id=identify_result->app_id[i];
-		(*update_result)[i].surrogate_id=identify_result->surrogate_id[i];
-		(*update_result)[i].packet_sequence=packet_sequence;
+	int idx=0;
+	unsigned int quic_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_QUIC].name, g_tsg_proto_name2id[PROTO_QUIC].len);
+	for(int i=0; i<identify_result->app_id_num; i++)
+	{	
+		(*update_result)[idx].app_id=identify_result->origin;
+		(*update_result)[idx].app_id=identify_result->app_id[i];
+		(*update_result)[idx].surrogate_id=identify_result->surrogate_id[i];
+		(*update_result)[idx].packet_sequence=packet_sequence;
+		idx++;
+
+		if(identify_result->app_id[i]==quic_id && (i+1 < identify_result->app_id_num))
+		{
+			unsigned int ssl_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[PROTO_SSL].name, g_tsg_proto_name2id[PROTO_SSL].len);
+			if(identify_result->app_id[i+1]==ssl_id)
+			{
+				i++;
+				continue;
+			}
+		}
 	}
 
-	return i;
+	return idx;
 }
 
 int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data)
