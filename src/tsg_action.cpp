@@ -660,6 +660,17 @@ static unsigned char do_action_default_xxx(const struct streaminfo *a_stream, st
 			tmp_user_region.capture.enabled=0;
 			tmp_user_region.capture.depth=0;
 			tmp_user_region.method_type=TSG_METHOD_TYPE_DROP;
+
+			if(tmp_user_region.deny->drop_para.send_icmp_enable)
+			{
+				send_icmp_unreachable(a_stream);
+			}
+
+			if(tmp_user_region.deny->drop_para.send_reset_enable)
+			{
+				do_action_reset(a_stream, p_result, protocol);
+			}
+
 			do_action_drop(a_stream, p_result, &tmp_user_region, protocol, user_data);
 			break;
 		default:
