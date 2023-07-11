@@ -24,7 +24,7 @@ struct id2field_tlv g_tsg_proto_name2id[PROTO_MAX]={{PROTO_UNKONWN, 0, 7, "unkno
 										 {PROTO_SSH, 	0, 	3, "SSH"},
 										 {PROTO_SMTP, 	0, 	4, "SMTP"},
 										 {PROTO_IMAP, 	0, 	4, "IMAP"},
-										 {PROTO_POP3, 	0, 	3, "POP3"},
+										 {PROTO_POP3, 	0, 	4, "POP3"},
 										 {PROTO_RTP, 	0, 	3, "RTP"},
 										 {PROTO_APP, 	0,	4, "BASE"},
 										 {PROTO_L2TP, 	0,	4, "L2TP"},

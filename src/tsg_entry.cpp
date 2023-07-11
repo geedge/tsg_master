@@ -982,6 +982,11 @@ static int check_app_id(unsigned int *new_app_id, int n_new_app_id, unsigned int
 
 int session_app_gather_results_set_l7_protocol(const struct streaminfo *a_stream, unsigned int *app_id, int n_app_id)
 {
+	if(app_id==NULL || n_app_id==0)
+	{
+		return 0;
+	}
+	
 	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(a_stream);
 	if(gather_result==NULL)
 	{
