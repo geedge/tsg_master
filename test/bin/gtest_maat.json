@@ -2312,6 +2312,8 @@
                 "68\thttps\t0\tnull\tnetworking\tinfrastructure\tnetwork-protocol\t3\tused-by-malware,vulnerability,widely-used\tnull\tnull\t{\"method\":\"rate_limit\",\"bps\":1000}\t0\t0\t0\t0\t0\t1",
                 "4\tunknown\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\tnull\t1\t3600\t3600\t1800\t1800\t1",
                 "199\tssl\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\tnull\t1\t3600\t3600\t1800\t1800\t1",
+                "8008\tSSL\\bwith\\bESNI\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\tnull\t1\t3600\t3600\t1800\t1800\t1",
+                "8173\tSSL\\bwith\\bECH\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\tnull\t1\t3600\t3600\t1800\t1800\t1",
                 "2521\tquic\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\tnull\t1\t3600\t3600\t1800\t1800\t1",
                 "240\tyoutube\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\tnull\t1\t3600\t3600\t1800\t1800\t1",
                 "15009\tuser_define_youtube\t0\tnull\tcategory\tsubcategory\ttechnology\trisk\tcharacteristics\tnull\tnull\tnull\t1\t3600\t3600\t1800\t1800\t1",
