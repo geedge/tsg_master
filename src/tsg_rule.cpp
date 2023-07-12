@@ -275,7 +275,10 @@ static int get_data_center(char *accept_tag, char *effective_tag_key, char *data
 				if(item!=NULL)
 				{
 					cJSON *tag_item=cJSON_GetObjectItem(item, "tag");
-					if(tag_item!=NULL && tag_item->valuestring!=NULL && (memcmp(effective_tag_key, tag_item->valuestring, strlen(effective_tag_key)))==0)
+					if(tag_item!=NULL && 
+						tag_item->valuestring!=NULL && 
+						strlen(effective_tag_key)==strlen(tag_item->valuestring) && 
+						(memcmp(effective_tag_key, tag_item->valuestring, strlen(effective_tag_key)))==0)
 					{
 						cJSON *v_item=cJSON_GetObjectItem(item, "value");
 						if(v_item!=NULL && v_item->valuestring!=NULL)
