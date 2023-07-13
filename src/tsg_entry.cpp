@@ -1036,6 +1036,17 @@ int session_app_gather_results_set_l7_protocol(const struct streaminfo *a_stream
 
 int session_app_gather_results_update_matched_app_id(const struct streaminfo *a_stream, unsigned int matched_app_id)
 {
+	if(matched_app_id==0)
+	{
+		return 0;
+	}
+
+	const char *app_name=tsg_l7_protocol_id2name(matched_app_id);
+	if(app_name!=NULL)
+	{
+		return 0;
+	}
+
 	struct gather_app_result *gather_result=(struct gather_app_result *)session_gather_app_results_get(a_stream);
 	if(gather_result==NULL)
 	{
@@ -1662,8 +1673,6 @@ size_t session_app_id_and_properties_scan(const struct streaminfo *a_stream, str
 			after_n_packets=dict->deny_app_para.after_n_packets;
 			
 			set_app_timeout(a_stream, dict, &(srt_process_context->timeout));
-
-			//plugin_ex_data_app_id_dict_free(dict);
 		}
 		else
 		{
@@ -1690,6 +1699,7 @@ size_t session_app_id_and_properties_scan(const struct streaminfo *a_stream, str
 		if(origin!=ORIGIN_BASIC_PROTOCOL)
 		{
 			srt_process_context->matched_app_id=matched_app_id;
+			session_app_gather_results_update_matched_app_id(a_stream, matched_app_id);
 		}
 		
 		srt_process_context->hited_para.matched_app_id=matched_app_id;
@@ -1701,11 +1711,6 @@ size_t session_app_id_and_properties_scan(const struct streaminfo *a_stream, str
 		{
 			srt_process_context->hited_para.after_n_packets=after_n_packets;
 		}
-	}
-
-	if(srt_process_context!=NULL && srt_process_context->matched_app_id>0)
-	{		
-		session_app_gather_results_update_matched_app_id(a_stream, srt_process_context->matched_app_id);
 	}
 
 	return matched_cnt;
@@ -1725,9 +1730,9 @@ size_t session_app_gather_results_scan(const struct streaminfo *a_stream, struct
 		matched_cnt+=session_app_id_and_properties_scan(a_stream, rules+matched_cnt, n_rules-matched_cnt, srt_process_context, &(gather_result->unknown), 1, ORIGIN_UNKNOWN, thread_seq);
 	}
 	
-	matched_cnt+=session_app_id_and_properties_scan(a_stream, rules+matched_cnt, n_rules-matched_cnt, srt_process_context, gather_result->built_in, gather_result->built_in_num, ORIGIN_BUILT_IN, thread_seq);
 	matched_cnt+=session_app_id_and_properties_scan(a_stream, rules+matched_cnt, n_rules-matched_cnt, srt_process_context, gather_result->l7_protocol, gather_result->l7_protocol_num, ORIGIN_BASIC_PROTOCOL, thread_seq);
 	matched_cnt+=session_app_id_and_properties_scan(a_stream, rules+matched_cnt, n_rules-matched_cnt, srt_process_context, gather_result->qm_engine, gather_result->qm_engine_num, ORIGIN_QM_ENGINE, thread_seq);
+	matched_cnt+=session_app_id_and_properties_scan(a_stream, rules+matched_cnt, n_rules-matched_cnt, srt_process_context, gather_result->built_in, gather_result->built_in_num, ORIGIN_BUILT_IN, thread_seq);
 	matched_cnt+=session_app_id_and_properties_scan(a_stream, rules+matched_cnt, n_rules-matched_cnt, srt_process_context, gather_result->user_define, gather_result->user_define_num, ORIGIN_USER_DEFINE, thread_seq);
 
 	return matched_cnt;
@@ -2045,7 +2050,11 @@ size_t session_pending_state_deal(const struct streaminfo *a_stream, struct sess
 	{
 		int n_offset=0;
 		unsigned int app_id[4]={0,0,0,0};
-		app_id[n_offset++]=tsg_l7_protocol_name2id(g_tsg_proto_name2id[srt_process_context->proto].name, g_tsg_proto_name2id[srt_process_context->proto].len);
+		unsigned int protocol_id=tsg_l7_protocol_name2id(g_tsg_proto_name2id[srt_process_context->proto].name, g_tsg_proto_name2id[srt_process_context->proto].len);
+		if(protocol_id!=0)
+		{
+			app_id[n_offset++]=protocol_id;
+		}
 		srt_process_context->is_app_link=FLAG_TRUE;
 		srt_attribute_set_protocol(a_stream, srt_process_context->proto);
 
@@ -2071,16 +2080,22 @@ size_t session_pending_state_deal(const struct streaminfo *a_stream, struct sess
 		matched_cnt+=tsg_scan_fqdn_category_id(a_stream, g_tsg_maat_feather, srt_process_context->domain, table_idx, (srt_process_context->mid), matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 		if(srt_process_context->is_esni)
 		{
-			unsigned int protocol_id=tsg_l7_protocol_name2id("ESNI", 4);
-			app_id[n_offset++]=protocol_id;
-			matched_cnt+=tsg_scan_app_id_policy(a_stream, g_tsg_maat_feather, protocol_id, (srt_process_context->mid), matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+			protocol_id=tsg_l7_protocol_name2id("ESNI", 4);
+			if(protocol_id!=0)
+			{
+				app_id[n_offset++]=protocol_id;
+				matched_cnt+=tsg_scan_app_id_policy(a_stream, g_tsg_maat_feather, protocol_id, (srt_process_context->mid), matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+			}
 		}
 		
 		if(srt_process_context->is_ech)
 		{
-			unsigned int protocol_id=tsg_l7_protocol_name2id("ECH", 3);
-			app_id[n_offset++]=protocol_id;
-			matched_cnt+=tsg_scan_app_id_policy(a_stream, g_tsg_maat_feather, protocol_id, (srt_process_context->mid), matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+			protocol_id=tsg_l7_protocol_name2id("ECH", 3);
+			if(protocol_id!=0)
+			{
+				app_id[n_offset++]=protocol_id;
+				matched_cnt+=tsg_scan_app_id_policy(a_stream, g_tsg_maat_feather, protocol_id, (srt_process_context->mid), matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+			}
 		}
 
 		if(srt_process_context->proto==PROTO_HTTP && srt_process_context->http_url!=NULL)

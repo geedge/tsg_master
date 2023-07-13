@@ -1153,6 +1153,49 @@ TEST(TSGMaster, SessionApplicationFullPathTSG15999)
 	session_gather_app_results_async(&a_stream, NULL);
 }
 
+
+
+size_t session_app_id_and_properties_scan(const struct streaminfo *a_stream, struct maat_rule *matched_rules, size_t n_matched_rules, struct session_runtime_process_context *srt_process_context, struct app_attributes *app_attribute, char app_attribute_num, APP_IDENTIFY_ORIGIN origin, int thread_seq);
+TEST(TSGMaster, SessionApplicationFullPathTSG15999_MatchedRuleQM)
+{
+	const struct streaminfo a_stream={0};
+	char out_full_path[256]={0};
+	int out_full_path_len=sizeof(out_full_path);
+	struct gather_app_result *gather_result=(struct gather_app_result *)calloc(1, sizeof(struct gather_app_result));
+
+	gather_result->l7_protocol_num=1;
+	gather_result->l7_protocol=(struct app_attributes *)calloc(1, sizeof(struct app_attributes));
+	gather_result->l7_protocol->app_id=68;
+	gather_result->l7_protocol->surrogate_id=0;
+	gather_result->l7_protocol->packet_sequence=4;
+
+	gather_result->qm_engine_num=2;
+	gather_result->qm_engine=(struct app_attributes *)calloc(1, sizeof(struct app_attributes)*2);
+	gather_result->qm_engine[0].app_id=199;
+	gather_result->qm_engine[0].surrogate_id=0;
+	gather_result->qm_engine[0].packet_sequence=6;
+	gather_result->qm_engine[1].app_id=68;
+	gather_result->qm_engine[1].surrogate_id=0;
+	gather_result->qm_engine[1].packet_sequence=4;
+	session_gather_app_results_async(&a_stream, (void *)gather_result);
+	
+	struct maat_rule matched_rules[8]={0};
+	struct session_runtime_process_context srt_process_context={0};
+	srt_process_context.mid=maat_state_new(g_tsg_maat_feather, 0);
+
+	session_app_id_and_properties_scan(&a_stream, matched_rules, 8, &srt_process_context, gather_result->qm_engine, gather_result->qm_engine_num, ORIGIN_QM_ENGINE, 0);
+	session_app_id_and_properties_scan(&a_stream, matched_rules, 8, &srt_process_context, gather_result->l7_protocol, gather_result->l7_protocol_num, ORIGIN_BASIC_PROTOCOL, 0);
+	maat_state_free(srt_process_context.mid);
+
+	session_application_full_path_update(&a_stream, out_full_path, out_full_path_len);
+	EXPECT_STREQ("ssl.https", out_full_path);
+
+	free(gather_result->l7_protocol);
+	free(gather_result->qm_engine);
+	free(gather_result);
+	session_gather_app_results_async(&a_stream, NULL);
+}
+
 int session_app_gather_results_update(struct app_attributes **update_result, char update_result_num, struct app_identify_result *identify_result, int packet_sequence, int thread_seq);
 
 TEST(TSGMaster, SessionApplicationFullPathTSG13811)

@@ -2302,6 +2302,32 @@
                     ]
                 }
             ]
+        },
+        {
+            "compile_id": 78,
+            "service": 2,
+            "action": 16,
+            "do_blacklist": 0,
+            "do_log": 1,
+            "tags": "{}",
+            "user_region": "{}",
+            "is_valid": "yes",
+            "evaluation_order": "10.0",
+            "groups": [
+                {
+                    "group_name": "HTTPS_APP_ID",
+                    "regions": [
+                        {
+                            "table_name": "TSG_OBJ_APP_ID",
+                            "table_type": "interval",
+                            "table_content": {
+                                "low_boundary": 68,
+                                "up_boundary": 68
+                            }
+                        }
+                    ]
+                }
+            ]
         }
     ],
     "plugin_table": [
