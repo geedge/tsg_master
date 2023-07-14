@@ -328,7 +328,7 @@ void tsg_proxy_first_data_process(const struct streaminfo *stream, struct tsg_pr
 
 void tsg_proxy_tcp_options_parse(const struct streaminfo *stream, const void *a_packet)
 {
-	if(a_packet==NULL)
+	if(a_packet==NULL || g_tsg_para.intercept_sid<=0)
 	{
 		return ;
 	}

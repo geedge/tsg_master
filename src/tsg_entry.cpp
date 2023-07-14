@@ -2471,7 +2471,7 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 		srt_action_context->set_latency_flag=session_tcp_establish_latency_ms_set(a_tcp, thread_seq, a_packet);
 	}
 
-	if (a_packet != NULL)
+	if (a_packet!=NULL)
 	{
 		tsg_proxy_tcp_options_parse(a_tcp, a_packet);
 	}
