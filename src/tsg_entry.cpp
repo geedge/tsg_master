@@ -801,7 +801,7 @@ char *session_l4_protocol_label_update(const struct streaminfo *a_stream)
 				break;
 			// SOCKS4 SOCKS5 HTTP
 			default:
-				continue;
+				break;
 		}
 
 		if(l4_protocol_str!=NULL)
