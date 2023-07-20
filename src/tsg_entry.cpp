@@ -2250,6 +2250,11 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			srt_action_context->default_policy_after_n_packets=get_default_para(a_stream);
 		}
 
+		if(g_tsg_para.scan_in_pkt_state==0)
+		{
+			return state;
+		}
+
 		struct maat_state *scan_mid=maat_state_new(g_tsg_maat_feather, thread_seq);
 		size_t n_matched_rules=MAX_MATCHED_RULES_NUM;
 		struct maat_rule matched_rules[MAX_MATCHED_RULES_NUM];
@@ -2536,6 +2541,8 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SERVICE_CHAINING_SID", &g_tsg_para.service_chaining_sid, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SHAPING_SID", &g_tsg_para.shaping_sid, 0);
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "PROXY_SID", &g_tsg_para.intercept_sid, 0);
+
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_IN_PACKET_STATE", &g_tsg_para.scan_in_pkt_state, 1);
 
 	ret=MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_SEQ_IN_DATA_CENTER", &g_tsg_para.device_seq_in_dc, 0);
 	if(ret<0)
