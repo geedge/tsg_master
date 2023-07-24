@@ -355,12 +355,14 @@ int srt_attribute_set_reponse_size(const struct streaminfo *a_stream, int http_a
 	return 0;
 }
 
-int srt_attribute_set_ja3_fingprint(const struct streaminfo *a_stream, const char *ja3_fingerprint)
+int srt_attribute_set_ja3_fingprint(const struct streaminfo *a_stream, const char *ja3_fingerprint, int ja3_fingerprint_len)
 {
 	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
 	if(srt_attribute)
 	{
-		srt_attribute->ja3_fingerprint=ja3_fingerprint;
+		srt_attribute->ja3_fingerprint=(char *)dictator_malloc(a_stream->threadnum, ja3_fingerprint_len+1);
+		memcpy((void *)srt_attribute->ja3_fingerprint, ja3_fingerprint, ja3_fingerprint_len);
+		((char *)srt_attribute->ja3_fingerprint)[ja3_fingerprint_len]='\0';
 		return 1;
 	}
 	

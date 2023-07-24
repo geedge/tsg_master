@@ -73,6 +73,7 @@ struct tsg_rt_para
 	int intercept_sid;
 	int send_resetall;
 	int scan_in_pkt_state;
+	int generate_ja3_fingerprint;
 	int app_metric_update_interval_ms;
 	enum DEPLOY_MODE deploy_mode;
 	int scan_time_interval;

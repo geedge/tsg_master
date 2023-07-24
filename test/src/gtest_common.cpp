@@ -327,8 +327,3 @@ extern "C" bool dtls_identifyStream(struct streaminfo *a_udp)
 {
 	return 0;
 }
-
-struct ssl_ja3_info *ssl_get_ja3_fingerprint(struct streaminfo *stream, unsigned char *payload, int payload_len, int thread_seq)
-{
-	return NULL;
-}

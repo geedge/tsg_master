@@ -196,7 +196,7 @@ const struct session_runtime_attribute *session_runtime_attribute_new(const stru
 int srt_attribute_set_protocol(const struct streaminfo * a_stream, TSG_PROTOCOL protocol);
 int srt_attribute_set_flags(const struct streaminfo * a_stream, unsigned long s_flags);
 int srt_attribute_set_establish_latecy(const struct streaminfo * a_stream);
-int srt_attribute_set_ja3_fingprint(const struct streaminfo *a_stream, const char *ja3_fingerprint);
+int srt_attribute_set_ja3_fingprint(const struct streaminfo *a_stream, const char *ja3_fingerprint, int ja3_fingerprint_len);
 int srt_attribute_set_reponse_size(const struct streaminfo *a_stream, int http_action_file_size);
 
 void srt_attribute_free_proxy_tcp_option(const struct streaminfo *a_stream);

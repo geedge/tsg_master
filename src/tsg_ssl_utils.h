@@ -35,3 +35,6 @@ struct ssl_chello
 struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, enum chello_parse_result* result);
 
 void ssl_chello_free(struct ssl_chello* chello);
+
+
+int tsg_ssl_ja3_fingerprint_generate(const unsigned char *buff, int buff_len, char *ja3_fingerprint, int n_ja3_fingerprint, int thread_seq);

@@ -1443,9 +1443,8 @@ int session_l7_protocol_identify(const struct streaminfo *a_stream, struct sessi
 					return 1;
 				}
 			}
-
-			if(g_tsg_para.proto_flag&(1<<PROTO_SSL))  //ssl
-			{
+			
+			{//ssl
 				enum chello_parse_result chello_status = CHELLO_PARSE_INVALID_FORMAT;
 				struct ssl_chello *chello = NULL;
 
@@ -2042,6 +2041,19 @@ int session_flags_identify_result_cb(const struct streaminfo *a_stream, int brid
 	return 0;
 }
 
+static int session_ssl_ja3_fingerprint_generate(const struct streaminfo *a_stream)
+{
+	char ja3_fingerprint[64]={0};
+	int ja3_fingerprint_len=tsg_ssl_ja3_fingerprint_generate((unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, ja3_fingerprint, sizeof(ja3_fingerprint), a_stream->threadnum);
+	if(ja3_fingerprint_len>0)
+	{
+		srt_attribute_set_ja3_fingprint(a_stream, ja3_fingerprint, ja3_fingerprint_len);
+		return 1;
+	}
+
+	return 0;
+}
+
 size_t session_pending_state_deal(const struct streaminfo *a_stream, struct session_runtime_process_context *srt_process_context, struct maat_rule *matched_rules, int n_matched_rules, void *a_packet)
 {
 	size_t matched_cnt=0;
@@ -2058,19 +2070,9 @@ size_t session_pending_state_deal(const struct streaminfo *a_stream, struct sess
 		srt_process_context->is_app_link=FLAG_TRUE;
 		srt_attribute_set_protocol(a_stream, srt_process_context->proto);
 
-		if(srt_process_context->proto==PROTO_SSL)
+		if(srt_process_context->proto==PROTO_SSL && g_tsg_para.generate_ja3_fingerprint==1)
 		{
-			struct ssl_ja3_info *ja3_info=ssl_get_ja3_fingerprint((struct streaminfo *)a_stream, (unsigned char *)a_stream->ptcpdetail->pdata, (unsigned int)a_stream->ptcpdetail->datalen, a_stream->threadnum);
-			if(ja3_info!=NULL)
-			{
-				if(ja3_info->fp!=NULL && ja3_info->fp_len>0)
-				{
-					char *ja3_fingerprint=(char *)dictator_malloc(a_stream->threadnum, ja3_info->fp_len+1);
-					memcpy(ja3_fingerprint, ja3_info->fp, ja3_info->fp_len);
-					ja3_fingerprint[ja3_info->fp_len]='\0';
-					srt_attribute_set_ja3_fingprint(a_stream, ja3_fingerprint);
-				}
-			}
+			session_ssl_ja3_fingerprint_generate(a_stream);
 		}
 		
 		int table_idx=tsg_domain_table_idx_get(srt_process_context->proto);
@@ -2543,6 +2545,7 @@ extern "C" int TSG_MASTER_INIT()
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "PROXY_SID", &g_tsg_para.intercept_sid, 0);
 
 	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "SCAN_IN_PACKET_STATE", &g_tsg_para.scan_in_pkt_state, 1);
+	MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "GENERATE_JA3_FINGERPRINT", &g_tsg_para.generate_ja3_fingerprint, 0);
 
 	ret=MESA_load_profile_int_def(tsg_conffile, "SYSTEM", "DEVICE_SEQ_IN_DATA_CENTER", &g_tsg_para.device_seq_in_dc, 0);
 	if(ret<0)

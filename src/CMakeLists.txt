@@ -2,13 +2,13 @@ cmake_minimum_required(VERSION 2.8)
 
 add_definitions(-fPIC)
 
-set(SRC tsg_entry.cpp tsg_rule.cpp tsg_ssl_utils.cpp tsg_send_log.cpp tsg_statistic.cpp tsg_ssh_utils.cpp tsg_gtp_signaling.cpp tsg_action.cpp tsg_leaky_bucket.cpp tsg_dns.cpp tsg_icmp.cpp tsg_tamper.cpp tsg_bridge.cpp tsg_sync_state.cpp tsg_variable.cpp tsg_proxy.cpp mpack.c tsg_stat.cpp)
+set(SRC tsg_entry.cpp tsg_rule.cpp tsg_ssl_utils.cpp tsg_send_log.cpp tsg_statistic.cpp tsg_ssh_utils.cpp tsg_gtp_signaling.cpp tsg_action.cpp tsg_leaky_bucket.cpp tsg_dns.cpp tsg_icmp.cpp tsg_tamper.cpp tsg_bridge.cpp tsg_sync_state.cpp tsg_variable.cpp tsg_proxy.cpp mpack.c tsg_stat.cpp tsg_ssl_ja3_fingerprint.cpp)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 include_directories(/opt/MESA/include/MESA/)
 include_directories(/usr/include/)
 
-set(TSG_MASTER_DEPEND_DYN_LIB  MESA_handle_logger MESA_prof_load maat4 pthread rdkafka cjson MESA_jump_layer fieldstat3)
+set(TSG_MASTER_DEPEND_DYN_LIB  MESA_handle_logger MESA_prof_load maat4 pthread rdkafka cjson MESA_jump_layer fieldstat3 crypto)
 
 set(CMAKE_INSTALL_PREFIX /home/mesasoft/sapp_run)
 
