@@ -177,6 +177,7 @@ release_build_debug_for_centos7:
     BUILD_TYPE: Debug
     PACKAGE: 1
     UPLOAD_RPM: 1
+    ASAN_OPTION: ADDRESS
     PULP3_REPO_NAME: tsg-stable-x86_64.el7
     PULP3_DIST_NAME: tsg-stable-x86_64.el7
   extends: .build_by_travis_for_centos7
@@ -268,6 +269,7 @@ release_build_debug_for_centos8:
     BUILD_TYPE: Debug
     PACKAGE: 1
     UPLOAD_RPM: 1
+    ASAN_OPTION: ADDRESS
     PULP3_REPO_NAME: tsg-stable-x86_64.el8
     PULP3_DIST_NAME: tsg-stable-x86_64.el8
   extends: .build_by_travis_for_centos8
