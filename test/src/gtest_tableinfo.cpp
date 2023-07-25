@@ -665,8 +665,8 @@ TEST(TSG_Table, TSG_SECURITY_DESTINATION_ADDR)
     struct ipaddr p_addr = {0};
     struct stream_tuple4_v4 tuple4_v4 = {0};
     p_addr.v4 = &tuple4_v4;
-    p_addr.v4->saddr = inet_addr("255.255.255.253");
-    p_addr.v4->source = htons(1);
+    p_addr.v4->daddr = inet_addr("255.255.255.253");
+    p_addr.v4->dest = htons(1);
     struct maat_state *mid = maat_state_new(g_tsg_maat_feather, a_stream.threadnum);
     struct maat_rule results[MAX_RESULT_NUM] = {0};
     EXPECT_EQ(tsg_scan_ipv4_address((const struct streaminfo *)&a_stream, g_tsg_maat_feather, &p_addr, MAAT_SCAN_DST_IP_ADDR, mid, results, MAX_RESULT_NUM), 1);
