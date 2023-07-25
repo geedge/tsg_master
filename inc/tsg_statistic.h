@@ -22,17 +22,17 @@ struct traffic_info
 
 struct traffic_packet_info
 {
-	uint32_t sessions;
-	uint32_t in_pkts;
-	uint32_t out_pkts;
-	uint32_t c2s_pkts;
-	uint32_t s2c_pkts;
-	uint32_t c2s_fragments;
-	uint32_t s2c_fragments;
-	uint32_t c2s_tcp_ooorder_pkts;
-	uint32_t s2c_tcp_ooorder_pkts;
-	uint32_t c2s_tcp_retransmitted_pkts;
-	uint32_t s2c_tcp_retransmitted_pkts;
+	uint64_t sessions;
+	uint64_t in_pkts;
+	uint64_t out_pkts;
+	uint64_t c2s_pkts;
+	uint64_t s2c_pkts;
+	uint64_t c2s_fragments;
+	uint64_t s2c_fragments;
+	uint64_t c2s_tcp_ooorder_pkts;
+	uint64_t s2c_tcp_ooorder_pkts;
+	uint64_t c2s_tcp_retransmitted_pkts;
+	uint64_t s2c_tcp_retransmitted_pkts;
 	uint64_t in_bytes;
 	uint64_t out_bytes;
 	uint64_t c2s_bytes;

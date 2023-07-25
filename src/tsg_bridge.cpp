@@ -538,22 +538,22 @@ int session_runtime_process_context_async(const struct streaminfo *a_stream, voi
 
 const struct session_runtime_process_context *session_runtime_process_context_new(const struct streaminfo *a_stream)
 {
-	struct session_runtime_process_context *srt_attribute=(struct session_runtime_process_context *)session_async_bridge_get_data(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id);
-	if(srt_attribute==NULL)
+	struct session_runtime_process_context *srt_process_context=(struct session_runtime_process_context *)session_async_bridge_get_data(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id);
+	if(srt_process_context==NULL)
 	{
-		srt_attribute=(struct session_runtime_process_context *)dictator_malloc(a_stream->threadnum, sizeof(struct session_runtime_process_context));
-		memset(srt_attribute, 0, sizeof(struct session_runtime_process_context));
+		srt_process_context=(struct session_runtime_process_context *)dictator_malloc(a_stream->threadnum, sizeof(struct session_runtime_process_context));
+		memset(srt_process_context, 0, sizeof(struct session_runtime_process_context));
 
-		int ret=session_async_bridge_set_data(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_attribute);
+		int ret=session_async_bridge_set_data(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_process_context);
 		if(ret<0)
 		{
-			session_runtime_process_context_free_cb(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_attribute);
-			srt_attribute=NULL;
+			session_runtime_process_context_free_cb(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_SESSION_PROCESS_CONTEXT].id, (void *)srt_process_context);
+			srt_process_context=NULL;
 			return NULL;
 		}
 	}
 
-	return (const struct session_runtime_process_context *)srt_attribute;
+	return (const struct session_runtime_process_context *)srt_process_context;
 }
 
 const struct session_runtime_process_context *session_runtime_process_context_get(const struct streaminfo *a_stream)
