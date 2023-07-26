@@ -178,15 +178,15 @@ static int get_deploy_mode(void)
 	int ret=sapp_get_platform_opt(SPO_DEPLOYMENT_MODE_STR, s_mode, &len);
 	if(ret>=0)
 	{
-		if((memcmp(s_mode, "mirror", strlen(s_mode)))==0 || (memcmp(s_mode, "dumpfile", strlen(s_mode)))==0)
+		if((strcmp(s_mode, "mirror"))==0 || (strcmp(s_mode, "dumpfile"))==0)
 		{
 			g_tsg_para.deploy_mode=DEPLOY_MODE_MIRROR;
 		}
-		else if((memcmp(s_mode, "inline", strlen(s_mode)))==0)
+		else if((strcmp(s_mode, "inline"))==0)
 		{
 			g_tsg_para.deploy_mode=DEPLOY_MODE_INLINE;
 		}
-		else if((memcmp(s_mode, "transparent", strlen(s_mode)))==0)
+		else if((strcmp(s_mode, "transparent"))==0)
 		{
 			g_tsg_para.deploy_mode=DEPLOY_MODE_TRANSPARENT;
 		}
