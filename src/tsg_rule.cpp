@@ -1979,6 +1979,13 @@ struct maat *init_maat_feather(const char* conffile, char* instance_name, char *
 	return maat_new(opts, table_info);
 }
 
+void tsg_maat_rule_destroy(void)
+{
+	maat_free(g_tsg_maat_feather);	
+	MESA_destroy_runtime_log_handle(g_tsg_maat_rt_para.logger);
+	g_tsg_maat_rt_para.logger = NULL;	
+}
+
 int tsg_maat_rule_init(const char* conffile)
 {
 	int log_level=30;

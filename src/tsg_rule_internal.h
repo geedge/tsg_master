@@ -123,6 +123,7 @@ struct maat_compile
 };
 
 int tsg_maat_rule_init(const char *conffile);
+void tsg_maat_rule_destroy(void);
 
 void plugin_ex_data_gtp_c_free(struct umts_user_info *user_info);
 void plugin_ex_data_asn_number_free(struct asn_info *asn);

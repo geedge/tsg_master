@@ -174,7 +174,7 @@ int tsg_metric_init(const char *conffile, void *logger);
 void tsg_metric_destroy(void);
 
 int tsg_gtp_signaling_hash_init(const char* conffile, void *logger);
-
+void tsg_gtp_signaling_hash_destroy();
 char *session_l4_protocol_label_update(const struct streaminfo *a_stream);
 int session_application_full_path_update(const struct streaminfo *a_stream, char *app_full_path, int app_full_path_len);
 

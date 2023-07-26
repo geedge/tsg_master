@@ -222,6 +222,13 @@ int session_runtine_attribute_get_umts_user_info(const struct streaminfo *a_stre
 	return 0;
 }
 
+void tsg_gtp_signaling_hash_destroy()
+{
+	if(g_gtp_signaling_hash_handle == NULL)return;
+	MESA_htable_destroy(g_gtp_signaling_hash_handle, free_gtp_signaling_field);
+	g_gtp_signaling_hash_handle=NULL;
+}
+
 int tsg_gtp_signaling_hash_init(const char* conffile, void *logger)
 {
 	MESA_load_profile_int_def(conffile, "GTP_SIGNALING", "HASH_TIMEOUT", &g_tsg_para.hash_timeout, 300);

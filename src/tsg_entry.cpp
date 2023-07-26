@@ -35,6 +35,7 @@
 #include "tsg_sync_state.h"
 #include "tsg_proxy.h"
 #include "tsg_bridge.h"
+#include "uthash.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -538,6 +539,24 @@ static int l7_protocol_mapper_init(const char *conffile)
 	fp=NULL;
 
 	return 1;
+}
+
+static void free_l7_protocol_mapper()
+{
+
+	struct l7_protocol *out=NULL, *tmp=NULL;
+	HASH_CLEAR(hh2, g_tsg_para.id_by_name);
+	HASH_ITER(hh1, g_tsg_para.name_by_id, out ,tmp)
+	{		
+		if(out!=NULL)
+		{
+			HASH_DELETE(hh1, g_tsg_para.name_by_id, out);
+			free(out);
+			out=NULL;
+		}
+	}
+	
+
 }
 
 static int srt_process_context_set_l7_protocol(struct session_runtime_process_context *srt_process_context, unsigned int app_id)
@@ -2620,5 +2639,20 @@ extern "C" int TSG_MASTER_INIT()
 
 extern "C" int TSG_MASTER_UNLOAD()
 {
+
+		
+	g_tsg_maat_feather=NULL;
+
+
+	tsg_sendlog_destroy(g_tsg_log_instance);
+	tsg_metric_destroy();
+
+	free_l7_protocol_mapper();
+
+	tsg_maat_rule_destroy();
+
+	tsg_gtp_signaling_hash_destroy();
+	MESA_destroy_runtime_log_handle(g_tsg_para.logger);
+	g_tsg_para.logger = NULL;
 	return 0;
 }
