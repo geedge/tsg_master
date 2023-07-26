@@ -136,6 +136,7 @@ int tsg_set_policy_flow(const struct streaminfo *a_stream, struct maat_rule *p_r
 
 static void *tsg_statistic_thread(void *arg)
 {
+	pthread_detach(pthread_self());
 	fieldstat_instance_start(g_tsg_statis_para.statistic_handle);
 
 	while(g_tsg_statis_para.thread_alive)
@@ -143,6 +144,15 @@ static void *tsg_statistic_thread(void *arg)
 		long long value=0;
 		long long total_value=0;
 		int value_len=sizeof(long long);
+
+
+		int state=0;
+		int state_len=sizeof(int);
+		sapp_get_platform_opt(SPO_CURRENT_STATE, (void *)&state, &state_len);
+		if(state > SAPP_STATE_PROCESSING)
+		{
+			break;
+		}
 
 		value=0;
 		total_value=0;
@@ -209,7 +219,7 @@ static void *tsg_statistic_thread(void *arg)
 
 		sleep(g_tsg_statis_para.cycle);
 	}
-
+	pthread_exit(NULL);
 	return NULL;
 }
 
@@ -477,10 +487,8 @@ int tsg_metric_init(const char *conffile, void *logger)
 
 void tsg_metric_destroy(void)
 {
-	pthread_cancel(g_tsg_statis_para.stat_thread_id);
 	g_tsg_statis_para.thread_alive = 0;
-	sleep(g_tsg_statis_para.cycle);
+	sleep(g_tsg_statis_para.cycle+1);
 	fieldstat_instance_free(g_tsg_statis_para.statistic_handle);
-
 	return;
 }
