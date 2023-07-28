@@ -90,31 +90,51 @@ struct runtime_stat_para g_rt_stat_para={0};
 
 static void stat_update(int column_id, long long increase)
 {
-	fieldstat_value_incrby(g_rt_stat_para.fs_instance, column_id, increase);
+	if(g_rt_stat_para.fs_instance!=NULL)
+	{
+		fieldstat_value_incrby(g_rt_stat_para.fs_instance, column_id, increase);
+	}
 }
 
 void tsg_stat_abort_rule_update(enum RULE_TYPE column_idx, long long increase)
 {
-	stat_update(g_rt_stat_para.rule.abort_column_id[column_idx], increase);
+	if(g_rt_stat_para.fs_instance!=NULL)
+	{
+		stat_update(g_rt_stat_para.rule.abort_column_id[column_idx], increase);
+	}
 }
 
 void tsg_stat_send_rule_update(enum RULE_TYPE column_idx, long long increase)
 {
-	stat_update(g_rt_stat_para.rule.send_column_id[column_idx], increase);
+	if(g_rt_stat_para.fs_instance!=NULL)
+	{
+		stat_update(g_rt_stat_para.rule.send_column_id[column_idx], increase);
+	}
 }
 
 void tsg_stat_sendlog_update(int row_idx, enum LOG_STATUS column_idx, long long increase)
 {
-	stat_update(g_rt_stat_para.sendlog.column_id[row_idx][column_idx], increase);
+	if(g_rt_stat_para.fs_instance!=NULL)
+	{
+		stat_update(g_rt_stat_para.sendlog.column_id[row_idx][column_idx], increase);
+	}
 }
 
 void tsg_stat_log_handle_update(enum LOG_HANDLE column_idx, long long increase)
 {
-	stat_update(g_rt_stat_para.tld.column_id[column_idx], increase);
+	if(g_rt_stat_para.fs_instance!=NULL)
+	{
+		stat_update(g_rt_stat_para.tld.column_id[column_idx], increase);
+	}
 }
 
 void tsg_stat_flow_update(enum STAT_STATUS status, enum FLOW_STAT column_idx, long long increase)
 {
+	if(g_rt_stat_para.fs_instance==NULL)
+	{
+		return ;
+	}
+
 	switch(status)
 	{
 		case	STAT_STATUS_FAIL:
@@ -130,6 +150,11 @@ void tsg_stat_flow_update(enum STAT_STATUS status, enum FLOW_STAT column_idx, lo
 
 void tsg_stat_sync_ctrl_update(enum STAT_STATUS status, enum CTRL_SYNC column_idx, long long increase)
 {
+	if(g_rt_stat_para.fs_instance==NULL)
+	{
+		return ;
+	}
+
 	switch(status)
 	{
 		case	STAT_STATUS_FAIL:
@@ -145,21 +170,35 @@ void tsg_stat_sync_ctrl_update(enum STAT_STATUS status, enum CTRL_SYNC column_id
 
 void tsg_stat_sync_exdata_add_update(enum SYNC_EXDATA_ROW row_idx, long long increase)
 {
-	stat_update(g_rt_stat_para.exdata.column_id[row_idx][OP_EXDATA_ADD], increase);
+	if(g_rt_stat_para.fs_instance!=NULL)
+	{
+		stat_update(g_rt_stat_para.exdata.column_id[row_idx][OP_EXDATA_ADD], increase);
+	}
 }
 
 void tsg_stat_sync_exdata_del_update(enum SYNC_EXDATA_ROW row_idx, long long increase)
 {
-	stat_update(g_rt_stat_para.exdata.column_id[row_idx][OP_EXDATA_DEL], increase);
+	if(g_rt_stat_para.fs_instance!=NULL)
+	{
+		stat_update(g_rt_stat_para.exdata.column_id[row_idx][OP_EXDATA_DEL], increase);
+	}
 }
 
 void tsg_stat_sync_application_update(enum SYNC_APP column_idx, long long increase)
 {
-	stat_update(g_rt_stat_para.app.column_id[column_idx], increase);
+	if(g_rt_stat_para.fs_instance!=NULL)
+	{
+		stat_update(g_rt_stat_para.app.column_id[column_idx], increase);
+	}
 }
 
 void tsg_stat_ctrl_service_activing_update(enum STAT_STATUS status, enum CTRL_SERVICE column_idx, long long increase)
 {
+	if(g_rt_stat_para.fs_instance==NULL)
+	{
+		return ;
+	}
+
 	switch(status)
 	{
 		case	STAT_STATUS_FAIL:
@@ -175,6 +214,11 @@ void tsg_stat_ctrl_service_activing_update(enum STAT_STATUS status, enum CTRL_SE
 
 void tsg_stat_ctrl_service_updating_update(enum STAT_STATUS status, enum CTRL_SERVICE column_idx, long long increase)
 {
+	if(g_rt_stat_para.fs_instance==NULL)
+	{
+		return ;
+	}
+
 	switch(status)
 	{
 		case	STAT_STATUS_FAIL:
@@ -190,23 +234,29 @@ void tsg_stat_ctrl_service_updating_update(enum STAT_STATUS status, enum CTRL_SE
 
 int tsg_stat_create(const char *conffile)
 {
-	int cycle=0,vsystem_id=0;
+	int cycle_interval_ms=0,vsystem_id=0;
 	unsigned short fs_server_port=0;
 	char instance_name[128]={0};
 	char fs_server_ip[32]={0};
 	char fs_output_path[128]={0};
 
-	MESA_load_profile_int_def(conffile, "FIELD_STAT", "CYCLE", &cycle, 30000);
-	MESA_load_profile_short_nodef(conffile, "FIELD_STAT","TELEGRAF_PORT", (short *)&(fs_server_port));
-	MESA_load_profile_string_nodef(conffile,"FIELD_STAT","TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
-	MESA_load_profile_string_def(conffile,"FIELD_STAT","OUTPUT_PATH",fs_output_path, sizeof(fs_output_path), "master.status");
-	MESA_load_profile_string_def(conffile,"FIELD_STAT","INSTANCE_NAME", instance_name, sizeof(instance_name), "tsg_master");
+	MESA_load_profile_int_def(conffile, "MASTER_STATUS", "CYCLE_INTERVAL_MS", &cycle_interval_ms, 30000);
+	if(cycle_interval_ms<=0)
+	{
+		return 0;
+	}
+
 	MESA_load_profile_int_def(conffile, "TSG_LOG", "VSYSTEM_ID", &vsystem_id, 1);
+	MESA_load_profile_short_nodef(conffile, "MASTER_STATUS","TELEGRAF_PORT", (short *)&(fs_server_port));
+	MESA_load_profile_string_nodef(conffile,"MASTER_STATUS","TELEGRAF_IP",fs_server_ip, sizeof(fs_server_ip));
+	MESA_load_profile_string_def(conffile,"MASTER_STATUS","OUTPUT_PATH",fs_output_path, sizeof(fs_output_path), "master.status");
+	MESA_load_profile_string_def(conffile,"MASTER_STATUS","INSTANCE_NAME", instance_name, sizeof(instance_name), "tsg_master");
+	
 
 	//memset(&(g_rt_stat_para), 0, sizeof(struct runtime_stat_para));
 
 	g_rt_stat_para.fs_instance=fieldstat_instance_new(instance_name);
-	fieldstat_set_output_interval(g_rt_stat_para.fs_instance, cycle);
+	fieldstat_set_output_interval(g_rt_stat_para.fs_instance, cycle_interval_ms);
 	fieldstat_enable_prometheus_output(g_rt_stat_para.fs_instance);
 	fieldstat_set_local_output(g_rt_stat_para.fs_instance, fs_output_path, "default");
 
@@ -220,6 +270,11 @@ int tsg_stat_create(const char *conffile)
 
 int tsg_stat_init(void)
 {
+	if(g_rt_stat_para.fs_instance==NULL)
+	{
+		return 0;
+	}
+
 	enum field_type exdata_column_type[OP_EXDATA_MAX]={FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE};
 	const char *exdata_column_name[OP_EXDATA_MAX]={"add", "del"};
 	g_rt_stat_para.exdata.table_id=fieldstat_register_table(g_rt_stat_para.fs_instance, "sync_exdata", exdata_column_name, exdata_column_type, OP_EXDATA_MAX);
@@ -281,6 +336,11 @@ int tsg_stat_init(void)
 
 int tsg_stat_sendlog_row_init(const char *row_name)
 {
+	if(g_rt_stat_para.fs_instance==NULL)
+	{
+		return 0;
+	}
+
 	int row_idx=g_rt_stat_para.sendlog.max_row_idx;
 	if(row_idx==0)
 	{
@@ -301,6 +361,9 @@ int tsg_stat_sendlog_row_init(const char *row_name)
 
 void tsg_stat_start(void)
 {
-	fieldstat_instance_start(g_rt_stat_para.fs_instance);
+	if(g_rt_stat_para.fs_instance!=NULL)
+	{
+		fieldstat_instance_start(g_rt_stat_para.fs_instance);
+	}
 }
 
