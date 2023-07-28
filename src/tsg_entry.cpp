@@ -2641,9 +2641,11 @@ extern "C" int TSG_MASTER_UNLOAD()
 {
 
 		
-	g_tsg_maat_feather=NULL;
-
-
+	ctemplate::Template::ClearCache();
+	//delete g_tsg_para.tpl_403;
+	//delete g_tsg_para.tpl_404;
+	//delete g_tsg_para.tpl_200;
+	//delete g_tsg_para.tpl_204;
 	tsg_sendlog_destroy(g_tsg_log_instance);
 	tsg_metric_destroy();
 

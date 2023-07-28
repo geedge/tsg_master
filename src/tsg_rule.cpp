@@ -1982,6 +1982,7 @@ struct maat *init_maat_feather(const char* conffile, char* instance_name, char *
 void tsg_maat_rule_destroy(void)
 {
 	maat_free(g_tsg_maat_feather);	
+	g_tsg_maat_feather=NULL;
 	MESA_destroy_runtime_log_handle(g_tsg_maat_rt_para.logger);
 	g_tsg_maat_rt_para.logger = NULL;	
 }
