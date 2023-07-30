@@ -205,6 +205,7 @@ static char*  parse_server_name_extension(const unsigned char* buff, size_t buff
 
 static enum chello_parse_result parse_extensions(const unsigned char* buff, size_t buff_len, struct ssl_chello* chello) {
     size_t pos = 0;
+	char *p_buff=NULL;
     /* Parse each 4 bytes for the extension header */
     while (pos + 4 <= buff_len)
 	{
@@ -217,7 +218,16 @@ static enum chello_parse_result parse_extensions(const unsigned char* buff, size
 				return CHELLO_PARSE_INVALID_FORMAT;
 			}
 			enum chello_parse_result result = CHELLO_PARSE_SUCCESS;
-            chello->sni = parse_server_name_extension(buff + pos + 4, len, &result);
+            p_buff=parse_server_name_extension(buff + pos + 4, len, &result);
+			if(chello->sni == NULL)
+			{
+				chello->sni = p_buff;
+			}
+			else
+			{
+				free(p_buff);
+				p_buff=NULL;
+			}
 			if(result != CHELLO_PARSE_SUCCESS)
 			{
 				return result;
@@ -231,7 +241,16 @@ static enum chello_parse_result parse_extensions(const unsigned char* buff, size
 				return CHELLO_PARSE_INVALID_FORMAT;
 			}
 			enum chello_parse_result result = CHELLO_PARSE_SUCCESS;
-			chello->alpn = parse_alpn_extension(buff + pos + 4, len, &result);
+			p_buff = parse_alpn_extension(buff + pos + 4, len, &result);
+			if(chello->alpn == NULL)
+			{
+				chello->alpn = p_buff;
+			}
+			else
+			{
+				free(p_buff);
+				p_buff=NULL;
+			}
 			if(result != CHELLO_PARSE_SUCCESS)
 			{
 				return result;
