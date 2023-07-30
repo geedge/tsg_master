@@ -179,7 +179,7 @@ static char*  parse_server_name_extension(const unsigned char* buff, size_t buff
 	while (pos + 3 < buff_len)
 	{
 		size_t len = ((size_t)buff[pos + 1] << 8) + (size_t)buff[pos + 2];
-		if (pos + 3 + len > buff_len)
+		if (len == 0 || pos + 3 + len > buff_len)
 		{
 			*result = CHELLO_PARSE_INVALID_FORMAT;
 			return NULL;
@@ -198,6 +198,11 @@ static char*  parse_server_name_extension(const unsigned char* buff, size_t buff
     }
     if (pos != buff_len)
 	{
+		if(sni!=NULL)
+		{
+			free(sni);
+			sni = NULL;
+		}
 		*result = CHELLO_PARSE_INVALID_FORMAT;
 	}
 	return sni;
