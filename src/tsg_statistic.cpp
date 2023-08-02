@@ -288,7 +288,7 @@ static void *tsg_statistic_thread(void *arg)
 
 		fieldstat_passive_output(g_tsg_statis_para.fs_network.metrics_handle);
 
-		usleep(g_tsg_statis_para.fs_network.cycle_interval_ms*1000);
+		sleep(g_tsg_statis_para.fs_network.cycle_interval_ms/1000);
 	}
 
 	pthread_exit(NULL);
@@ -547,7 +547,7 @@ void tsg_metric_destroy(void)
 	if(g_tsg_statis_para.fs_network.metrics_handle!=NULL)
 	{
 		g_tsg_statis_para.fs_network.thread_alive = 0;
-		usleep((g_tsg_statis_para.fs_network.cycle_interval_ms+1000)*1000);
+		sleep((g_tsg_statis_para.fs_network.cycle_interval_ms/1000));
 		pthread_join(g_tsg_statis_para.fs_network.stat_thread_id, NULL);
 		fieldstat_instance_free(g_tsg_statis_para.fs_network.metrics_handle);
 	}
