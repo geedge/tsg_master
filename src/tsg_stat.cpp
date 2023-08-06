@@ -290,6 +290,8 @@ int tsg_stat_init(void)
 	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "tunnel_catalog", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_TUNNEL_CATALOG]);
 	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "tunnel_endpoint", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_TUNNEL_ENDPOINT]);
 	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "tunnel_label", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_TUNNEL_LABEL]);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "statistics_template", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_STATISTICS_TEMPLATE]);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "statistics_chart", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_STATISTICS_CHART]);
 
 	enum field_type flow_column_type[FLOW_STAT_MAX]={FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE};
 	const char *flow_column_name[FLOW_STAT_MAX]={"inject", "mirror_pkts", "mirror_bytes", "set_timeout", "tamper"};

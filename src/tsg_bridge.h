@@ -8,6 +8,8 @@
 #include "tsg_leaky_bucket.h"
 #include "tsg_send_log_internal.h"
 #include "tsg_statistic.h"
+#include "statistics_metrics.h"
+
 
 #ifndef	MAX_BRIDGE_NAME_LEN
 #define	MAX_BRIDGE_NAME_LEN	64
@@ -40,7 +42,7 @@ enum BRIDGE_TYPE
 	BRIDGE_TYPE_LOG_UPDATE_SCE,
 	BRIDGE_TYPE_LOG_UPDATE_SHAPER,
 	BRIDGE_TYPE_LOG_UPDATE_PROXY,
-
+	BRIDGE_TYPE_STATISTICS_DIMENSION,
 	BRIDGE_TYPE_MAX
 };
 

@@ -96,5 +96,6 @@ install(FILES inc/tsg_statistic.h DESTINATION /opt/MESA/include/tsg COMPONENT HE
 install(FILES inc/tsg_label.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
 install(FILES inc/app_label.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
 install(FILES inc/tsg_gtp_signaling.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
+install(FILES inc/statistics_metrics.h DESTINATION /opt/MESA/include/tsg COMPONENT HEADER)
 
 include(Package)

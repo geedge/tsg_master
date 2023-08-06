@@ -40,7 +40,7 @@ int session_capture_packets_sync(const struct streaminfo * a_stream, struct maat
 	return 0;
 }
 
-TEST(TM, ExDataGTPC)
+TEST(TSG_RULE, ExDataGTPC)
 {
 	/******************************************************************************************************
 		table name: TSG_DYN_MOBILE_IDENTITY_APN_TEID
@@ -66,7 +66,7 @@ TEST(TM, ExDataGTPC)
 	EXPECT_STREQ("8626070583008402", user_info->imei);
 }
 
-TEST(TM, ExDataAPPIDDictUnknown)
+TEST(TSG_RULE, ExDataAPPIDDictUnknown)
 {
 	/*************************************************************************************************************************
 		table name: APP_ID_DICT
@@ -99,7 +99,7 @@ TEST(TM, ExDataAPPIDDictUnknown)
 	dict=(struct app_id_dict *)matched_rule_cites_app_id_dict(g_tsg_maat_feather, ll_app_id);
 }
 
-TEST(TM, ExDataAPPIDDictDenyActionDrop)
+TEST(TSG_RULE, ExDataAPPIDDictDenyActionDrop)
 {
 	/*************************************************************************************************************************
 		table name: APP_ID_DICT
@@ -137,7 +137,7 @@ TEST(TM, ExDataAPPIDDictDenyActionDrop)
 	dict=(struct app_id_dict *)matched_rule_cites_app_id_dict(g_tsg_maat_feather, ll_app_id);
 }
 
-TEST(TM, ExDataAPPIDDictDenyActionRatelimit)
+TEST(TSG_RULE, ExDataAPPIDDictDenyActionRatelimit)
 {
 	/*************************************************************************************************************************
 		table name: APP_ID_DICT
@@ -173,7 +173,7 @@ TEST(TM, ExDataAPPIDDictDenyActionRatelimit)
 	dict=(struct app_id_dict *)matched_rule_cites_app_id_dict(g_tsg_maat_feather, ll_app_id);
 }
 
-TEST(TM, ExDataASNBuiltIn)
+TEST(TSG_RULE, ExDataASNBuiltIn)
 {
 	/*************************************************************************************************************************
 		table name: TSG_IP_ASN_BUILT_IN
@@ -181,7 +181,7 @@ TEST(TM, ExDataASNBuiltIn)
 	EXPECT_EQ(1, 1);
 }
 
-TEST(TM, ExDataASNUserDefine)
+TEST(TSG_RULE, ExDataASNUserDefine)
 {
 	/*************************************************************************************************************************
 		table name: TSG_IP_ASN_USER_DEFINED
@@ -189,7 +189,7 @@ TEST(TM, ExDataASNUserDefine)
 	EXPECT_EQ(1, 1);
 }
 
-TEST(TM, ExDataLocationBuiltIn)
+TEST(TSG_RULE, ExDataLocationBuiltIn)
 {
 	/*************************************************************************************************************************
 		table name: TSG_IP_LOCATION_BUILT_IN
@@ -218,7 +218,7 @@ TEST(TM, ExDataLocationBuiltIn)
 	EXPECT_EQ(NULL, location);
 }
 
-TEST(TM, ExDataLocationUserDefine)
+TEST(TSG_RULE, ExDataLocationUserDefine)
 {
 	/*************************************************************************************************************************
 		table name: TSG_IP_LOCATION_USER_DEFINED
@@ -240,7 +240,7 @@ TEST(TM, ExDataLocationUserDefine)
 	EXPECT_EQ(NULL, location);
 }
 
-TEST(TM, ExDataFQDNCategoryBuiltIn)
+TEST(TSG_RULE, ExDataFQDNCategoryBuiltIn)
 {
 	/*************************************************************************************************************************
 		table name: TSG_FQDN_CATEGORY_BUILT_IN
@@ -264,7 +264,7 @@ TEST(TM, ExDataFQDNCategoryBuiltIn)
 	category_ids[0] = NULL;
 }
 
-TEST(TM, ExDataFQDNCategoryUserDefine)
+TEST(TSG_RULE, ExDataFQDNCategoryUserDefine)
 {
 	/*************************************************************************************************************************
 		table name: TSG_FQDN_CATEGORY_USER_DEFINED
@@ -288,7 +288,7 @@ TEST(TM, ExDataFQDNCategoryUserDefine)
 	category_ids[0] = NULL;
 }
 
-TEST(TM, ExDataTunnelCatalog)
+TEST(TSG_RULE, ExDataTunnelCatalog)
 {
 	/*************************************************************************************************************************
 		table name: TSG_TUNNEL_CATALOG
@@ -317,7 +317,7 @@ TEST(TM, ExDataTunnelCatalog)
 	t_catalog[1] = NULL;
 }
 
-TEST(TM, ExDataTunnelEndpoint)
+TEST(TSG_RULE, ExDataTunnelEndpoint)
 {
 	/*************************************************************************************************************************
 		table name: TSG_TUNNEL_ENDPOINT
@@ -353,7 +353,7 @@ TEST(TM, ExDataTunnelEndpoint)
 	all_endpoint[1] = NULL;
 }
 
-TEST(TM, ExDataTunnelLabel)
+TEST(TSG_RULE, ExDataTunnelLabel)
 {
 	/*************************************************************************************************************************
 		table name: TSG_TUNNEL_LABEL
@@ -365,7 +365,7 @@ TEST(TM, ExDataTunnelLabel)
 	EXPECT_EQ(0, (long long)label_id);
 }
 
-TEST(TM, ExDataSubscriberID)
+TEST(TSG_RULE, ExDataSubscriberID)
 {
 	/*************************************************************************************************************************
 		table name: TSG_DYN_SUBSCRIBER_IP
@@ -399,7 +399,7 @@ TEST(TM, ExDataSubscriberID)
 	EXPECT_STREQ("test5629", source_subscribe_id->subscribe_id);
 }
 
-TEST(TM, ExDataDNSRecordsProfileA)
+TEST(TSG_RULE, ExDataDNSRecordsProfileA)
 {
 	/*************************************************************************************************************************
 		table name: TSG_PROFILE_DNS_RECORDS
@@ -434,7 +434,7 @@ TEST(TM, ExDataDNSRecordsProfileA)
 	EXPECT_EQ(NULL, profile_records);
 }
 
-TEST(TM, ExDataDNSRecordsProfileAAAA)
+TEST(TSG_RULE, ExDataDNSRecordsProfileAAAA)
 {
 	/*************************************************************************************************************************
 		table name: TSG_PROFILE_DNS_RECORDS
@@ -467,7 +467,7 @@ TEST(TM, ExDataDNSRecordsProfileAAAA)
 	EXPECT_EQ(NULL, profile_records);
 }
 
-TEST(TM, ExDataDNSRecordsProfileCNAME)
+TEST(TSG_RULE, ExDataDNSRecordsProfileCNAME)
 {
 	/*************************************************************************************************************************
 		table name: TSG_PROFILE_DNS_RECORDS
@@ -497,13 +497,13 @@ TEST(TM, ExDataDNSRecordsProfileCNAME)
 	EXPECT_EQ(NULL, profile_records);
 }
 
-TEST(TM, ExDataResponsePagesProfile)
+TEST(TSG_RULE, ExDataResponsePagesProfile)
 {
 	/*************************************************************************************************************************
 		table name: TSG_PROFILE_RESPONSE_PAGES
 		profile_id profile_name format path is_valid
-		"957\ttest-html-1\thtml\tforeign_files/TSG_PROFILE_RESPONSE_PAGES.1\t1",
-		"958\ttest-html-2\thtml\tforeign_files/TSG_PROFILE_RESPONSE_PAGES.2\t1"
+		"957\ttest-hTSG_RULEl-1\thTSG_RULEl\tforeign_files/TSG_PROFILE_RESPONSE_PAGES.1\t1",
+		"958\ttest-hTSG_RULEl-2\thTSG_RULEl\tforeign_files/TSG_PROFILE_RESPONSE_PAGES.2\t1"
 	**************************************************************************************************************************/
 	long long profile_id = 957;
 	struct http_response_pages *response_pages = (struct http_response_pages *)maat_plugin_table_get_ex_data(g_tsg_maat_feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_RESPONSE_PAGES].id, (const char *)&profile_id, sizeof(long long));
@@ -524,7 +524,7 @@ TEST(TM, ExDataResponsePagesProfile)
 	EXPECT_EQ(NULL, response_pages);
 }
 
-TEST(TM, ExDataTrafficMirrorProfile)
+TEST(TSG_RULE, ExDataTrafficMirrorProfile)
 {
 	/*************************************************************************************************************************
 		table name: TSG_PROFILE_TRAFFIC_MIRROR
@@ -552,7 +552,7 @@ TEST(TM, ExDataTrafficMirrorProfile)
 	EXPECT_EQ(NULL, mirror_profile);
 }
 
-TEST(TM, ExDataSessionRecordEnable)
+TEST(TSG_RULE, ExDataSessionRecordEnable)
 {
 	/*************************************************************************************************************************
 		table name: T_VSYS_INFO
@@ -562,7 +562,7 @@ TEST(TM, ExDataSessionRecordEnable)
 	EXPECT_EQ(g_tsg_maat_rt_para.session_record_switch, 1);
 }
 
-TEST(TMAPI, GetUmtsUserInfoFromRedis)
+TEST(TSG_RULE_API, GetUmtsUserInfoFromRedis)
 {
 	/******************************************************************************************************
 		table name: TSG_DYN_MOBILE_IDENTITY_APN_TEID
@@ -585,7 +585,7 @@ TEST(TMAPI, GetUmtsUserInfoFromRedis)
 	user_info_right = NULL;
 }
 
-TEST(TMAPI, GetAppIdDictUnknown)
+TEST(TSG_RULE_API, GetAppIdDictUnknown)
 {
 	/*************************************************************************************************************************
 		table name: APP_ID_DICT
@@ -601,7 +601,7 @@ TEST(TMAPI, GetAppIdDictUnknown)
 	dict = NULL;
 }
 
-TEST(TMAPI, GetAppIdDictDenyActionDrop)
+TEST(TSG_RULE_API, GetAppIdDictDenyActionDrop)
 {
 	/*************************************************************************************************************************
 		table name: APP_ID_DICT
@@ -617,7 +617,7 @@ TEST(TMAPI, GetAppIdDictDenyActionDrop)
 	dict = NULL;
 }
 
-TEST(TMAPI, GetAppIdDictDenyActionRatelimit)
+TEST(TSG_RULE_API, GetAppIdDictDenyActionRatelimit)
 {
 	/*************************************************************************************************************************
 		table name: APP_ID_DICT
@@ -633,7 +633,7 @@ TEST(TMAPI, GetAppIdDictDenyActionRatelimit)
 	dict = NULL;
 }
 
-TEST(TMAPI, GetAppNameByIdIllegalPara)
+TEST(TSG_RULE_API, GetAppNameByIdIllegalPara)
 {
 	// int tsg_get_app_name_by_id(int app_id, char *app_name, int app_name_len, int is_joint_parent)
 	char app_name[128] = {0};
@@ -642,7 +642,7 @@ TEST(TMAPI, GetAppNameByIdIllegalPara)
 	EXPECT_EQ(0, tsg_get_app_name_by_id(g_tsg_maat_feather, 68, app_name, 0, 1));
 }
 
-TEST(TMAPI, GetAppNameByIdParentAppId0)
+TEST(TSG_RULE_API, GetAppNameByIdParentAppId0)
 {
 	/*************************************************************************************************************************
 		table name: APP_ID_DICT
@@ -655,7 +655,7 @@ TEST(TMAPI, GetAppNameByIdParentAppId0)
 	EXPECT_EQ(strlen("https"), tsg_get_app_name_by_id(g_tsg_maat_feather, app_id, app_name, 128, 1));
 }
 
-TEST(TMAPI, GetAppNameByIdParentAppId1)
+TEST(TSG_RULE_API, GetAppNameByIdParentAppId1)
 {
 	/*************************************************************************************************************************
 		table name: APP_ID_DICT
@@ -668,7 +668,7 @@ TEST(TMAPI, GetAppNameByIdParentAppId1)
 	EXPECT_EQ(strlen("ssl.https"), tsg_get_app_name_by_id(g_tsg_maat_feather, app_id, app_name, 128, 1));
 }
 
-TEST(TMAPI, GetLocationInfoLocationBuiltIn)
+TEST(TSG_RULE_API, GetLocationInfoLocationBuiltIn)
 {
 	/*************************************************************************************************************************
 		table name: TSG_IP_LOCATION_BUILT_IN
@@ -707,7 +707,7 @@ TEST(TMAPI, GetLocationInfoLocationBuiltIn)
 	EXPECT_EQ(NULL, client_location);
 }
 
-TEST(TMAPI, GetLocationInfoLocationUserDefine)
+TEST(TSG_RULE_API, GetLocationInfoLocationUserDefine)
 {
 	/*************************************************************************************************************************
 		table name: TSG_IP_LOCATION_USER_DEFINED
@@ -732,7 +732,7 @@ TEST(TMAPI, GetLocationInfoLocationUserDefine)
 	EXPECT_EQ(server_location, location);
 }
 
-TEST(TMAPI, GetLocationInfoBoth)
+TEST(TSG_RULE_API, GetLocationInfoBoth)
 {
 	/*************************************************************************************************************************
 		table name: TSG_IP_LOCATION_USER_DEFINED
@@ -764,7 +764,7 @@ TEST(TMAPI, GetLocationInfoBoth)
 	EXPECT_NE(server_location, location);
 }
 
-TEST(TMAPI, GetFQDNCategoryIdUserDefine)
+TEST(TSG_RULE_API, GetFQDNCategoryIdUserDefine)
 {
 	/*************************************************************************************************************************
 		table name: TSG_FQDN_CATEGORY_USER_DEFINED
@@ -786,7 +786,7 @@ TEST(TMAPI, GetFQDNCategoryIdUserDefine)
 	EXPECT_EQ(0, category_ids[1]);
 }
 
-TEST(TMAPI, GetFQDNCategoryIdBuiltIn)
+TEST(TSG_RULE_API, GetFQDNCategoryIdBuiltIn)
 {
 	/*************************************************************************************************************************
 		table name: TSG_FQDN_CATEGORY_BUILT_IN
@@ -809,7 +809,7 @@ TEST(TMAPI, GetFQDNCategoryIdBuiltIn)
 	EXPECT_EQ(0, category_ids[1]);
 }
 
-TEST(TMAPI, GetFQDNCategoryIdBoth)
+TEST(TSG_RULE_API, GetFQDNCategoryIdBoth)
 {
 	/*************************************************************************************************************************
 		table name: TSG_FQDN_CATEGORY_BUILT_IN
@@ -827,7 +827,7 @@ TEST(TMAPI, GetFQDNCategoryIdBoth)
 	EXPECT_EQ(0, category_ids[1]);
 }
 
-TEST(TMAPI, ScanTunnelId)
+TEST(TSG_RULE_API, ScanTunnelId)
 {
 	/*************************************************************************************************************************
 		table name: TSG_TUNNEL_CATALOG
@@ -859,7 +859,7 @@ TEST(TMAPI, ScanTunnelId)
 }
 
 extern int tsg_get_endpoint_id(const struct streaminfo *a_stream, struct maat *feather, struct tunnel_endpoint **client_endpoint, struct tunnel_endpoint **server_endpoint, long long *endpoint_id_array, int endpoint_id_array_num);
-TEST(TMAPI, GetEndPointId)
+TEST(TSG_RULE_API, GetEndPointId)
 {
 	/*************************************************************************************************************************
 		table name: TSG_TUNNEL_ENDPOINT
@@ -907,7 +907,7 @@ TEST(TMAPI, GetEndPointId)
 	all_endpoint[1] = NULL;
 }
 
-TEST(TMAPI, GetEndPointIdMultipleTunnelEndpoint)
+TEST(TSG_RULE_API, GetEndPointIdMultipleTunnelEndpoint)
 {
 	/*************************************************************************************************************************
 		table name: TSG_TUNNEL_ENDPOINT
@@ -938,7 +938,7 @@ TEST(TMAPI, GetEndPointIdMultipleTunnelEndpoint)
 	EXPECT_EQ(990, server_endpoint->id);
 }
 
-TEST(TMAPI, GetEndPointIdSourceIpEqualToDestIp) // 也可能在一个网段，是否可以两个不同的endpoint_id拥有相同的网段；是否有可能源ip和目的ip同时可以处于一个endpoint的网段；endpoint_id_array是否可能重复
+TEST(TSG_RULE_API, GetEndPointIdSourceIpEqualToDestIp) // 也可能在一个网段，是否可以两个不同的endpoint_id拥有相同的网段；是否有可能源ip和目的ip同时可以处于一个endpoint的网段；endpoint_id_array是否可能重复
 {
 	/*************************************************************************************************************************
 		table name: TSG_TUNNEL_ENDPOINT
@@ -970,7 +970,7 @@ TEST(TMAPI, GetEndPointIdSourceIpEqualToDestIp) // 也可能在一个网段，�
 }
 
 extern int tsg_get_vlan_label_id(struct maat *feather, struct single_layer_vlan_addr *vlan_array, int vlan_array_num, long long *label_id_array, int label_id_array_num);
-TEST(TMAPI, GetVlanLabelIdIllegalPara)
+TEST(TSG_RULE_API, GetVlanLabelIdIllegalPara)
 {
 	// int tsg_get_vlan_label_id(struct maat *feather, struct single_layer_vlan_addr *vlan_array, int vlan_array_num, long long *label_id_array, int label_id_array_num)
 	struct single_layer_vlan_addr vlan_array[2] = {0};
@@ -981,7 +981,7 @@ TEST(TMAPI, GetVlanLabelIdIllegalPara)
 	EXPECT_EQ(0, tsg_get_vlan_label_id(g_tsg_maat_feather, NULL, 2, label_id_array, 2));
 }
 
-TEST(TMAPI, GetVlanLabelIdFunction)
+TEST(TSG_RULE_API, GetVlanLabelIdFunction)
 {
 	/*************************************************************************************************************************
 		table name: TSG_TUNNEL_LABEL
@@ -993,7 +993,7 @@ TEST(TMAPI, GetVlanLabelIdFunction)
 	EXPECT_EQ(1, 1);
 }
 
-TEST(TMAPI, GetDNSProfileRecord)
+TEST(TSG_RULE_API, GetDNSProfileRecord)
 {
 	/*************************************************************************************************************************
 		table name: TSG_PROFILE_DNS_RECORDS
@@ -1027,13 +1027,13 @@ TEST(TMAPI, GetDNSProfileRecord)
 	EXPECT_EQ(profile_records_right, profile_records);
 }
 
-TEST(TMAPI, GetHttpResponsePagesProfile)
+TEST(TSG_RULE_API, GetHttpResponsePagesProfile)
 {
 	/*************************************************************************************************************************
 		table name: TSG_PROFILE_RESPONSE_PAGES
 		profile_id profile_name format path is_valid
-		"957\ttest-html-1\thtml\tforeign_files/TSG_PROFILE_RESPONSE_PAGES.1\t1",
-		"958\ttest-html-2\thtml\tforeign_files/TSG_PROFILE_RESPONSE_PAGES.2\t1"
+		"957\ttest-hTSG_RULEl-1\thTSG_RULEl\tforeign_files/TSG_PROFILE_RESPONSE_PAGES.1\t1",
+		"958\ttest-hTSG_RULEl-2\thTSG_RULEl\tforeign_files/TSG_PROFILE_RESPONSE_PAGES.2\t1"
 	**************************************************************************************************************************/
 
 	// void *matched_rule_cites_http_response_pages(struct maat *feather, long long profile_id)
@@ -1050,7 +1050,7 @@ TEST(TMAPI, GetHttpResponsePagesProfile)
 	EXPECT_EQ(response_pages_right, response_pages);
 }
 
-TEST(TMAPI, GetSessionRecordSwitch)
+TEST(TSG_RULE_API, GetSessionRecordSwitch)
 {
 	/*************************************************************************************************************************
 		table name: T_VSYS_INFO
@@ -1060,7 +1060,7 @@ TEST(TMAPI, GetSessionRecordSwitch)
 	EXPECT_EQ(1, tsg_session_record_switch_get());
 }
 
-TEST(TMAPI, NotifyPacketCaptureByPolicy)
+TEST(TSG_RULE_API, NotifyPacketCaptureByPolicy)
 {
 	/*************************************************************************************************************************
 		table name: TSG_PROFILE_TRAFFIC_MIRROR
@@ -1071,12 +1071,12 @@ TEST(TMAPI, NotifyPacketCaptureByPolicy)
 	// int session_packet_capture_by_rules_notify(const struct streaminfo *a_stream, struct maat_rule *rules, int n_rules, int thread_seq)
 }
 
-TEST(TMAPI, ScanNestingAddr)
+TEST(TSG_RULE_API, ScanNestingAddr)
 {
 	// int tsg_scan_nesting_addr(const struct streaminfo *a_stream, enum TSG_PROTOCOL proto, struct maat_state **s_mid, struct maat_rule *results, size_t n_results)
 }
 
-TEST(TMAPI, ScanAppPropertiesPolicy)
+TEST(TSG_RULE_API, ScanAppPropertiesPolicy)
 {
 	// int tsg_scan_app_properties_policy(const struct streaminfo *a_stream, char *property, char *district, struct maat_state *s_mid, struct maat_rule *results, int n_results)
 }

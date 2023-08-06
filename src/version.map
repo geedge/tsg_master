@@ -16,6 +16,7 @@ global:
 		*session_matched_rules_notify*;
 		*session_matched_rules_copy*;
 		*session_packet_capture_by_rules_notify*;
+		*session_dimension_*;
 		*GIT*;
 	};
   local: *;

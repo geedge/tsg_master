@@ -2453,6 +2453,23 @@
             ]
         },
         {
+            "table_name": "STATISTICS_TEMPLATE",
+            "table_content": [
+                "100\t[1000,1001,1002,1003]\t1",
+                "101\t[1000,1001,1002,1003\t1",
+                "102\t[]\t1"
+            ]
+        },
+        {
+            "table_name": "STATISTICS_CHART",
+            "table_content": [
+                "1000\t[\"server_ip\",\"client_ip\"]\t[{\"metric\":\"bytes\",\"type\":\"counter\"},{\"metric\":\"sessions\",\"type\":\"counter\"}]\t{\"type\":\"Top-K\",\"order_by\":\"bytes\",\"max_values\":1024}\t{\"incoming_bytes\":1000,\"outgoing_bytes\":2000}\t10\t1",
+                "1001\t[\"server_ip\",\"client_ip\"]\t[{\"metric\":\"bytes\",\"type\":\"counter\"},{\"metric\":\"sessions\",\"type\":\"counter\"}]\t{\"type\":\"Top-K\",\"order_by\":\"bytes\",\"max_values\":1024}\t{\"incoming_bytes\":1000,\"outgoing_bytes\":2000}\t10\t1",
+                "1002\t[\"server_ip\",\"client_ip\"]\t[{\"metric\":\"bytes\",\"type\":\"counter\"},{\"metric\":\"sessions\",\"type\":\"counter\"}]\t{\"type\":\"Top-K\",\"order_by\":\"bytes\",\"max_values\":1024}\t{\"incoming_bytes\":1000,\"outgoing_bytes\":2000}\t10\t1",
+                "1003\t[\"server_ip\",\"client_ip\"]\t[{\"metric\":\"bytes\",\"type\":\"counter\"},{\"metric\":\"sessions\",\"type\":\"counter\"}]\t{\"type\":\"Top-K\",\"order_by\":\"bytes\",\"max_values\":1024}\t{\"incoming_bytes\":1000,\"outgoing_bytes\":2000}\t10\t1"
+            ]
+        },
+        {
             "table_name": "T_VSYS_INFO",
             "table_content": [
                 "6\t1\t1"

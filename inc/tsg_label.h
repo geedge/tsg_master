@@ -2,7 +2,6 @@
 
 #include <stddef.h>
 
-#define	MAX_CATEGORY_ID_NUM	8
 #define	MAX_STR_FIELD_LEN	64
 
 #define	MAX_VLAN_ID_NUM		32

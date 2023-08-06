@@ -10,6 +10,7 @@
 #include "tsg_variable.h"
 #include "tsg_sync_state.h"
 #include "tsg_rule_internal.h"
+#include "statistics_metrics.h"
 
 extern int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data);
 extern int session_flags_identify_result_cb(const struct streaminfo *a_stream, int bridge_id, void *data);
@@ -1002,6 +1003,75 @@ void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE
 	return ;
 }
 
+int session_dimension_server_fqdn_sync(const struct streaminfo *a_stream, char *server_fqdn)
+{
+	if(server_fqdn==NULL)
+	{
+		return 0;
+	}
+
+	struct statistics_dimensions dimension;
+	dimension.type=DIMENSION_FQDN;
+	dimension.server_fqdn=server_fqdn;
+	return stream_bridge_sync_data_put(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_STATISTICS_DIMENSION].id, (void *)&(dimension));
+}
+
+int session_dimension_application_sync(const struct streaminfo *a_stream, char *application)
+{
+	if(application==NULL)
+	{
+		return 0;
+	}
+
+	struct statistics_dimensions dimension;
+	dimension.type=DIMENSION_APPLICATION;
+	dimension.application=application;
+	return stream_bridge_sync_data_put(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_STATISTICS_DIMENSION].id, (void *)&(dimension));
+}
+
+int session_dimension_maat_state_sync(const struct streaminfo *a_stream, struct maat_state *state)
+{
+	if(state==NULL)
+	{
+		return 0;
+	}
+
+	struct statistics_dimensions dimension;
+	dimension.type=DIMENSION_MAAT_STATE;
+	dimension.maat_state=state;
+	return stream_bridge_sync_data_put(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_STATISTICS_DIMENSION].id, (void *)&(dimension));
+}
+
+int session_dimension_maat_rule_sync(const struct streaminfo *a_stream, struct matched_policy_rules *policy)
+{
+	if(policy==NULL)
+	{
+		return 0;
+	}
+
+	struct statistics_dimensions dimension;
+	dimension.type=DIMENSION_MAAT_RULE;
+	dimension.policy=policy;
+	return stream_bridge_sync_data_put(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_STATISTICS_DIMENSION].id, (void *)&(dimension));
+}
+
+int session_dimension_category_id_sync(const struct streaminfo *a_stream, unsigned int *category_id, int n_category_id)
+{
+	if(category_id==NULL || n_category_id==0)
+	{
+		return 0;
+	}
+	
+	struct server_fqdn_category category;
+	category.n_ids=MIN(n_category_id, MAX_CATEGORY_ID_NUM);
+	memcpy(category.ids, category_id, category.n_ids*sizeof(unsigned int));
+
+	struct statistics_dimensions dimension;
+	dimension.type=DIMENSION_CATEGORY_ID;
+	dimension.category=&category;
+	return stream_bridge_sync_data_put(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_STATISTICS_DIMENSION].id, (void *)&(dimension));
+}
+
 void *session_mac_linkinfo_get(const struct streaminfo *a_stream)
 {
 	return session_async_bridge_get_data(a_stream, g_tsg_bridge_para[BRIDGE_TYPE_MAC_LINKINFO].id);
@@ -1160,6 +1230,9 @@ int tsg_bridge_init(const char *conffile)
 
 	MESA_load_profile_string_def(conffile, "BRIDGE", "PROXY_LOG_UPDATE_BRIDGE_NAME", g_tsg_bridge_para[BRIDGE_TYPE_LOG_UPDATE_PROXY].name, MAX_BRIDGE_NAME_LEN, "PROXY_LOG_UPDATE");
 	g_tsg_bridge_para[BRIDGE_TYPE_LOG_UPDATE_PROXY].free_cb = session_proxy_log_update_free;
+
+	// statistics dimensions
+    MESA_load_profile_string_def(conffile, "BRIDGE", "STATISTICS_DIMENSIONS", g_tsg_bridge_para[BRIDGE_TYPE_STATISTICS_DIMENSION].name, MAX_BRIDGE_NAME_LEN, "STATISTICS_DIMENSIONS");
 
 	for(int i=0; i<BRIDGE_TYPE_MAX; i++)
 	{

@@ -47,7 +47,7 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 int TLD_cancel(struct TLD_handle_t *handle);
 
 //return topic_id;  return >=0 if success,otherwise return -1;
-int tsg_register_topic(struct tsg_log_instance_t *instance, const char *topic_name);
+int tsg_register_topic(struct tsg_log_instance_t *instance, char *topic_name);
 int tsg_send_payload(struct tsg_log_instance_t *instance, int topic_id, char *payload, int payload_len, int thread_id);
 int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handle, const struct streaminfo *a_stream, enum LOG_TYPE log_type, struct maat_rule *rules, size_t n_rules, int thread_id);
 
