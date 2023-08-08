@@ -228,7 +228,7 @@ static void template_generate(const struct streaminfo *a_stream, int status_code
 
 static int get_response_pages(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, char **payload, int thread_seq)
 {
-	int payload_len=0;
+	size_t payload_len=0;
 
 	switch(user_region->deny->type)
 	{
@@ -260,7 +260,7 @@ static int get_response_pages(const struct streaminfo *a_stream, struct maat_rul
 		}
 	}
 
-	return payload_len;
+	return (int)payload_len;
 }
 
 static int set_tcp_rst_flags(char *packet, int ip_tcp_hdr_len)
