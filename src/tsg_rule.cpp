@@ -2209,7 +2209,7 @@ int srt_attribute_set_subscriber_id(const struct streaminfo *a_stream, struct ma
 size_t matche_rules_convert(struct maat *feather,long long *rules, size_t n_rules, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
 	size_t offset=0;
-	for(size_t i=0; i<n_rules && offset<n_rules; i++)
+	for(size_t i=0; i<n_rules && offset<n_matched_rules; i++)
 	{
 		struct maat_compile *maat_compile=(struct maat_compile *)maat_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SECURITY_COMPILE].id, (const char *)&(rules[i]), sizeof(long long));
 		if(maat_compile==NULL)
