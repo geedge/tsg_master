@@ -2343,7 +2343,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			}
 
 			struct maat_rule statistics_rules[MAX_RESULT_NUM];
-			size_t n_statistics_rules=tsg_select_rules_by_service_id(matched_rules, matched_cnt, statistics_rules, MAX_RESULT_NUM, TSG_SERVICE_SHAPING);
+			size_t n_statistics_rules=tsg_select_rules_by_service_id(matched_rules, matched_cnt, statistics_rules, MAX_RESULT_NUM, TSG_SERVICE_STATISTICS);
 			if(state==APP_STATE_GIVEME && n_statistics_rules>0)
 			{
 				matched_statistics_rules_deal(a_stream, statistics_rules, n_statistics_rules, thread_seq);
