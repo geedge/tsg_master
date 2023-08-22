@@ -218,7 +218,6 @@ static int dns_set_answer_records(char *payload, int payload_len, struct dns_ans
 
 unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, const void *user_data)
 {
-	int opt_value=0;
 	int ret=0,used_len=0,record_num=0;	
 	unsigned char raw_route_dir=0;
 	char payload[1024]={0};
@@ -252,6 +251,7 @@ unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, struct m
 	ret=dns_set_response_question(payload+used_len, payload_len-used_len, &(dns_info->query_question));
 	if(ret==-1)
 	{
+		int opt_value=1;
 		MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
 		return STATE_GIVEME;
 	}
@@ -269,6 +269,7 @@ unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, struct m
 	raw_route_dir=(dns_info->hdr_info.qr==0) ? MESA_dir_reverse(a_stream->routedir) : a_stream->routedir;
 	tsg_send_inject_packet(a_stream, SIO_DEFAULT, payload, used_len, raw_route_dir);
 	
+	int opt_value=1;
 	MESA_set_stream_opt(a_stream, MSO_DROP_CURRENT_PKT, (void *)&opt_value, sizeof(opt_value));
 	
 	return STATE_GIVEME;
