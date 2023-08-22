@@ -2652,6 +2652,16 @@ size_t tsg_scan_shared_policy(const struct streaminfo *a_stream, struct maat *fe
 	return tsg_scan_string(a_stream, feather, domain, fqdn_len, (enum MAAT_SCAN_TB)idx, s_mid, matched_rules, n_matched_rules);
 }
 
+size_t tsg_scan_http_url_policy(const struct streaminfo *a_stream, struct maat *feather, char *url, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
+{
+	if(url==NULL || matched_rules==NULL || n_matched_rules==0)
+	{
+		return 0;
+	}
+	
+	return tsg_scan_string(a_stream, feather, url, strlen(url), MAAT_SCAN_HTTP_URL, s_mid, matched_rules, n_matched_rules);
+}
+
 size_t tsg_scan_session_flags(const struct streaminfo *a_stream, struct maat *feather, unsigned long flag, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
 	return tsg_scan_flags(a_stream, feather, flag, MAAT_SCAN_SESSION_FLAGS, s_mid, matched_rules, n_matched_rules);
@@ -3113,11 +3123,6 @@ int tsg_fqdn_category_table_idx_get(enum TSG_PROTOCOL proto)
 	}
 
 	return -1;
-}
-
-int tsg_http_url_table_idx_get(void)
-{
-	return MAAT_SCAN_HTTP_URL;
 }
 
 int tsg_session_record_switch_get(void)
