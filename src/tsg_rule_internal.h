@@ -152,7 +152,6 @@ char *tsg_device_tag_get(void);
 int tsg_session_record_switch_get(void);
 int tsg_domain_table_idx_get(enum TSG_PROTOCOL proto);
 int tsg_fqdn_category_table_idx_get(enum TSG_PROTOCOL proto);
-int tsg_http_url_table_idx_get(void);
 long long tsg_default_compile_id_get(void);
 
 
@@ -162,6 +161,7 @@ int tsg_get_app_name_by_id(struct maat *feather, int app_id, char *app_name, int
 size_t tsg_scan_session_flags(const struct streaminfo *a_stream, struct maat *feather, unsigned long flag, struct maat_state *s_mid, struct maat_rule *results, size_t n_results);
 size_t tsg_scan_app_id_policy(const struct streaminfo *a_stream, struct maat *feather, unsigned int app_id, struct maat_state *s_mid, struct maat_rule *results, size_t n_results);
 size_t tsg_scan_shared_policy(const struct streaminfo *a_stream, struct maat *feather, char *domain, int idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_results);
+size_t tsg_scan_http_url_policy(const struct streaminfo *a_stream, struct maat *feather, char *url, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules);
 size_t tsg_scan_tunnel_id(const struct streaminfo *a_stream, struct maat *feather, struct maat_rule *results, size_t n_results, struct maat_state *s_mid, long long *bool_id_array, size_t n_bool_id_array);
 size_t tsg_scan_fqdn_category_id(const struct streaminfo * a_stream, struct maat *feather, unsigned int *category_id, int category_id_num, int table_idx, struct maat_state *s_mid, struct maat_rule *results, size_t n_results);
 size_t tsg_scan_app_properties_policy(const struct streaminfo *a_stream, struct maat *feather, char *property, int property_len, char *district, int district_len, struct maat_state *s_mid, struct maat_rule *matched_rules, int n_matched_rules);

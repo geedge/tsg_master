@@ -2121,8 +2121,7 @@ size_t session_pending_state_deal(const struct streaminfo *a_stream, struct sess
 
 		if(srt_process_context->proto==PROTO_HTTP && srt_process_context->http_url!=NULL)
 		{
-			table_idx=tsg_http_url_table_idx_get();
-			matched_cnt+=tsg_scan_shared_policy(a_stream, g_tsg_maat_feather, srt_process_context->http_url, table_idx, (srt_process_context->mid), matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+			matched_cnt+=tsg_scan_http_url_policy(a_stream, g_tsg_maat_feather, srt_process_context->http_url, (srt_process_context->mid), matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 		}
 
 		session_app_gather_results_set_l7_protocol(a_stream, app_id, n_offset);
