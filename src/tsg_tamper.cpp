@@ -59,14 +59,14 @@ int swap_payload2byte(char *str, int endlen)
 	return 0;
 }
 
-int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count, const void *raw_pkt)
+int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count)
 {
 	const char *p_trans_payload = NULL;
 	int trans_layload_len = 0;
 	char tamper_buf[MTU_LEN] = {0}; 
 	int  tamper_index = 0;
 
-	if(a_stream==NULL || raw_pkt==NULL)
+	if(a_stream==NULL)
 	{
 		tsg_stat_flow_update(STAT_STATUS_FAIL, FLOW_STAT_TAMPER, 1);
 		return -1;

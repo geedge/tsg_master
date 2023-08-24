@@ -139,6 +139,6 @@ int tsg_send_inject_packet(const struct streaminfo *a_stream, enum sapp_inject_o
 unsigned char do_action_redirect_dns(const struct streaminfo *a_stream, struct maat_rule *p_result, struct compile_user_region *user_region, const void *user_data);
 
 unsigned char send_icmp_unreachable(const struct streaminfo *a_stream);
-int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count, const void *raw_pkt);
+int send_tamper_xxx(const struct streaminfo *a_stream, long *tamper_count);
 unsigned char tsg_enforing_deny_application(const struct streaminfo *a_stream, struct maat_rule *p_result, enum TSG_PROTOCOL protocol, int app_id, enum ACTION_RETURN_TYPE type, const void *user_data);
 

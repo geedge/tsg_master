@@ -2320,7 +2320,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 			}
 			break;
 		case    TSG_METHOD_TYPE_TAMPER:
-			if(0 == send_tamper_xxx(a_stream, &srt_action_context->tamper_count, a_packet))
+			if(0 == send_tamper_xxx(a_stream, &srt_action_context->tamper_count))
 			{
 				state|=APP_STATE_GIVEME|APP_STATE_DROPPKT;
 			}
