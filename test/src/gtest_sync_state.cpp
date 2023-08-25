@@ -12,12 +12,12 @@
 #include "mpack.h"
 
 struct tsg_rt_para g_tsg_para;
-
+unsigned long long g_session_id = 10;
 extern int get_ctrl_pkt(char *buf, int len);
 
 unsigned long long tsg_get_stream_trace_id(const struct streaminfo *a_stream)
 {
-    return 10;
+    return g_session_id;
 }
 
 void *session_log_update_data_get(const struct streaminfo *a_stream, enum TSG_SERVICE service)
@@ -1437,6 +1437,53 @@ TEST(LOG_UPDATE, ProxyTwice)
     session_log_update_data_put(&a_stream, TSG_SERVICE_INTERCEPT, NULL);
     free(mpack_data);
     mpack_data = NULL;
+}
+
+// 16进制转字符串
+int hex_to_str(const char *hex_str, char *payload)
+{
+    int len = strlen(hex_str);
+    int i = 0, j = 0;
+    unsigned int num;
+
+    for (i = 0; i < len; i += 2)
+    {
+        sscanf(hex_str + i, "%2x", &num);
+        payload[j] = (char)num;
+        j++;
+        i++; // 空格或者回车
+    }
+    payload[j] = '\0';
+
+    printf("Hex string: %s\n", hex_str);
+    printf("ASCII string: %s\n", payload);
+
+    return j;
+}
+
+TEST(LOG_UPDATE, Payload)
+{
+    const char *hex_str = "85 a5 74 73 79 6e 63 a3 32 2e 30 aa 73 65 73 73 69 6f 6e 5f 69 64 cf 04 09 e2 7c a9 6d 90 e7 a5 73 74 61 74 65 a6 61 63 74 69 76 65 a6 6d 65 74 68 6f 64 aa 6c 6f 67 5f 75 70 64 61 74 65 a6 70 61 72 61 6d 73 81 a3 73 63 65 81 ae 73 66 5f 70 72 6f 66 69 6c 65 5f 69 64 73 90";
+    char payload[1024] = {0};
+    int len = hex_to_str(hex_str, payload);
+
+    const struct streaminfo a_stream = {0};
+    g_session_id = 291012675988459751;
+    EXPECT_EQ(-1, tsg_parse_log_update_payload(&a_stream, payload, len));
+
+    const char *hex_str1 = "85 a5 74 73 79 6e 63 a3 32 2e 30 aa 73 65 73 73 69 6f 6e 5f 69 64 cf 04 0a 42 7c a8 55 12 b9 a5 73 74 61 74 65 a6 61 63 74 69 76 65 a6 6d 65 74 68 6f 64 aa 6c 6f 67 5f 75 70 64 61 74 65 a6 70 61 72 61 6d 73 81 a3 73 63 65 81 ae 73 66 5f 70 72 6f 66 69 6c 65 5f 69 64 73 91 02";
+    len = hex_to_str(hex_str1, payload);
+    g_session_id = 291118229086343865;
+    ASSERT_EQ(0, tsg_parse_log_update_payload(&a_stream, payload, len));
+
+    struct sce_log_update *sce = (struct sce_log_update *)session_log_update_data_get(&a_stream, TSG_SERVICE_CHAINING);
+    ASSERT_TRUE(sce);
+    EXPECT_EQ(sce->n_profile_ids, 1);
+    EXPECT_EQ(sce->profile_ids[0], 2);
+
+    free(sce);
+    sce = NULL;
+    session_log_update_data_put(&a_stream, TSG_SERVICE_CHAINING, NULL);
 }
 
 int main(int argc, char *argv[])

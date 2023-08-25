@@ -587,7 +587,7 @@ void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update
     cmsg->tcp_ack_route_ctx.len = server->route_ctx_len;
     cmsg->tcp_ack_route_ctx.buff = (char *)server->route_ctx;
 
-	update_segment_sids(&cmsg->tcp_seq_sids, segment_ids->sid_list+1, segment_ids->sz_sidlist-1);  // delete intercept sid
+	update_segment_sids(&cmsg->tcp_ack_sids, segment_ids->sid_list+1, segment_ids->sz_sidlist-1);  // delete intercept sid
 	update_segment_sids(&cmsg->tcp_ack_sids, server->sid_list.sid_list, server->sid_list.sz_sidlist);
 
     if (client->wscale_set && server->wscale_set) {
