@@ -1095,13 +1095,8 @@ int session_state_control_packet(const struct streaminfo *a_stream, void *payloa
 		return 0;
 	}
 
-	ret=tsg_parse_log_update_payload(a_stream, (const void *)payload, payload_len);
-	if(ret>=0)
-	{
-		return 1;
-	}
-	
-	return 0;
+	tsg_parse_log_update_payload(a_stream, (const void *)payload, payload_len);
+	return 1;
 }
 
 int session_state_sync_in_opening_and_closing(const struct streaminfo *a_stream, unsigned char state)
