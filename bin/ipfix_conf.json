@@ -1,0 +1,1143 @@
+{
+    "version":10,
+    "collector_ip": "192.168.38.214",
+    "collector_port": 4739,
+    "device_name": "test_device",
+    "domain_id": 1,
+    "PEN_number": 54450,
+    "templates": [
+        {
+            "template_id": 257,
+            "template_name": "BASE",
+            "elements":[
+                "BASE_elements"
+            ]
+        },
+        {
+            "template_id": 258,
+            "template_name": "SSL",
+            "elements":[
+                "BASE_elements",
+                "SSL_elements"
+            ]
+        },
+        {
+            "template_id": 259,
+            "template_name": "HTTP",
+            "elements":[
+                "BASE_elements",
+                "HTTP_elements"
+            ]
+        },
+        {
+            "template_id": 260,
+            "template_name": "MAIL",
+            "elements":[
+                "BASE_elements",
+                "MAIL_elements"
+            ]
+        },
+        {
+            "template_id": 261,
+            "template_name": "DNS",
+            "elements":[
+                "BASE_elements",
+                "DNS_elements"
+            ]
+        },
+        {
+            "template_id": 262,
+            "template_name": "DTLS",
+            "elements":[
+                "BASE_elements",
+                "DTLS_elements"
+            ]
+        },
+        {
+            "template_id": 263,
+            "template_name": "QUIC",
+            "elements":[
+                "BASE_elements",
+                "QUIC_elements"
+            ]
+        },
+        {
+            "template_id": 264,
+            "template_name": "FTP",
+            "elements":[
+                "BASE_elements",
+                "FTP_elements"
+            ]
+        },
+        {
+            "template_id": 265,
+            "template_name": "SIP",
+            "elements":[
+                "BASE_elements",
+                "SIP_elements"
+            ]
+        },
+        {
+            "template_id": 266,
+            "template_name": "RTP",
+            "elements":[
+                "BASE_elements",
+                "RTP_elements"
+            ]
+        },
+        {
+            "template_id": 267,
+            "template_name": "SSH",
+            "elements":[
+                "BASE_elements",
+                "SSH_elements"
+            ]
+        },
+        {
+            "template_id": 268,
+            "template_name": "BGP",
+            "elements":[
+                "BASE_elements",
+                "BGP_elements"
+            ]
+        },
+        {
+            "template_id": 269,
+            "template_name": "RDP",
+            "elements":[
+                "BASE_elements",
+                "RDP_elements"
+            ]
+        },
+        {
+            "template_id": 270,
+            "template_name": "Stratum",
+            "elements":[
+                "BASE_elements",
+                "Stratum_elements"
+            ]
+        }
+    ],
+    "BASE_elements": [
+        {
+            "element_name": "common_stream_trace_id",
+            "element_type": "string",
+            "element_id": 1
+        },
+        {
+            "element_name": "common_start_time",
+            "element_type": "unsigned32",
+            "element_id": 2
+        },
+        {
+            "element_name": "common_end_time",
+            "element_type": "unsigned32",
+            "element_id": 3
+        },
+        {
+            "element_name": "common_con_duration_ms",
+            "element_type": "unsigned32",
+            "element_id": 4
+        },
+        {
+            "element_name": "common_establish_latency_ms",
+            "element_type": "unsigned32",
+            "element_id": 5
+        },
+        {
+            "element_name": "common_device_id",
+            "element_type": "string",
+            "element_id": 6
+        },
+        {
+            "element_name": "common_sled_ip",
+            "element_type": "string",
+            "element_id": 7
+        },
+        {
+            "element_name": "common_out_link_id",
+            "element_type": "unsigned32",
+            "element_id": 8
+        },
+        {
+            "element_name": "common_in_link_id",
+            "element_type": "unsigned32",
+            "element_id": 9
+        },
+        {
+            "element_name": "common_device_tag",
+            "element_type": "string",
+            "element_id": 10
+        },
+        {
+            "element_name": "common_address_type",
+            "element_type": "unsigned8",
+            "element_id": 11
+        },
+        {
+            "element_name": "common_schema_type",
+            "element_type": "string",
+            "element_id": 12
+        },
+        {
+            "element_name": "common_vsys_id",
+            "element_type": "unsigned32",
+            "element_id": 13
+        },
+        {
+            "element_name": "common_t_vsys_id",
+            "element_type": "unsigned32",
+            "element_id": 14
+        },
+        {
+            "element_name":"common_flags",
+            "element_type":"unsigned64",
+            "element_id": 15
+        },
+        {
+            "element_name":"common_flags_identify_info",
+            "element_type":"string",
+            "element_id": 16
+        },
+        {
+            "element_name":"common_action",
+            "element_type":"unsigned32",
+            "element_id": 17
+        },
+        {
+            "element_name":"common_shaping_rule_ids",
+            "element_type":"string",
+            "element_id": 18
+        },
+        {
+            "element_name":"common_client_ip",
+            "element_type":"string",
+            "element_id": 19
+        },
+        {
+            "element_name":"common_client_port",
+            "element_type":"unsigned16",
+            "element_id": 20
+        },
+        {
+            "element_name":"common_client_location",
+            "element_type":"string",
+            "element_id": 21
+        },
+        {
+            "element_name":"common_client_asn",
+            "element_type":"string",
+            "element_id": 22
+        },
+        {
+            "element_name":"common_subscriber_id",
+            "element_type":"string",
+            "element_id": 23
+        },
+        {
+            "element_name":"common_imei",
+            "element_type":"string",
+            "element_id": 24
+        },
+        {
+            "element_name":"common_imsi",
+            "element_type":"string",
+            "element_id": 25
+        },
+        {
+            "element_name":"common_phone_number",
+            "element_type":"string",
+            "element_id": 26
+        },
+        {
+            "element_name":"common_in_src_mac",
+            "element_type":"string",
+            "element_id": 27
+        },
+        {
+            "element_name":"common_out_src_mac",
+            "element_type":"string",
+            "element_id": 28
+        },
+        {
+            "element_name":"common_server_ip",
+            "element_type":"string",
+            "element_id": 29
+        },
+        {
+            "element_name":"common_server_port",
+            "element_type":"unsigned16",
+            "element_id": 30
+        },
+        {
+            "element_name":"common_server_location",
+            "element_type":"string",
+            "element_id": 31
+        },
+        {
+            "element_name":"common_server_asn",
+            "element_type":"string",
+            "element_id": 32
+        },
+        {
+            "element_name":"common_in_dest_mac",
+            "element_type":"string",
+            "element_id": 33
+        },
+        {
+            "element_name":"common_out_dest_mac",
+            "element_type":"string",
+            "element_id": 34
+        },
+        {
+            "element_name":"common_app_id",
+            "element_type":"string",
+            "element_id": 35
+        },
+        {
+            "element_name":"common_app_full_path",
+            "element_type":"string",
+            "element_id": 36
+        },
+        {
+            "element_name":"common_userdefine_app_name",
+            "element_type":"string",
+            "element_id": 37
+        },
+        {
+            "element_name":"common_app_identify_info",
+            "element_type":"string",
+            "element_id": 38
+        },
+        {
+            "element_name":"common_app_label",
+            "element_type":"string",
+            "element_id": 39
+        },
+        {
+            "element_name":"common_app_behavior",
+            "element_type":"string",
+            "element_id": 40
+        },
+        {
+            "element_name":"common_app_surrogate_id",
+            "element_type":"string",
+            "element_id": 41
+        },
+        {
+            "element_name":"common_protocol_label",
+            "element_type":"string",
+            "element_id": 42
+        },
+        {
+            "element_name":"common_service_category",
+            "element_type":"string",
+            "element_id": 43
+        },
+        {
+            "element_name":"common_l4_protocol",
+            "element_type":"string",
+            "element_id": 44
+        },
+        {
+            "element_name":"common_sessions",
+            "element_type":"unsigned32",
+            "element_id": 45
+        },
+        {
+            "element_name":"common_c2s_pkt_num",
+            "element_type":"unsigned32",
+            "element_id": 46
+        },
+        {
+            "element_name":"common_s2c_pkt_num",
+            "element_type":"unsigned32",
+            "element_id": 47
+        },
+        {
+            "element_name":"common_c2s_pkt_diff",
+            "element_type":"unsigned32",
+            "element_id": 48
+        },
+        {
+            "element_name":"common_s2c_pkt_diff",
+            "element_type":"unsigned32",
+            "element_id": 49
+        },
+        {
+            "element_name":"common_c2s_byte_num",
+            "element_type":"unsigned64",
+            "element_id": 50
+        },
+        {
+            "element_name":"common_s2c_byte_num",
+            "element_type":"unsigned64",
+            "element_id": 51
+        },
+        {
+            "element_name":"common_c2s_byte_diff",
+            "element_type":"unsigned64",
+            "element_id": 52
+        },
+        {
+            "element_name":"common_s2c_byte_diff",
+            "element_type":"unsigned64",
+            "element_id": 53
+        },
+        {
+            "element_name":"common_c2s_ipfrag_num",
+            "element_type":"unsigned32",
+            "element_id": 54
+        },
+        {
+            "element_name":"common_s2c_ipfrag_num",
+            "element_type":"unsigned32",
+            "element_id": 55
+        },
+        {
+            "element_name":"common_c2s_tcp_lostlen",
+            "element_type":"unsigned64",
+            "element_id": 56
+        },
+        {
+            "element_name":"common_s2c_tcp_lostlen",
+            "element_type":"unsigned64",
+            "element_id": 57
+        },
+        {
+            "element_name":"common_c2s_tcp_unorder_num",
+            "element_type":"unsigned32",
+            "element_id": 58
+        },
+        {
+            "element_name":"common_s2c_tcp_unorder_num",
+            "element_type":"unsigned32",
+            "element_id": 59
+        },
+        {
+            "element_name":"common_c2s_pkt_retrans",
+            "element_type":"unsigned32",
+            "element_id": 60
+        },
+        {
+            "element_name":"common_s2c_pkt_retrans",
+            "element_type":"unsigned32",
+            "element_id": 61
+        },
+        {
+            "element_name":"common_c2s_byte_retrans",
+            "element_type":"unsigned64",
+            "element_id": 62
+        },
+        {
+            "element_name":"common_s2c_byte_retrans",
+            "element_type":"unsigned64",
+            "element_id": 63
+        },
+        {
+            "element_name":"common_first_ttl",
+            "element_type":"unsigned32",
+            "element_id": 64
+        },
+        {
+            "element_name":"common_tcp_client_isn",
+            "element_type":"unsigned32",
+            "element_id": 65
+        },
+        {
+            "element_name":"common_tcp_server_isn",
+            "element_type":"unsigned32",
+            "element_id": 66
+        },
+        {
+            "element_name":"common_tunnels",
+            "element_type":"string",
+            "element_id": 67
+        },
+        {
+            "element_name":"common_address_list",
+            "element_type":"string",
+            "element_id": 68
+        },
+        {
+            "element_name":"common_link_info_c2s",
+            "element_type":"string",
+            "element_id": 69
+        },
+        {
+            "element_name":"common_link_info_s2c",
+            "element_type":"string",
+            "element_id": 70
+        },
+        {
+            "element_name":"common_tunnel_endpoint_a_desc",
+            "element_type":"string",
+            "element_id": 71
+        },
+        {
+            "element_name":"common_tunnel_endpoint_b_desc",
+            "element_type":"string",
+            "element_id": 72
+        }
+    ],
+    "SSL_elements": [
+        {
+            "element_name": "ssl_version",
+            "element_type": "string",
+            "element_id": 122
+        },
+        {
+            "element_name": "ssl_sni",
+            "element_type": "string",
+            "element_id": 123
+        },
+        {
+            "element_name": "ssl_san",
+            "element_type": "string",
+            "element_id": 124
+        },
+        {
+            "element_name": "ssl_cn",
+            "element_type": "string",
+            "element_id": 125
+        },
+        {
+            "element_name": "ssl_con_latency_ms",
+            "element_type": "unsigned32",
+            "element_id": 126
+        },
+        {
+            "element_name": "ssl_ja3_fingerprint",
+            "element_type": "string",
+            "element_id": 127
+        },
+        {
+            "element_name": "ssl_ja3_hash",
+            "element_type": "string",
+            "element_id": 128
+        },
+        {
+            "element_name": "ssl_ja3s_hash",
+            "element_type": "string",
+            "element_id": 129
+        },
+        {
+            "element_name": "ssl_cert_issuer",
+            "element_type": "string",
+            "element_id": 130
+        },
+        {
+            "element_name": "ssl_cert_subject",
+            "element_type": "string",
+            "element_id": 131
+        },
+        {
+            "element_name": "ssl_ja3s_fingerprint",
+            "element_type": "string",
+            "element_id": 132
+        }
+    ],
+    "HTTP_elements": [
+        {
+            "element_name": "http_url",
+            "element_type": "string",
+            "element_id": 74
+        },
+        {
+            "element_name": "http_host",
+            "element_type": "string",
+            "element_id": 75
+        },
+        {
+            "element_name": "http_request_line",
+            "element_type": "string",
+            "element_id": 76
+        },
+        {
+            "element_name": "http_response_line",
+            "element_type": "string",
+            "element_id": 77
+        },
+        {
+            "element_name": "http_sequence",
+            "element_type": "unsigned32",
+            "element_id": 78
+        },
+        {
+            "element_name": "http_cookie",
+            "element_type": "string",
+            "element_id": 79
+        },
+        {
+            "element_name": "http_referer",
+            "element_type": "string",
+            "element_id": 80
+        },
+        {
+            "element_name": "http_user_agent",
+            "element_type": "string",
+            "element_id": 81
+        },
+        {
+            "element_name": "http_request_content_length",
+            "element_type": "string",
+            "element_id": 82
+        },
+        {
+            "element_name": "http_request_content_type",
+            "element_type": "string",
+            "element_id": 83
+        },
+        {
+            "element_name": "http_response_content_length",
+            "element_type": "string",
+            "element_id": 84
+        },
+        {
+            "element_name": "http_response_content_type",
+            "element_type": "string",
+            "element_id": 85
+        },
+        {
+            "element_name": "http_set_cookie",
+            "element_type": "string",
+            "element_id": 86
+        },
+        {
+            "element_name": "http_version",
+            "element_type": "string",
+            "element_id": 87
+        }
+    ],
+    "MAIL_elements": [
+        {
+            "element_name": "mail_protocol_type",
+            "element_type": "string",
+            "element_id": 88
+        },
+        {
+            "element_name": "mail_account",
+            "element_type": "string",
+            "element_id": 89
+        },
+        {
+            "element_name": "mail_from_cmd",
+            "element_type": "string",
+            "element_id": 90
+        },
+        {
+            "element_name": "mail_to_cmd",
+            "element_type": "string",
+            "element_id": 91
+        },
+        {
+            "element_name": "mail_from",
+            "element_type": "string",
+            "element_id": 92
+        },
+        {
+            "element_name": "mail_to",
+            "element_type": "string",
+            "element_id": 93
+        },
+        {
+            "element_name": "mail_cc",
+            "element_type": "string",
+            "element_id": 94
+        },
+        {
+            "element_name": "mail_bcc",
+            "element_type": "string",
+            "element_id": 95
+        },
+        {
+            "element_name": "mail_subject",
+            "element_type": "string",
+            "element_id": 96
+        },
+        {
+            "element_name": "mail_subject_charset",
+            "element_type": "string",
+            "element_id": 97
+        },
+        {
+            "element_name": "mail_content",
+            "element_type": "string",
+            "element_id": 98
+        },
+        {
+            "element_name": "mail_content_charset",
+            "element_type": "string",
+            "element_id": 99
+        },
+        {
+            "element_name": "mail_attachment_name",
+            "element_type": "string",
+            "element_id": 100
+        },
+        {
+            "element_name": "mail_attachment_name_charset",
+            "element_type": "string",
+            "element_id": 101
+        },
+        {
+            "element_name": "mail_eml_file",
+            "element_type": "string",
+            "element_id": 102
+        }
+
+    ],
+    "DNS_elements": [
+        {
+            "element_name": "dns_message_id",
+            "element_type": "unsigned32",
+            "element_id": 103
+        },
+        {
+            "element_name": "dns_qr",
+            "element_type": "unsigned32",
+            "element_id": 104
+        },
+        {
+            "element_name": "dns_opcode",
+            "element_type": "unsigned32",
+            "element_id": 105
+        },
+        {
+            "element_name": "dns_aa",
+            "element_type": "unsigned32",
+            "element_id": 106
+        },
+        {
+            "element_name": "dns_tc",
+            "element_type": "unsigned32",
+            "element_id": 107
+        },
+        {
+            "element_name": "dns_rd",
+            "element_type": "unsigned32",
+            "element_id": 108
+        },
+        {
+            "element_name": "dns_ra",
+            "element_type": "unsigned32",
+            "element_id": 109
+        },
+        {
+            "element_name": "dns_rcode",
+            "element_type": "unsigned32",
+            "element_id": 110
+        },
+        {
+            "element_name": "dns_qdcount",
+            "element_type": "unsigned32",
+            "element_id": 111
+        },
+        {
+            "element_name": "dns_ancount",
+            "element_type": "unsigned32",
+            "element_id": 112
+        },
+        {
+            "element_name": "dns_nscount",
+            "element_type": "unsigned32",
+            "element_id": 113
+        },
+        {
+            "element_name": "dns_arcount",
+            "element_type": "unsigned32",
+            "element_id": 114
+        },
+        {
+            "element_name": "dns_qname",
+            "element_type": "string",
+            "element_id": 115
+        },
+        {
+            "element_name": "dns_qtype",
+            "element_type": "unsigned32",
+            "element_id": 116
+        },
+        {
+            "element_name": "dns_qclass",
+            "element_type": "unsigned32",
+            "element_id": 117
+        },
+        {
+            "element_name": "dns_cname",
+            "element_type": "string",
+            "element_id": 118
+        },
+        {
+            "element_name": "dns_sub",
+            "element_type": "unsigned32",
+            "element_id": 119
+        },
+        {
+            "element_name": "dns_rr",
+            "element_type": "string",
+            "element_id": 120
+        },
+        {
+            "element_name": "dns_response_latency_ms",
+            "element_type": "unsigned32",
+            "element_id": 121
+        }
+    ],
+    "DTLS_elements": [
+        {
+            "element_name": "dtls_cookie",
+            "element_type": "string",
+            "element_id": 133
+        },
+        {
+            "element_name": "dtls_version",
+            "element_type": "string",
+            "element_id": 134
+        },
+        {
+            "element_name": "dtls_sni",
+            "element_type": "string",
+            "element_id": 135
+        },
+        {
+            "element_name": "dtls_san",
+            "element_type": "string",
+            "element_id": 136
+        },
+        {
+            "element_name": "dtls_cn",
+            "element_type": "string",
+            "element_id": 137
+        },
+        {
+            "element_name": "dtls_con_latency_ms",
+            "element_type": "unsigned32",
+            "element_id": 138
+        },
+        {
+            "element_name": "dtls_ja3_fingerprint",
+            "element_type": "string",
+            "element_id": 139
+        },
+        {
+            "element_name": "dtls_ja3_hash",
+            "element_type": "string",
+            "element_id": 140
+        },
+        {
+            "element_name": "dtls_cert_issuer",
+            "element_type": "string",
+            "element_id": 141
+        },
+        {
+            "element_name": "dtls_cert_subject",
+            "element_type": "string",
+            "element_id": 142
+        }
+    ],
+    "QUIC_elements": [
+        {
+            "element_name": "quic_version",
+            "element_type": "string",
+            "element_id": 143
+        },
+        {
+            "element_name": "quic_sni",
+            "element_type": "string",
+            "element_id": 144
+        },
+        {
+            "element_name": "quic_user_agent",
+            "element_type": "string",
+            "element_id": 145
+        }
+    ],
+    "FTP_elements": [
+        {
+            "element_name": "ftp_account",
+            "element_type": "string",
+            "element_id": 146
+        },
+        {
+            "element_name": "ftp_url",
+            "element_type": "string",
+            "element_id": 147
+        },
+        {
+            "element_name": "ftp_content",
+            "element_type": "string",
+            "element_id": 148
+        },
+        {
+            "element_name": "ftp_link_type",
+            "element_type": "string",
+            "element_id": 149
+        }
+    ],
+    "SIP_elements": [
+        {
+            "element_name": "sip_call_id",
+            "element_type": "string",
+            "element_id": 150
+        },
+        {
+            "element_name": "sip_originator_description",
+            "element_type": "string",
+            "element_id": 151
+        },
+        {
+            "element_name": "sip_responder_description",
+            "element_type": "string",
+            "element_id": 152
+        },
+        {
+            "element_name": "sip_user_agent",
+            "element_type": "string",
+            "element_id": 153
+        },
+        {
+            "element_name": "sip_server",
+            "element_type": "string",
+            "element_id": 154
+        },
+        {
+            "element_name": "sip_originator_sdp_connect_ip",
+            "element_type": "string",
+            "element_id": 155
+        },
+        {
+            "element_name": "sip_originator_sdp_media_port",
+            "element_type": "string",
+            "element_id": 156
+        },
+        {
+            "element_name": "sip_originator_sdp_media_type",
+            "element_type": "string",
+            "element_id": 157
+        },
+        {
+            "element_name": "sip_originator_sdp_content",
+            "element_type": "string",
+            "element_id": 158
+        },
+        {
+            "element_name": "sip_responder_sdp_connect_ip",
+            "element_type": "string",
+            "element_id": 159
+        },
+        {
+            "element_name": "sip_responder_sdp_media_port",
+            "element_type": "string",
+            "element_id": 160
+        },
+        {
+            "element_name": "sip_responder_sdp_media_type",
+            "element_type": "string",
+            "element_id": 161
+        },
+        {
+            "element_name": "sip_responder_sdp_content",
+            "element_type": "string",
+            "element_id": 162
+        },
+        {
+            "element_name": "sip_duration_s",
+            "element_type": "string",
+            "element_id": 163
+        },
+        {
+            "element_name": "sip_bye",
+            "element_type": "string",
+            "element_id": 164
+        }
+    ],
+    "RTP_elements": [
+        {
+            "element_name": "rtp_payload_type_c2s",
+            "element_type": "unsigned32",
+            "element_id": 165
+        },
+        {
+            "element_name": "rtp_payload_type_s2c",
+            "element_type": "unsigned32",
+            "element_id": 166
+        },
+        {
+            "element_name": "rtp_pcap_path",
+            "element_type": "string",
+            "element_id": 167
+        }
+    ],
+    "SSH_elements": [
+        {
+            "element_name": "ssh_version",
+            "element_type": "string",
+            "element_id": 168
+        },
+        {
+            "element_name": "ssh_auth_success",
+            "element_type": "string",
+            "element_id": 169
+        },
+        {
+            "element_name": "ssh_client_version",
+            "element_type": "string",
+            "element_id": 170
+        },
+        {
+            "element_name": "ssh_server_version",
+            "element_type": "string",
+            "element_id": 171
+        },
+        {
+            "element_name": "ssh_cipher_alg",
+            "element_type": "string",
+            "element_id": 172
+        },
+        {
+            "element_name": "ssh_mac_alg",
+            "element_type": "string",
+            "element_id": 173
+        },
+        {
+            "element_name": "ssh_compression_alg",
+            "element_type": "string",
+            "element_id": 174
+        },
+        {
+            "element_name": "ssh_kex_alg",
+            "element_type": "string",
+            "element_id": 175
+        },
+        {
+            "element_name": "ssh_host_key_alg",
+            "element_type": "string",
+            "element_id": 176
+        },
+        {
+            "element_name": "ssh_host_key",
+            "element_type": "string",
+            "element_id": 177
+        },
+        {
+            "element_name": "ssh_hash",
+            "element_type": "string",
+            "element_id": 178
+        }
+    ],
+    "BGP_elements": [
+        {
+            "element_name": "bgp_message_type",
+            "element_type": "string",
+            "element_id": 207
+        },
+        {
+            "element_name": "bgp_messages",
+            "element_type": "string",
+            "element_id": 208
+        }
+    ],
+    "RDP_elements": [
+        {
+            "element_name": "rdp_cookie",
+            "element_type": "string",
+            "element_id": 213
+        },
+        {
+            "element_name": "rdp_security_protocol",
+            "element_type": "string",
+            "element_id": 214
+        },
+        {
+            "element_name": "rdp_client_channels",
+            "element_type": "string",
+            "element_id": 215
+        },
+        {
+            "element_name": "rdp_keyboard_layout",
+            "element_type": "string",
+            "element_id": 216
+        },
+        {
+            "element_name": "rdp_client_version",
+            "element_type": "string",
+            "element_id": 217
+        },
+        {
+            "element_name": "rdp_client_name",
+            "element_type": "string",
+            "element_id": 218
+        },
+        {
+            "element_name": "rdp_client_product_id",
+            "element_type": "string",
+            "element_id": 219
+        },
+        {
+            "element_name": "rdp_desktop_width",
+            "element_type": "string",
+            "element_id": 220
+        },
+        {
+            "element_name": "rdp_desktop_height",
+            "element_type": "string",
+            "element_id": 221
+        },
+        {
+            "element_name": "rdp_requested_color_depth",
+            "element_type": "string",
+            "element_id": 222
+        },
+        {
+            "element_name": "rdp_certificate_type",
+            "element_type": "unsigned32",
+            "element_id": 223
+        },
+        {
+            "element_name": "rdp_certificate_count",
+            "element_type": "unsigned32",
+            "element_id": 224
+        },
+        {
+            "element_name": "rdp_certificate_permanent",
+            "element_type": "string",
+            "element_id": 225
+        },
+        {
+            "element_name": "rdp_encryption_level",
+            "element_type": "string",
+            "element_id": 226
+        },
+        {
+            "element_name": "rdp_encryption_method",
+            "element_type": "string",
+            "element_id": 227
+        }
+    ],
+    "Tunnels_elements": [
+
+    ],
+    "Stratum_elements": [
+        {
+            "element_name": "stratum_cryptocurrency",
+            "element_type": "unsigned32",
+            "element_id": 209
+        },
+        {
+            "element_name": "stratum_mining_pools",
+            "element_type": "string",
+            "element_id": 210
+        },
+        {
+            "element_name": "stratum_mining_program",
+            "element_type": "string",
+            "element_id": 211
+        },
+        {
+            "element_name": "stratum_mining_subscribe",
+            "element_type": "string",
+            "element_id": 212
+        }
+    ]
+}

@@ -1,10 +1,11 @@
 #pragma once
 
 #include <MESA/field_stat2.h>
-
 #include <librdkafka/rdkafka.h>
 #include <MESA/cJSON.h>
 #include <time.h>
+
+#include "ipfix.h"
 
 #define	MIN_L7_PROTO_ID	100
 #define	MAX_L7_PROTO_ID	150
@@ -15,12 +16,9 @@
 #define	MAX_STRING_LEN32	32
 #endif
 
-enum SEND_MODE
-{
-	CLOSE=0,
-	KAFKA=1,
-};
-
+#define CLOSE_SEND_MODE 0x00
+#define KAFKA_SEND_MODE 0x01
+#define IPFIX_SEND_MODE 0x02
 
 enum LOG_FIELD_ID
 {
@@ -177,7 +175,7 @@ struct topic_stat
 
 struct tsg_log_instance_t
 {
-	int mode;
+	unsigned char mode;
 	int level;
 	int max_service;
 	int vsystem_id;
@@ -198,6 +196,7 @@ struct tsg_log_instance_t
 	int tcp_flow_project_id;
 	int udp_flow_project_id;
 	int sum_stat_row_id;
+	int ipfix_template_interval_pkts;
 	char tcp_label[MAX_STRING_LEN32];
 	char udp_label[MAX_STRING_LEN32];
 	char sasl_username[MAX_STRING_LEN32];
@@ -210,6 +209,7 @@ struct tsg_log_instance_t
 	id2field_t id2field[LOG_COMMON_MAX];
 	rd_kafka_t *kafka_handle;
 	struct topic_stat *service2topic;
+	struct ipfix_exporter_instance *ipfix_instance;
 	void *logger;
 };
 
