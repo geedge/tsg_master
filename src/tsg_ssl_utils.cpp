@@ -147,29 +147,7 @@ void ssl_chello_free(struct ssl_chello* chello)
 	}
 	free(chello->sni);
 	chello->sni = NULL;
-	free(chello->alpn);
-	chello->alpn = NULL;
-	free(chello->cipher_suites);
-	chello->cipher_suites = NULL;
-	free(chello->cipher_suites_tls13);
-	chello->cipher_suites_tls13 = NULL;
 	free(chello);
-}
-
-static char* parse_alpn_extension(const unsigned char* buff, size_t buff_len, enum chello_parse_result* result)
-{
-	size_t pos = 0;
-	size_t len = ((size_t)buff[pos] << 8) + (size_t)buff[pos + 1];
-	if(2 + len != buff_len)
-	{
-		*result = CHELLO_PARSE_INVALID_FORMAT;
-		return NULL;
-	}
-	char* alpn = ALLOC(char, len + 1);
-	strncpy((char*)alpn, (const char*)buff + 2, len);
-	alpn[len] = '\0';
-	*result = CHELLO_PARSE_SUCCESS;
-	return alpn;
 }
 
 static char*  parse_server_name_extension(const unsigned char* buff, size_t buff_len, enum chello_parse_result* result)
@@ -245,21 +223,6 @@ static enum chello_parse_result parse_extensions(const unsigned char* buff, size
 			{
 				return CHELLO_PARSE_INVALID_FORMAT;
 			}
-			enum chello_parse_result result = CHELLO_PARSE_SUCCESS;
-			p_buff = parse_alpn_extension(buff + pos + 4, len, &result);
-			if(chello->alpn == NULL)
-			{
-				chello->alpn = p_buff;
-			}
-			else
-			{
-				free(p_buff);
-				p_buff=NULL;
-			}
-			if(result != CHELLO_PARSE_SUCCESS)
-			{
-				return result;
-			}
 		}
 		if (buff[pos] == 0xff && buff[pos + 1] == 0xce)//identify encrypt sni
         {
@@ -277,50 +240,6 @@ static enum chello_parse_result parse_extensions(const unsigned char* buff, size
 		return CHELLO_PARSE_INVALID_FORMAT;
 	}
 	return CHELLO_PARSE_SUCCESS;
-}
-
-static char* parse_cipher_suites(struct cipher_suite* _cipher_suite_list, int n, const unsigned char* buff, size_t buff_len, enum chello_parse_result* result)
-{
-	char* cipher_suites_str = (char* )malloc(KNI_STRING_MAX);
-	cipher_suites_str[0] = '\0';
-	size_t pos = 0;
-	int flag = 0;
-	while(pos < buff_len)
-	{
-		int i = 0;
-		for(i = 0;i < n; i++)
-		{
-			int val = (buff[pos] << 8) + buff[pos + 1];
-			if(_cipher_suite_list[i].value == val)
-			{
-				if(strnlen(_cipher_suite_list[i].name, KNI_STRING_MAX) + strnlen(cipher_suites_str, KNI_STRING_MAX) + 1 > KNI_STRING_MAX)
-				{
-					flag = 1;
-					break;
-				}
-				strncat(cipher_suites_str, _cipher_suite_list[i].name, KNI_STRING_MAX);
-				strncat(cipher_suites_str, ":", KNI_STRING_MAX);
-			}
-		}
-		pos += 2;
-		if(flag == 1)
-		{
-			break;
-		}
-	}
-	int len = strnlen(cipher_suites_str, KNI_STRING_MAX);
-	if(len > 0)
-	{
-		cipher_suites_str[len-1] = '\0';
-	}
-	if(pos != buff_len && flag == 0)
-	{
-		*result = CHELLO_PARSE_INVALID_FORMAT;
-		free(cipher_suites_str);
-		return NULL;
-	}
-	*result = CHELLO_PARSE_SUCCESS;
-	return cipher_suites_str;
 }
 
 struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, enum chello_parse_result* result)
@@ -405,9 +324,7 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
 		_chello->max_version.major = (uint8_t)(-1);
 		_chello->max_version.minor =  (uint8_t)(-1);
 		_chello->sni = NULL;
-		_chello->alpn = NULL;
-		_chello->cipher_suites = NULL;
-		_chello->cipher_suites_tls13 = NULL;
+
 		/* TLS record length */
     	size_t len = ((size_t)buff[3] << 8) + (size_t)buff[4] + 5;
 		if (buff_len < len)
@@ -458,18 +375,6 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
 		{
 			*result = CHELLO_PARSE_INVALID_FORMAT;
         	return _chello;
-		}
-		int n = sizeof(cipher_suite_list) / sizeof(struct cipher_suite);
-		_chello->cipher_suites = parse_cipher_suites(cipher_suite_list, n, buff  + pos, len, result);
-		if(*result != CHELLO_PARSE_SUCCESS)
-		{
-			return _chello;
-		}
-		n = sizeof(cipher_suite_list_tls13) / sizeof(struct cipher_suite);
-		_chello->cipher_suites_tls13 = parse_cipher_suites(cipher_suite_list_tls13, n, buff + pos, len, result);
-		if(*result != CHELLO_PARSE_SUCCESS)
-		{
-			return _chello;
 		}
 		pos += len;
 		/* Compression Methods */
