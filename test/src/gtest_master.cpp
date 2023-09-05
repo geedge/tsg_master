@@ -291,10 +291,10 @@ TEST(TSGMaster, SecurityPolicySendlog)
 	const struct matched_policy_rules *hited_security=session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
 	EXPECT_NE(nullptr, hited_security);
 	EXPECT_EQ(MAX_RESULT_NUM, hited_security->n_rules);
-	for(size_t i=0; i<hited_security->n_rules; i++)
+	for(size_t i=hited_security->n_rules, j=0; i>0; i--)
 	{	
-		EXPECT_EQ(TSG_ACTION_MONITOR, hited_security->rules[i].action);
-		EXPECT_EQ(TSG_ACTION_MONITOR+i, hited_security->rules[i].rule_id);
+		EXPECT_EQ(TSG_ACTION_MONITOR, hited_security->rules[i-1].action);
+		EXPECT_EQ(TSG_ACTION_MONITOR+j++, hited_security->rules[i-1].rule_id);
 	}
 
 	struct TLD_handle_t * handle=TLD_create(0);
@@ -303,14 +303,14 @@ TEST(TSGMaster, SecurityPolicySendlog)
 
 	int sendlog_cnt=rd_kafka_get_sendlog_cnt();
 	EXPECT_EQ(9, sendlog_cnt);
-	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":1,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(0));
-	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":2,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(1));
-	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":3,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(2));
-	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":4,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(3));
-	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":5,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(4));
-	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":6,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(5));
-	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":7,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(6));
-	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":8,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(7));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":8,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(0));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":7,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(1));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":6,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(2));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":5,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(3));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":4,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(4));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":3,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(5));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":2,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(6));
+	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_policy_id\":1,\"common_service\":0,\"common_vsys_id\":0,\"common_action\":1}", rd_kafka_get_sendlog_payload(7));
 	EXPECT_STREQ("{\"common_app_full_path\":\"unknown\",\"common_app_label\":\"unknown\",\"common_server_port\":0,\"common_client_port\":0,\"common_stream_dir\":0,\"common_address_type\":0,\"common_con_duration_ms\":0,\"common_stream_trace_id\":\"5\",\"common_sled_ip\":\"0.0.0.0\",\"common_device_tag\":\"{\\\"tags\\\":[{\\\"tag\\\":\\\"device_id\\\",\\\"value\\\":\\\"device_1\\\"}]}\",\"common_t_vsys_id\":1,\"common_vsys_id\":1}", rd_kafka_get_sendlog_payload(8));
 
 	rd_kafka_clean_sendlog_cnt();
@@ -474,10 +474,11 @@ TEST(TSGMaster, SecurityDuplicatePolicyMultipleNotify)
 	const struct matched_policy_rules *hited_security=session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
 	EXPECT_NE(nullptr, hited_security);
 	EXPECT_EQ(MAX_RESULT_NUM/2, hited_security->n_rules);
-	for(size_t i=0; i<hited_security->n_rules; i++)
+
+	for(size_t i=hited_security->n_rules, j=0; i>0; i--)
 	{	
-		EXPECT_EQ(TSG_ACTION_MONITOR, hited_security->rules[i].action);
-		EXPECT_EQ(TSG_ACTION_MONITOR+i, hited_security->rules[i].rule_id);
+		EXPECT_EQ(TSG_ACTION_MONITOR, hited_security->rules[i-1].action);
+		EXPECT_EQ(TSG_ACTION_MONITOR+j++, hited_security->rules[i-1].rule_id);
 	}
 
 	// Second notify
@@ -486,10 +487,10 @@ TEST(TSGMaster, SecurityDuplicatePolicyMultipleNotify)
 	hited_security=session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
 	EXPECT_NE(nullptr, hited_security);
 	EXPECT_EQ(MAX_RESULT_NUM/2, hited_security->n_rules);
-	for(size_t i=0; i<hited_security->n_rules; i++)
+	for(size_t i=hited_security->n_rules, j=0; i>0; i--)
 	{	
-		EXPECT_EQ(TSG_ACTION_MONITOR, hited_security->rules[i].action);
-		EXPECT_EQ(TSG_ACTION_MONITOR+i, hited_security->rules[i].rule_id);
+		EXPECT_EQ(TSG_ACTION_MONITOR, hited_security->rules[i-1].action);
+		EXPECT_EQ(TSG_ACTION_MONITOR+j++, hited_security->rules[i-1].rule_id);
 	}
 
 	session_matched_rules_free(&a_stream, TSG_SERVICE_SECURITY, (void *)hited_security);
@@ -1378,6 +1379,146 @@ TEST(TSGMaster, SessionQuicIdentify)
 	srt_process_context.quic_ua=NULL;
 
 	g_test_quic_info=NULL;
+}
+
+TEST(TSGMaster, SecurityMultipleRuleSortDenyMonitor)
+{
+	const struct streaminfo a_stream={0};
+	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
+
+	matched_policy[0].action=TSG_ACTION_MONITOR;
+	matched_policy[0].rule_id=TSG_ACTION_MONITOR;
+	matched_policy[0].service_id=TSG_SERVICE_SECURITY;
+
+	matched_policy[1].action=TSG_ACTION_DENY;
+	matched_policy[1].rule_id=TSG_ACTION_DENY;
+	matched_policy[1].service_id=TSG_SERVICE_SECURITY;
+
+	matched_policy[2].action=TSG_ACTION_MONITOR;
+	matched_policy[2].rule_id=TSG_ACTION_MONITOR+1;
+	matched_policy[2].service_id=TSG_SERVICE_SECURITY;
+
+	matched_policy[3].action=TSG_ACTION_DENY;
+	matched_policy[3].rule_id=TSG_ACTION_DENY+1;
+	matched_policy[3].service_id=TSG_SERVICE_SECURITY;
+
+	// First Monitor, second Intercpt
+	session_matched_rules_notify(&a_stream, TSG_SERVICE_SECURITY, &matched_policy[0], 4, 0);
+	
+	struct maat_rule sorted_matched_policy[MAX_RESULT_NUM]={0};
+	int ret=session_matched_rules_copy(&a_stream, TSG_SERVICE_SECURITY, sorted_matched_policy, 8);
+	EXPECT_EQ(4, ret);
+
+	EXPECT_EQ(TSG_ACTION_DENY, sorted_matched_policy[0].action);
+	EXPECT_EQ(TSG_ACTION_DENY+1, sorted_matched_policy[0].rule_id);
+	
+	EXPECT_EQ(TSG_ACTION_DENY, sorted_matched_policy[1].action);
+	EXPECT_EQ(TSG_ACTION_DENY, sorted_matched_policy[1].rule_id);
+	
+	EXPECT_EQ(TSG_ACTION_MONITOR, sorted_matched_policy[2].action);
+	EXPECT_EQ(TSG_ACTION_MONITOR+1, sorted_matched_policy[2].rule_id);
+
+	EXPECT_EQ(TSG_ACTION_MONITOR, sorted_matched_policy[3].action);
+	EXPECT_EQ(TSG_ACTION_MONITOR, sorted_matched_policy[3].rule_id);
+
+	const struct matched_policy_rules *hited_security=session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
+	session_matched_rules_free(&a_stream, TSG_SERVICE_SECURITY, (void *)hited_security);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_SECURITY, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY));
+}
+
+TEST(TSGMaster, SecurityMultipleRuleSortShuntAllowDenyMonitor)
+{
+	const struct streaminfo a_stream={0};
+	struct maat_rule matched_policy[MAX_RESULT_NUM]={0};
+
+	matched_policy[0].action=TSG_ACTION_MONITOR;
+	matched_policy[0].rule_id=TSG_ACTION_MONITOR;
+	matched_policy[0].service_id=TSG_SERVICE_SECURITY;
+
+	matched_policy[1].action=TSG_ACTION_DENY;
+	matched_policy[1].rule_id=TSG_ACTION_DENY;
+	matched_policy[1].service_id=TSG_SERVICE_SECURITY;
+
+	matched_policy[2].action=TSG_ACTION_MONITOR;
+	matched_policy[2].rule_id=TSG_ACTION_MONITOR+1;
+	matched_policy[2].service_id=TSG_SERVICE_SECURITY;
+
+	matched_policy[3].action=TSG_ACTION_DENY;
+	matched_policy[3].rule_id=TSG_ACTION_DENY+1;
+	matched_policy[3].service_id=TSG_SERVICE_SECURITY;
+
+	matched_policy[4].action=TSG_ACTION_BYPASS;
+	matched_policy[4].rule_id=TSG_ACTION_BYPASS+1;
+	matched_policy[4].service_id=TSG_SERVICE_SECURITY;
+
+	matched_policy[5].action=TSG_ACTION_SHUNT;
+	matched_policy[5].rule_id=TSG_ACTION_SHUNT+1;
+	matched_policy[5].service_id=TSG_SERVICE_SECURITY;
+
+	matched_policy[6].action=TSG_ACTION_BYPASS;
+	matched_policy[6].rule_id=TSG_ACTION_BYPASS;
+	matched_policy[6].service_id=TSG_SERVICE_SECURITY;
+
+	matched_policy[7].action=TSG_ACTION_SHUNT;
+	matched_policy[7].rule_id=TSG_ACTION_SHUNT;
+	matched_policy[7].service_id=TSG_SERVICE_SECURITY;
+
+	// First Monitor, second Intercpt
+	session_matched_rules_notify(&a_stream, TSG_SERVICE_SECURITY, &matched_policy[0], 8, 0);
+	
+	struct maat_rule sorted_matched_policy[MAX_RESULT_NUM]={0};
+	int ret=session_matched_rules_copy(&a_stream, TSG_SERVICE_SECURITY, sorted_matched_policy, 8);
+	EXPECT_EQ(7, ret);
+
+	EXPECT_EQ(TSG_ACTION_SHUNT, sorted_matched_policy[0].action);
+	EXPECT_EQ(TSG_ACTION_SHUNT+1, sorted_matched_policy[0].rule_id);
+
+	EXPECT_EQ(TSG_ACTION_SHUNT, sorted_matched_policy[1].action);
+	EXPECT_EQ(TSG_ACTION_SHUNT, sorted_matched_policy[1].rule_id);
+	
+	EXPECT_EQ(TSG_ACTION_BYPASS, sorted_matched_policy[2].action);
+	EXPECT_EQ(TSG_ACTION_BYPASS+1, sorted_matched_policy[2].rule_id);
+	
+	EXPECT_EQ(TSG_ACTION_DENY, sorted_matched_policy[3].action);
+	EXPECT_EQ(TSG_ACTION_DENY+1, sorted_matched_policy[3].rule_id);
+
+	EXPECT_EQ(TSG_ACTION_DENY, sorted_matched_policy[4].action);
+	EXPECT_EQ(TSG_ACTION_DENY, sorted_matched_policy[4].rule_id);
+
+	EXPECT_EQ(TSG_ACTION_MONITOR, sorted_matched_policy[5].action);
+	EXPECT_EQ(TSG_ACTION_MONITOR+1, sorted_matched_policy[5].rule_id);
+
+	EXPECT_EQ(TSG_ACTION_MONITOR, sorted_matched_policy[6].action);
+	EXPECT_EQ(TSG_ACTION_MONITOR, sorted_matched_policy[6].rule_id);
+
+	const struct matched_policy_rules *hited_security=session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY);
+	EXPECT_EQ(7, hited_security->n_rules);
+
+	EXPECT_EQ(TSG_ACTION_SHUNT, hited_security->rules[0].action);
+	EXPECT_EQ(TSG_ACTION_SHUNT+1, hited_security->rules[0].rule_id);
+
+	EXPECT_EQ(TSG_ACTION_SHUNT, hited_security->rules[1].action);
+	EXPECT_EQ(TSG_ACTION_SHUNT, hited_security->rules[1].rule_id);
+	
+	EXPECT_EQ(TSG_ACTION_BYPASS, hited_security->rules[2].action);
+	EXPECT_EQ(TSG_ACTION_BYPASS+1, hited_security->rules[2].rule_id);
+	
+	EXPECT_EQ(TSG_ACTION_DENY, hited_security->rules[3].action);
+	EXPECT_EQ(TSG_ACTION_DENY+1, hited_security->rules[3].rule_id);
+
+	EXPECT_EQ(TSG_ACTION_DENY, hited_security->rules[4].action);
+	EXPECT_EQ(TSG_ACTION_DENY, hited_security->rules[4].rule_id);
+
+	EXPECT_EQ(TSG_ACTION_MONITOR, hited_security->rules[5].action);
+	EXPECT_EQ(TSG_ACTION_MONITOR+1, hited_security->rules[5].rule_id);
+
+	EXPECT_EQ(TSG_ACTION_MONITOR, hited_security->rules[6].action);
+	EXPECT_EQ(TSG_ACTION_MONITOR, hited_security->rules[6].rule_id);
+
+	session_matched_rules_free(&a_stream, TSG_SERVICE_SECURITY, (void *)hited_security);
+	session_matched_rules_async(&a_stream, TSG_SERVICE_SECURITY, NULL);
+	EXPECT_EQ(nullptr, session_matched_rules_get(&a_stream, TSG_SERVICE_SECURITY));
 }
 
 int main(int argc, char *argv[])
