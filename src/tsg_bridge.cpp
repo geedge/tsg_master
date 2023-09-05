@@ -840,7 +840,7 @@ size_t session_matched_rules_copy(const struct streaminfo *a_stream, enum TSG_SE
 		default:
 			break;
 	}
-
+	
 	if(matched_policy!=NULL)
 	{
 		size_t num=MIN(matched_policy->n_rules, n_rules);
@@ -940,6 +940,19 @@ void session_matched_rules_free(const struct streaminfo *a_stream, TSG_SERVICE s
 	}
 }
 
+int sort_matched_rules(const void * a, const void * b)
+{
+	struct maat_rule *x = (struct maat_rule *) a;
+	struct maat_rule *y = (struct maat_rule *) b;
+
+	if((y->action) == (x->action))
+	{
+		return (int)((y->rule_id) > (x->rule_id) ? 1 : -1);
+	}
+
+	return (int)((y->action) - (x->action));
+}
+
 void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE service, struct maat_rule *rules, size_t n_rules, int thread_seq)
 {
 	if(rules==NULL || n_rules==0)
@@ -999,6 +1012,11 @@ void session_matched_rules_notify(const struct streaminfo *a_stream, TSG_SERVICE
 		}
 	}
 
+	if(matched_policy->n_rules>1)
+	{
+		qsort(matched_policy->rules, matched_policy->n_rules, sizeof(struct maat_rule), sort_matched_rules);
+	}
+	
 	return ;
 }
 
