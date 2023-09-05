@@ -2343,6 +2343,10 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 		case	TSG_METHOD_TYPE_DROP:
 		case	TSG_METHOD_TYPE_APP_DROP:
 			{
+				if(srt_action_context->hited_para.after_n_packets==0)
+				{
+					break;
+				}
 				// contain hited current packet, platform calls tcp first and tcpall secondary.
 				if(((srt_action_context->hited_para.after_n_packets > 0) && a_stream->type==STREAM_TYPE_TCP) ||
 					((srt_action_context->hited_para.after_n_packets > 0) && a_stream->type==STREAM_TYPE_UDP)
