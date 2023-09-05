@@ -2451,13 +2451,13 @@ int tsg_send_log(struct tsg_log_instance_t *instance, struct TLD_handle_t *handl
 			send_event_log(_instance, _handle, a_stream, LOG_TYPE_INTERCEPT_EVENT, rules, n_rules, thread_id);
 			break;
 		case	LOG_TYPE_SESSION_RECORD:
-		case	LOG_TYPE_TRANSACTION_RECORD:
-			deal_event_rules(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, TSG_SERVICE_SECURITY, &is_append_common_field, thread_id);
-
 			if(_instance->send_intercept_log==1)
 			{
 				deal_event_rules(_instance, _handle, a_stream, LOG_TYPE_INTERCEPT_EVENT, TSG_SERVICE_INTERCEPT, &is_append_common_field, thread_id);
 			}
+			// no break;
+		case	LOG_TYPE_TRANSACTION_RECORD:
+			deal_event_rules(_instance, _handle, a_stream, LOG_TYPE_SECURITY_EVENT, TSG_SERVICE_SECURITY, &is_append_common_field, thread_id);
 			// no break;
 		case	LOG_TYPE_INTERIM_SESSION_RECORD:
 			if(session_record_limit(_instance, a_stream, log_type))
