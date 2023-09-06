@@ -1487,6 +1487,16 @@ int session_l7_protocol_identify(const struct streaminfo *a_stream, struct sessi
 					return 1;
 				}
 				
+				if(chello!=NULL)
+				{
+					if(chello->is_ssl==1)
+					{
+						srt_process_context->proto=PROTO_SSL;
+						ssl_chello_free(chello);
+						return 1;
+					}
+				}
+				
 				ssl_chello_free(chello);
 			}
 	

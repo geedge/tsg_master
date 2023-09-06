@@ -26,6 +26,7 @@ struct ssl_chello
 	struct ssl_version max_version;
 
 	char* sni;
+	int is_ssl;
 	int is_encrypt_sni;
 	int is_encrypt_chello;
 };
