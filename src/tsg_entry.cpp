@@ -2343,7 +2343,7 @@ static unsigned char tsg_master_all_entry(const struct streaminfo *a_stream, uns
 		case	TSG_METHOD_TYPE_DROP:
 		case	TSG_METHOD_TYPE_APP_DROP:
 			{
-				if(srt_action_context->hited_para.after_n_packets==0)
+				if(srt_action_context->is_drop_after_n_packets==0)
 				{
 					break;
 				}

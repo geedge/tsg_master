@@ -117,7 +117,8 @@ struct session_runtime_action_context
 	char set_latency_flag;
 	char direction;
 	char state;
-	char padding[4];
+	char is_drop_after_n_packets;
+	char padding[3];
 	enum TSG_METHOD_TYPE method_type; 
 	enum TSG_PROTOCOL protocol;
 	char *l4_protocol;
