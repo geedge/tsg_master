@@ -663,6 +663,7 @@ int srt_action_context_set_after_n_packet(const struct streaminfo *a_stream, int
 	}
 			
 	srt_action_context->hited_para.after_n_packets=after_n_packets;
+	srt_action_context->is_drop_after_n_packets=1;
 	
 	return 1;
 }
