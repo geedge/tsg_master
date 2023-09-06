@@ -299,6 +299,7 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
 			*result = CHELLO_PARSE_INVALID_FORMAT;
         	return _chello;
 		}
+
 		_chello->max_version.major = buff[pos];
 		_chello->max_version.minor = buff[pos + 1];
 		_chello->max_version.ossl_format=(uint16_t)_chello->max_version.major<<8|_chello->max_version.minor;
@@ -307,7 +308,7 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
 	}
 	else
 	{
-		if (buff_len < 5)
+		if (buff_len < 6)
 		{
         	*result = CHELLO_PARSE_NOT_ENOUGH_BUFF;
 			return NULL;
@@ -317,6 +318,12 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
 			*result = CHELLO_PARSE_INVALID_FORMAT;
         	return NULL;
 		}
+		if (buff[5] != 0x01)
+		{
+			*result = CHELLO_PARSE_INVALID_FORMAT;
+        	return NULL;
+    	}
+
 		struct ssl_chello* _chello = (struct ssl_chello*)ALLOC(struct ssl_chello, 1);
 		_chello->min_version.major = buff[1];
 		_chello->min_version.minor = buff[2];
@@ -325,6 +332,11 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
 		_chello->max_version.minor =  (uint8_t)(-1);
 		_chello->sni = NULL;
 
+		if(buff[0] == 0x16)
+		{
+			_chello->is_ssl=1;
+		}
+		
 		/* TLS record length */
     	size_t len = ((size_t)buff[3] << 8) + (size_t)buff[4] + 5;
 		if (buff_len < len)
@@ -333,17 +345,8 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
         	return _chello;
 		}
 		buff_len = len;
-		size_t pos = 5;
-    	if (pos + 1 > buff_len)
-		{
-			*result = CHELLO_PARSE_INVALID_FORMAT;
-        	return _chello;
-    	}
-		if (buff[pos] != 0x01)
-		{
-			*result = CHELLO_PARSE_INVALID_FORMAT;
-        	return _chello;
-    	}
+		size_t pos = 6;
+
 		pos += 4;
 		if(pos + 2 > buff_len)
 		{
