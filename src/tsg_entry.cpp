@@ -236,6 +236,40 @@ static char get_direction(const struct streaminfo *a_stream)
 	return direction;
 }
 
+static int is_port443(const struct streaminfo *a_stream)
+{
+	struct stream_tuple4_v4 *tpl4 = NULL;
+	struct stream_tuple4_v6 *tpl6 = NULL;
+
+	if(a_stream==NULL)
+	{
+		return 0;
+	}
+
+	//ntohs(443)=47873
+	switch(a_stream->addr.addrtype)
+	{
+		case ADDR_TYPE_IPV4:
+			tpl4=a_stream->addr.tuple4_v4;
+			if((tpl4->source==47873) || (tpl4->dest==47873))
+			{
+				return 1;
+			}
+			break;
+		case ADDR_TYPE_IPV6:
+			tpl6=a_stream->addr.tuple4_v6;
+			if((tpl6->source==47873) || (tpl6->dest==47873))
+			{
+				return 1;
+			}
+			break;
+		default:
+			break;
+	}
+
+	return 0;
+}
+
 static int is_only_monitor(struct maat_rule *result, int hit_cnt)
 {
 	int i=0;
@@ -1487,7 +1521,7 @@ int session_l7_protocol_identify(const struct streaminfo *a_stream, struct sessi
 					return 1;
 				}
 				
-				if(chello!=NULL)
+				if((is_port443(a_stream)==1) && chello!=NULL)
 				{
 					if(chello->is_ssl==1)
 					{

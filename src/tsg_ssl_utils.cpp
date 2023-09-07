@@ -300,6 +300,7 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
         	return _chello;
 		}
 
+		_chello->is_ssl=1;
 		_chello->max_version.major = buff[pos];
 		_chello->max_version.minor = buff[pos + 1];
 		_chello->max_version.ossl_format=(uint16_t)_chello->max_version.major<<8|_chello->max_version.minor;
@@ -345,7 +346,7 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
         	return _chello;
 		}
 		buff_len = len;
-		size_t pos = 6;
+		size_t pos = 5;
 
 		pos += 4;
 		if(pos + 2 > buff_len)
@@ -409,6 +410,14 @@ struct ssl_chello* ssl_chello_parse(const unsigned char* buff, size_t buff_len, 
 		}
 		enum chello_parse_result ret = parse_extensions(buff + pos, len, _chello);
 		*result = ret;
+		if(ret!=CHELLO_PARSE_SUCCESS)
+		{
+			_chello->is_ssl=0;
+		}
+		else
+		{
+			_chello->is_ssl=1;
+		}
 		return _chello;
 	}
 }
