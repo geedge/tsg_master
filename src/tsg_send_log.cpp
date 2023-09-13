@@ -2266,6 +2266,14 @@ static int tsg_send_ipfix_message(struct TLD_handle_t *_handle, int thread_id)
 			int64_t value = iter->value.GetInt64();
 			ipfix_message_append(message, iter->name.GetString(), iter->name.GetStringLength(), (char *)&(value), sizeof(int64_t));
 		}
+		else if (iter->value.GetType() == rapidjson::kObjectType || iter->value.GetType() == rapidjson::kArrayType)
+		{
+			StringBuffer sb(0, 128);
+			Writer<StringBuffer> writer(sb);
+			iter->value.Accept(writer);
+
+			ipfix_message_append(message, iter->name.GetString(), iter->name.GetStringLength(), (char *)sb.GetString(), sb.GetSize());
+		}
 	}
 
 	ipfix_message_send(g_tsg_log_instance->ipfix_instance, message, (uint16_t)thread_id);

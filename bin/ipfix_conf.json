@@ -94,14 +94,6 @@
             ]
         },
         {
-            "template_id": 268,
-            "template_name": "BGP",
-            "elements":[
-                "BASE_elements",
-                "BGP_elements"
-            ]
-        },
-        {
             "template_id": 269,
             "template_name": "RDP",
             "elements":[
@@ -535,6 +527,16 @@
             "element_name": "ssl_ja3s_fingerprint",
             "element_type": "string",
             "element_id": 132
+        },
+        {
+            "element_name": "ssl_esni_flag",
+            "element_type": "unsigned8",
+            "element_id": 228
+        },
+        {
+            "element_name": "ssl_ech_flag",
+            "element_type": "unsigned8",
+            "element_id": 229
         }
     ],
     "HTTP_elements": [
@@ -580,7 +582,7 @@
         },
         {
             "element_name": "http_request_content_length",
-            "element_type": "string",
+            "element_type": "unsigned32",
             "element_id": 82
         },
         {
@@ -590,7 +592,7 @@
         },
         {
             "element_name": "http_response_content_length",
-            "element_type": "string",
+            "element_type": "unsigned32",
             "element_id": 84
         },
         {
@@ -607,6 +609,21 @@
             "element_name": "http_version",
             "element_type": "string",
             "element_id": 87
+        },
+        {
+            "element_name": "http_status_code",
+            "element_type": "unsigned32",
+            "element_id": 230
+        },
+        {
+            "element_name": "http_response_latency_ms",
+            "element_type": "unsigned32",
+            "element_id": 231
+        },
+        {
+            "element_name": "http_session_duration_ms",
+            "element_type": "unsigned32",
+            "element_id": 232
         }
     ],
     "MAIL_elements": [
@@ -1026,18 +1043,6 @@
             "element_id": 178
         }
     ],
-    "BGP_elements": [
-        {
-            "element_name": "bgp_message_type",
-            "element_type": "string",
-            "element_id": 207
-        },
-        {
-            "element_name": "bgp_messages",
-            "element_type": "string",
-            "element_id": 208
-        }
-    ],
     "RDP_elements": [
         {
             "element_name": "rdp_cookie",
@@ -1091,7 +1096,7 @@
         },
         {
             "element_name": "rdp_certificate_type",
-            "element_type": "unsigned32",
+            "element_type": "string",
             "element_id": 223
         },
         {
@@ -1101,7 +1106,7 @@
         },
         {
             "element_name": "rdp_certificate_permanent",
-            "element_type": "string",
+            "element_type": "unsigned32",
             "element_id": 225
         },
         {
@@ -1121,7 +1126,7 @@
     "Stratum_elements": [
         {
             "element_name": "stratum_cryptocurrency",
-            "element_type": "unsigned32",
+            "element_type": "string",
             "element_id": 209
         },
         {
