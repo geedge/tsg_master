@@ -1,7 +1,7 @@
 {
     "version":10,
-    "collector_ip": "192.168.38.214",
-    "collector_port": 4739,
+    "collector_ip": "192.168.44.16",
+    "collector_port": 11001,
     "device_name": "test_device",
     "domain_id": 1,
     "PEN_number": 54450,
@@ -989,7 +989,7 @@
     "SSH_elements": [
         {
             "element_name": "ssh_version",
-            "element_type": "string",
+            "element_type": "unsigned64",
             "element_id": 168
         },
         {
@@ -1038,7 +1038,7 @@
             "element_id": 177
         },
         {
-            "element_name": "ssh_hash",
+            "element_name": "ssh_hassh",
             "element_type": "string",
             "element_id": 178
         }

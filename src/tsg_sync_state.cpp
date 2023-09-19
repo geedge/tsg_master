@@ -45,7 +45,7 @@ static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *wri
 	ret=sapp_inject_ctrl_pkt((struct streaminfo *)a_stream, SIO_DEFAULT, *mpack_data, *mpack_size, a_stream->routedir);
 	if (ret==-1)
 	{
-		MASTER_LOG(g_tsg_para.logger, RLOG_LV_DEBUG, LOG_MODULE_MPACK, "MSGPACK_BUFF_SEND An error occurred injecting the data! addr: %s", printaddr(&(a_stream->addr), a_stream->threadnum));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_MPACK, "MSGPACK_BUFF_SEND An error occurred injecting the data! addr: %s", printaddr(&(a_stream->addr), a_stream->threadnum));
 	}
 	
 	free(*mpack_data);
