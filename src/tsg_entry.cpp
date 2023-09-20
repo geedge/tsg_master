@@ -1948,7 +1948,7 @@ int session_app_gather_results_update(struct app_attributes **update_result, cha
 {
 	if(identify_result->app_id_num<=0)
 	{
-		return 0;
+		return update_result_num;
 	}
 
 	if(*update_result==NULL)
@@ -2013,7 +2013,6 @@ int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge
 	struct app_identify_result *identify_result=(struct app_identify_result *)data;
 	switch(identify_result->origin)
 	{
-			break;
 		case	ORIGIN_QM_ENGINE:
 			srt_process_context->is_app_link=FLAG_TRUE;
 			tsg_stat_sync_application_update(SYNC_APP_THRID, 1);
@@ -2062,7 +2061,7 @@ int session_app_identify_result_cb(const struct streaminfo *a_stream, int bridge
 			scan_app_num=1;
 			break;
 		default:
-			MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_SYNC_APP, "Unknown type: %d addr: %s", identify_result->origin, printaddr(&(a_stream->addr), a_stream->threadnum));
+			MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_SYNC_APP, "Unknown type: %d addr: %s", identify_result->origin, printaddr(&(a_stream->addr), a_stream->threadnum));
 			return 0;
 	}
 

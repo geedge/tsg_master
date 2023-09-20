@@ -548,7 +548,7 @@ static unsigned char do_action_reset(const struct streaminfo *a_stream, struct m
 		int ret=MESA_rst_tcp((struct streaminfo *)a_stream, &rst_paras, sizeof(rst_paras));
 		if(ret<0)
 		{
-			MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_ACTION, 
+			MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_ACTION, 
 											"Send RST failed policy_id: %d service: %d action: %d addr: %s",
 											p_result->rule_id,
 											p_result->service_id,

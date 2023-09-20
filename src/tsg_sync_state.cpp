@@ -37,7 +37,7 @@ static int mpack_send_pkt(const struct streaminfo *a_stream, mpack_writer_t *wri
 	mpack_complete_map(writer); // mpack_init_map
 	if (mpack_writer_destroy(writer) != mpack_ok)
 	{
-		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_MPACK, "MPACK_WRITER An error occurred encoding the data!");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_MPACK, "MPACK_WRITER An error occurred encoding the data!");
 		return -1;
 	}
 
