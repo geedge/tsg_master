@@ -250,7 +250,7 @@ int session_async_bridge_set_data(const struct streaminfo *a_stream, int bridge_
 	int ret=stream_bridge_async_data_put(a_stream, bridge_id, data);
 	if(ret<0)
 	{
-		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_BRIDGE, "Add project failed, bridge_id: %d addr: %s", bridge_id, printaddr(&(a_stream->addr), a_stream->threadnum));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_BRIDGE, "Add project failed, bridge_id: %d addr: %s", bridge_id, printaddr(&(a_stream->addr), a_stream->threadnum));
 		return 0;
 	}
 

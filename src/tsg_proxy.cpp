@@ -124,7 +124,7 @@ static void tsg_proxy_ip_header_parse(const void *a_packet, enum addr_type_t add
 		{
 			pktinfo->parse_failed=1;
 			char *errmsg = tsg_proxy_ipv6_errmsg_get((enum tsg_proxy_ipv6hdr_parse_error)ret);
-			MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_PROXY, "Failed at parse ipv6 header, errmsg = %s, stream treaceid = %llu", errmsg, tsg_get_stream_trace_id(stream));
+			MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_PROXY, "Failed at parse ipv6 header, errmsg = %s, stream treaceid = %llu", errmsg, tsg_get_stream_trace_id(stream));
 		}
 	}
 	else
@@ -134,7 +134,7 @@ static void tsg_proxy_ip_header_parse(const void *a_packet, enum addr_type_t add
 		{
 			pktinfo->parse_failed=1;
 			char *errmsg = tsg_proxy_ipv4_errmsg_get((enum tsg_proxy_ipv4hdr_parse_error)ret);
-			MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_PROXY, "Failed at parse ipv4 header, errmsg = %s, stream treaceid = %llu", errmsg, tsg_get_stream_trace_id(stream));
+			MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_PROXY, "Failed at parse ipv4 header, errmsg = %s, stream treaceid = %llu", errmsg, tsg_get_stream_trace_id(stream));
 		}
 	}
 	return;
@@ -262,7 +262,7 @@ static struct tsg_proxy_tcp_attribute *tsg_proxy_tcp_attribute_get(const struct 
 	struct session_runtime_attribute *srt_attribute = (struct session_runtime_attribute *)session_runtime_attribute_new(stream);
 	if (srt_attribute == NULL)
 	{
-		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_PROXY, "Failed to get session runtime attribute, stream treaceid = %llu", tsg_get_stream_trace_id(stream));
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_PROXY, "Failed to get session runtime attribute, stream treaceid = %llu", tsg_get_stream_trace_id(stream));
 		return NULL;
 	}
 
@@ -351,7 +351,7 @@ void tsg_proxy_tcp_options_parse(const struct streaminfo *stream, const void *a_
 	tsg_proxy_ip_header_parse(a_packet, (enum addr_type_t)stream->addr.addrtype, stream, &pktinfo);
 	if (pktinfo.parse_failed)
 	{
-		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_PROXY, "invalid ip header, bypass pkt");
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_INFO, LOG_MODULE_PROXY, "invalid ip header, bypass pkt");
 		return;
 	}
 
