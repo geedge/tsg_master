@@ -6,6 +6,7 @@
 #include <MESA/MESA_prof_load.h>
 #include <MESA/MESA_handle_logger.h>
 
+#include "tsg_stat.h"
 #include "tsg_log.h"
 #include "tsg_entry.h"
 #include "tsg_send_log.h"
@@ -339,6 +340,8 @@ int tsg_set_application_metrics(const struct streaminfo *a_stream, const char *l
 														APPLICATION_MAX,
 														thread_seq
 													);
+
+	tsg_stat_application_metrics_count_set(thread_seq, fieldstat_dynamic_read_htable_item_cnt(g_tsg_statis_para.fs_application.metrics_handle, thread_seq));
 
 	return 0;
 }

@@ -123,6 +123,7 @@ void tsg_stat_log_handle_update(enum LOG_HANDLE column_idx, long long increase);
 void tsg_stat_sync_exdata_add_update(enum SYNC_EXDATA_ROW row_idx, long long increase);
 void tsg_stat_sync_exdata_del_update(enum SYNC_EXDATA_ROW row_idx, long long increase);
 void tsg_stat_sync_application_update(enum SYNC_APP column_idx, long long increase);
+void tsg_stat_application_metrics_count_set(int row_idx, long long current);
 void tsg_stat_sendlog_update(int row_idx, enum LOG_STATUS column_idx, long long increase);
 void tsg_stat_flow_update(enum STAT_STATUS status, enum FLOW_STAT column_idx, long long increase);
 void tsg_stat_sync_ctrl_update(enum STAT_STATUS status, enum CTRL_SYNC column_idx, long long increase);

@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <stream.h>
+
 #include "tsg_stat.h"
 #include <MESA/fieldstat.h>
 #include <MESA/MESA_prof_load.h>
@@ -11,6 +13,12 @@ enum OP_EXDATA
 	OP_EXDATA_ADD=0,
 	OP_EXDATA_DEL,
 	OP_EXDATA_MAX
+};
+
+enum APP_METRICS
+{
+	APP_METRICS_COUNT=0,
+	APP_METRICS_MAX	
 };
 
 struct fs3_rule_stat
@@ -59,6 +67,12 @@ struct fs3_sync_application
 	int column_id[SYNC_APP_MAX];
 };
 
+struct fs3_application_metrics
+{
+	int table_id;
+	int *column_id;
+};
+
 struct fs3_sync_exdata
 {
 	int table_id;
@@ -80,7 +94,8 @@ struct runtime_stat_para
 	struct fs3_rule_stat rule;
 	struct fs3_sync_exdata exdata;
 	struct fs3_sendlog_stat sendlog;
-	struct fs3_sync_application app;
+	struct fs3_sync_application sync_app;
+	struct fs3_application_metrics app_metrics;
 	struct fs3_sync_ctrl_stat ctrl_sync;
 	struct fs3_sync_ctrl_service ctrl_service;
 	struct fieldstat_instance *fs_instance;
@@ -188,7 +203,15 @@ void tsg_stat_sync_application_update(enum SYNC_APP column_idx, long long increa
 {
 	if(g_rt_stat_para.fs_instance!=NULL)
 	{
-		stat_update(g_rt_stat_para.app.column_id[column_idx], increase);
+		stat_update(g_rt_stat_para.sync_app.column_id[column_idx], increase);
+	}
+}
+
+void tsg_stat_application_metrics_count_set(int row_idx, long long current)
+{
+	if(g_rt_stat_para.fs_instance!=NULL)
+	{
+		fieldstat_value_set(g_rt_stat_para.fs_instance, g_rt_stat_para.app_metrics.column_id[row_idx], current);
 	}
 }
 
@@ -299,8 +322,8 @@ int tsg_stat_init(void)
 
 	enum field_type app_sync_column_type[SYNC_APP_MAX]={FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE};
 	const char *app_sync_column_name[SYNC_APP_MAX]={"lpi", "dpkt", "thrid", "user_define", "built_in"};
-	g_rt_stat_para.app.table_id=fieldstat_register_table(g_rt_stat_para.fs_instance, "sync_application", app_sync_column_name, app_sync_column_type, SYNC_APP_MAX);
-	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.app.table_id, "sum", NULL, 0, g_rt_stat_para.app.column_id);
+	g_rt_stat_para.sync_app.table_id=fieldstat_register_table(g_rt_stat_para.fs_instance, "sync_application", app_sync_column_name, app_sync_column_type, SYNC_APP_MAX);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.sync_app.table_id, "sum", NULL, 0, g_rt_stat_para.sync_app.column_id);
 
 	enum field_type ctrl_sync_column_type[CTRL_SYNC_MAX]={FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE};
 	const char *ctrl_sync_column_name[CTRL_SYNC_MAX]={"unknown", "rstall", "opening", "activing", "updating", "closing"};
@@ -330,6 +353,19 @@ int tsg_stat_init(void)
 	enum field_type sendlog_column_type[LOG_STATUS_MAX]={FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE};
 	const char *sendlog_column_name[LOG_STATUS_MAX]={"T_success_log", "T_fail_log", "T_drop_log", "success_log/s", "fail_log/s", "drop_log/s"};
 	g_rt_stat_para.sendlog.table_id=fieldstat_register_table(g_rt_stat_para.fs_instance, "sendlog", sendlog_column_name, sendlog_column_type, LOG_STATUS_MAX);
+
+	char fs3_table_name[128]={0};
+	enum field_type app_metrics_column_type[APP_METRICS_MAX]={FIELD_TYPE_GAUGE};
+	const char *app_metrics_column_name[APP_METRICS_MAX]={"metric_cnt"};
+	g_rt_stat_para.app_metrics.table_id=fieldstat_register_table(g_rt_stat_para.fs_instance, "application", app_metrics_column_name, app_metrics_column_type, APP_METRICS_MAX);
+	
+	int thread_count=get_thread_count();
+	g_rt_stat_para.app_metrics.column_id=(int *)calloc(thread_count, sizeof(int));
+	for(int i=0; i<thread_count; i++)
+	{
+		snprintf(fs3_table_name, sizeof(fs3_table_name), "thread_%d", i);
+		fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.app_metrics.table_id, fs3_table_name, NULL, 0, &(g_rt_stat_para.app_metrics.column_id[i]));
+	}
 
 	return 0;
 }
