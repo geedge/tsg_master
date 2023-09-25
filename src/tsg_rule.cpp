@@ -1861,6 +1861,8 @@ int init_plugin_table(struct maat *feather, const char *conffile)
 
 struct maat *init_maat_feather(const char* conffile, char* instance_name, char *module)
 {
+	int hit_path=0;
+	int hit_group=0;
 	int deferred_load=0;
 	char maat_mode[32]={0};
 	int effect_interval_ms=60000;
@@ -1904,8 +1906,10 @@ struct maat *init_maat_feather(const char* conffile, char* instance_name, char *
 	char log_path[128]={0};
 	MESA_load_profile_string_def(conffile,module,"LOG_PATH", log_path, sizeof(log_path), "./log/maat.log");
 
-	MESA_load_profile_int_def(conffile, module,"STAT_SWITCH", &(maat_stat_on),1);
-	MESA_load_profile_int_def(conffile, module,"PERF_SWITCH", &(maat_perf_on),1);
+	MESA_load_profile_int_def(conffile, module,"STAT_SWITCH", &(maat_stat_on), 1);
+	MESA_load_profile_int_def(conffile, module,"PERF_SWITCH", &(maat_perf_on), 1);
+	MESA_load_profile_int_def(conffile, module,"HIT_PATH_SWITCH", &(hit_path), 0);
+	MESA_load_profile_int_def(conffile, module,"HIT_GROUP_SWITCH", &(hit_group), 0);
 	MESA_load_profile_int_def(conffile, module,"OUTPUT_PROMETHEUS", &(output_prometheus), 1);
 	MESA_load_profile_int_def(conffile, module,"DEFERRED_LOAD", &(deferred_load), 0);
 	MESA_load_profile_string_def(conffile,module,"TABLE_INFO",table_info, sizeof(table_info), "");
@@ -1925,6 +1929,16 @@ struct maat *init_maat_feather(const char* conffile, char* instance_name, char *
 	maat_options_set_stat_file(opts, maat_stat_file);
 	maat_options_set_rule_update_checking_interval_ms(opts, rule_update_interval_ms);
 	maat_options_set_gc_timeout_ms(opts,  garbage_collect_ms);
+
+	if(hit_group)
+	{
+		maat_options_set_hit_group_enabled(opts);
+	}
+	
+	if(hit_path)
+	{
+		maat_options_set_hit_path_enabled(opts);
+	}
 
 	if(maat_stat_on==1)
 	{
