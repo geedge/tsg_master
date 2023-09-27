@@ -418,34 +418,44 @@ static int set_tuple4(struct tsg_log_instance_t *_instance, struct TLD_handle_t 
 
 static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
-	long common_con_duration_ms=0;
 	int size=sizeof(unsigned long long);
-	unsigned long long create_time=0,last_time=0;
+	unsigned long long create_time_ms=0,last_time_ms=0;
 
 	if(a_stream->ptcpdetail!=NULL)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)(a_stream->ptcpdetail->createtime), TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)(a_stream->ptcpdetail->lastmtime), TLD_TYPE_LONG);
-
-		int ret=MESA_get_stream_opt(a_stream, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time, &size);
-		if(ret>=0)
-		{
-			ret=MESA_get_stream_opt(a_stream, MSO_STREAM_LASTUPDATE_TIMESTAMP_MS, (void *)&last_time, &size);
-			if(ret>=0 && last_time>create_time)
-			{
-				common_con_duration_ms=last_time-create_time;			
-				TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
-			}
-		}
 	}
 	else
 	{
 		time_t cur_time=time(NULL);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(0), TLD_TYPE_LONG);
 	}
 	
+	int ret=MESA_get_stream_opt(a_stream, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time_ms, &size);
+	if(ret<0)
+	{
+		return 0;
+	}
+	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME_MS].name, (void *)(create_time_ms), TLD_TYPE_LONG);
+
+	ret=MESA_get_stream_opt(a_stream, MSO_STREAM_LASTUPDATE_TIMESTAMP_MS, (void *)&last_time_ms, &size);
+	if(ret<0)
+	{
+		return 0;
+	}
+	
+	TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME_MS].name, (void *)(last_time_ms), TLD_TYPE_LONG);
+	
+	if(last_time_ms>=create_time_ms)
+	{
+		unsigned long long common_con_duration_ms=last_time_ms-create_time_ms;			
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+	}
+
 	return 1;
 }
 
