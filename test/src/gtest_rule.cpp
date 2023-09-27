@@ -14,6 +14,7 @@
 #include <gtest/gtest.h>
 
 extern struct maat_runtime_para g_tsg_maat_rt_para;
+extern struct maat *g_tsg_dyn_mapping_maat_feather;
 
 const struct session_runtime_attribute *session_runtime_attribute_new(const struct streaminfo * a_stream)
 {
@@ -392,11 +393,94 @@ TEST(TM, ExDataSubscriberID)
 	source_subscribe_id = NULL;
 	struct stream_tuple4_v6 tuple4_v6 = {0};
 	a_stream.addr.tuple4_v6 = &tuple4_v6;
-	inet_pton(AF_INET6, "1030::C9B4:FF12:48AA:1A2B", &tuple4_v6.daddr);
-	inet_pton(AF_INET6, "1030::C9B4:FF12:3799:1A2B", &tuple4_v6.saddr);
+	inet_pton(AF_INET6, "1030::C9B4:FF12:48AA:1A2B", tuple4_v6.daddr);
+	inet_pton(AF_INET6, "1030::C9B4:FF12:3799:1A2B", tuple4_v6.saddr);
 	srt_attribute_set_subscriber_id(&a_stream, g_tsg_maat_feather, &source_subscribe_id, &dest_subscribe_id);
 	EXPECT_STREQ("test5630", dest_subscribe_id->subscribe_id);
 	EXPECT_STREQ("test5629", source_subscribe_id->subscribe_id);
+}
+
+TEST(TM, ExDataDynamicIPPortMappingSubscriberID)
+{
+	/*************************************************************************************************************************
+		table name: TSG_DYN_IPPORT_SUBSCRIBER_MAPPING
+		id addr_type ip subscriber_id port_start port_end is_valid
+        "1052\t4\t192.168.50.52\ttest52\t0\t255\t1",
+        "1037\t4\t192.168.50.37\test37\t40001\t40255\t1",
+        "1040\t6\t1030::C9B4:FF12:48AA:1040\ttest1040\t10240\t12800\t1",
+        "1041\t6\t1030::C9B4:FF12:3799:1041\ttest1041\t25600\t25856\t1"
+	**************************************************************************************************************************/
+	struct streaminfo a_stream = {0};
+	struct subscribe_id_info *dest_subscribe_id = NULL;
+	struct subscribe_id_info *source_subscribe_id = NULL;
+	// ipv4
+	a_stream.addr.addrtype = ADDR_TYPE_IPV4;
+	struct stream_tuple4_v4 tuple4_v4 = {0};
+	a_stream.addr.tuple4_v4 = &tuple4_v4;
+	inet_pton(AF_INET, "192.168.50.52", &tuple4_v4.daddr);
+	inet_pton(AF_INET, "192.168.50.37", &tuple4_v4.saddr);
+
+	tuple4_v4.dest = htons(255);	 //port end
+	tuple4_v4.source = htons(40001); //port start
+	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
+	EXPECT_STREQ("test52", dest_subscribe_id->subscribe_id);
+	EXPECT_STREQ("test37", source_subscribe_id->subscribe_id);
+
+	plugin_ex_data_subscriber_id_free(dest_subscribe_id);
+	plugin_ex_data_subscriber_id_free(source_subscribe_id);
+	dest_subscribe_id = NULL;
+	source_subscribe_id = NULL;
+
+	tuple4_v4.dest = htons(250);		//port in range
+	tuple4_v4.source = htons(40025);	//port in range
+	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
+	EXPECT_STREQ("test52", dest_subscribe_id->subscribe_id);
+	EXPECT_STREQ("test37", source_subscribe_id->subscribe_id);
+
+	plugin_ex_data_subscriber_id_free(dest_subscribe_id);
+	plugin_ex_data_subscriber_id_free(source_subscribe_id);
+	dest_subscribe_id = NULL;
+	source_subscribe_id = NULL;
+
+	tuple4_v4.dest = htons(256);	//port not in range
+	tuple4_v4.source = htons(40000);	//port not in range
+	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
+	EXPECT_EQ(nullptr, dest_subscribe_id);
+	EXPECT_EQ(nullptr, source_subscribe_id);
+
+	// ipv6
+	a_stream.addr.addrtype = ADDR_TYPE_IPV6;
+	struct stream_tuple4_v6 tuple4_v6 = {0};
+	a_stream.addr.tuple4_v6 = &tuple4_v6;
+	inet_pton(AF_INET6, "1030::C9B4:FF12:48AA:1040", tuple4_v6.daddr);
+	inet_pton(AF_INET6, "1030::C9B4:FF12:3799:1041", tuple4_v6.saddr);
+	tuple4_v6.dest = htons(12800);		//port end
+	tuple4_v6.source = htons(25600);	//port start
+	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
+	EXPECT_STREQ("test1040", dest_subscribe_id->subscribe_id);
+	EXPECT_STREQ("test1041", source_subscribe_id->subscribe_id);
+	
+	plugin_ex_data_subscriber_id_free(dest_subscribe_id);
+	plugin_ex_data_subscriber_id_free(source_subscribe_id);
+	dest_subscribe_id = NULL;
+	source_subscribe_id = NULL;
+
+	tuple4_v6.dest = htons(10244);		//port in range
+	tuple4_v6.source = htons(25620);	//port in range
+	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
+	EXPECT_STREQ("test1040", dest_subscribe_id->subscribe_id);
+	EXPECT_STREQ("test1041", source_subscribe_id->subscribe_id);
+	
+	plugin_ex_data_subscriber_id_free(dest_subscribe_id);
+	plugin_ex_data_subscriber_id_free(source_subscribe_id);
+	dest_subscribe_id = NULL;
+	source_subscribe_id = NULL;
+
+	tuple4_v6.dest = htons(10144);		//port not in range
+	tuple4_v6.source = htons(15620);	//port not in range
+	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
+	EXPECT_EQ(nullptr, dest_subscribe_id);
+	EXPECT_EQ(nullptr, source_subscribe_id);
 }
 
 TEST(TM, ExDataDNSRecordsProfileA)

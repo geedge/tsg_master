@@ -430,13 +430,13 @@ static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle
 	{
 		time_t cur_time=time(NULL);
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_START_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);		
-		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(0), TLD_TYPE_LONG);
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_END_TIME].name, (void *)cur_time, TLD_TYPE_LONG);
 	}
 	
 	int ret=MESA_get_stream_opt(a_stream, MSO_STREAM_CREATE_TIMESTAMP_MS, (void *)&create_time_ms, &size);
 	if(ret<0)
 	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(0), TLD_TYPE_LONG);
 		return 0;
 	}
 	
@@ -445,6 +445,7 @@ static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle
 	ret=MESA_get_stream_opt(a_stream, MSO_STREAM_LASTUPDATE_TIMESTAMP_MS, (void *)&last_time_ms, &size);
 	if(ret<0)
 	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(0), TLD_TYPE_LONG);
 		return 0;
 	}
 	
@@ -454,6 +455,10 @@ static int set_duraction(struct tsg_log_instance_t *_instance, struct TLD_handle
 	{
 		unsigned long long common_con_duration_ms=last_time_ms-create_time_ms;			
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(common_con_duration_ms), TLD_TYPE_LONG);
+	}
+	else
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CON_DURATION_MS].name, (void *)(0), TLD_TYPE_LONG);
 	}
 
 	return 1;

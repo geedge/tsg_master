@@ -1,0 +1,15 @@
+[
+    {
+        "table_id":0,
+        "table_name":"TSG_DYN_IPPORT_SUBSCRIBER_MAPPING",
+        "table_type":"ipport_plugin",
+        "valid_column":7,
+        "custom": {
+            "item_id":1,
+            "ip_type":2,
+            "ip_addr":3,
+            "port1":5,
+            "port2":6
+        }
+    }
+]

@@ -28,6 +28,7 @@ struct str2index
 };
 
 struct maat *g_tsg_maat_feather;
+struct maat *g_tsg_dyn_mapping_maat_feather;
 struct maat_runtime_para g_tsg_maat_rt_para;
 
 const struct str2index method2index[TSG_METHOD_TYPE_MAX]={	{TSG_METHOD_TYPE_UNKNOWN, 7, (char *)"unknown"},
@@ -423,7 +424,7 @@ void ex_data_gtp_c_dup(int table_id, void **to, void **from, long argl, void* ar
 	if((*from)!=NULL)
 	{
 		struct umts_user_info *user_info=(struct umts_user_info *)(*from);
-		atomic_inc(&user_info->ref_cnt);
+		__sync_add_and_fetch(&user_info->ref_cnt, 1);
 		*to=*from;
 	}
 	
@@ -445,7 +446,7 @@ void ex_data_gtp_c_new(const char *table_name, int table_id, const char* key, co
 	tsg_str_unescape(user_info->apn);
 	tsg_str_unescape(user_info->imei);
 	
-	atomic_inc(&user_info->ref_cnt);
+	__sync_add_and_fetch(&user_info->ref_cnt, 1);
 	*ad=(void *)user_info;
 
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_GTPC, 1);
@@ -484,7 +485,7 @@ void ex_data_asn_number_dup(int table_id, void **to, void **from, long argl, voi
 	if((*from)!=NULL)
 	{
 		struct asn_info *asn=(struct asn_info *)(*from);
-		atomic_inc(&asn->ref_cnt);
+		__sync_add_and_fetch(&asn->ref_cnt, 1);
 		*to=*from;
 	}
 
@@ -511,7 +512,7 @@ void ex_data_asn_number_new(const char *table_name, int table_id, const char* ke
 	tsg_str_unescape(asn->asn_id);
 	tsg_str_unescape(asn->organization);
 
-	atomic_inc(&asn->ref_cnt);
+	__sync_add_and_fetch(&asn->ref_cnt, 1);
 	*ad=(void *)asn;
 	
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_ASN, 1);
@@ -547,7 +548,7 @@ void ex_data_location_dup(int table_id, void **to, void **from, long argl, void*
 	if((*from)!=NULL)
 	{
 		struct location_info *location=(struct location_info *)(*from);
-		atomic_inc(&location->ref_cnt);
+		__sync_add_and_fetch(&location->ref_cnt, 1);
 		*to=*from;
 	}
 	
@@ -584,7 +585,7 @@ void ex_data_location_new(const char *table_name, int table_id, const char* key,
 		location->full_location[location->full_location_len]='\0';
 	}
 	
-	atomic_inc(&location->ref_cnt);
+	__sync_add_and_fetch(&location->ref_cnt, 1);
 	*ad=(void *)location;
 	
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_LOCATION, 1);
@@ -658,8 +659,8 @@ void ex_data_subscriber_id_dup(int table_id, void **to, void **from, long argl, 
 {
 	if((*from)!=NULL)
 	{
-		struct subscribe_id_info *subscribe_id=(struct subscribe_id_info *)(*from);
-		atomic_inc(&subscribe_id->ref_cnt);
+		struct subscribe_id_info *subscriber=(struct subscribe_id_info *)(*from);
+		__sync_add_and_fetch(&subscriber->ref_cnt, 1);
 		*to=*from;
 	}
 	
@@ -680,7 +681,7 @@ void ex_data_subscriber_id_new(const char *table_name, int table_id, const char*
 		return;
 	}
 	
-	atomic_inc(&subscriber->ref_cnt);
+	__sync_add_and_fetch(&subscriber->ref_cnt, 1);
 	*ad=(void *)subscriber;
 	
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_SUBSCRIBER, 1);
@@ -707,7 +708,7 @@ void ex_data_subscriber_id_free(int table_id, void **ad, long argl, void* argp)
 
 void plugin_ex_data_subscriber_id_free(struct subscribe_id_info *subscriber)
 {
-	ex_data_subscriber_id_free(g_tsg_maat_rt_para.plugin_tb[MAAT_PLUGIN_SUBSCRIBER_IP2ID].id, (void **)&subscriber, 0, NULL);
+	ex_data_subscriber_id_free(-1, (void **)&subscriber, 0, NULL);
 }
 
 static int parse_security_deny_action(char *deny_action_str, struct deny_user_region *deny_app_para)
@@ -1690,7 +1691,7 @@ void ex_data_tunnel_endpoint_new(const char *table_name, int table_id, const cha
 	t_endpoint->id=column_integer_get_value(table_line, 1);
 	t_endpoint->description=column_string_get_value(table_line, 5);
 	
-	atomic_inc(&t_endpoint->ref_cnt);
+	__sync_add_and_fetch(&t_endpoint->ref_cnt, 1);
 	*ad=(void *)t_endpoint;
 	
 	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_TUNNEL_ENDPOINT, 1);
@@ -1703,7 +1704,7 @@ void ex_data_tunnel_endpoint_dup(int table_id, void **to, void **from, long argl
 	if((*from)!=NULL)
 	{
 		struct tunnel_endpoint *t_endpoint=(struct tunnel_endpoint *)(*from);
-		atomic_inc(&t_endpoint->ref_cnt);
+		__sync_add_and_fetch(&t_endpoint->ref_cnt, 1);
 		(*to)=(*from);
 	}
 
@@ -1839,6 +1840,7 @@ int init_plugin_table(struct maat *feather, const char *conffile)
 		g_tsg_maat_rt_para.plugin_tb[i].id=maat_get_table_id(feather, g_tsg_maat_rt_para.plugin_tb[i].name);
 		if(g_tsg_maat_rt_para.plugin_tb[i].id<0)
 		{
+			MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_FATAL, LOG_MODULE_MAAT, "maat_table_get_id failed, table_name: %s", g_tsg_maat_rt_para.plugin_tb[i].name);
 			return -1;
 		}
 
@@ -1852,8 +1854,37 @@ int init_plugin_table(struct maat *feather, const char *conffile)
 													);
 		if(ret<0)
 		{
+			MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_FATAL, LOG_MODULE_MAAT, "maat_plugin_table_ex_schema_register failed, table_name: %s", g_tsg_maat_rt_para.plugin_tb[i].name);
 			return -1;
 		}
+	}
+
+	return 0;
+}
+
+int init_dynamic_mapping_plugin_table(struct maat *feather, const char *conffile)
+{
+	MESA_load_profile_string_def(conffile, "MAAT", "DYN_MAPPING_SUBSCRIBER", g_tsg_maat_rt_para.plugin_dyn_mapping_tb.name, MAX_TABLE_NAME_LEN, (char *)"TSG_DYN_IPPORT_SUBSCRIBER_MAPPING");
+
+	g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id=maat_get_table_id(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.name);
+	if(g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id<0)
+	{
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_FATAL, LOG_MODULE_MAAT, "maat_table_get_id failed, table_name: %s", g_tsg_maat_rt_para.plugin_dyn_mapping_tb.name);
+		return -1;
+	}
+
+	int ret=maat_plugin_table_ex_schema_register(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.name,
+												ex_data_subscriber_id_new,
+												ex_data_subscriber_id_free,
+												ex_data_subscriber_id_dup,
+												0,
+												NULL
+											);
+	
+	if(ret<0)
+	{
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_FATAL, LOG_MODULE_MAAT, "maat_plugin_table_ex_schema_register failed, table_name: %s", g_tsg_maat_rt_para.plugin_dyn_mapping_tb.name);
+		return -1;
 	}
 
 	return 0;
@@ -2020,6 +2051,25 @@ int tsg_maat_rule_init(const char* conffile)
 	}
 	
 	ret=init_plugin_table(g_tsg_maat_feather, conffile);
+	if(ret<0)
+	{
+		return -1;
+	}
+
+	MESA_load_profile_int_def(conffile, "MAAT", "DYNAMIC_MAPPING_MAAT_SWITCH", &g_tsg_maat_rt_para.dynamic_mapping_maat_switch, 0);
+	if(g_tsg_maat_rt_para.dynamic_mapping_maat_switch==0)
+	{
+		MASTER_LOG(g_tsg_maat_rt_para.logger, RLOG_LV_FATAL, LOG_MODULE_MAAT, "Disable DYNAMIC_MAPPING_MAAT, Check tsgconf/main.conf -> [MAAT] -> DYNAMIC_MAPPING_MAAT_SWITCH");
+		return 0;
+	}
+
+	g_tsg_dyn_mapping_maat_feather=init_maat_feather(maat_conffile, (char *)"DYNAMIC_MAPPING_MAAT", (char *)"DYNAMIC_MAPPING_MAAT");
+	if(g_tsg_dyn_mapping_maat_feather==NULL)
+	{
+		return -1;
+	}
+
+	ret=init_dynamic_mapping_plugin_table(g_tsg_dyn_mapping_maat_feather, conffile);
 	if(ret<0)
 	{
 		return -1;
@@ -2201,6 +2251,43 @@ int srt_attribute_set_subscriber_id(const struct streaminfo *a_stream, struct ma
 			break;
 		default:
 			break;
+	}
+
+	return 0;
+}
+
+int srt_attribute_set_dyn_mapping_subscriber_id(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id)
+{
+	struct ip_addr dest_ip={0}, source_ip={0};
+	int ret=ip_address_convert(a_stream, &source_ip, &dest_ip);
+	if(ret==0)
+	{
+		return 0;
+	}
+
+	unsigned int dest_port=0, source_port=0;
+	switch(a_stream->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4:
+			dest_port=a_stream->addr.tuple4_v4->dest;
+			source_port=a_stream->addr.tuple4_v4->source;
+			break;
+		case	ADDR_TYPE_IPV6:
+			dest_port=a_stream->addr.tuple4_v6->dest;
+			source_port=a_stream->addr.tuple4_v6->source;			
+			break;
+		default:
+			return 0;
+	}
+
+	if(*dest_subscribe_id==NULL)
+	{
+		maat_ipport_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id, &dest_ip, dest_port, (void **)dest_subscribe_id, 1);
+	}
+
+	if(*source_subscribe_id==NULL)
+	{
+		maat_ipport_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id, &source_ip, source_port, (void **)source_subscribe_id, 1);
 	}
 
 	return 0;
@@ -2876,6 +2963,13 @@ size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *fea
 		srt_attribute_set_subscriber_id(a_stream, feather, &srt_attribute->client_subscribe_id, &srt_attribute->server_subscribe_id);
 		matched_cnt+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->client_subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 		matched_cnt+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->server_subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+	}
+
+	if(matched_cnt<n_matched_rules && g_tsg_maat_rt_para.dynamic_mapping_maat_switch==1)
+	{
+		srt_attribute_set_dyn_mapping_subscriber_id(a_stream, g_tsg_dyn_mapping_maat_feather, &srt_attribute->client_subscribe_id, &srt_attribute->server_subscribe_id);
+		matched_cnt+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->client_subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+		matched_cnt+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->server_subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);	
 	}
 
 	if(matched_cnt<n_matched_rules)

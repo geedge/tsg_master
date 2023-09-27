@@ -12,6 +12,9 @@ add_test(NAME COPY_GTEST_MAAT_RULE COMMAND sh -c "cp -r ${CMAKE_SOURCE_DIR}/test
 add_test(NAME COPY_GTEST_PROFILE_RESPONSE_PAGES COMMAND sh -c "cp -r ${CMAKE_SOURCE_DIR}/test/bin/foreign_files ${CMAKE_BINARY_DIR}/testing/")
 add_test(NAME COPY_GTEST_PROXY_PCAP COMMAND sh -c "cp -r ${CMAKE_SOURCE_DIR}/test/pcap ${CMAKE_BINARY_DIR}/testing/")
 
+add_test(NAME COPY_GTEST_DYN_TABLEINFO COMMAND sh -c "cp -r ${CMAKE_SOURCE_DIR}/bin/tsg_dynamic_mapping_tableinfo.json ${CMAKE_BINARY_DIR}/testing/tsgconf/")
+add_test(NAME COPY_GTEST_DYN_MAAT_RULE COMMAND sh -c "cp -r ${CMAKE_SOURCE_DIR}/test/bin/gtest_dyn_mapping_maat.json ${CMAKE_BINARY_DIR}/testing/tsgconf/tsg_dynamic_mapping_maat.json")
+
 add_test(NAME COPY_GTEST_TABLEINFO_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/test/src/gtest_tableinfo ${CMAKE_BINARY_DIR}/testing/")
 add_test(NAME COPY_GTEST_RULE_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/test/src/gtest_rule ${CMAKE_BINARY_DIR}/testing/")
 add_test(NAME COPY_GTEST_BRIDGE_BIN COMMAND sh -c "cp ${CMAKE_BINARY_DIR}/test/src/gtest_bridge ${CMAKE_BINARY_DIR}/testing/")

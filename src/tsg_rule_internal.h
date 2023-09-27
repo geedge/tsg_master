@@ -106,11 +106,13 @@ struct maat_runtime_para
 	int level;
 	int default_compile_id;
 	int session_record_switch;
+	int dynamic_mapping_maat_switch;
 	char data_center[MAX_STRING_LEN128];
 	char device_tag[MAX_STRING_LEN128];
 	struct mirrored_vlan default_vlan;
 	struct maat_scan_table scan_tb[MAAT_SCAN_MAX];
 	struct maat_plugin_table plugin_tb[MAAT_PLUGIN_MAX];
+	struct maat_plugin_table plugin_dyn_mapping_tb;
 	void *logger;
 };
 
@@ -139,6 +141,7 @@ void tsg_maat_state_free(struct maat_state *state);
 int srt_attribute_set_ip_asn(const struct streaminfo *a_stream, struct maat *feather, struct asn_info **client_asn, struct asn_info **server_asn);
 int srt_attribute_set_ip_location(const struct streaminfo *a_stream, struct maat *feather, struct location_info **client_location, struct location_info **server_location);
 int srt_attribute_set_subscriber_id(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info **client_subscriber_id, struct subscribe_id_info **server_subscriber_id);
+int srt_attribute_set_dyn_mapping_subscriber_id(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id);
 
 int session_runtine_attribute_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info);
 

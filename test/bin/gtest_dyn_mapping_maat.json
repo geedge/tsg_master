@@ -1,0 +1,14 @@
+{
+    "plugin_table": 
+    [
+        {
+            "table_name": "TSG_DYN_IPPORT_SUBSCRIBER_MAPPING",
+            "table_content": [
+                "1052\t4\t192.168.50.52\ttest52\t0\t255\t1",
+                "1037\t4\t192.168.50.37\ttest37\t40001\t40255\t1",
+                "1040\t6\t1030::C9B4:FF12:48AA:1040\ttest1040\t10240\t12800\t1",
+                "1041\t6\t1030::C9B4:FF12:3799:1041\ttest1041\t25600\t25856\t1"
+            ]
+        }
+    ]
+}
