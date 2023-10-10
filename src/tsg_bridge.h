@@ -152,6 +152,8 @@ struct session_runtime_attribute
 	struct location_info *server_location;
 	struct subscribe_id_info *client_subscribe_id;
 	struct subscribe_id_info *server_subscribe_id;
+	struct dynamic_ipport_mapping *client_mapping;
+	struct dynamic_ipport_mapping *server_mapping;
 	const char *ja3_fingerprint;
 	unsigned int fqdn_category_ids[MAX_CATEGORY_ID_NUM];
 	struct umts_user_info *user_info;

@@ -505,6 +505,41 @@ static int set_umts_user_info(struct tsg_log_instance_t *_instance, struct TLD_h
 	return 1;
 }
 
+static int set_dynamic_ipport_mapping(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, struct dynamic_ipport_mapping *ipport_mapping)
+{
+	if(ipport_mapping==NULL)
+	{
+		return 0;
+	}
+
+	if(ipport_mapping->subscriber_id!=NULL)
+	{		
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SUBSCRIBER_ID].name, (void *)ipport_mapping->subscriber_id, TLD_TYPE_STRING);
+	}
+
+	if(ipport_mapping->apn!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_GTP_APN].name, (void *)ipport_mapping->apn, TLD_TYPE_STRING);
+	}
+
+	if(ipport_mapping->imsi!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_GTP_IMSI].name, (void *)ipport_mapping->imsi, TLD_TYPE_STRING);
+	}
+
+	if(ipport_mapping->imei!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_GTP_IMEI].name, (void *)ipport_mapping->imei, TLD_TYPE_STRING);
+	}
+
+	if(ipport_mapping->msisdn!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_GTP_MSISDN].name, (void *)ipport_mapping->msisdn, TLD_TYPE_STRING);	//phone number
+	}
+
+	return 1;
+}
+
 static int set_packet_bytes(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
 {
 	struct tcp_flow_stat *tflow_project=NULL;
@@ -1699,6 +1734,12 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 
 	set_umts_user_info(_instance, _handle, a_stream, srt_attribute->user_info);
 
+	ret=set_dynamic_ipport_mapping(_instance, _handle, srt_attribute->client_mapping);
+	if(ret==0)
+	{
+		set_dynamic_ipport_mapping(_instance, _handle, srt_attribute->server_mapping);
+	}
+
 	if(srt_attribute->client_endpoint!=NULL)
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS_ENDPOINT_A_DESC].name, (void *)srt_attribute->client_endpoint->description, TLD_TYPE_STRING);
@@ -1708,6 +1749,8 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 	{
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS_ENDPOINT_B_DESC].name, (void *)srt_attribute->server_endpoint->description, TLD_TYPE_STRING);
 	}
+
+
 
 	return 1;
 }

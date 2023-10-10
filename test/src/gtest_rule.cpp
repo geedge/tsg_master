@@ -404,15 +404,15 @@ TEST(TM, ExDataDynamicIPPortMappingSubscriberID)
 {
 	/*************************************************************************************************************************
 		table name: TSG_DYN_IPPORT_SUBSCRIBER_MAPPING
-		id addr_type ip subscriber_id port_start port_end is_valid
-        "1052\t4\t192.168.50.52\ttest52\t0\t255\t1",
-        "1037\t4\t192.168.50.37\test37\t40001\t40255\t1",
-        "1040\t6\t1030::C9B4:FF12:48AA:1040\ttest1040\t10240\t12800\t1",
-        "1041\t6\t1030::C9B4:FF12:3799:1041\ttest1041\t25600\t25856\t1"
+		id addr_type ip subscriber_id port_start port_end is_valid mobile_identify
+		"1052\t4\t192.168.50.52\ttest52\t0\t255\t1\tnull",
+		"1037\t4\t192.168.50.37\ttest37\t40001\t40255\t1\t{\"imei\":\"1298473129873912\",\"apn\":\"test.com\"}",
+		"1040\t6\t1030::C9B4:FF12:48AA:1040\ttest1040\t10240\t12800\t1\t{\"imei\":\"1298473129873912\",\"imsi\":\"231\"}",
+		"1041\t6\t1030::C9B4:FF12:3799:1041\ttest1041\t25600\t25856\t1\t{\"imei\":\"1298473129873912\",\"imsi\":\"231\",\"phone_numer\":\"123456789\"}"
 	**************************************************************************************************************************/
 	struct streaminfo a_stream = {0};
-	struct subscribe_id_info *dest_subscribe_id = NULL;
-	struct subscribe_id_info *source_subscribe_id = NULL;
+	struct dynamic_ipport_mapping *dest_mapping = NULL;
+	struct dynamic_ipport_mapping *source_mapping = NULL;
 	// ipv4
 	a_stream.addr.addrtype = ADDR_TYPE_IPV4;
 	struct stream_tuple4_v4 tuple4_v4 = {0};
@@ -422,31 +422,49 @@ TEST(TM, ExDataDynamicIPPortMappingSubscriberID)
 
 	tuple4_v4.dest = htons(255);	 //port end
 	tuple4_v4.source = htons(40001); //port start
-	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
-	EXPECT_STREQ("test52", dest_subscribe_id->subscribe_id);
-	EXPECT_STREQ("test37", source_subscribe_id->subscribe_id);
+	srt_attribute_set_dynamic_ipport_mapping(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_mapping, &dest_mapping);
+	EXPECT_STREQ("test52", dest_mapping->subscriber_id);
+	EXPECT_EQ(nullptr, dest_mapping->imsi);
+	EXPECT_EQ(nullptr, dest_mapping->imei);
+	EXPECT_EQ(nullptr, dest_mapping->msisdn);
+	EXPECT_EQ(nullptr, dest_mapping->apn);
 
-	plugin_ex_data_subscriber_id_free(dest_subscribe_id);
-	plugin_ex_data_subscriber_id_free(source_subscribe_id);
-	dest_subscribe_id = NULL;
-	source_subscribe_id = NULL;
+	EXPECT_STREQ("test37", source_mapping->subscriber_id);
+	EXPECT_STREQ("1298473129873912", source_mapping->imei);
+	EXPECT_EQ(nullptr, source_mapping->imsi);
+	EXPECT_EQ(nullptr, source_mapping->msisdn);
+	EXPECT_STREQ("test.com", source_mapping->apn);
+
+	plugin_ex_data_dynamic_ipport_mapping_free(dest_mapping);
+	plugin_ex_data_dynamic_ipport_mapping_free(source_mapping);
+	dest_mapping = NULL;
+	source_mapping = NULL;
 
 	tuple4_v4.dest = htons(250);		//port in range
 	tuple4_v4.source = htons(40025);	//port in range
-	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
-	EXPECT_STREQ("test52", dest_subscribe_id->subscribe_id);
-	EXPECT_STREQ("test37", source_subscribe_id->subscribe_id);
+	srt_attribute_set_dynamic_ipport_mapping(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_mapping, &dest_mapping);
+	EXPECT_STREQ("test52", dest_mapping->subscriber_id);
+	EXPECT_EQ(nullptr, dest_mapping->imsi);
+	EXPECT_EQ(nullptr, dest_mapping->imei);
+	EXPECT_EQ(nullptr, dest_mapping->msisdn);
+	EXPECT_EQ(nullptr, dest_mapping->apn);
 
-	plugin_ex_data_subscriber_id_free(dest_subscribe_id);
-	plugin_ex_data_subscriber_id_free(source_subscribe_id);
-	dest_subscribe_id = NULL;
-	source_subscribe_id = NULL;
+	EXPECT_STREQ("test37", source_mapping->subscriber_id);
+	EXPECT_STREQ("1298473129873912", source_mapping->imei);
+	EXPECT_EQ(nullptr, source_mapping->imsi);
+	EXPECT_EQ(nullptr, source_mapping->msisdn);
+	EXPECT_STREQ("test.com", source_mapping->apn);
+
+	plugin_ex_data_dynamic_ipport_mapping_free(dest_mapping);
+	plugin_ex_data_dynamic_ipport_mapping_free(source_mapping);
+	dest_mapping = NULL;
+	source_mapping = NULL;
 
 	tuple4_v4.dest = htons(256);	//port not in range
 	tuple4_v4.source = htons(40000);	//port not in range
-	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
-	EXPECT_EQ(nullptr, dest_subscribe_id);
-	EXPECT_EQ(nullptr, source_subscribe_id);
+	srt_attribute_set_dynamic_ipport_mapping(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_mapping, &dest_mapping);
+	EXPECT_EQ(nullptr, dest_mapping);
+	EXPECT_EQ(nullptr, source_mapping);
 
 	// ipv6
 	a_stream.addr.addrtype = ADDR_TYPE_IPV6;
@@ -456,31 +474,49 @@ TEST(TM, ExDataDynamicIPPortMappingSubscriberID)
 	inet_pton(AF_INET6, "1030::C9B4:FF12:3799:1041", tuple4_v6.saddr);
 	tuple4_v6.dest = htons(12800);		//port end
 	tuple4_v6.source = htons(25600);	//port start
-	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
-	EXPECT_STREQ("test1040", dest_subscribe_id->subscribe_id);
-	EXPECT_STREQ("test1041", source_subscribe_id->subscribe_id);
+	srt_attribute_set_dynamic_ipport_mapping(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_mapping, &dest_mapping);
+	EXPECT_STREQ("test1040", dest_mapping->subscriber_id);
+	EXPECT_STREQ("231", dest_mapping->imsi);
+	EXPECT_STREQ("1298473129873912", dest_mapping->imei);
+	EXPECT_EQ(nullptr, dest_mapping->msisdn);
+	EXPECT_EQ(nullptr, dest_mapping->apn);	
+
+	EXPECT_STREQ("test1041", source_mapping->subscriber_id);
+	EXPECT_STREQ("1298473129873912", source_mapping->imei);
+	EXPECT_STREQ("231", source_mapping->imsi);
+	EXPECT_STREQ("123456789", source_mapping->msisdn);
+	EXPECT_EQ(nullptr, source_mapping->apn);
 	
-	plugin_ex_data_subscriber_id_free(dest_subscribe_id);
-	plugin_ex_data_subscriber_id_free(source_subscribe_id);
-	dest_subscribe_id = NULL;
-	source_subscribe_id = NULL;
+	plugin_ex_data_dynamic_ipport_mapping_free(dest_mapping);
+	plugin_ex_data_dynamic_ipport_mapping_free(source_mapping);
+	dest_mapping = NULL;
+	source_mapping = NULL;
 
 	tuple4_v6.dest = htons(10244);		//port in range
 	tuple4_v6.source = htons(25620);	//port in range
-	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
-	EXPECT_STREQ("test1040", dest_subscribe_id->subscribe_id);
-	EXPECT_STREQ("test1041", source_subscribe_id->subscribe_id);
+	srt_attribute_set_dynamic_ipport_mapping(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_mapping, &dest_mapping);
+	EXPECT_STREQ("test1040", dest_mapping->subscriber_id);
+	EXPECT_STREQ("231", dest_mapping->imsi);
+	EXPECT_STREQ("1298473129873912", dest_mapping->imei);
+	EXPECT_EQ(nullptr, dest_mapping->msisdn);
+	EXPECT_EQ(nullptr, dest_mapping->apn);
+
+	EXPECT_STREQ("test1041", source_mapping->subscriber_id);
+	EXPECT_STREQ("1298473129873912", source_mapping->imei);
+	EXPECT_STREQ("231", source_mapping->imsi);
+	EXPECT_STREQ("123456789", source_mapping->msisdn);
+	EXPECT_EQ(nullptr, source_mapping->apn);
 	
-	plugin_ex_data_subscriber_id_free(dest_subscribe_id);
-	plugin_ex_data_subscriber_id_free(source_subscribe_id);
-	dest_subscribe_id = NULL;
-	source_subscribe_id = NULL;
+	plugin_ex_data_dynamic_ipport_mapping_free(dest_mapping);
+	plugin_ex_data_dynamic_ipport_mapping_free(source_mapping);
+	dest_mapping = NULL;
+	source_mapping = NULL;
 
 	tuple4_v6.dest = htons(10144);		//port not in range
 	tuple4_v6.source = htons(15620);	//port not in range
-	srt_attribute_set_dyn_mapping_subscriber_id(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_subscribe_id, &dest_subscribe_id);
-	EXPECT_EQ(nullptr, dest_subscribe_id);
-	EXPECT_EQ(nullptr, source_subscribe_id);
+	srt_attribute_set_dynamic_ipport_mapping(&a_stream, g_tsg_dyn_mapping_maat_feather, &source_mapping, &dest_mapping);
+	EXPECT_EQ(nullptr, dest_mapping);
+	EXPECT_EQ(nullptr, source_mapping);
 }
 
 TEST(TM, ExDataDNSRecordsProfileA)

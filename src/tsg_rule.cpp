@@ -449,30 +449,66 @@ void ex_data_gtp_c_new(const char *table_name, int table_id, const char* key, co
 	__sync_add_and_fetch(&user_info->ref_cnt, 1);
 	*ad=(void *)user_info;
 
-	tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_GTPC, 1);
+	if(user_info->apn!=NULL)
+	{
+		tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_GTPC_APN, 1);
+	}
+
+	if(user_info->imei!=NULL)
+	{
+		tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_GTPC_IMEI, 1);
+	}
+
+	if(user_info->imsi!=NULL)
+	{
+		tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_GTPC_IMSI, 1);
+	}
+
+	if(user_info->msisdn!=NULL)
+	{
+		tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_GTPC_MSISDN, 1);
+	}
+
 	return;
 }
 
 void ex_data_gtp_c_free(int table_id, void **ad, long argl, void* argp)
 {
-	if(*ad!=NULL)
+	if(*ad==NULL)
 	{
-		struct umts_user_info *user_info=(struct umts_user_info *)(*ad);
-		if((__sync_sub_and_fetch(&user_info->ref_cnt, 1) == 0))	
-		{
-			tsg_free_field(user_info->imsi);
-			tsg_free_field(user_info->msisdn);
-			tsg_free_field(user_info->apn);
-			tsg_free_field(user_info->imei);
-
-			tsg_free_field((char *)(*ad));
-			*ad=NULL;
-			
-			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_GTPC, 1);
-		}
+		return ;
 	}
 	
-	return;
+	struct umts_user_info *user_info=(struct umts_user_info *)(*ad);
+	if((__sync_sub_and_fetch(&user_info->ref_cnt, 1) == 0))	
+	{
+		if(user_info->apn!=NULL)
+		{
+			tsg_free_field(user_info->apn);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_GTPC_APN, 1);
+		}
+
+		if(user_info->imei!=NULL)
+		{
+			tsg_free_field(user_info->imei);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_GTPC_IMEI, 1);
+		}
+
+		if(user_info->imsi!=NULL)
+		{
+			tsg_free_field(user_info->imsi);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_GTPC_IMSI, 1);
+		}
+
+		if(user_info->msisdn!=NULL)
+		{
+			tsg_free_field(user_info->msisdn);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_GTPC_MSISDN, 1);
+		}
+		
+		tsg_free_field((char *)(*ad));
+		*ad=NULL;
+	}
 }
 
 void plugin_ex_data_gtp_c_free(struct umts_user_info *user_info)
@@ -709,6 +745,130 @@ void ex_data_subscriber_id_free(int table_id, void **ad, long argl, void* argp)
 void plugin_ex_data_subscriber_id_free(struct subscribe_id_info *subscriber)
 {
 	ex_data_subscriber_id_free(-1, (void **)&subscriber, 0, NULL);
+}
+
+void ex_data_dynamic_ipport_mapping_dup(int table_id, void **to, void **from, long argl, void* argp)
+{
+	if((*from)!=NULL)
+	{
+		struct dynamic_ipport_mapping *ipport_mapping=(struct dynamic_ipport_mapping *)(*from);
+		__sync_add_and_fetch(&ipport_mapping->ref_cnt, 1);
+		*to=*from;
+	}
+	
+	return;
+}
+void ipport_mapping_mobile_identify_parse(struct dynamic_ipport_mapping *ipport_mapping, char *mobile_identify)
+{
+	cJSON *object=cJSON_Parse(mobile_identify);
+	if(object==NULL)
+	{
+		return;
+	}
+
+	get_string_from_json(object, "imei", &(ipport_mapping->imei));
+	get_string_from_json(object, "imsi", &(ipport_mapping->imsi));
+	get_string_from_json(object, "phone_numer", &(ipport_mapping->msisdn));
+	get_string_from_json(object, "apn", &(ipport_mapping->apn));
+
+	cJSON_Delete(object);
+	object=NULL;
+}
+
+void ex_data_dynamic_ipport_mapping_new(const char *table_name, int table_id, const char* key, const char* table_line, void **ad, long argl, void* argp)
+{
+	int subscriber_idx=4;
+	int mobile_identify_idx=8;
+	struct dynamic_ipport_mapping *ipport_mapping=(struct dynamic_ipport_mapping *)calloc(1, sizeof(struct dynamic_ipport_mapping));
+	ipport_mapping->subscriber_id=column_string_get_value(table_line, subscriber_idx);
+	char *mobile_identify=column_string_get_value(table_line, mobile_identify_idx);
+	if(mobile_identify!=NULL)
+	{
+		ipport_mapping_mobile_identify_parse(ipport_mapping, mobile_identify);
+		tsg_free_field(mobile_identify);
+	}
+
+	__sync_add_and_fetch(&ipport_mapping->ref_cnt, 1);
+	*ad=(void *)ipport_mapping;
+	
+	if(ipport_mapping->subscriber_id!=NULL)
+	{
+		tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_IPPORT_MAPPING_SUBSCRIBER, 1);
+	}
+
+	if(ipport_mapping->apn!=NULL)
+	{
+		tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_APN, 1);
+	}
+
+	if(ipport_mapping->imei!=NULL)
+	{
+		tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_IMEI, 1);
+	}
+
+	if(ipport_mapping->imsi!=NULL)
+	{
+		tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_IMSI, 1);
+	}
+
+	if(ipport_mapping->msisdn!=NULL)
+	{
+		tsg_stat_sync_exdata_add_update(SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_MSISDN, 1);
+	}
+
+	return;
+}
+
+void ex_data_dynamic_ipport_mapping_free(int table_id, void **ad, long argl, void* argp)
+{
+	if((*ad)==NULL)
+	{
+		return ;
+	}
+
+	struct dynamic_ipport_mapping *ipport_mapping=(struct dynamic_ipport_mapping *)(*ad);
+	if((__sync_sub_and_fetch(&ipport_mapping->ref_cnt, 1) == 0))	
+	{
+		if(ipport_mapping->subscriber_id!=NULL)
+		{
+			tsg_free_field(ipport_mapping->subscriber_id);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_IPPORT_MAPPING_SUBSCRIBER, 1);
+		}
+
+		if(ipport_mapping->apn!=NULL)
+		{
+			tsg_free_field(ipport_mapping->apn);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_APN, 1);
+		}
+
+		if(ipport_mapping->imei!=NULL)
+		{
+			tsg_free_field(ipport_mapping->imei);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_IMEI, 1);
+		}
+
+		if(ipport_mapping->imsi!=NULL)
+		{
+			tsg_free_field(ipport_mapping->imsi);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_IMSI, 1);
+		}
+
+		if(ipport_mapping->msisdn!=NULL)
+		{
+			tsg_free_field(ipport_mapping->msisdn);
+			tsg_stat_sync_exdata_del_update(SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_MSISDN, 1);
+		}
+
+		tsg_free_field((char *)(*ad));
+		*ad=NULL;		
+	}
+	
+	return;
+}
+
+void plugin_ex_data_dynamic_ipport_mapping_free(struct dynamic_ipport_mapping *ipport_mapping)
+{
+	ex_data_dynamic_ipport_mapping_free(-1, (void **)&ipport_mapping, 0, NULL);
 }
 
 static int parse_security_deny_action(char *deny_action_str, struct deny_user_region *deny_app_para)
@@ -1874,9 +2034,9 @@ int init_dynamic_mapping_plugin_table(struct maat *feather, const char *conffile
 	}
 
 	int ret=maat_plugin_table_ex_schema_register(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.name,
-												ex_data_subscriber_id_new,
-												ex_data_subscriber_id_free,
-												ex_data_subscriber_id_dup,
+												ex_data_dynamic_ipport_mapping_new,
+												ex_data_dynamic_ipport_mapping_free,
+												ex_data_dynamic_ipport_mapping_dup,
 												0,
 												NULL
 											);
@@ -2256,7 +2416,7 @@ int srt_attribute_set_subscriber_id(const struct streaminfo *a_stream, struct ma
 	return 0;
 }
 
-int srt_attribute_set_dyn_mapping_subscriber_id(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id)
+int srt_attribute_set_dynamic_ipport_mapping(const struct streaminfo *a_stream, struct maat *feather, struct dynamic_ipport_mapping **source_mapping, struct dynamic_ipport_mapping **dest_mapping)
 {
 	struct ip_addr dest_ip={0}, source_ip={0};
 	int ret=ip_address_convert(a_stream, &source_ip, &dest_ip);
@@ -2280,14 +2440,14 @@ int srt_attribute_set_dyn_mapping_subscriber_id(const struct streaminfo *a_strea
 			return 0;
 	}
 
-	if(*dest_subscribe_id==NULL)
+	if(*dest_mapping==NULL)
 	{
-		maat_ipport_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id, &dest_ip, dest_port, (void **)dest_subscribe_id, 1);
+		maat_ipport_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id, &dest_ip, dest_port, (void **)dest_mapping, 1);
 	}
 
-	if(*source_subscribe_id==NULL)
+	if(*source_mapping==NULL)
 	{
-		maat_ipport_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id, &source_ip, source_port, (void **)source_subscribe_id, 1);
+		maat_ipport_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id, &source_ip, source_port, (void **)source_mapping, 1);
 	}
 
 	return 0;
@@ -2682,14 +2842,14 @@ size_t tsg_scan_tunnel_id(const struct streaminfo *a_stream, struct maat *feathe
 	return matched_cnt;
 }
 
-size_t tsg_scan_subscribe_id_policy(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info *user_info, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
+size_t tsg_scan_subscriber_id_policy(const struct streaminfo *a_stream, struct maat *feather, char *subscriber_id, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
 {
-	if(user_info==NULL || user_info->subscribe_id==NULL || matched_rules==NULL || n_matched_rules==0)
+	if(subscriber_id==NULL || matched_rules==NULL || n_matched_rules==0)
 	{
 		return 0;
 	}
 
-	return tsg_scan_string(a_stream, feather, user_info->subscribe_id, strlen(user_info->subscribe_id), MAAT_SCAN_SUBSCRIBER_ID, s_mid, matched_rules, n_matched_rules);
+	return tsg_scan_string(a_stream, feather, subscriber_id, strlen(subscriber_id), MAAT_SCAN_SUBSCRIBER_ID, s_mid, matched_rules, n_matched_rules);
 }
 
 size_t tsg_scan_gtp_apn_policy(const struct streaminfo *a_stream, struct maat *feather, char *apn, struct maat_state *s_mid,struct maat_rule *matched_rules, size_t n_matched_rules)
@@ -2720,6 +2880,22 @@ size_t tsg_scan_gtp_phone_number_policy(const struct streaminfo *a_stream, struc
 	}
 	
 	return tsg_scan_string(a_stream, feather, phone_number, strlen(phone_number), MAAT_SCAN_GTP_PHONE_NUMBER, s_mid, matched_rules, n_matched_rules);
+}
+
+size_t tsg_scan_dynamic_ipport_mapping_policy(const struct streaminfo *a_stream, struct maat *feather, struct dynamic_ipport_mapping *ipport_mapping, struct maat_state *s_mid, struct maat_rule *matched_rules, size_t n_matched_rules)
+{
+	if(ipport_mapping==NULL || matched_rules==NULL || n_matched_rules==0)
+	{
+		return 0;
+	}
+
+	size_t matched_cnt=0;
+	matched_cnt+=tsg_scan_subscriber_id_policy(a_stream, feather, ipport_mapping->subscriber_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+	matched_cnt+=tsg_scan_gtp_apn_policy(a_stream, feather, ipport_mapping->apn, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+	matched_cnt+=tsg_scan_gtp_imsi_policy(a_stream, feather, ipport_mapping->imsi, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+	matched_cnt+=tsg_scan_gtp_phone_number_policy(a_stream, feather, ipport_mapping->msisdn, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+	
+	return matched_cnt;
 }
 
 //return value: -1: failed, 0: not hit, >0: hit count 
@@ -2961,15 +3137,22 @@ size_t tsg_scan_nesting_addr(const struct streaminfo *a_stream, struct maat *fea
 	if(matched_cnt<n_matched_rules)
 	{
 		srt_attribute_set_subscriber_id(a_stream, feather, &srt_attribute->client_subscribe_id, &srt_attribute->server_subscribe_id);
-		matched_cnt+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->client_subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
-		matched_cnt+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->server_subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+		if(srt_attribute->client_subscribe_id!=NULL)
+		{
+			matched_cnt+=tsg_scan_subscriber_id_policy(a_stream, feather, srt_attribute->client_subscribe_id->subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+		}
+
+		if(srt_attribute->server_subscribe_id!=NULL)
+		{
+			matched_cnt+=tsg_scan_subscriber_id_policy(a_stream, feather, srt_attribute->server_subscribe_id->subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+		}
 	}
 
 	if(matched_cnt<n_matched_rules && g_tsg_maat_rt_para.dynamic_mapping_maat_switch==1)
 	{
-		srt_attribute_set_dyn_mapping_subscriber_id(a_stream, g_tsg_dyn_mapping_maat_feather, &srt_attribute->client_subscribe_id, &srt_attribute->server_subscribe_id);
-		matched_cnt+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->client_subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
-		matched_cnt+=tsg_scan_subscribe_id_policy(a_stream, feather, srt_attribute->server_subscribe_id, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);	
+		srt_attribute_set_dynamic_ipport_mapping(a_stream, g_tsg_dyn_mapping_maat_feather, &srt_attribute->client_mapping, &srt_attribute->server_mapping);
+		matched_cnt+=tsg_scan_dynamic_ipport_mapping_policy(a_stream, feather, srt_attribute->client_mapping, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
+		matched_cnt+=tsg_scan_dynamic_ipport_mapping_policy(a_stream, feather, srt_attribute->server_mapping, s_mid, matched_rules+matched_cnt, n_matched_rules-matched_cnt);
 	}
 
 	if(matched_cnt<n_matched_rules)

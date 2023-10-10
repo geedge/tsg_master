@@ -302,7 +302,10 @@ int tsg_stat_init(void)
 	const char *exdata_column_name[OP_EXDATA_MAX]={"add", "del"};
 	g_rt_stat_para.exdata.table_id=fieldstat_register_table(g_rt_stat_para.fs_instance, "sync_exdata", exdata_column_name, exdata_column_type, OP_EXDATA_MAX);
 	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "asn", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_ASN]);
-	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "gtpc", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_GTPC]);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "gtpc_imsi", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_GTPC_IMSI]);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "gtpc_imei", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_GTPC_IMEI]);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "gtpc_apn", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_GTPC_APN]);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "gtpc_msisdn", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_GTPC_MSISDN]);
 	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "location", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_LOCATION]);
 	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "fqdn_category", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_FQDN_CATEGORY]);
 	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "subscriber", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_SUBSCRIBER]);
@@ -313,7 +316,12 @@ int tsg_stat_init(void)
 	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "tunnel_catalog", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_TUNNEL_CATALOG]);
 	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "tunnel_endpoint", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_TUNNEL_ENDPOINT]);
 	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "tunnel_label", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_TUNNEL_LABEL]);
-
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "dyn_mapping_subscriber", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_IPPORT_MAPPING_SUBSCRIBER]);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "dyn_mapping_gtpc_imsi", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_IMSI]);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "dyn_mapping_gtpc_imei", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_IMEI]);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "dyn_mapping_gtpc_apn", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_APN]);
+	fieldstat_register_table_row(g_rt_stat_para.fs_instance, g_rt_stat_para.exdata.table_id, "dyn_mapping_gtpc_msisdn", NULL, 0, g_rt_stat_para.exdata.column_id[SYNC_EXDATA_ROW_IPPORT_MAPPING_GTPC_MSISDN]);
+	
 	enum field_type flow_column_type[FLOW_STAT_MAX]={FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE};
 	const char *flow_column_name[FLOW_STAT_MAX]={"inject", "mirror_pkts", "mirror_bytes", "set_timeout", "tamper"};
 	g_rt_stat_para.flow.table_id=fieldstat_register_table(g_rt_stat_para.fs_instance, "flow", flow_column_name, flow_column_type, FLOW_STAT_MAX);

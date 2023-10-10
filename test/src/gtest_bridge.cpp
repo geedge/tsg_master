@@ -59,6 +59,44 @@ void plugin_ex_data_subscriber_id_free(struct subscribe_id_info *subscriber)
 	}
 }
 
+void plugin_ex_data_dynamic_ipport_mapping_free(struct dynamic_ipport_mapping *ipport_mapping)
+{
+	if(ipport_mapping==NULL)
+	{
+		return ;
+	}
+
+	if(ipport_mapping->subscriber_id!=NULL)
+	{
+		free(ipport_mapping->subscriber_id);
+		ipport_mapping->subscriber_id=NULL;
+	}
+
+	if(ipport_mapping->apn!=NULL)
+	{
+		free(ipport_mapping->apn);
+		ipport_mapping->apn=NULL;
+	}
+
+	if(ipport_mapping->imsi!=NULL)
+	{
+		free(ipport_mapping->imsi);
+		ipport_mapping->imsi=NULL;
+	}
+
+	if(ipport_mapping->imei!=NULL)
+	{
+		free(ipport_mapping->imei);
+		ipport_mapping->imei=NULL;
+	}
+
+	if(ipport_mapping->msisdn!=NULL)
+	{
+		free(ipport_mapping->msisdn);
+		ipport_mapping->msisdn=NULL;
+	}
+}
+
 void plugin_ex_data_tunnel_endpoint_free(struct tunnel_endpoint *t_enpoint)
 {
 	if (t_enpoint != NULL)

@@ -68,6 +68,16 @@ struct umts_user_info
 	char *msisdn; //MSISDN: phone number
 };
 
+struct dynamic_ipport_mapping
+{
+	int ref_cnt;
+	char *apn;
+	char *imsi;
+	char *imei;
+	char *msisdn; //MSISDN: phone number
+	char *subscriber_id;
+};
+
 struct tunnel_catalog
 {
 	int id;
@@ -169,6 +179,8 @@ const struct asn_info *srt_attribute_get_client_ip_asn(const struct session_runt
 const struct asn_info *srt_attribute_get_server_ip_asn(const struct session_runtime_attribute *srt_attribute);
 const struct location_info *srt_attribute_get_client_ip_location(const struct session_runtime_attribute *srt_attribute);
 const struct location_info *srt_attribute_get_server_ip_location(const struct session_runtime_attribute *srt_attribute);
+const struct dynamic_ipport_mapping *srt_attribute_get_client_ipport_mapping(const struct session_runtime_attribute *srt_attribute);
+const struct dynamic_ipport_mapping *srt_attribute_get_server_ipport_mapping(const struct session_runtime_attribute *srt_attribute);
 size_t srt_attribute_get_category_ids(const struct session_runtime_attribute *srt_attribute, unsigned int *category_ids, size_t n_category_ids);
 
 int srt_attribute_set_category_ids(const struct streaminfo *a_stream, unsigned int *category_ids, int n_category_ids);

@@ -136,12 +136,13 @@ void plugin_ex_data_http_response_pages_free(struct http_response_pages *respons
 void plugin_ex_data_app_id_dict_free(struct app_id_dict * dict);
 void plugin_ex_data_security_compile_free(struct maat_compile *maat_compile);
 void plugin_ex_data_dns_profile_record_free(struct dns_profile_records * records);
+void plugin_ex_data_dynamic_ipport_mapping_free(struct dynamic_ipport_mapping *mapping);
 
 void tsg_maat_state_free(struct maat_state *state);
 int srt_attribute_set_ip_asn(const struct streaminfo *a_stream, struct maat *feather, struct asn_info **client_asn, struct asn_info **server_asn);
 int srt_attribute_set_ip_location(const struct streaminfo *a_stream, struct maat *feather, struct location_info **client_location, struct location_info **server_location);
 int srt_attribute_set_subscriber_id(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info **client_subscriber_id, struct subscribe_id_info **server_subscriber_id);
-int srt_attribute_set_dyn_mapping_subscriber_id(const struct streaminfo *a_stream, struct maat *feather, struct subscribe_id_info **source_subscribe_id, struct subscribe_id_info **dest_subscribe_id);
+int srt_attribute_set_dynamic_ipport_mapping(const struct streaminfo *a_stream, struct maat *feather, struct dynamic_ipport_mapping **source_mapping, struct dynamic_ipport_mapping **dest_mapping);
 
 int session_runtine_attribute_get_umts_user_info(const struct streaminfo *a_stream, struct umts_user_info **user_info);
 

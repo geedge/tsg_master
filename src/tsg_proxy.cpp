@@ -371,12 +371,31 @@ static void tsg_proxy_cmsg_subscriber_fill(struct session_runtime_attribute *ses
 {
     const char *client_subscribe_id = srt_attribute_get_client_subscriber_id(session_attr);
 	const char *server_subscribe_id = srt_attribute_get_server_subscriber_id(session_attr);
-    if (client_subscribe_id) {
+    if (client_subscribe_id)
+	{
         cmsg->src_sub_id = (char *)client_subscribe_id;
     }
-    if (server_subscribe_id) {
+	else
+	{
+		const struct dynamic_ipport_mapping *client_mapping = srt_attribute_get_client_ipport_mapping(session_attr);
+		if(client_mapping && client_mapping->subscriber_id)
+		{
+			cmsg->src_sub_id = (char *)client_mapping->subscriber_id;
+		}
+	}
+
+    if (server_subscribe_id)
+	{
         cmsg->dst_sub_id = (char *)server_subscribe_id;
     }
+	else
+	{
+		const struct dynamic_ipport_mapping *server_mapping = srt_attribute_get_server_ipport_mapping(session_attr);
+		if(server_mapping && server_mapping->subscriber_id)
+		{
+			cmsg->dst_sub_id = (char *)server_mapping->subscriber_id;
+		}
+	}
 
     return;
 }

@@ -4,8 +4,8 @@
         {
             "table_name": "TSG_DYN_IPPORT_SUBSCRIBER_MAPPING",
             "table_content": [
-                "1052\t4\t192.168.50.52\ttest52\t0\t255\t1",
-                "1037\t4\t192.168.50.37\ttest37\t40001\t40255\t1"
+                "1052\t4\t192.168.50.52\ttest52\t0\t255\t1\t{\"imei\":\"1298473129873912\",\"imsi\":\"231\",\"apn\":\"ufone.pin\"}",
+                "1037\t4\t192.168.50.37\ttest37\t40001\t40255\tnull\t1"
             ]
         }
     ]

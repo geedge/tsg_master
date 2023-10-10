@@ -223,6 +223,9 @@ void session_runtime_attribute_free(const struct streaminfo *a_stream, int bridg
 		plugin_ex_data_tunnel_endpoint_free(srt_attribute->client_endpoint);
 		plugin_ex_data_tunnel_endpoint_free(srt_attribute->server_endpoint);
 
+		plugin_ex_data_dynamic_ipport_mapping_free(srt_attribute->client_mapping);
+		plugin_ex_data_dynamic_ipport_mapping_free(srt_attribute->server_mapping);
+
 		if(srt_attribute->ja3_fingerprint!=NULL)
 		{
 			dictator_free(a_stream->threadnum, (void *)srt_attribute->ja3_fingerprint);
@@ -468,11 +471,32 @@ const char *srt_attribute_get_client_subscriber_id(const struct session_runtime_
 
 	return NULL;
 }
+
 const char *srt_attribute_get_server_subscriber_id(const struct session_runtime_attribute *srt_attribute)
 {
 	if(srt_attribute!=NULL && srt_attribute->server_subscribe_id!=NULL)
 	{
 		return (const char *)(srt_attribute->server_subscribe_id->subscribe_id);
+	}
+
+	return NULL;
+}
+
+const struct dynamic_ipport_mapping *srt_attribute_get_client_ipport_mapping(const struct session_runtime_attribute *srt_attribute)
+{
+	if(srt_attribute)
+	{
+		return (const struct dynamic_ipport_mapping *)(srt_attribute->client_mapping);
+	}
+
+	return NULL;
+}
+
+const struct dynamic_ipport_mapping *srt_attribute_get_server_ipport_mapping(const struct session_runtime_attribute *srt_attribute)
+{
+	if(srt_attribute)
+	{
+		return (const struct dynamic_ipport_mapping *)(srt_attribute->server_mapping);
 	}
 
 	return NULL;
