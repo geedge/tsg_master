@@ -2525,10 +2525,10 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 		*pme=(void *)session_runtime_action_context_get(a_tcp);
 		if(*pme==NULL)
 		{
-			srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_new(a_tcp);
-			*pme=(void *)srt_action_context;
+			*pme=(void *)session_runtime_action_context_new(a_tcp);
 		}
 		
+		srt_action_context=(struct session_runtime_action_context *)(*pme);
 		srt_action_context->direction=get_direction(a_tcp);
 		srt_action_context->last_update_metric_time = tsg_get_current_time_ms();
 	}

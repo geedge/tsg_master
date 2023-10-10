@@ -258,45 +258,6 @@ static int set_tcp_isn(struct tsg_log_instance_t *_instance, struct TLD_handle_t
 	return 1;
 }
 
-static int set_linkinfo(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
-{
-	const char *linkinfo=(const char *)session_mac_linkinfo_get(a_stream);
-	if(linkinfo==NULL)
-	{
-		return 0;
-	}
-
-	cJSON *item=NULL;
-	cJSON *object=cJSON_Parse(linkinfo);
-	if(object)
-	{
-		item=cJSON_GetObjectItem(object, "common_direction");
-		if(item!=NULL)
-		{			
-			TLD_append(_handle, (char *)"common_direction", (void *)(long)(item->valueint), TLD_TYPE_LONG);
-		}
-		
-		item=cJSON_GetObjectItem(object, "common_egress_link_id");
-		if(item!=NULL)
-		{			
-			TLD_append(_handle, (char *)"common_egress_link_id", (void *)(long)(item->valueint), TLD_TYPE_LONG);
-		}
-		
-		item=cJSON_GetObjectItem(object, "common_ingress_link_id");
-		if(item!=NULL)
-		{			
-			TLD_append(_handle, (char *)"common_ingress_link_id", (void *)(long)(item->valueint), TLD_TYPE_LONG);
-		}
-
-		cJSON_Delete(object);
-		object=NULL;
-		
-		return 1;
-	}
-	
-	return 0;
-}
-
 static int set_asn(struct TLD_handle_t *_handle, const struct streaminfo *a_stream, char *field_name, struct asn_info *asn_info)
 {	
 	if(asn_info!=NULL)
@@ -346,6 +307,26 @@ static int set_direction(struct tsg_log_instance_t *_instance, struct TLD_handle
 	}
 	
 	return 0;
+}
+
+static int set_link_id(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
+{
+	unsigned int link_id=0;
+	int link_id_size=sizeof(unsigned int);
+	int ret=MESA_get_stream_opt(a_stream, MSO_STREAM_INBOND_LINK_ID, &link_id, &link_id_size);
+	if(ret>=0 && link_id_size>0)
+	{
+		TLD_append(_handle, (char *)"common_in_link_id", (void *)(long)link_id, TLD_TYPE_LONG);
+	}
+
+	link_id_size=sizeof(unsigned int);
+	ret=MESA_get_stream_opt(a_stream, MSO_STREAM_OUTBOND_LINK_ID, &link_id, &link_id_size);
+	if(ret>=0 && link_id_size>0)
+	{
+		TLD_append(_handle, (char *)"common_out_link_id", (void *)(long)link_id, TLD_TYPE_LONG);
+	}
+
+	return 1;
 }
 
 static int set_address_list(struct tsg_log_instance_t *_instance, struct TLD_handle_t *_handle, const struct streaminfo *a_stream)
@@ -1797,12 +1778,8 @@ int TLD_append_streaminfo(struct tsg_log_instance_t *instance, struct TLD_handle
 		return -1;
 	}
 
-	int ret=set_linkinfo(_instance, _handle, a_stream);
-	if(ret==0)
-	{
-		set_direction(_instance, _handle, a_stream);
-	}
-
+	set_link_id(_instance, _handle, a_stream);
+	set_direction(_instance, _handle, a_stream);
 	set_app_id(_instance, _handle, a_stream);
 	set_tcp_isn(_instance, _handle, a_stream);
 	set_tuple4(_instance, _handle, a_stream);
