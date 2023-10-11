@@ -119,6 +119,14 @@ enum CTRL_SERVICE
 	CTRL_SERVICE_MAX
 };
 
+enum THREAD_METRICS
+{
+	THREAD_APP_METRICS_COUNT=0,
+	THREAD_DYN_IPPORT_MAPPING_QUERY_METRICS,
+	THREAD_DYN_IPPORT_MAPPING_RESPONSE_METRICS,
+	THREAD_METRICS_MAX	
+};
+
 int tsg_stat_create(const char *conffile);
 int tsg_stat_init(void);
 int tsg_stat_sendlog_row_init(const char *row_name);
@@ -131,7 +139,8 @@ void tsg_stat_log_handle_update(enum LOG_HANDLE column_idx, long long increase);
 void tsg_stat_sync_exdata_add_update(enum SYNC_EXDATA_ROW row_idx, long long increase);
 void tsg_stat_sync_exdata_del_update(enum SYNC_EXDATA_ROW row_idx, long long increase);
 void tsg_stat_sync_application_update(enum SYNC_APP column_idx, long long increase);
-void tsg_stat_application_metrics_count_set(int row_idx, long long current);
+void tsg_stat_application_metrics_count_set(int row_idx, enum THREAD_METRICS column_idx, long long current);
+void tsg_stat_dyn_ipport_mapping_metrics_update(int row_idx, enum THREAD_METRICS column_idx, long long increase);
 void tsg_stat_sendlog_update(int row_idx, enum LOG_STATUS column_idx, long long increase);
 void tsg_stat_flow_update(enum STAT_STATUS status, enum FLOW_STAT column_idx, long long increase);
 void tsg_stat_sync_ctrl_update(enum STAT_STATUS status, enum CTRL_SYNC column_idx, long long increase);

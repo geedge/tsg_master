@@ -341,7 +341,7 @@ int tsg_set_application_metrics(const struct streaminfo *a_stream, const char *l
 														thread_seq
 													);
 
-	tsg_stat_application_metrics_count_set(thread_seq, fieldstat_dynamic_read_htable_item_cnt(g_tsg_statis_para.fs_application.metrics_handle, thread_seq));
+	tsg_stat_application_metrics_count_set(thread_seq, THREAD_APP_METRICS_COUNT, fieldstat_dynamic_read_htable_item_cnt(g_tsg_statis_para.fs_application.metrics_handle, thread_seq));
 
 	return 0;
 }

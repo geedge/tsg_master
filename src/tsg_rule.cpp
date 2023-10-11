@@ -2442,12 +2442,24 @@ int srt_attribute_set_dynamic_ipport_mapping(const struct streaminfo *a_stream, 
 
 	if(*dest_mapping==NULL)
 	{
-		maat_ipport_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id, &dest_ip, dest_port, (void **)dest_mapping, 1);
+		tsg_stat_dyn_ipport_mapping_metrics_update(a_stream->threadnum, THREAD_DYN_IPPORT_MAPPING_QUERY_METRICS, 1);
+
+		int n_ex_data=maat_ipport_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id, &dest_ip, dest_port, (void **)dest_mapping, 1);
+		if(n_ex_data>0)
+		{
+			tsg_stat_dyn_ipport_mapping_metrics_update(a_stream->threadnum, THREAD_DYN_IPPORT_MAPPING_RESPONSE_METRICS, 1);
+		}
 	}
 
 	if(*source_mapping==NULL)
 	{
-		maat_ipport_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id, &source_ip, source_port, (void **)source_mapping, 1);
+		tsg_stat_dyn_ipport_mapping_metrics_update(a_stream->threadnum, THREAD_DYN_IPPORT_MAPPING_QUERY_METRICS, 1);
+
+		int n_ex_data=maat_ipport_plugin_table_get_ex_data(feather, g_tsg_maat_rt_para.plugin_dyn_mapping_tb.id, &source_ip, source_port, (void **)source_mapping, 1);
+		if(n_ex_data>0)
+		{
+			tsg_stat_dyn_ipport_mapping_metrics_update(a_stream->threadnum, THREAD_DYN_IPPORT_MAPPING_RESPONSE_METRICS, 1);
+		}
 	}
 
 	return 0;
