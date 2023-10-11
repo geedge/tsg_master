@@ -365,8 +365,8 @@ int tsg_stat_init(void)
 	g_rt_stat_para.sendlog.table_id=fieldstat_register_table(g_rt_stat_para.fs_instance, "sendlog", sendlog_column_name, sendlog_column_type, LOG_STATUS_MAX);
 
 	char fs3_table_name[128]={0};
-	enum field_type thread_metrics_column_type[THREAD_METRICS_MAX]={FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE};
-	const char *thread_metrics_column_name[THREAD_METRICS_MAX]={"app_metric_cnt", "dyn_mapping_Q", "dyn_mapping_R"};
+	enum field_type thread_metrics_column_type[THREAD_METRICS_MAX]={FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE, FIELD_TYPE_GAUGE};
+	const char *thread_metrics_column_name[THREAD_METRICS_MAX]={"app_metric_cnt", "dyn_mapping_C_Q", "dyn_mapping_C_R", "dyn_mapping_S_Q", "dyn_mapping_S_R"};
 	g_rt_stat_para.thread_metrics.table_id=fieldstat_register_table(g_rt_stat_para.fs_instance, "thread", thread_metrics_column_name, thread_metrics_column_type, THREAD_METRICS_MAX);
 	
 	int thread_count=get_thread_count();
