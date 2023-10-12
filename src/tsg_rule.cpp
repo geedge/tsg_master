@@ -768,7 +768,7 @@ void ipport_mapping_mobile_identify_parse(struct dynamic_ipport_mapping *ipport_
 
 	get_string_from_json(object, "imei", &(ipport_mapping->imei));
 	get_string_from_json(object, "imsi", &(ipport_mapping->imsi));
-	get_string_from_json(object, "phone_numer", &(ipport_mapping->msisdn));
+	get_string_from_json(object, "phone_number", &(ipport_mapping->msisdn));
 	get_string_from_json(object, "apn", &(ipport_mapping->apn));
 
 	cJSON_Delete(object);
