@@ -1727,6 +1727,16 @@ int set_session_attributes(struct tsg_log_instance_t *_instance, struct TLD_hand
 		TLD_append(_handle, _instance->id2field[LOG_COMMON_TUNNELS_ENDPOINT_B_DESC].name, (void *)srt_attribute->server_endpoint->description, TLD_TYPE_STRING);
 	}
 
+	if(srt_attribute->client_os!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_CLIENT_OS_NAME].name, (void *)srt_attribute->client_os, TLD_TYPE_STRING);
+	}
+
+	if(srt_attribute->server_os!=NULL)
+	{
+		TLD_append(_handle, _instance->id2field[LOG_COMMON_SERVER_OS_NAME].name, (void *)srt_attribute->server_os, TLD_TYPE_STRING);
+	}
+
 	return 1;
 }
 

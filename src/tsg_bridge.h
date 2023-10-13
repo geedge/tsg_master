@@ -120,7 +120,8 @@ struct session_runtime_action_context
 	char direction;
 	char state;
 	char is_drop_after_n_packets;
-	char padding[3];
+	char os_fingerprint_flag;
+	char padding[2];
 	enum TSG_METHOD_TYPE method_type; 
 	enum TSG_PROTOCOL protocol;
 	char *l4_protocol;
@@ -161,6 +162,8 @@ struct session_runtime_attribute
 	struct tunnel_endpoint *server_endpoint;
 	unsigned long session_flags;
 	struct tsg_proxy_tcp_attribute *proxy_tcp_attr;
+	char *client_os;
+	char *server_os;
 };
 
 
@@ -201,6 +204,8 @@ int srt_attribute_set_flags(const struct streaminfo * a_stream, unsigned long s_
 int srt_attribute_set_establish_latecy(const struct streaminfo * a_stream);
 int srt_attribute_set_ja3_fingprint(const struct streaminfo *a_stream, const char *ja3_fingerprint, int ja3_fingerprint_len);
 int srt_attribute_set_reponse_size(const struct streaminfo *a_stream, int http_action_file_size);
+int srt_attribute_set_client_os(const struct streaminfo *a_stream, const char *os_name);
+int srt_attribute_set_server_os(const struct streaminfo *a_stream, const char *os_name);
 
 void srt_attribute_free_proxy_tcp_option(const struct streaminfo *a_stream);
 

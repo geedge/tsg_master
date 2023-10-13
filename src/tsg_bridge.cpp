@@ -236,6 +236,18 @@ void session_runtime_attribute_free(const struct streaminfo *a_stream, int bridg
 			srt_attribute->proxy_tcp_attr = NULL;
 		}
 
+		if(srt_attribute->client_os!=NULL)
+		{
+			dictator_free(a_stream->threadnum, (void *)srt_attribute->client_os);
+			srt_attribute->client_os=NULL;
+		}
+
+		if(srt_attribute->server_os!=NULL)
+		{
+			dictator_free(a_stream->threadnum, (void *)srt_attribute->server_os);
+			srt_attribute->server_os=NULL;
+		}
+
 		dictator_free(a_stream->threadnum, data);
 		data=NULL;
 	}
@@ -367,6 +379,46 @@ int srt_attribute_set_ja3_fingprint(const struct streaminfo *a_stream, const cha
 		return 1;
 	}
 	
+	return 0;
+}
+
+int srt_attribute_set_client_os(const struct streaminfo *a_stream, const char *os_name)
+{
+	if(os_name==NULL)
+	{
+		return 0;
+	}
+
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
+	if(srt_attribute)
+	{
+		size_t os_name_len=strlen(os_name);
+		srt_attribute->client_os=(char *)dictator_malloc(a_stream->threadnum, os_name_len+1);
+		memcpy((void *)srt_attribute->client_os, os_name, os_name_len);
+		srt_attribute->client_os[os_name_len]='\0';
+		return 1;
+	}
+
+	return 0;
+}
+
+int srt_attribute_set_server_os(const struct streaminfo *a_stream, const char *os_name)
+{
+	if(os_name==NULL)
+	{
+		return 0;
+	}
+
+	struct session_runtime_attribute *srt_attribute=(struct session_runtime_attribute *)session_runtime_attribute_new(a_stream);
+	if(srt_attribute)
+	{
+		size_t os_name_len=strlen(os_name);
+		srt_attribute->server_os=(char *)dictator_malloc(a_stream->threadnum, os_name_len+1);
+		memcpy((void *)srt_attribute->server_os, os_name, os_name_len);
+		srt_attribute->server_os[os_name_len]='\0';
+		return 1;
+	}
+
 	return 0;
 }
 

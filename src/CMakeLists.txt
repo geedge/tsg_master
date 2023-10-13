@@ -8,7 +8,7 @@ include_directories(${CMAKE_SOURCE_DIR}/inc)
 include_directories(/opt/MESA/include/MESA/)
 include_directories(/usr/include/)
 
-set(TSG_MASTER_DEPEND_DYN_LIB  MESA_handle_logger MESA_prof_load maat4 pthread rdkafka cjson MESA_jump_layer fieldstat3 crypto ipfix_exporter)
+set(TSG_MASTER_DEPEND_DYN_LIB  MESA_handle_logger MESA_prof_load maat4 pthread rdkafka cjson MESA_jump_layer fieldstat3 crypto ipfix_exporter osfp)
 
 set(CMAKE_INSTALL_PREFIX /home/mesasoft/sapp_run)
 

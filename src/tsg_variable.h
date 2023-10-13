@@ -3,7 +3,8 @@
 #include "uthash.h"
 #include "tsg_bridge.h"
 
-#include <MESA/stream.h>
+#include <osfp.h>
+#include <stream.h>
 #include <ctemplate/template.h>
 
 enum DEPLOY_MODE
@@ -91,6 +92,7 @@ struct tsg_rt_para
 	ctemplate::Template *tpl_403,*tpl_404;
 	ctemplate::Template *tpl_200,*tpl_204;
 	ctemplate::Template *tpl_303;
+	struct osfp_db *db_osfp;
 };
 
 extern struct tsg_rt_para g_tsg_para;;

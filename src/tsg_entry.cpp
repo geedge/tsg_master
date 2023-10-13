@@ -1114,6 +1114,65 @@ int session_app_gather_results_update_matched_app_id(const struct streaminfo *a_
 	return 1;
 }
 
+int session_os_fingerprint_generate(const struct streaminfo *a_stream, const void *ip_hdr)
+{
+	struct iphdr *ipv4_hdr=NULL;
+	struct ip6_hdr *ipv6_hdr=NULL;
+	struct tcphdr  *tcp_hdr=NULL;
+    struct osfp_result *p_result=NULL;
+
+	if(ip_hdr==NULL || a_stream==NULL)
+	{
+		return 0;
+	}
+	
+	switch(a_stream->addr.addrtype)
+	{
+		case	ADDR_TYPE_IPV4:
+			ipv4_hdr=(struct iphdr *)ip_hdr;
+			tcp_hdr=(struct tcphdr *)MESA_net_jump_to_layer(ipv4_hdr, __ADDR_TYPE_IP_PAIR_V4, ADDR_TYPE_TCP);
+			if(tcp_hdr->syn)
+			{
+				p_result=osfp_ipv4_identify(g_tsg_para.db_osfp, ipv4_hdr, tcp_hdr, tcp_hdr->doff*4);
+			}
+            		
+			break;
+		case	ADDR_TYPE_IPV6:	
+			ipv6_hdr=(struct ip6_hdr *)ip_hdr;
+			tcp_hdr=(struct tcphdr *)MESA_net_jump_to_layer(ipv6_hdr, __ADDR_TYPE_IP_PAIR_V6, ADDR_TYPE_TCP);
+			if(tcp_hdr->syn)
+			{
+            	p_result=osfp_ipv6_identify(g_tsg_para.db_osfp, ipv6_hdr, tcp_hdr, tcp_hdr->doff*4);
+			}
+			break;
+		default:
+			return 0;
+	}
+	
+	if(p_result!=NULL)
+	{
+		const char *os_name=osfp_result_os_name_get(p_result);
+		if(tcp_hdr->ack)
+		{
+        	srt_attribute_set_server_os(a_stream, os_name);
+		}
+		else
+		{
+			srt_attribute_set_client_os(a_stream, os_name);
+		}
+
+		osfp_result_free(p_result);
+		p_result=NULL;
+	}
+
+	if(!tcp_hdr->syn)
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
 int session_state_control_packet(const struct streaminfo *a_stream, void *payload, unsigned int payload_len)
 {
 	if(payload==NULL || payload_len==0)
@@ -2555,7 +2614,7 @@ extern "C" unsigned char TSG_MASTER_UDP_ENTRY(const struct streaminfo *a_udp, vo
 	return (state1|state2);
 }
 
-extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq, const void *a_packet)
+extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp, void **pme, int thread_seq, const void *ip_hdr)
 {
 	struct session_runtime_action_context *srt_action_context=(struct session_runtime_action_context *)(*pme);
 
@@ -2571,25 +2630,27 @@ extern "C" unsigned char TSG_MASTER_TCPALL_ENTRY(const struct streaminfo *a_tcp,
 		*pme=(void *)session_runtime_action_context_get(a_tcp);
 		if(*pme==NULL)
 		{
-			srt_action_context=(struct session_runtime_action_context *)session_runtime_action_context_new(a_tcp);
-			*pme=(void *)srt_action_context;
+			*pme=(struct session_runtime_action_context *)session_runtime_action_context_new(a_tcp);
 		}
 		
+		srt_action_context=(struct session_runtime_action_context *)(*pme);
 		srt_action_context->direction=get_direction(a_tcp);
 		srt_action_context->last_update_metric_time = tsg_get_current_time_ms();
 	}
 
 	if(srt_action_context->set_latency_flag==0)
 	{
-		srt_action_context->set_latency_flag=session_tcp_establish_latency_ms_set(a_tcp, thread_seq, a_packet);
+		srt_action_context->set_latency_flag=session_tcp_establish_latency_ms_set(a_tcp, thread_seq, ip_hdr);
 	}
 
-	if (a_packet!=NULL)
+	if(srt_action_context->os_fingerprint_flag==0)
 	{
-		tsg_proxy_tcp_options_parse(a_tcp, a_packet);
+		srt_action_context->os_fingerprint_flag=session_os_fingerprint_generate(a_tcp, ip_hdr);
 	}
-	
-	unsigned char state=tsg_master_all_entry(a_tcp, a_tcp->pktstate, pme, thread_seq, a_packet);
+
+	tsg_proxy_tcp_options_parse(a_tcp, ip_hdr);
+
+	unsigned char state=tsg_master_all_entry(a_tcp, a_tcp->pktstate, pme, thread_seq, ip_hdr);
 
 	if(state&APP_STATE_DROPME || a_tcp->pktstate==OP_STATE_CLOSE)
 	{
@@ -2720,6 +2781,15 @@ extern "C" int TSG_MASTER_INIT()
 	}
 
 	g_tsg_para.send_resetall=0;
+
+	char osfp_db_json_path[256]={0};
+	MESA_load_profile_string_def(tsg_conffile, "SYSTEM", "OSFP_DB_JSON_PATH", osfp_db_json_path, sizeof(osfp_db_json_path), "tsgconf/tsg_osfp_db.json");
+	g_tsg_para.db_osfp=osfp_db_new((const char *)osfp_db_json_path);
+	if(g_tsg_para.db_osfp==NULL)
+	{
+		MASTER_LOG(g_tsg_para.logger, RLOG_LV_FATAL, LOG_MODULE_INIT, "osfp_db_new failed, please check %s", osfp_db_json_path);
+		return -1;
+	}
 
 	return 0;
 }
