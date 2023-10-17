@@ -470,6 +470,26 @@
             "element_name":"common_tunnel_endpoint_b_desc",
             "element_type":"string",
             "element_id": 72
+        },
+        {
+            "element_name":"common_start_timestamp_ms",
+            "element_type":"unsigned64",
+            "element_id": 73
+        },
+        {
+            "element_name":"common_end_timestamp_ms",
+            "element_type":"unsigned64",
+            "element_id": 233
+        },
+        {
+            "element_name":"common_client_os_name",
+            "element_type":"string",
+            "element_id": 234
+        },
+        {
+            "element_name":"common_server_os_name",
+            "element_type":"string",
+            "element_id": 235
         }
     ],
     "SSL_elements": [
@@ -925,7 +945,7 @@
         },
         {
             "element_name": "sip_originator_sdp_media_port",
-            "element_type": "string",
+            "element_type": "unsigned32",
             "element_id": 156
         },
         {
@@ -945,7 +965,7 @@
         },
         {
             "element_name": "sip_responder_sdp_media_port",
-            "element_type": "string",
+            "element_type": "unsigned32",
             "element_id": 160
         },
         {
@@ -960,7 +980,7 @@
         },
         {
             "element_name": "sip_duration_s",
-            "element_type": "string",
+            "element_type": "unsigned32",
             "element_id": 163
         },
         {
