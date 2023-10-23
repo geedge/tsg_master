@@ -1995,7 +1995,7 @@ unsigned char session_matched_rules_deal(const struct streaminfo *a_stream, stru
 
 	struct maat_rule statistics_rules[MAX_RESULT_NUM];
 	size_t n_statistics_rules=tsg_select_rules_by_service_id(matched_rules, n_matched_rules, statistics_rules, MAX_RESULT_NUM, TSG_SERVICE_STATISTICS);
-	if(n_shaping_rules>0)
+	if(n_statistics_rules>0)
 	{
 		matched_statistics_rules_deal(a_stream, statistics_rules, n_statistics_rules, thread_seq);
 	}
