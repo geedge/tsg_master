@@ -177,16 +177,12 @@ static void mpack_append_cmsg_value(mpack_writer_t *writer, struct proxy_cmsg *c
 		mpack_write_u32(writer, cmsg->tcp_ack);
 		mpack_write_u16(writer, cmsg->tcp_mss_client);
 		mpack_write_u16(writer, cmsg->tcp_mss_server);
-		if (cmsg->tcp_wsacle_exist == 1)
-		{
-			mpack_write_u8(writer, cmsg->tcp_wsacle_client);
-			mpack_write_u8(writer, cmsg->tcp_wsacle_server);
-		}
-		else
-		{
-			mpack_write_u8(writer, 0);
-			mpack_write_u8(writer, 0);
-		}
+
+		mpack_write_u8(writer, cmsg->tcp_wsacle_set_client);
+		mpack_write_u8(writer, cmsg->tcp_wsacle_set_server);
+		mpack_write_u8(writer, cmsg->tcp_wsacle_client);
+		mpack_write_u8(writer, cmsg->tcp_wsacle_server);
+	
 		mpack_write_u8(writer, cmsg->tcp_sack_client);
 		mpack_write_u8(writer, cmsg->tcp_sack_server);
 		mpack_write_u8(writer, cmsg->tcp_ts_client);

@@ -52,7 +52,8 @@ struct cmsg_buff
 struct proxy_cmsg
 {
     uint8_t tcp_info_packet_cur_dir;
-    uint8_t tcp_wsacle_exist;
+    uint8_t tcp_wsacle_set_client;
+    uint8_t tcp_wsacle_set_server;
     uint8_t tcp_wsacle_client;
     uint8_t tcp_wsacle_server;
     uint8_t tcp_sack_client;

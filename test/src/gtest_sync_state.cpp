@@ -383,7 +383,8 @@ TEST(POLICY_UPDATE, ActiveStateServiceChainingAndShaping1)
 
 static void gtest_cmsg_init(struct proxy_cmsg *cmsg)
 {
-    cmsg->tcp_wsacle_exist = 1;
+    cmsg->tcp_wsacle_set_client = 1;
+    cmsg->tcp_wsacle_set_server = 1;
     cmsg->tcp_seq = 1;
     cmsg->tcp_ack = 2;
     cmsg->tcp_mss_client = 3;
@@ -540,42 +541,42 @@ TEST(POLICY_UPDATE, Proxy)
 
     mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
     EXPECT_EQ(1, mpack_node_u32(mpack_node_array_at(tcp_handshake, 0)));
-    EXPECT_EQ(16, mpack_node_u32(mpack_node_array_at(tcp_handshake, 14)));
+    EXPECT_EQ(16, mpack_node_u32(mpack_node_array_at(tcp_handshake, 16)));
 
-    memcpy(test_str, mpack_node_str(mpack_node_array_at(tcp_handshake, 17)), mpack_node_strlen(mpack_node_array_at(tcp_handshake, 17)));
+    memcpy(test_str, mpack_node_str(mpack_node_array_at(tcp_handshake, 19)), mpack_node_strlen(mpack_node_array_at(tcp_handshake, 19)));
     EXPECT_STREQ("thisistest=2", test_str);
     memset(test_str, 0, sizeof(test_str));
 
-    memcpy(test_str, mpack_node_str(mpack_node_array_at(tcp_handshake, 22)), mpack_node_strlen(mpack_node_array_at(tcp_handshake, 22)));
+    memcpy(test_str, mpack_node_str(mpack_node_array_at(tcp_handshake, 24)), mpack_node_strlen(mpack_node_array_at(tcp_handshake, 24)));
     EXPECT_STREQ("thisistest=7", test_str);
     memset(test_str, 0, sizeof(test_str));
 
-    mpack_node_t fqdn_cat_id_vals = mpack_node_array_at(tcp_handshake, 25);
+    mpack_node_t fqdn_cat_id_vals = mpack_node_array_at(tcp_handshake, 27);
     EXPECT_EQ(4, mpack_node_array_length(fqdn_cat_id_vals));
     for (int i = 0; i < 4; i++)
     {
         EXPECT_EQ(i + 1, mpack_node_u32(mpack_node_array_at(fqdn_cat_id_vals, i)));
     }
 
-    mpack_node_t tcp_ack_route_ctxs = mpack_node_array_at(tcp_handshake, 29);
+    mpack_node_t tcp_ack_route_ctxs = mpack_node_array_at(tcp_handshake, 31);
     EXPECT_EQ(mpack_type_bin, mpack_node_type(tcp_ack_route_ctxs));
     memcpy(test_str, mpack_node_bin_data(tcp_ack_route_ctxs), mpack_node_bin_size(tcp_ack_route_ctxs));
     EXPECT_STREQ("test: tcp_ack_route_ctx", test_str);
     memset(test_str, 0, sizeof(test_str));
 
-    mpack_node_t tcp_seq_pkg_header = mpack_node_array_at(tcp_handshake, 30);
+    mpack_node_t tcp_seq_pkg_header = mpack_node_array_at(tcp_handshake, 32);
     EXPECT_EQ(mpack_type_bin, mpack_node_type(tcp_seq_pkg_header));
     memcpy(test_str, mpack_node_bin_data(tcp_seq_pkg_header), mpack_node_bin_size(tcp_seq_pkg_header));
     EXPECT_STREQ("test: c2s_rawpkt_header", test_str);
     memset(test_str, 0, sizeof(test_str));
 
-    mpack_node_t tcp_ack_pkg_header = mpack_node_array_at(tcp_handshake, 31);
+    mpack_node_t tcp_ack_pkg_header = mpack_node_array_at(tcp_handshake, 33);
     EXPECT_EQ(mpack_type_bin, mpack_node_type(tcp_ack_pkg_header));
     memcpy(test_str, mpack_node_bin_data(tcp_ack_pkg_header), mpack_node_bin_size(tcp_ack_pkg_header));
     EXPECT_STREQ("test: s2c_rawpkt_header", test_str);
     memset(test_str, 0, sizeof(test_str));
 
-    mpack_node_t tcp_is_intercept = mpack_node_array_at(tcp_handshake, 32);
+    mpack_node_t tcp_is_intercept = mpack_node_array_at(tcp_handshake, 34);
     EXPECT_EQ(0, mpack_node_u8(tcp_is_intercept));
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
     gtest_cmsg_destroy(&cmsg);
@@ -614,7 +615,7 @@ TEST(POLICY_UPDATE, ProxyTcpIsIntercept)
     mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
 
     mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
-    mpack_node_t tcp_is_intercept = mpack_node_array_at(tcp_handshake, 32);
+    mpack_node_t tcp_is_intercept = mpack_node_array_at(tcp_handshake, 34);
     EXPECT_EQ(3, mpack_node_u8(tcp_is_intercept));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
@@ -639,7 +640,8 @@ TEST(POLICY_UPDATE, ProxyPkgHeader0)
     gtest_cmsg_init(&cmsg);
     cmsg.tcp_s2c_rpkt_header.len = 0;
     cmsg.tcp_c2s_rpkt_header.len = 0;
-    cmsg.tcp_wsacle_exist = 0;
+    cmsg.tcp_wsacle_set_client = 0;
+    cmsg.tcp_wsacle_set_server = 0;
     memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
     tsg_sync_policy_update(&a_stream, &test, 1);
 
@@ -656,12 +658,14 @@ TEST(POLICY_UPDATE, ProxyPkgHeader0)
 
     mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
     EXPECT_EQ(1, mpack_node_u32(mpack_node_array_at(tcp_handshake, 0)));
-    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 4)));
-    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 5)));
-    EXPECT_EQ(0, mpack_node_bin_size(mpack_node_array_at(tcp_handshake, 30)));
-    EXPECT_NE(nullptr, mpack_node_bin_data(mpack_node_array_at(tcp_handshake, 31)));
-    EXPECT_EQ(0, mpack_node_bin_size(mpack_node_array_at(tcp_handshake, 30)));
-    EXPECT_NE(nullptr, mpack_node_bin_data(mpack_node_array_at(tcp_handshake, 31)));
+    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 4))); // tcp_wsacle_set_client
+    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 5))); // tcp_wsacle_set_server
+    EXPECT_EQ(6, mpack_node_u32(mpack_node_array_at(tcp_handshake, 6))); // tcp_wsacle_client
+    EXPECT_EQ(7, mpack_node_u32(mpack_node_array_at(tcp_handshake, 7))); // tcp_wsacle_server
+    EXPECT_EQ(0, mpack_node_bin_size(mpack_node_array_at(tcp_handshake, 32)));
+    EXPECT_NE(nullptr, mpack_node_bin_data(mpack_node_array_at(tcp_handshake, 33)));
+    EXPECT_EQ(0, mpack_node_bin_size(mpack_node_array_at(tcp_handshake, 32)));
+    EXPECT_NE(nullptr, mpack_node_bin_data(mpack_node_array_at(tcp_handshake, 33)));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
     gtest_cmsg_destroy(&cmsg);
@@ -684,7 +688,10 @@ TEST(POLICY_UPDATE, ProxyTcpWsacleExist0)
     }
 
     gtest_cmsg_init(&cmsg);
-    cmsg.tcp_wsacle_exist = 0;
+    cmsg.tcp_wsacle_set_client = 0;
+    cmsg.tcp_wsacle_set_server = 0;
+    cmsg.tcp_wsacle_client = 0;
+    cmsg.tcp_wsacle_server = 0;
     memcpy(&test.cmsg, &cmsg, sizeof(struct proxy_cmsg));
     tsg_sync_policy_update(&a_stream, &test, 1);
 
@@ -701,8 +708,10 @@ TEST(POLICY_UPDATE, ProxyTcpWsacleExist0)
 
     mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
     EXPECT_EQ(1, mpack_node_u32(mpack_node_array_at(tcp_handshake, 0)));
-    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 4)));
-    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 5)));
+    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 4))); // tcp_wsacle_set_client
+    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 5))); // tcp_wsacle_set_server
+    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 6))); // tcp_wsacle_client
+    EXPECT_EQ(0, mpack_node_u32(mpack_node_array_at(tcp_handshake, 7))); // tcp_wsacle_server
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
     gtest_cmsg_destroy(&cmsg);
@@ -741,7 +750,7 @@ TEST(POLICY_UPDATE, ProxyFqdnCatIds0)
     mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
 
     mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
-    mpack_node_t fqdn_cat_id_vals = mpack_node_array_at(tcp_handshake, 25);
+    mpack_node_t fqdn_cat_id_vals = mpack_node_array_at(tcp_handshake, 27);
     EXPECT_EQ(0, mpack_node_array_length(fqdn_cat_id_vals));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
@@ -781,7 +790,7 @@ TEST(POLICY_UPDATE, ProxyTcpAckRouteCtxs0)
     mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
 
     mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
-    mpack_node_t tcp_ack_route_ctxs = mpack_node_array_at(tcp_handshake, 29);
+    mpack_node_t tcp_ack_route_ctxs = mpack_node_array_at(tcp_handshake, 31);
     EXPECT_EQ(0, mpack_node_bin_size(tcp_ack_route_ctxs));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
@@ -821,7 +830,7 @@ TEST(POLICY_UPDATE, ProxyTcpSeqSids0)
     mpack_node_t proxy_map = mpack_node_map_cstr(params, "proxy");
 
     mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
-    mpack_node_t tcp_seq_sids = mpack_node_array_at(tcp_handshake, 26);
+    mpack_node_t tcp_seq_sids = mpack_node_array_at(tcp_handshake, 28);
     EXPECT_EQ(0, mpack_node_array_length(tcp_seq_sids));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);
@@ -862,13 +871,13 @@ TEST(POLICY_UPDATE, ProxyOverLimit)
 
     mpack_node_t tcp_handshake = mpack_node_map_cstr(proxy_map, "tcp_handshake");
 
-    mpack_node_t fqdn_cat_id_vals = mpack_node_array_at(tcp_handshake, 25);
+    mpack_node_t fqdn_cat_id_vals = mpack_node_array_at(tcp_handshake, 27);
     EXPECT_EQ(FQDN_CAT_ID_VALS, mpack_node_array_length(fqdn_cat_id_vals));
 
-    mpack_node_t tcp_seq_sids = mpack_node_array_at(tcp_handshake, 26);
+    mpack_node_t tcp_seq_sids = mpack_node_array_at(tcp_handshake, 28);
     EXPECT_EQ(TCP_XXX_SIDS, mpack_node_array_length(tcp_seq_sids));
 
-    mpack_node_t tcp_ack_sids = mpack_node_array_at(tcp_handshake, 27);
+    mpack_node_t tcp_ack_sids = mpack_node_array_at(tcp_handshake, 29);
     EXPECT_EQ(TCP_XXX_SIDS, mpack_node_array_length(tcp_ack_sids));
 
     EXPECT_EQ(mpack_tree_destroy(&tree), mpack_ok);

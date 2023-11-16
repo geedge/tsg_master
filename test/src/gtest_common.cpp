@@ -130,7 +130,7 @@ const void *get_this_layer_header(const struct streaminfo * pstream)
 	return NULL;
 }
 
-const void *get_rawpkt_from_streaminfo(const struct streaminfo *pstream)
+const void *get_current_rawpkt_from_streaminfo(const struct streaminfo *pstream)
 {
     return (void*)1;
 }

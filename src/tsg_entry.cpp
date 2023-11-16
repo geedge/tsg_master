@@ -1121,7 +1121,7 @@ int session_state_control_packet(const struct streaminfo *a_stream, void *payloa
 	}
 	
 	int is_ctrl_pkt=0;
-	const void *raw_pkt = get_rawpkt_from_streaminfo(a_stream);
+	const void *raw_pkt = get_current_rawpkt_from_streaminfo(a_stream);
 	int ret=get_opt_from_rawpkt(raw_pkt, RAW_PKT_GET_IS_CTRL_PKT, (void *)&is_ctrl_pkt);
 	if(ret<0 || is_ctrl_pkt==0)
 	{

@@ -237,7 +237,7 @@ static int tsg_proxy_rawpkt_info_get(const void *raw_pkt, struct tsg_proxy_tcp_o
 
 void tsg_proxy_tcp_parse(struct tsg_proxy_tcp_attribute *tcp_attr, struct pkt_info *pktinfo, const struct streaminfo *stream)
 {
-	const void *raw_pkt = get_rawpkt_from_streaminfo(stream);
+	const void *raw_pkt = get_current_rawpkt_from_streaminfo(stream);
 
 	if (!raw_pkt)
 	{
@@ -609,11 +609,17 @@ void tsg_proxy_update_policy_fill(const struct streaminfo *stream, struct update
 	update_segment_sids(&cmsg->tcp_ack_sids, segment_ids->sid_list+1, segment_ids->sz_sidlist-1);  // delete intercept sid
 	update_segment_sids(&cmsg->tcp_ack_sids, server->sid_list.sid_list, server->sid_list.sz_sidlist);
 
-    if (client->wscale_set && server->wscale_set) {
-        cmsg->tcp_wsacle_exist = 1;
-        cmsg->tcp_wsacle_client = client->wscale;
-        cmsg->tcp_wsacle_server = server->wscale;
-    }
+	cmsg->tcp_wsacle_set_client = client->wscale_set;
+	cmsg->tcp_wsacle_set_server = server->wscale_set;
+	if (client->wscale_set)
+	{
+		cmsg->tcp_wsacle_client = client->wscale;
+	}
+
+	if (server->wscale_set)
+	{
+		cmsg->tcp_wsacle_server = server->wscale;
+	}
     
     tsg_proxy_cmsg_subscriber_fill(session_attr, cmsg);
     tsg_proxy_cmsg_asn_fill(session_attr, cmsg);
